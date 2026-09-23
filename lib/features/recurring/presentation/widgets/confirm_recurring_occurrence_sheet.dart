@@ -16,6 +16,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/features/recurring/presentation/widgets/bulk_confirm_past_occurrences_sheet.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
@@ -24,6 +25,8 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 /// Opens the single confirmation flow used by every recurring occurrence CTA.
@@ -32,6 +35,7 @@ Future<void> showConfirmRecurringOccurrenceSheet({
   required RecurringTransaction recurringTransaction,
   required DateTime scheduledOccurrenceDate,
   RecurringOccurrenceTimelineItem? existingOccurrence,
+  bool allowNextPreconfirmation = false,
 }) {
   final isEditing = existingOccurrence?.isConfirmed == true;
   return MonekoBottomSheet.show<void>(
@@ -43,6 +47,7 @@ Future<void> showConfirmRecurringOccurrenceSheet({
       recurringTransaction: recurringTransaction,
       scheduledOccurrenceDate: scheduledOccurrenceDate,
       existingOccurrence: existingOccurrence,
+      allowNextPreconfirmation: allowNextPreconfirmation,
     ),
   );
 }
@@ -124,7 +129,8 @@ class _LazyRecurringOccurrenceEditor extends ConsumerWidget {
           key: const ValueKey('recurring-occurrence-detail-error'),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: OutlinedButton(
+            child: PrimaryAdaptiveButton(
+              isExpanded: false,
               onPressed: () => ref.invalidate(
                 recurringOccurrenceDetailProvider(query),
               ),
@@ -175,11 +181,13 @@ class _ConfirmRecurringOccurrenceForm extends ConsumerStatefulWidget {
     required this.recurringTransaction,
     required this.scheduledOccurrenceDate,
     this.existingOccurrence,
+    this.allowNextPreconfirmation = false,
   });
 
   final RecurringTransaction recurringTransaction;
   final DateTime scheduledOccurrenceDate;
   final RecurringOccurrenceTimelineItem? existingOccurrence;
+  final bool allowNextPreconfirmation;
 
   @override
   ConsumerState<_ConfirmRecurringOccurrenceForm> createState() =>
@@ -208,10 +216,8 @@ class _ConfirmRecurringOccurrenceFormState
           widget.recurringTransaction.splitGroupId?.trim().isNotEmpty == true);
   bool get _isAmountLocked =>
       _isSettlementLocked || _isSharedConfirmedOccurrence;
-  String get _merchant =>
-      widget.existingOccurrence?.actualTransaction?.merchant ??
-      widget.recurringTransaction.merchant ??
-      '';
+  // Merchant identity belongs to the recurring template, not the occurrence.
+  String get _merchant => widget.recurringTransaction.merchant ?? '';
 
   @override
   void initState() {
@@ -230,9 +236,11 @@ class _ConfirmRecurringOccurrenceFormState
       preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
     );
     _paidDate = existing?.paidDate ??
-        (widget.scheduledOccurrenceDate.isAfter(today)
-            ? today
-            : widget.scheduledOccurrenceDate);
+        (widget.allowNextPreconfirmation
+            ? widget.scheduledOccurrenceDate
+            : widget.scheduledOccurrenceDate.isAfter(today)
+                ? today
+                : widget.scheduledOccurrenceDate);
     _accountId = existing?.actualTransaction != null
         ? existing!.actualTransaction!.walletId
         : widget.recurringTransaction.accountId;
@@ -258,18 +266,25 @@ class _ConfirmRecurringOccurrenceFormState
     final today = effectiveToday(
       preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
     );
+    final userNow = effectiveNow(
+      preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
+    );
+    final isNextPreconfirmation = widget.allowNextPreconfirmation &&
+        isNextFutureRecurringOccurrence(
+          transaction: widget.recurringTransaction,
+          scheduledOccurrenceDate: widget.scheduledOccurrenceDate,
+          userNow: userNow,
+        );
     if (!_isAmountLocked && amountCents == null) {
       setState(() => _error = context.l10n.recurringOccurrenceEnterAmount);
       return;
     }
     if (!_isEditing &&
+        !isNextPreconfirmation &&
         !canConfirmOccurrenceAt(
           widget.recurringTransaction,
           widget.scheduledOccurrenceDate,
-          effectiveNow(
-            preferredTimezone:
-                ref.read(analyticsProvider).contact?.preferredTimezone,
-          ),
+          userNow,
         )) {
       setState(() => _error = context.l10n.recurringOccurrenceNotAvailable);
       return;
@@ -307,7 +322,9 @@ class _ConfirmRecurringOccurrenceFormState
         return;
       }
     }
-    if (!_isSettlementLocked && _paidDate.isAfter(today)) {
+    if (!_isSettlementLocked &&
+        !isNextPreconfirmation &&
+        _paidDate.isAfter(today)) {
       setState(
           () => _error = context.l10n.recurringOccurrencePaidDateAfterToday);
       return;
@@ -347,6 +364,7 @@ class _ConfirmRecurringOccurrenceFormState
               merchant: _merchant,
               description: _notesController.text,
               updateFutureAmount: _updateFutureAmount,
+              allowNextPreconfirmation: isNextPreconfirmation,
             ));
     if (!mounted) return;
     if (!result.isQueued) {
@@ -512,6 +530,9 @@ class _ConfirmRecurringOccurrenceFormState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _OccurrenceIdentityHeader(
+            recurringTransaction: widget.recurringTransaction,
+          ),
           GestureDetector(
             onTap: _isSubmitting || _isAmountLocked
                 ? null
@@ -531,7 +552,7 @@ class _ConfirmRecurringOccurrenceFormState
             behavior: HitTestBehavior.opaque,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
                 children: [
                   Text(
@@ -584,12 +605,14 @@ class _ConfirmRecurringOccurrenceFormState
                             final selected = await showTransactionDatePicker(
                               context: context,
                               currentDate: _paidDate,
-                              lastDate: effectiveToday(
-                                preferredTimezone: ref
-                                    .read(analyticsProvider)
-                                    .contact
-                                    ?.preferredTimezone,
-                              ),
+                              lastDate: widget.allowNextPreconfirmation
+                                  ? DateTime(2100, 12, 31)
+                                  : effectiveToday(
+                                      preferredTimezone: ref
+                                          .read(analyticsProvider)
+                                          .contact
+                                          ?.preferredTimezone,
+                                    ),
                             );
                             if (selected != null && mounted) {
                               setState(() => _paidDate = selected);
@@ -755,6 +778,58 @@ class _ConfirmRecurringOccurrenceFormState
           ],
         ],
       ),
+    );
+  }
+}
+
+class _OccurrenceIdentityHeader extends StatelessWidget {
+  const _OccurrenceIdentityHeader({required this.recurringTransaction});
+
+  final RecurringTransaction recurringTransaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final category = recurringTransaction.category;
+    final categoryIcon = getCategoryIcon(category);
+    final categoryColor = getCategoryColor(category, context);
+
+    return Column(
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            key: ValueKey(
+              '${recurringTransaction.merchantId ?? ''}|'
+              '${recurringTransaction.merchantDomain ?? ''}|$category',
+            ),
+            width: 64,
+            height: 64,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.onSurface.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: ClipOval(
+              child: MerchantLogo(
+                merchantId: recurringTransaction.merchantId,
+                domain: recurringTransaction.merchantDomain,
+                logoUrl: recurringTransaction.merchantLogoUrl,
+                merchantStructuredName:
+                    recurringTransaction.merchantStructuredName,
+                merchantName: recurringTransaction.merchant,
+                fallback: Center(
+                  child: Icon(
+                    categoryIcon,
+                    color: categoryColor,
+                    size: 32,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

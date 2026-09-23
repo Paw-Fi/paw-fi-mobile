@@ -88,6 +88,10 @@ RecurringTransaction recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
     category: entry.category ?? 'Uncategorized',
     description: description?.isEmpty == true ? null : description,
     merchant: entry.merchant,
+    merchantId: entry.merchantId,
+    merchantDomain: entry.merchantDomain,
+    merchantLogoUrl: entry.merchantLogoUrl,
+    merchantStructuredName: entry.merchantStructuredName,
     amount: entry.amount,
     currency: entry.currency ?? 'USD',
     ownerType: 'me',
@@ -136,6 +140,10 @@ ExpenseEntry _expenseEntryFromRecurringTransaction(
     rawText:
         transaction.description ?? transaction.merchant ?? transaction.source,
     merchant: transaction.merchant,
+    merchantId: transaction.merchantId,
+    merchantDomain: transaction.merchantDomain,
+    merchantLogoUrl: transaction.merchantLogoUrl,
+    merchantStructuredName: transaction.merchantStructuredName,
     splitGroupId: transaction.splitGroupId,
     walletId: transaction.accountId,
     type: transaction.type,
@@ -160,6 +168,9 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
   int? interval,
   String? description,
   String? merchant,
+  String? merchantId,
+  String? merchantDomain,
+  String? merchantStructuredName,
   String? source,
   bool? hasReminder,
   int? reminderValue,
@@ -179,6 +190,9 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
     category: category,
     description: description,
     merchant: merchant,
+    merchantId: merchantId,
+    merchantDomain: merchantDomain,
+    merchantStructuredName: merchantStructuredName,
     source: source,
     amount: amount,
     currency: currency,
@@ -276,6 +290,7 @@ class RecurringOccurrenceConfirmationCommand {
     this.updateFutureAmount = false,
     this.functionName = 'confirm-recurring-occurrence',
     this.allowUnassignedAccount = false,
+    this.allowNextPreconfirmation = false,
     this.category,
     this.currency,
     this.source,
@@ -294,6 +309,7 @@ class RecurringOccurrenceConfirmationCommand {
   final bool updateFutureAmount;
   final String functionName;
   final bool allowUnassignedAccount;
+  final bool allowNextPreconfirmation;
   final String? category;
   final String? currency;
   final String? source;
@@ -1210,6 +1226,7 @@ class RecurringOccurrenceConfirmationController {
       scheduledOccurrenceDate: scheduledDate,
       paidDate: paidDate,
       userNow: userNow,
+      allowNextPreconfirmation: command.allowNextPreconfirmation,
     )) {
       return const RecurringOccurrenceConfirmationResult.failure(
         'This occurrence is not available for confirmation yet.',
@@ -1233,6 +1250,22 @@ class RecurringOccurrenceConfirmationController {
         optimisticId: materializedOccurrences.first.id,
         idempotencyKey: command.idempotencyKey,
       );
+    }
+    if (command.allowNextPreconfirmation) {
+      final otherFutureOccurrences =
+          await database.getTransactionsByScheduledOccurrenceRange(
+        userId: command.userId,
+        householdId: command.recurringTransaction.householdId,
+        parentRecurringId: command.recurringTransaction.id,
+        startDate: DateTime(userNow.year, userNow.month, userNow.day)
+            .add(const Duration(days: 1)),
+        endDate: DateTime(9999, 12, 31),
+      );
+      if (otherFutureOccurrences.isNotEmpty) {
+        return const RecurringOccurrenceConfirmationResult.failure(
+          'Only one future occurrence can be confirmed at a time.',
+        );
+      }
     }
 
     RecurringOccurrenceSplitPlan? splitPlan;
@@ -1261,7 +1294,12 @@ class RecurringOccurrenceConfirmationController {
       category: command.category ?? command.recurringTransaction.category,
       createdAt: now,
       rawText: command.description ?? command.recurringTransaction.description,
-      merchant: command.merchant ?? command.recurringTransaction.merchant,
+      merchant: command.recurringTransaction.merchant,
+      merchantId: command.recurringTransaction.merchantId,
+      merchantDomain: command.recurringTransaction.merchantDomain,
+      merchantLogoUrl: command.recurringTransaction.merchantLogoUrl,
+      merchantStructuredName:
+          command.recurringTransaction.merchantStructuredName,
       walletId: command.accountId,
       splitGroupId: splitPlan?.optimisticSplit.id,
       type: command.recurringTransaction.type,
@@ -1740,7 +1778,7 @@ class RecurringTransactionsNotifier
         final baseQuery = supabase
             .from('expenses')
             .select(
-              'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
+              'id, date, category, raw_text, merchant, merchant_id, merchant_structured_name, merchants(domain, logo_identifier), breakdown, source, amount_cents, '
               'currency, owner_type, privacy_scope, household_id, is_recurring, '
               'user_id, split_group_id, account_id, bank_account_id, provider, '
               'provider_fields, recurrence_rule, type, attachments, created_at, updated_at, '
@@ -2559,6 +2597,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -2613,6 +2654,10 @@ class RecurringTransactionSaveNotifier
         if (description != null && description.isNotEmpty)
           'description': description,
         if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
+        if (merchantId != null && merchantId.isNotEmpty)
+          'merchantId': merchantId,
+        if (merchantStructuredName != null && merchantStructuredName.isNotEmpty)
+          'merchantStructuredName': merchantStructuredName,
         'ownerType': ownerType,
         'privacyScope': privacyScope,
         'isRecurring': true,
@@ -2674,6 +2719,9 @@ class RecurringTransactionSaveNotifier
         interval: interval,
         description: description,
         merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
@@ -2826,6 +2874,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
     String? source,
     bool? hasReminder,
     int? reminderValue,
@@ -2883,6 +2934,9 @@ class RecurringTransactionSaveNotifier
         interval: interval,
         description: description,
         merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         source: source,
         hasReminder: hasReminder,
         reminderValue: reminderValue,
@@ -2916,6 +2970,10 @@ class RecurringTransactionSaveNotifier
         if (description != null && description.isNotEmpty)
           'description': description,
         if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
+        if (merchantId != null && merchantId.isNotEmpty)
+          'merchantId': merchantId,
+        if (merchantStructuredName != null && merchantStructuredName.isNotEmpty)
+          'merchantStructuredName': merchantStructuredName,
         if (source != null && source.isNotEmpty) 'source': source,
         'ownerType': ownerType,
         'privacyScope': privacyScope,
@@ -3248,6 +3306,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -3345,6 +3406,8 @@ class RecurringTransactionSaveNotifier
       updates['merchant'] = merchant != null && merchant.trim().isNotEmpty
           ? merchant.trim()
           : null;
+      updates['merchant_id'] = merchantId;
+      updates['merchant_structured_name'] = merchantStructuredName;
 
       _debugPrint('📝 [UpdateRecurring] Building update-expense request body');
       _debugPrint('   userId: $userId');
@@ -3451,6 +3514,9 @@ class RecurringTransactionSaveNotifier
         interval: interval,
         description: description,
         merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         hasReminder: hasReminder,
         reminderValue: reminderValue,
         reminderUnit: reminderUnit,
@@ -3638,6 +3704,9 @@ class RecurringTransactionSaveNotifier
     int? interval,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
     String? source,
     bool? hasReminder,
     int? reminderValue,
@@ -3736,6 +3805,8 @@ class RecurringTransactionSaveNotifier
       updatesIncome['merchant'] = merchant != null && merchant.trim().isNotEmpty
           ? merchant.trim()
           : null;
+      updatesIncome['merchant_id'] = merchantId;
+      updatesIncome['merchant_structured_name'] = merchantStructuredName;
       updatesIncome['source'] =
           source != null && source.trim().isNotEmpty ? source.trim() : null;
       if (householdId != null && payerUserId?.isNotEmpty == true) {
@@ -3754,6 +3825,9 @@ class RecurringTransactionSaveNotifier
         interval: interval,
         description: description,
         merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         source: source,
         hasReminder: hasReminder,
         reminderValue: reminderValue,

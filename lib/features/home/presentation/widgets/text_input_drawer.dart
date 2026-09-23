@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -572,6 +573,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   @override
   Widget build(BuildContext context) {
     final scheme = widget.colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final userId = ref.watch(authProvider).uid;
     if (userId.isNotEmpty) {
       ref.watch(userProfileProvider(userId));
@@ -740,29 +742,36 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
             Row(
               children: [
                 Expanded(
-                  child: SizedBox(
-                    height: 50,
-                    child: PrimaryAdaptiveButton(
-                      onPressed: _isProcessing ? null : _processExpense,
-                      child: _isProcessing
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    scheme.onPrimary),
+                  child: Builder(
+                    builder: (context) {
+                      final button = PrimaryAdaptiveButton(
+                        onPressed: _isProcessing ? null : _processExpense,
+                        child: _isProcessing
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      scheme.onPrimary),
+                                ),
+                              )
+                            : Text(
+                                dynamicTitle,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                  letterSpacing: -0.2,
+                                ),
                               ),
+                      );
+                      return isLargeText
+                          ? ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 50),
+                              child: button,
                             )
-                          : Text(
-                              dynamicTitle,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                    ),
+                          : SizedBox(height: 50, child: button);
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),

@@ -82,9 +82,13 @@ class DashboardTransactionsList extends StatelessWidget {
             amount: displayAmount,
             currency: currencyCode,
             isIncome: isIncome,
-            showRecurringChip:
-                shouldShowRecurringChipForExpense(tx.entry),
+            showRecurringChip: shouldShowRecurringChipForExpense(tx.entry),
             showPendingChip: tx.entry.isProviderPending,
+            merchantId: tx.entry.merchantId,
+            merchantDomain: tx.entry.merchantDomain,
+            merchantLogoUrl: tx.entry.merchantLogoUrl,
+            merchantStructuredName: tx.entry.merchantStructuredName,
+            merchantName: tx.entry.merchant,
             date: tx.entry.date,
             subtitleWidget: Row(
               children: [

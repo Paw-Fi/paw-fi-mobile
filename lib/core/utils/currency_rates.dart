@@ -140,6 +140,7 @@ class CurrencyRates {
     'XOF': 560.395083,
     'CRC': 455.121888,
     'XAF': 560.395083,
+    'MAD': 9.232696,
   };
 
   /// Converts an [amount] from [fromCurrency] to [toCurrency].

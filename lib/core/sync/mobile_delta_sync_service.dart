@@ -5,7 +5,7 @@ import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
 const String mobileDeltaEntityName = 'mobile_delta_v5';
-const String mobileDeltaRpcName = 'get_mobile_delta_v5';
+const String mobileDeltaRpcName = 'get_mobile_delta_v6';
 const int _maxDeltaPagesPerPull = 20;
 
 typedef MobileDeltaFetcher = Future<MobileDelta> Function({

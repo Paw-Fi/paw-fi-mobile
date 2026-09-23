@@ -11,6 +11,7 @@ import 'package:moneko/features/households/presentation/utils/member_spending_at
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
@@ -130,7 +131,7 @@ Widget buildHouseholdMemberSpendingCard(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
             child: Text(
               context.l10n.spent,
               style: TextStyle(
@@ -148,7 +149,7 @@ Widget buildHouseholdMemberSpendingCard(
 
           // Member list section
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             child: sortedMembers.isEmpty
                 ? _buildEmptyState(context, colorScheme)
                 : Column(
@@ -265,46 +266,48 @@ Widget _buildMemberRow(
   final symbol = resolveCurrencySymbol(currency);
 
   // Get member data from the members list to ensure we have the correct name
-  final memberData = members?.firstWhere(
-    (m) => m.userId == member.userId,
-    orElse: () => HouseholdMember(
-      id: '',
-      householdId: '',
-      userId: member.userId,
-      role: HouseholdRole.member,
-      joinedAt: DateTime.now(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      userEmail: member.userEmail,
-      userName: member.userName,
-    ),
+  final now = DateTime.now();
+  final fallbackMember = HouseholdMember(
+    id: '',
+    householdId: householdId ?? '',
+    userId: member.userId,
+    role: HouseholdRole.member,
+    joinedAt: now,
+    createdAt: now,
+    updatedAt: now,
+    userEmail: member.userEmail,
+    userName: member.userName,
   );
+  final memberData = members?.firstWhere(
+        (m) => m.userId == member.userId,
+        orElse: () => fallbackMember,
+      ) ??
+      fallbackMember;
 
-  final name = memberData?.userName?.trim() ?? member.userName?.trim();
+  final name = memberData.userName?.trim() ?? member.userName?.trim();
   final displayName = (name != null && name.isNotEmpty)
       ? name
-      : (memberData?.userEmail ?? member.userEmail ?? 'Unknown');
+      : (memberData.userEmail ?? member.userEmail ?? 'Unknown');
 
   final isCurrentUser = currentUserId != null && member.userId == currentUserId;
+  final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
   return GestureDetector(
     onTap: () {
-      if (memberData != null) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => HouseholdMemberDetailsPage(
-              member: memberData,
-              transactions: transactions,
-              splits: splits,
-              currency: currency,
-              currencyRates: currencyRates,
-              householdId: householdId,
-              initialStartDate: from,
-              initialEndDate: to,
-            ),
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => HouseholdMemberDetailsPage(
+            member: memberData,
+            transactions: transactions,
+            splits: splits,
+            currency: currency,
+            currencyRates: currencyRates,
+            householdId: householdId,
+            initialStartDate: from,
+            initialEndDate: to,
           ),
-        );
-      }
+        ),
+      );
     },
     behavior: HitTestBehavior.opaque,
     child: Padding(
@@ -313,7 +316,8 @@ Widget _buildMemberRow(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Member info row
-          Row(
+          Flex(
+            direction: Axis.horizontal,
             children: [
               // Avatar with online indicator style
               Container(
@@ -330,114 +334,188 @@ Widget _buildMemberRow(
                 child: MonekoAvatar.supabaseUser(
                   size: 44,
                   userId: member.userId,
-                  fallbackImageUrl: memberData?.avatarUrl,
+                  fallbackImageUrl: memberData.avatarUrl,
                   borderWidth: 1,
                   borderColor: colorScheme.border.withValues(alpha: 0.15),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(
+                width: 14,
+                height: 0,
+              ),
 
               // Name and stats
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            displayName,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
-                              letterSpacing: -0.3,
-                              height: 1.3,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                        if (isCurrentUser) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color:
-                                  colorScheme.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+              if (isLargeText)
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
                             child: Text(
-                              context.l10n.you,
+                              displayName,
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: colorScheme.primary,
-                                letterSpacing: 0.2,
+                                color: colorScheme.foreground,
+                                letterSpacing: -0.3,
+                                height: 1.3,
                               ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ),
+                          if (isCurrentUser) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                context.l10n.you,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.primary,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          AnimatedAmountText(
+                            value: member.transactionCount.toDouble(),
+                            symbol: '',
+                            suffix: ' ${context.l10n.transactions}',
+                            decimalDigits: 0,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.mutedForeground,
+                              letterSpacing: -0.1,
                             ),
                           ),
                         ],
-                        // Nudge button removed here, moved to details page
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        AnimatedAmountText(
-                          value: member.transactionCount.toDouble(),
-                          symbol: '',
-                          suffix: ' ${context.l10n.transactions}',
-                          decimalDigits: 0,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.mutedForeground
-                                .withValues(alpha: 0.6),
-                            letterSpacing: -0.1,
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayName,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.foreground,
+                                letterSpacing: -0.3,
+                                height: 1.3,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          if (isCurrentUser) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                context.l10n.you,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.primary,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                          // Nudge button removed here, moved to details page
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          AnimatedAmountText(
+                            value: member.transactionCount.toDouble(),
+                            symbol: '',
+                            suffix: ' ${context.l10n.transactions}',
+                            decimalDigits: 0,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.mutedForeground,
+                              letterSpacing: -0.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
+              SizedBox(
+                width: 12,
+                height: 0,
               ),
 
-              const SizedBox(width: 12),
-
               // Amount with percentage
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  AnimatedAmountText(
-                    value: amount,
-                    symbol: symbol,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                      letterSpacing: -0.4,
-                      height: 1.3,
-                    ),
-                  ),
-                  if (totalMemberSpent > 0) ...[
-                    const SizedBox(height: 2),
+              Align(
+                alignment:
+                    isLargeText ? Alignment.centerRight : Alignment.centerRight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     AnimatedAmountText(
-                      value: percentage,
-                      symbol: '',
-                      suffix: '%',
-                      decimalDigits: 0,
+                      value: amount,
+                      symbol: symbol,
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color:
-                            colorScheme.mutedForeground.withValues(alpha: 0.5),
-                        letterSpacing: -0.1,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.foreground,
+                        letterSpacing: -0.4,
+                        height: 1.3,
                       ),
                     ),
+                    if (totalMemberSpent > 0) ...[
+                      const SizedBox(height: 2),
+                      AnimatedAmountText(
+                        value: percentage,
+                        symbol: '',
+                        suffix: '%',
+                        decimalDigits: 0,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.mutedForeground,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ],
           ),

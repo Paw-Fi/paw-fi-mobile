@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -571,12 +573,13 @@ class PocketDetailsPage extends HookConsumerWidget {
                                             width: 28,
                                             height: 28,
                                             child: ClipOval(
-                                              child: Image.network(
-                                                trimmedLogoUrl,
+                                              child: CachedNetworkImage(
+                                                imageUrl: trimmedLogoUrl,
                                                 fit: BoxFit.contain,
-                                                cacheWidth: cacheSize,
-                                                cacheHeight: cacheSize,
-                                                errorBuilder: (_, __, ___) =>
+                                                memCacheWidth: cacheSize,
+                                                memCacheHeight: cacheSize,
+                                                cacheKey: trimmedLogoUrl,
+                                                errorWidget: (_, __, ___) =>
                                                     iconData != null
                                                         ? Icon(
                                                             iconData,
@@ -1152,6 +1155,7 @@ class _BudgetBreakdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final rolloverAdjustmentCents =
         pocket.rolloverFromPreviousCents + pocket.openingRolloverCents;
 
@@ -1197,61 +1201,115 @@ class _BudgetBreakdownCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _StatItem(
-                label: context.l10n.pocketRolloverBaseBudgetLabel,
-                value: _formatLocalizedCurrency(
-                  context,
-                  pocket.baseBudget,
-                  currency,
+          isLargeText
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _StatItem(
+                      label: context.l10n.pocketRolloverBaseBudgetLabel,
+                      value: _formatLocalizedCurrency(
+                        context,
+                        pocket.baseBudget,
+                        currency,
+                      ),
+                      valueColor: colorScheme.foreground,
+                    ),
+                    const SizedBox(height: 12),
+                    _StatItem(
+                      label: context.l10n.pocketRolloverLabel,
+                      value: _formatSignedLocalizedCurrencyCents(
+                        context,
+                        rolloverAdjustmentCents,
+                        currency,
+                      ),
+                      valueColor: rolloverAdjustmentCents < 0
+                          ? colorScheme.error
+                          : colorScheme.success,
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _StatItem(
+                      label: context.l10n.pocketRolloverBaseBudgetLabel,
+                      value: _formatLocalizedCurrency(
+                        context,
+                        pocket.baseBudget,
+                        currency,
+                      ),
+                      valueColor: colorScheme.foreground,
+                    ),
+                    _StatItem(
+                      label: context.l10n.pocketRolloverLabel,
+                      value: _formatSignedLocalizedCurrencyCents(
+                        context,
+                        rolloverAdjustmentCents,
+                        currency,
+                      ),
+                      valueColor: rolloverAdjustmentCents < 0
+                          ? colorScheme.error
+                          : colorScheme.success,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                    ),
+                  ],
                 ),
-                valueColor: colorScheme.foreground,
-              ),
-              _StatItem(
-                label: context.l10n.pocketRolloverLabel,
-                value: _formatSignedLocalizedCurrencyCents(
-                  context,
-                  rolloverAdjustmentCents,
-                  currency,
-                ),
-                valueColor: rolloverAdjustmentCents < 0
-                    ? colorScheme.error
-                    : colorScheme.success,
-                crossAxisAlignment: CrossAxisAlignment.end,
-              ),
-            ],
-          ),
           const SizedBox(height: 20),
           Container(
             height: 1,
             color: colorScheme.border.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _StatItem(
-                label: context.l10n.pocketRolloverSpentLabel,
-                value:
-                    _formatLocalizedCurrency(context, pocket.spent, currency),
-                valueColor: colorScheme.foreground,
-              ),
-              _StatItem(
-                label: context.l10n.pocketRolloverRemainingLabel,
-                value: _formatLocalizedCurrency(
-                  context,
-                  pocket.remaining,
-                  currency,
+          isLargeText
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _StatItem(
+                      label: context.l10n.pocketRolloverSpentLabel,
+                      value: _formatLocalizedCurrency(
+                        context,
+                        pocket.spent,
+                        currency,
+                      ),
+                      valueColor: colorScheme.foreground,
+                    ),
+                    const SizedBox(height: 12),
+                    _StatItem(
+                      label: context.l10n.pocketRolloverRemainingLabel,
+                      value: _formatLocalizedCurrency(
+                        context,
+                        pocket.remaining,
+                        currency,
+                      ),
+                      valueColor: pocket.remainingCents < 0
+                          ? colorScheme.error
+                          : colorScheme.foreground,
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _StatItem(
+                      label: context.l10n.pocketRolloverSpentLabel,
+                      value: _formatLocalizedCurrency(
+                          context, pocket.spent, currency),
+                      valueColor: colorScheme.foreground,
+                    ),
+                    _StatItem(
+                      label: context.l10n.pocketRolloverRemainingLabel,
+                      value: _formatLocalizedCurrency(
+                        context,
+                        pocket.remaining,
+                        currency,
+                      ),
+                      valueColor: pocket.remainingCents < 0
+                          ? colorScheme.error
+                          : colorScheme.foreground,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                    ),
+                  ],
                 ),
-                valueColor: pocket.remainingCents < 0
-                    ? colorScheme.error
-                    : colorScheme.foreground,
-                crossAxisAlignment: CrossAxisAlignment.end,
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -1469,63 +1527,81 @@ class _RolloverContributionRow extends StatelessWidget {
       _ => Icons.add_rounded,
     };
 
+    final iconWidget = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: (isNegative ? colorScheme.error : colorScheme.success)
+            .withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(
+        icon,
+        size: 20,
+        color: isNegative ? colorScheme.error : colorScheme.success,
+      ),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _contributionLabel(context, contribution),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.foreground,
+          ),
+        ),
+        if (contribution.reason?.isNotEmpty == true) ...[
+          const SizedBox(height: 4),
+          Text(
+            contribution.reason!,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.3,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+        ],
+      ],
+    );
+    final amount = Text(
+      _formatSignedLocalizedCurrencyCents(
+        context,
+        contribution.amountCents,
+        currency,
+      ),
+      style: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w700,
+        color: isNegative ? colorScheme.error : colorScheme.success,
+      ),
+    );
+    if (MonekoTextScale.isAtLeast(context, 1.5)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              iconWidget,
+              const SizedBox(width: 16),
+              Expanded(child: details),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Align(alignment: AlignmentDirectional.centerEnd, child: amount),
+        ],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: (isNegative ? colorScheme.error : colorScheme.success)
-                .withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: isNegative ? colorScheme.error : colorScheme.success,
-          ),
-        ),
+        iconWidget,
         const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _contributionLabel(context, contribution),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              if (contribution.reason?.isNotEmpty == true) ...[
-                const SizedBox(height: 4),
-                Text(
-                  contribution.reason!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.3,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+        Expanded(child: details),
         const SizedBox(width: 16),
-        Text(
-          _formatSignedLocalizedCurrencyCents(
-            context,
-            contribution.amountCents,
-            currency,
-          ),
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: isNegative ? colorScheme.error : colorScheme.success,
-          ),
-        ),
+        amount,
       ],
     );
   }
@@ -2052,32 +2128,43 @@ class _ActivityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final value = _formatSignedLocalizedCurrencyCents(
+      context,
+      valueCents,
+      currency,
+    );
+    final labelWidget = Text(
+      label,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.foreground,
+      ),
+    );
+    final valueWidget = Text(
+      value,
+      style: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w700,
+        color: valueColor,
+      ),
+    );
+    if (MonekoTextScale.isAtLeast(context, 1.5)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          labelWidget,
+          const SizedBox(height: 4),
+          Align(alignment: AlignmentDirectional.centerEnd, child: valueWidget),
+        ],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.foreground,
-            ),
-          ),
-        ),
+        Expanded(child: labelWidget),
         const SizedBox(width: 16),
-        Text(
-          _formatSignedLocalizedCurrencyCents(
-            context,
-            valueCents,
-            currency,
-          ),
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: valueColor,
-          ),
-        ),
+        valueWidget,
       ],
     );
   }
@@ -2098,31 +2185,40 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cards = [
+      _StatCard(
+        label: context.l10n.monthlySpend,
+        amount: spent,
+        currencyCode: currency,
+      ),
+      _StatCard(
+        label: context.l10n.avgDaily,
+        amount: dailyAverage,
+        currencyCode: currency,
+      ),
+      _StatCard(
+        label: context.l10n.allowance,
+        amount: allowance,
+        currencyCode: currency,
+      ),
+    ];
+    if (MonekoTextScale.isAtLeast(context, 1.5)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < cards.length; index++) ...[
+            cards[index],
+            if (index != cards.length - 1) const SizedBox(height: 12),
+          ],
+        ],
+      );
+    }
     return Row(
       children: [
-        Expanded(
-          child: _StatCard(
-            label: context.l10n.monthlySpend,
-            amount: spent,
-            currencyCode: currency,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            label: context.l10n.avgDaily,
-            amount: dailyAverage,
-            currencyCode: currency,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            label: context.l10n.allowance,
-            amount: allowance,
-            currencyCode: currency,
-          ),
-        ),
+        for (var index = 0; index < cards.length; index++) ...[
+          Expanded(child: cards[index]),
+          if (index != cards.length - 1) const SizedBox(width: 12),
+        ],
       ],
     );
   }

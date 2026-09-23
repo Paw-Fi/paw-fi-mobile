@@ -7,7 +7,6 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_ai_budget_suggestions_page.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_ai_budget_suggestions.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/shared/widgets/animated_pulsing_icon.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/preparation_loading_view.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -220,7 +219,8 @@ void main() {
     expect(find.text(r'$150'), findsNWidgets(2));
     expect(find.text(r'$350'), findsOneWidget);
     expect(find.text(r'$300'), findsNothing);
-    expect(find.text(r'+$50 carried in'), findsOneWidget);
+    expect(find.text(r'+$50 carried in'), findsNothing);
+    expect(find.byIcon(Icons.trending_up_rounded), findsNWidgets(2));
     expect(find.text('View more'), findsNWidgets(2));
     expect(find.text('Available after plan'), findsNothing);
 
@@ -296,7 +296,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(PreparationLoadingView), findsOneWidget);
-    expect(find.byType(AnimatedPulsingIcon), findsOneWidget);
+    expect(find.byType(PreparationProgressRing), findsOneWidget);
     expect(find.text('Personalizing your plan...'), findsOneWidget);
     expect(
       find.text(
@@ -304,6 +304,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 }

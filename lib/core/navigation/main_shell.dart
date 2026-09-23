@@ -10,11 +10,12 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/app/user_financial_cache_cleanup.dart';
 
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
-import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
+import 'package:moneko/features/insights/presentation/pages/browse_page.dart';
 import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
 import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
@@ -178,7 +179,6 @@ Future<void> _refreshActiveMainShellTab(
           }
         } else {
           ref.read(analyticsProvider.notifier).refresh(userId);
-          ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         }
         return;
       case 1:
@@ -380,6 +380,9 @@ class MainShell extends HookConsumerWidget {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
     final visitedTabs = useState<Set<int>>(<int>{currentIndex});
     final colorScheme = Theme.of(context).colorScheme;
+    final appBrightness = Theme.of(context).brightness;
+    final isTopRoute = ModalRoute.of(context)?.isCurrent ?? true;
+    final useNativeIosTabBar = PlatformInfo.isIOS26OrHigher();
     final previewState = ref.watch(previewModeProvider);
     final hasNetworkAccess =
         ref.watch(networkReachabilityProvider).valueOrNull ?? true;
@@ -416,10 +419,10 @@ class MainShell extends HookConsumerWidget {
       currencies: recurringCurrencies,
     );
     final recurringBadge = previewState.isActive || auth.uid.isEmpty
-        ? const AsyncValue<bool>.data(false)
+        ? const AsyncValue<int>.data(0)
         : ref.watch(recurringActionableBadgeProvider(recurringReadScope));
-    final hasUnconfirmedRecurringOccurrences =
-        recurringBadge.valueOrNull == true;
+    final unconfirmedRecurringCount = recurringBadge.valueOrNull ?? 0;
+    final hasUnconfirmedRecurringOccurrences = unconfirmedRecurringCount > 0;
     final isRecurringBadgeLoading =
         recurringBadge.isLoading && !recurringBadge.hasValue;
     ref.listen<AppMutationErrorEvent?>(appMutationErrorProvider,
@@ -431,7 +434,9 @@ class MainShell extends HookConsumerWidget {
           context,
           next.feature == 'recurring'
               ? context.l10n.failedToSaveRecurringTransaction
-              : context.l10n.errorLoadingData,
+              : next.feature == 'pockets'
+                  ? context.l10n.failedToUpdateBudget
+                  : context.l10n.errorLoadingData,
         );
         ref.read(appMutationErrorProvider.notifier).state = null;
       });
@@ -776,7 +781,7 @@ class MainShell extends HookConsumerWidget {
       () => const RecurringTransactionsPage(),
       () => const PocketsPage(),
       () => const AccountsPage(),
-      () => const AnalyticsPage(),
+      () => const BrowsePage(),
     ];
 
     final pages = List<Widget>.generate(pageBuilders.length, (index) {
@@ -876,114 +881,177 @@ class MainShell extends HookConsumerWidget {
                 ),
               ),
             ),
-            bottomNavigationBar: AdaptiveBottomNavigationBar(
-              useNativeBottomBar: false,
-              items: [
-                AdaptiveNavigationDestination(
-                  icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.square_grid_2x2_fill
-                      : Icons.dashboard,
-                  label: context.l10n.overview,
-                ),
-                AdaptiveNavigationDestination(
-                  icon:
-                      PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
-                  label: context.l10n.recurring,
-                ),
-                AdaptiveNavigationDestination(
-                  icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.chart_pie
-                      : Icons.pie_chart_outline,
-                  label: context.l10n.budget,
-                ),
-                AdaptiveNavigationDestination(
-                  icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.creditcard
-                      : Icons.account_balance_wallet_outlined,
-                  label: context.l10n.wallet,
-                ),
-                AdaptiveNavigationDestination(
-                  icon: PlatformInfo.isIOS
-                      ? CupertinoIcons.chart_bar_alt_fill
-                      : Icons.bar_chart,
-                  label: context.l10n.insights,
-                ),
-              ],
-              cupertinoTabBar: CupertinoTabBar(
-                currentIndex: currentIndex,
-                onTap: (index) {
-                  if (index == currentIndex) return;
-                  ref.read(mainShellTabIndexProvider.notifier).state = index;
-                },
-                items: [
-                  BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.square_grid_2x2_fill),
-                    label: context.l10n.overview,
-                  ),
-                  BottomNavigationBarItem(
-                    icon: NotificationDotIndicator(
-                      isVisible: hasUnconfirmedRecurringOccurrences,
-                      isLoading: isRecurringBadgeLoading,
-                      right: -10,
-                      child: const Icon(CupertinoIcons.repeat),
+            bottomNavigationBar: useNativeIosTabBar
+                ? null
+                : AdaptiveBottomNavigationBar(
+                    useNativeBottomBar: false,
+                    items: [
+                      AdaptiveNavigationDestination(
+                        icon: 'house.fill',
+                        label: context.l10n.home,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'repeat',
+                        label: context.l10n.recurring,
+                        badgeCount: hasUnconfirmedRecurringOccurrences
+                            ? unconfirmedRecurringCount
+                            : null,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'chart.pie',
+                        label: context.l10n.budget,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'creditcard',
+                        label: context.l10n.wallet,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'square.grid.2x2',
+                        label: context.l10n.browse,
+                      ),
+                    ],
+                    cupertinoTabBar: CupertinoTabBar(
+                      currentIndex: currentIndex,
+                      onTap: (index) {
+                        if (index == currentIndex) return;
+                        ref.read(mainShellTabIndexProvider.notifier).state =
+                            index;
+                      },
+                      items: [
+                        BottomNavigationBarItem(
+                          icon: const Icon(CupertinoIcons.house_fill),
+                          label: context.l10n.home,
+                        ),
+                        BottomNavigationBarItem(
+                          icon: NotificationDotIndicator(
+                            isVisible: hasUnconfirmedRecurringOccurrences,
+                            isLoading: isRecurringBadgeLoading,
+                            right: -10,
+                            child: const Icon(CupertinoIcons.repeat),
+                          ),
+                          label: context.l10n.recurring,
+                        ),
+                        BottomNavigationBarItem(
+                          icon: const Icon(CupertinoIcons.chart_pie),
+                          label: context.l10n.budget,
+                        ),
+                        BottomNavigationBarItem(
+                          icon: const Icon(CupertinoIcons.creditcard),
+                          label: context.l10n.wallet,
+                        ),
+                        BottomNavigationBarItem(
+                          icon: const Icon(CupertinoIcons.square_grid_2x2),
+                          label: context.l10n.browse,
+                        ),
+                      ],
                     ),
-                    label: context.l10n.recurring,
-                  ),
-                  BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.chart_pie),
-                    label: context.l10n.budget,
-                  ),
-                  BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.creditcard),
-                    label: context.l10n.wallet,
-                  ),
-                  BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
-                    label: context.l10n.insights,
-                  ),
-                ],
-              ),
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: currentIndex,
-                onDestinationSelected: (index) {
-                  if (index == currentIndex) return;
-                  ref.read(mainShellTabIndexProvider.notifier).state = index;
-                },
-                destinations: [
-                  NavigationDestination(
-                    icon: const Icon(Icons.dashboard),
-                    label: context.l10n.overview,
-                  ),
-                  NavigationDestination(
-                    icon: NotificationDotIndicator(
-                      right: -10,
-                      isVisible: hasUnconfirmedRecurringOccurrences,
-                      isLoading: isRecurringBadgeLoading,
-                      child: const Icon(Icons.repeat),
+                    bottomNavigationBar: MonekoTextScale(
+                      mode: MonekoTextScaling.compact,
+                      child: NavigationBar(
+                        selectedIndex: currentIndex,
+                        onDestinationSelected: (index) {
+                          if (index == currentIndex) return;
+                          ref.read(mainShellTabIndexProvider.notifier).state =
+                              index;
+                        },
+                        destinations: [
+                          NavigationDestination(
+                            icon: const Icon(Icons.home_filled),
+                            label: context.l10n.home,
+                          ),
+                          NavigationDestination(
+                            icon: NotificationDotIndicator(
+                              right: -10,
+                              isVisible: hasUnconfirmedRecurringOccurrences,
+                              isLoading: isRecurringBadgeLoading,
+                              child: const Icon(Icons.repeat),
+                            ),
+                            label: context.l10n.recurring,
+                          ),
+                          NavigationDestination(
+                            icon: const Icon(Icons.pie_chart_outline),
+                            label: context.l10n.budget,
+                          ),
+                          NavigationDestination(
+                            icon: const Icon(
+                              Icons.account_balance_wallet_outlined,
+                            ),
+                            label: context.l10n.wallet,
+                          ),
+                          NavigationDestination(
+                            icon: const Icon(Icons.apps_rounded),
+                            label: context.l10n.browse,
+                          ),
+                        ],
+                      ),
                     ),
-                    label: context.l10n.recurring,
+                    selectedIndex: currentIndex,
+                    onTap: (index) {
+                      if (index == currentIndex) return;
+                      ref.read(mainShellTabIndexProvider.notifier).state =
+                          index;
+                    },
                   ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.pie_chart_outline),
-                    label: context.l10n.budget,
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.account_balance_wallet_outlined),
-                    label: context.l10n.wallet,
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.bar_chart),
-                    label: context.l10n.insights,
-                  ),
-                ],
-              ),
-              selectedIndex: currentIndex,
-              onTap: (index) {
-                if (index == currentIndex) return;
-                ref.read(mainShellTabIndexProvider.notifier).state = index;
-              },
-            ),
           ),
+          if (useNativeIosTabBar)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: MonekoTextScale(
+                mode: MonekoTextScaling.compact,
+                child: MediaQuery(
+                  // IOS26NativeTabBar otherwise reads the device brightness
+                  // instead of the app-selected ThemeMode.
+                  data: MediaQuery.of(context).copyWith(
+                    platformBrightness: appBrightness,
+                  ),
+                  child: IOS26NativeTabBar(
+                    // Keep the platform-view identity stable. Recreating this
+                    // native view during rebuilds can trigger a duplicate-view
+                    // platform exception on iOS.
+                    key: const ValueKey('ios26-native-tab-bar'),
+                    destinations: [
+                      AdaptiveNavigationDestination(
+                        icon: 'house.fill',
+                        label: context.l10n.home,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'repeat',
+                        label: context.l10n.recurring,
+                        badgeCount: hasUnconfirmedRecurringOccurrences
+                            ? unconfirmedRecurringCount
+                            : null,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'chart.pie',
+                        label: context.l10n.budget,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'creditcard',
+                        label: context.l10n.wallet,
+                      ),
+                      AdaptiveNavigationDestination(
+                        icon: 'square.grid.2x2',
+                        label: context.l10n.browse,
+                      ),
+                    ],
+                    selectedIndex: currentIndex,
+                    onTap: (index) {
+                      if (index == currentIndex) return;
+                      ref.read(mainShellTabIndexProvider.notifier).state =
+                          index;
+                    },
+                    minimizeBehavior: TabBarMinimizeBehavior.never,
+                    // Keep the UiKitView mounted. Toggling showNativeView would
+                    // dispose and recreate the same native view during route or
+                    // modal transitions, which can trigger recreating_view.
+                    showNativeView: true,
+                    hidden: !isTopRoute,
+                  ),
+                ),
+              ),
+            ),
           const HomeAiBackdropOverlay(),
           if (showAiFab && currentIndex != 4)
             Positioned(
@@ -1137,6 +1205,7 @@ class _SubscriptionVerificationBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     return Container(
       width: double.infinity,
@@ -1163,8 +1232,9 @@ class _SubscriptionVerificationBanner extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 height: 1.25,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isLargeText ? null : 2,
+              overflow:
+                  isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1210,6 +1280,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final title = Text(
       context.l10n.previewModeTitle,
       style: TextStyle(
@@ -1297,8 +1368,10 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                       fontWeight: FontWeight.w500,
                       color: colorScheme.foreground,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: isLargeText ? 3 : 1,
+                    overflow: isLargeText
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
                   ),
                 ),
                 GestureDetector(

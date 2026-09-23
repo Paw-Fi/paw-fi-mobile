@@ -58,6 +58,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/utils/optimistic_split_group_builder.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/shared/widgets/merchant_entry_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
@@ -83,6 +84,7 @@ const double _minimumVoicePeakDb = -55.0;
 const String _smartInputMemoryKeyPrefix = 'smart_input_analysis_memory_v1';
 const int _smartInputMemoryLimit = 25;
 const String _pendingAiInputDirectoryName = 'pending_ai_inputs';
+const Duration _kAiRequestTimeout = Duration(minutes: 1);
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -174,6 +176,18 @@ class _AiPreparedMutation {
     required this.individualRequestBody,
     required this.batchRequestBody,
   });
+}
+
+class _AiMerchantReview {
+  const _AiMerchantReview({
+    required this.transactionId,
+    required this.query,
+    required this.candidates,
+  });
+
+  final String transactionId;
+  final String query;
+  final List<Map<String, String>> candidates;
 }
 
 class _AutoSplitContext {
@@ -653,6 +667,7 @@ Future<void> _persistAiTransactions(
   String? accountCurrency,
   String? localImagePath,
   bool requestReview = true,
+  BuildContext? candidateReviewContext,
 }) async {
   if (transactions.isEmpty) return;
 
@@ -667,6 +682,46 @@ Future<void> _persistAiTransactions(
       .toString();
   MonekoDatabase? localDatabase;
   var queuedLocally = false;
+  final merchantReviews = <_AiMerchantReview>[];
+  void queueMerchantReview(
+    _AiPreparedMutation prepared,
+    ExpenseEntry savedEntry,
+  ) {
+    final transaction = prepared.item.transaction;
+    final query = transaction.merchant?.trim();
+    if (query == null ||
+        query.isEmpty ||
+        transaction.merchantCandidates.isEmpty) {
+      return;
+    }
+    merchantReviews.add(_AiMerchantReview(
+      transactionId: savedEntry.id,
+      query: query,
+      candidates: transaction.merchantCandidates
+          .map((candidate) => {
+                'name': candidate.name,
+                'domain': candidate.domain,
+              })
+          .toList(growable: false),
+    ));
+  }
+
+  void showNextMerchantReview() {
+    final reviewContext = candidateReviewContext;
+    if (merchantReviews.isEmpty ||
+        reviewContext == null ||
+        !reviewContext.mounted) {
+      return;
+    }
+    final review = merchantReviews.first;
+    unawaited(showAnalyzedMerchantCandidateSheet(
+      context: reviewContext,
+      transactionId: review.transactionId,
+      query: review.query,
+      candidates: review.candidates,
+    ));
+  }
+
   _AutoSplitContext? autoSplitContext;
   final fallbackAccountId = accountId?.trim();
   String? resolveAccountIdForCurrency(String currency) {
@@ -736,17 +791,6 @@ Future<void> _persistAiTransactions(
   String? normalizeBucketId(String? value) {
     final trimmed = value?.trim();
     return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
-  }
-
-  bool resolveIsRecurring(Map<String, dynamic> raw) {
-    final dynamicValue = raw['is_recurring'] ?? raw['isRecurring'];
-    if (dynamicValue is bool) return dynamicValue;
-    if (dynamicValue is num) return dynamicValue != 0;
-    if (dynamicValue is String) {
-      final normalized = dynamicValue.trim().toLowerCase();
-      return normalized == 'true' || normalized == '1' || normalized == 'yes';
-    }
-    return false;
   }
 
   Map<String, dynamic>? normalizeRecurrenceRule(
@@ -834,6 +878,12 @@ Future<void> _persistAiTransactions(
       clientRecordId: prepared.metadata.clientRecordId,
       clientMutationId: prepared.metadata.clientMutationId,
       idempotencyKey: prepared.metadata.idempotencyKey,
+      merchantId: savedEntry.merchantId ?? prepared.item.transaction.merchantId,
+      merchantDomain:
+          savedEntry.merchantDomain ?? prepared.item.transaction.merchantDomain,
+      merchantLogoUrl: savedEntry.merchantLogoUrl,
+      merchantStructuredName: savedEntry.merchantStructuredName ??
+          prepared.item.transaction.merchantStructuredName,
       localReceiptImagePath: !prepared.item.transaction.isIncome &&
               (savedReceiptImageUrl == null || savedReceiptImageUrl.isEmpty) &&
               optimisticLocalReceiptPath != null &&
@@ -1008,7 +1058,7 @@ Future<void> _persistAiTransactions(
   final preparedMutations = transactions.map((item) {
     final tx = item.transaction;
     final isIncome = tx.isIncome;
-    final isRecurring = resolveIsRecurring(item.raw);
+    final isRecurring = resolveAiIsRecurring(item.raw);
     final mutationMetadata = buildTransactionMutationMetadata(
       item.optimisticId,
     );
@@ -1056,12 +1106,17 @@ Future<void> _persistAiTransactions(
       if (resolvedAccountIdForTransaction != null &&
           resolvedAccountIdForTransaction.isNotEmpty)
         'accountId': resolvedAccountIdForTransaction,
-      'clientCreatedAt': clientCreatedAtIso,
+      'clientCreatedAt':
+          item.optimisticEntry.createdAt.toUtc().toIso8601String(),
       ...mutationMetadata.toRequestJson(),
       if (isRecurring) 'isRecurring': true,
       if (isRecurring && recurrenceRule != null)
         'recurrence_rule': recurrenceRule,
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
+      if (tx.merchant?.isNotEmpty == true) 'merchant': tx.merchant,
+      if (tx.merchantId?.isNotEmpty == true) 'merchantId': tx.merchantId,
+      if (tx.merchantStructuredName?.isNotEmpty == true)
+        'merchantStructuredName': tx.merchantStructuredName,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
       if ((autoSplitEnabled || explicitCustomSplits != null) &&
@@ -1181,7 +1236,7 @@ Future<void> _persistAiTransactions(
             'isPortfolio': isPortfolio,
           'transactions': batch,
         },
-      );
+      ).timeout(_kAiRequestTimeout);
 
       if (response.data == null) {
         throw Exception('No response from save-transactions-batch');
@@ -1230,6 +1285,7 @@ Future<void> _persistAiTransactions(
               prepared: prepared,
               savedEntry: savedEntry,
             );
+            queueMerchantReview(prepared, storedEntry);
             didPersistAny = true;
             savedEntries.add(storedEntry);
             if (!originalItem.transaction.isIncome) {
@@ -1271,6 +1327,7 @@ Future<void> _persistAiTransactions(
       savedExpenseEntriesById.addAll(splitAdjustedEntries);
     }
     await cacheSavedEntriesAndRefresh(savedEntries);
+    showNextMerchantReview();
 
     if (didPersistAny) {
       await container
@@ -1316,10 +1373,12 @@ Future<void> _persistAiTransactions(
       for (final prepared in preparedMutations) {
         final item = prepared.item;
         try {
-          final response = await supabase.functions.invoke(
-            prepared.functionName,
-            body: prepared.individualRequestBody,
-          );
+          final response = await supabase.functions
+              .invoke(
+                prepared.functionName,
+                body: prepared.individualRequestBody,
+              )
+              .timeout(_kAiRequestTimeout);
 
           final savedPayload = _extractSavedEntryPayload(response.data);
 
@@ -1329,6 +1388,7 @@ Future<void> _persistAiTransactions(
               prepared: prepared,
               savedEntry: savedEntry,
             );
+            queueMerchantReview(prepared, storedEntry);
             savedCount++;
             savedEntries.add(storedEntry);
             if (!item.transaction.isIncome) {
@@ -1379,6 +1439,7 @@ Future<void> _persistAiTransactions(
       }
 
       await cacheSavedEntriesAndRefresh(savedEntries);
+      showNextMerchantReview();
 
       if (savedCount > 0) {
         await container
@@ -1723,6 +1784,33 @@ List<List<T>> chunkList<T>(List<T> items, int maxSize) {
     chunks.add(items.sublist(i, end));
   }
   return chunks;
+}
+
+bool resolveAiIsRecurring(Map<String, dynamic> raw) {
+  final dynamicValue = raw['is_recurring'] ?? raw['isRecurring'];
+  if (dynamicValue is bool) return dynamicValue;
+  if (dynamicValue is num) return dynamicValue != 0;
+  if (dynamicValue is String) {
+    final normalized = dynamicValue.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
+  return false;
+}
+
+DateTime resolveAiTransactionCreatedAt({
+  required ParsedExpense transaction,
+  required bool isRecurring,
+  required String? preferredTimezone,
+  DateTime? fallbackNow,
+}) {
+  final explicitLocalDateTime = transaction.explicitTransactionLocalDateTime;
+  if (!isRecurring && explicitLocalDateTime != null) {
+    return utcInstantFromEffectiveLocalDateTime(
+      localDateTimeWall: explicitLocalDateTime,
+      preferredTimezone: preferredTimezone,
+    );
+  }
+  return fallbackNow ?? DateTime.now();
 }
 
 Future<void> handleAiCameraCapture(
@@ -2444,15 +2532,17 @@ Future<void> _processExpense(
       // Explicitly pass JWT so the Edge Function can enrich household context
       // (householdMembers) under RLS. This is required for reliable split output.
       final session = supabase.auth.currentSession;
-      final response = await supabase.functions.invoke(
-        'analyze-expense',
-        body: body,
-        headers: session != null
-            ? <String, String>{
-                'Authorization': 'Bearer ${session.accessToken}',
-              }
-            : null,
-      );
+      final response = await supabase.functions
+          .invoke(
+            'analyze-expense',
+            body: body,
+            headers: session != null
+                ? <String, String>{
+                    'Authorization': 'Bearer ${session.accessToken}',
+                  }
+                : null,
+          )
+          .timeout(_kAiRequestTimeout);
 
       final parsedResponse = _asStringDynamicMap(response.data);
       if (parsedResponse != null) {
@@ -2606,9 +2696,27 @@ Future<void> _processExpense(
                   currency: currency,
                   currencySymbol: item['currencySymbol'] as String? ?? '\$',
                   date: accountingDate,
+                  transactionTime: item['transactionTime'],
                   description: item['description'] is String
                       ? sanitizeUtf16(item['description'] as String)
                       : null,
+                  merchant: item['merchant'] is String
+                      ? sanitizeUtf16(item['merchant'] as String)
+                      : null,
+                  merchantId: item['merchant_id']?.toString(),
+                  merchantDomain: item['merchant_domain']?.toString(),
+                  merchantStructuredName:
+                      item['merchant_structured_name']?.toString(),
+                  merchantCandidates:
+                      (item['merchant_candidates'] as List? ?? const [])
+                          .whereType<Map>()
+                          .map((candidate) => ParsedMerchantCandidate.fromJson(
+                                Map<String, dynamic>.from(candidate),
+                              ))
+                          .where((candidate) =>
+                              candidate.name.isNotEmpty &&
+                              candidate.domain.isNotEmpty)
+                          .toList(growable: false),
                   breakdown: item['breakdown'] is List
                       ? (item['breakdown'] as List)
                           .map((e) => sanitizeUtf16(e.toString()))
@@ -2630,6 +2738,12 @@ Future<void> _processExpense(
                 );
 
                 final optimisticId = makeOptimisticTransactionId();
+                final isRecurring = resolveAiIsRecurring(item);
+                final createdAt = resolveAiTransactionCreatedAt(
+                  transaction: transaction,
+                  isRecurring: isRecurring,
+                  preferredTimezone: contact?.preferredTimezone,
+                );
                 final optimisticSplitGroup = householdId != null &&
                         householdId.isNotEmpty &&
                         !isPortfolio &&
@@ -2666,6 +2780,7 @@ Future<void> _processExpense(
                   ),
                   type: isIncome ? 'income' : 'expense',
                   splitGroupId: optimisticSplitGroup?.id,
+                  createdAt: createdAt,
                 );
                 addOptimisticTransaction(
                   ref: ref,
@@ -2764,6 +2879,7 @@ Future<void> _processExpense(
                 accountCurrency: inputTarget.accountCurrency,
                 localImagePath: imagePath,
                 requestReview: !isOnboarding,
+                candidateReviewContext: context,
               ),
             );
           }

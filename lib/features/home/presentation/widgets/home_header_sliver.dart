@@ -882,166 +882,176 @@ class HomeHeaderSliver extends HookConsumerWidget {
               EdgeInsets.fromLTRB(12.0, Platform.isAndroid ? 12 : 0, 12, 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Left side: Profile Pill
-              SpotlightTarget(
-                controller: spotlightController,
-                id: 'home_header_mode_switch',
-                title: context.l10n.homeModeTourTitle,
-                description: context.l10n.homeModeTourDescription,
-                padding: 4,
-                borderRadius: 20,
-                placement: SpotlightPlacement.bottom,
-                child: profilePill,
+              Flexible(
+                fit: FlexFit.loose,
+                child: SpotlightTarget(
+                  controller: spotlightController,
+                  id: 'home_header_mode_switch',
+                  title: context.l10n.homeModeTourTitle,
+                  description: context.l10n.homeModeTourDescription,
+                  padding: 4,
+                  borderRadius: 20,
+                  placement: SpotlightPlacement.bottom,
+                  child: profilePill,
+                ),
               ),
 
 // Right side: Currency + AnimatedSwitcher (Menu/Check button)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(
-                          scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                            CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                            ),
-                          ),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: isEditMode
-                        ? const SizedBox.shrink(key: ValueKey('currencyHidden'))
-                        : SizedBox(
-                            key: const ValueKey('currencyVisible'),
-                            child: currencyPill,
-                          ),
-                  ),
-                  const SizedBox(width: 8),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(
-                          scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                            CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                            ),
-                          ),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: isEditMode
-                        ? GestureDetector(
-                            key: const ValueKey('doneButton'),
-                            onTap: () {
-                              ref.read(isEditModeProvider.notifier).state =
-                                  false;
-                            },
-                            child: Container(
-                              height: 40,
-                              width: 40,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Icon(
-                                Icons.check_rounded,
-                                size: 24,
-                                color: colorScheme.onPrimary,
+              Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
                               ),
                             ),
-                          )
-                        : Listener(
-                            onPointerDown: (_) =>
-                                dismissPeriodViewFeatureIndicator(),
-                            child: AdaptivePopupMenuButton.widget(
-                              key: const ValueKey('menuButton'),
-                              child: NotificationDotIndicator(
-                                isVisible: isPeriodViewFeatureNew.value == true,
-                                child: Container(
-                                  height: 40,
-                                  width: 40,
-                                  alignment: Alignment.center,
-                                  child: Icon(
-                                    Icons.more_horiz_rounded,
-                                    color: colorScheme.foreground,
-                                    size: 24,
-                                  ),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: isEditMode
+                          ? const SizedBox.shrink(
+                              key: ValueKey('currencyHidden'))
+                          : SizedBox(
+                              key: const ValueKey('currencyVisible'),
+                              child: currencyPill,
+                            ),
+                    ),
+                    const SizedBox(width: 8),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: isEditMode
+                          ? GestureDetector(
+                              key: const ValueKey('doneButton'),
+                              onTap: () {
+                                ref.read(isEditModeProvider.notifier).state =
+                                    false;
+                              },
+                              child: Container(
+                                height: 40,
+                                width: 40,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Icon(
+                                  Icons.check_rounded,
+                                  size: 24,
+                                  color: colorScheme.onPrimary,
                                 ),
                               ),
-                              items: menuItems,
-                              onSelected: (index, item) async {
-                                if (item.value == 'manage_household' &&
-                                    selectedHouseholdIdForSettings != null) {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => HouseholdSettingsPage(
-                                        householdId:
-                                            selectedHouseholdIdForSettings,
+                            )
+                          : Listener(
+                              onPointerDown: (_) =>
+                                  dismissPeriodViewFeatureIndicator(),
+                              child: AdaptivePopupMenuButton.widget(
+                                key: const ValueKey('menuButton'),
+                                child: NotificationDotIndicator(
+                                  isVisible:
+                                      isPeriodViewFeatureNew.value == true,
+                                  child: Container(
+                                    height: 40,
+                                    width: 40,
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      Icons.more_horiz_rounded,
+                                      color: colorScheme.foreground,
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
+                                items: menuItems,
+                                onSelected: (index, item) async {
+                                  if (item.value == 'manage_household' &&
+                                      selectedHouseholdIdForSettings != null) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => HouseholdSettingsPage(
+                                          householdId:
+                                              selectedHouseholdIdForSettings,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                  return;
-                                }
+                                    );
+                                    return;
+                                  }
 
-                                if (item.value == 'edit_widgets') {
-                                  ref.read(isEditModeProvider.notifier).state =
-                                      true;
-                                  return;
-                                }
+                                  if (item.value == 'edit_widgets') {
+                                    ref
+                                        .read(isEditModeProvider.notifier)
+                                        .state = true;
+                                    return;
+                                  }
 
-                                if (item.value == 'toggle_period_mode' &&
-                                    homePeriodMode != null) {
-                                  await ref
-                                      .read(
-                                          homePeriodSelectionProvider(user.uid)
-                                              .notifier)
-                                      .setMode(
-                                        homePeriodMode == HomePeriodMode.daily
-                                            ? HomePeriodMode.monthly
-                                            : HomePeriodMode.daily,
-                                      );
-                                  return;
-                                }
+                                  if (item.value == 'toggle_period_mode' &&
+                                      homePeriodMode != null) {
+                                    await ref
+                                        .read(homePeriodSelectionProvider(
+                                                user.uid)
+                                            .notifier)
+                                        .setMode(
+                                          homePeriodMode == HomePeriodMode.daily
+                                              ? HomePeriodMode.monthly
+                                              : HomePeriodMode.daily,
+                                        );
+                                    return;
+                                  }
 
-                                if (item.value == 'export_all') {
-                                  await exportAllTransactions();
-                                  return;
-                                }
+                                  if (item.value == 'export_all') {
+                                    await exportAllTransactions();
+                                    return;
+                                  }
 
-                                if (item.value == 'settings') {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => const SettingsPage(),
-                                    ),
-                                  );
-                                  return;
-                                }
-                              },
+                                  if (item.value == 'settings') {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const SettingsPage(),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                },
+                              ),
                             ),
-                          ),
-                  ),
-                  if (kDebugMode) ...[
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.bug_report_outlined, size: 20),
-                      tooltip: 'Test trial welcome dialog',
-                      onPressed: () {
-                        TrialWelcomeDialog.show(context);
-                      },
                     ),
+                    if (kDebugMode) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.bug_report_outlined, size: 20),
+                        tooltip: 'Test trial welcome dialog',
+                        onPressed: () {
+                          TrialWelcomeDialog.show(context);
+                        },
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ],
           ),

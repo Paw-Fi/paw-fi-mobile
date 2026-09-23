@@ -603,8 +603,8 @@ class _ChecklistStepCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 55,
-                  height: 55,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: step.completed
                         ? colorScheme.surface.withValues(alpha: 0.5)
@@ -619,7 +619,7 @@ class _ChecklistStepCard extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Icon(
                     step.completed ? Icons.check_rounded : step.icon,
-                    size: 22,
+                    size: 18  ,
                     color: step.completed
                         ? colorScheme.mutedForeground
                         : colorScheme.foreground,

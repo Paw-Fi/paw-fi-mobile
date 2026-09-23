@@ -4216,7 +4216,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get syncBankAccountsTooltip => 'ดูวิธีผูกบัญชีผ่าน Plaid';
 
   @override
-  String get syncBankAccountsComingSoon => 'ฟีเจอร์ผูกธนาคารกำลังจะมาเร็วๆ นี้';
+  String get syncBankAccountsComingSoon => 'ขณะนี้การเชื่อมต่อบัญชีธนาคารยังไม่พร้อมใช้งานในภูมิภาคของคุณ';
 
   @override
   String get integrations => 'ผูกแอปอื่น';
@@ -6130,7 +6130,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paywallBenefit4 => 'ระบบจัดการงบแบบแบ่งซอง ช่วยคุมรายจ่ายไม่ให้เกินตัว';
 
   @override
-  String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 7,100+ คน';
+  String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 8,200+ คน';
 
   @override
   String get paywallBadgeSave50 => 'ประหยัด 50%';
@@ -8523,6 +8523,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get bankConnection => 'การเชื่อมต่อธนาคาร';
 
   @override
+  String get bankConnectionNotConnectedYet => 'ยังไม่ได้เชื่อมต่อ';
+
+  @override
   String get bankConnectionUnavailable => 'ไม่สามารถเชื่อมต่อธนาคารได้';
 
   @override
@@ -10217,4 +10220,137 @@ class AppLocalizationsTh extends AppLocalizations {
   String workingForElapsed(Object elapsed) {
     return 'กำลังประมวลผลมาแล้ว $elapsed';
   }
+
+  @override
+  String get merchantWebsite => 'เว็บไซต์ร้านค้า';
+
+  @override
+  String get addMerchantWebsite => 'เพิ่มเว็บไซต์ร้านค้า';
+
+  @override
+  String get browse => 'สำรวจ';
+
+  @override
+  String get captureAndIntegrations => 'การบันทึกและการเชื่อมต่อ';
+
+  @override
+  String get healthReport => 'สุขภาพการเงิน';
+
+  @override
+  String recurrenceDaysUnit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'วัน',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String recurrenceWeeksUnit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'สัปดาห์',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String recurrenceMonthsUnit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'เดือน',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String recurrenceYearsUnit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'ปี',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chooseMerchant => 'เลือกร้านค้า';
+
+  @override
+  String get transactionAlreadySaved => 'ไม่บังคับ ธุรกรรมของคุณบันทึกไว้แล้ว';
+
+  @override
+  String get unableToSearchMerchants => 'ไม่สามารถค้นหาร้านค้าได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get unableToSaveMerchant => 'ไม่สามารถบันทึกร้านค้านี้ได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get results => 'ผลลัพธ์';
+
+  @override
+  String get useCustomName => 'ใช้ชื่อที่กำหนดเอง';
+
+  @override
+  String selectMerchant(Object name) {
+    return 'เลือก $name';
+  }
+
+  @override
+  String get searchByNameOrDomain => 'ค้นหาด้วยชื่อหรือโดเมน';
+
+  @override
+  String get keepCustomTextEntry => 'ใช้ข้อความค้นหาเป็นข้อความที่กำหนดเอง';
+
+  @override
+  String get searchMerchantIdentity => 'ค้นหาข้อมูลร้านค้า';
+
+  @override
+  String get merchantIdentityDescription => 'พิมพ์ชื่อร้านค้าหรือโดเมนเพื่อค้นหาโลโก้อย่างเป็นทางการโดยอัตโนมัติ';
+
+  @override
+  String get selectTransactionsToUpdate => 'เลือกธุรกรรมที่จะอัปเดต';
+
+  @override
+  String updateTransactions(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'อัปเดต $count ธุรกรรม',
+      one: 'อัปเดต 1 ธุรกรรม',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get applyMerchant => 'กำหนดร้านค้า';
+
+  @override
+  String get verifiedMerchant => 'ร้านค้าที่ผ่านการยืนยัน';
+
+  @override
+  String get customMerchantText => 'ข้อความร้านค้าแบบกำหนดเอง';
+
+  @override
+  String transactionDate(Object day, Object month, Object year) {
+    return '$month $day, $year';
+  }
+
+  @override
+  String get noOtherTransactionsFound => 'ไม่พบธุรกรรมอื่น';
+
+  @override
+  String get noMatchingTransactionsForMerchant => 'ไม่มีธุรกรรมที่ตรงกันในสกุลเงินนี้ให้กำหนดร้านค้าใหม่';
+
+  @override
+  String get applyMerchantToOtherTransactions => 'กำหนดร้านค้านี้ให้กับธุรกรรมอื่นด้วยหรือไม่?';
+
+  @override
+  String get chooseTransactionsForMerchant => 'เลือกธุรกรรมอื่นในพื้นที่นี้ที่ต้องการกำหนดร้านค้านี้ให้';
+
+  @override
+  String get loadingSavedSplit => 'กำลังโหลดการแบ่งที่บันทึกไว้';
 }

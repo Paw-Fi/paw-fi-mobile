@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/shared/widgets/otp_input.dart';
 
 import 'dart:async';
@@ -65,6 +67,7 @@ class RegistrationFormView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final fullNameController = useTextEditingController();
     final emailController = useTextEditingController();
     final passwordController = useTextEditingController();
@@ -247,11 +250,13 @@ class RegistrationFormView extends HookConsumerWidget {
                             redirectUrl: '/onboarding?stage=prepare',
                             disabled: isLoading.value,
                           ),
-                          const SizedBox(height: 12),
-                          AppleLoginButton(
-                            redirectUrl: '/onboarding?stage=prepare',
-                            disabled: isLoading.value,
-                          ),
+                          if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                            const SizedBox(height: 12),
+                            AppleLoginButton(
+                              redirectUrl: '/onboarding?stage=prepare',
+                              disabled: isLoading.value,
+                            ),
+                          ],
                           const SizedBox(height: 12),
                           WalletLoginButton(
                             redirectUrl: '/onboarding?stage=prepare',
@@ -502,7 +507,8 @@ class RegistrationFormView extends HookConsumerWidget {
                             scale: isLoading.value ? 0.98 : 1.0,
                             duration: const Duration(milliseconds: 100),
                             child: Container(
-                              height: 54,
+                              height: isLargeText ? null : 54,
+                              constraints: const BoxConstraints(minHeight: 54),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -577,8 +583,10 @@ class RegistrationFormView extends HookConsumerWidget {
                   if (footer != null)
                     footer!
                   else
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      runSpacing: 4,
                       children: [
                         Text(
                           '${context.l10n.alreadyHaveAccount} ',

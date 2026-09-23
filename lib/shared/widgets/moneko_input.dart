@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 
 /// A unified input container component that adapts its background color
 /// based on the proprietary iOS-style theme requirements:
@@ -19,14 +18,12 @@ class MonekoInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? AppTheme.iosInputDark : AppTheme.iosInputLight;
+    final backgroundColor = Theme.of(context).colorScheme.surfaceContainer;
 
     return Container(
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: borderRadius ?? BorderRadius.circular(12),
+        borderRadius: borderRadius ?? BorderRadius.circular(10),
       ),
       padding: padding,
       child: child,

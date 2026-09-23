@@ -24,6 +24,7 @@ import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/destructive_text_button.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
@@ -41,6 +42,8 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
+import 'package:moneko/features/home/presentation/pages/merchant_selection_page.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -133,6 +136,14 @@ class AddRecurringSheet extends HookConsumerWidget {
     final merchantController = useTextEditingController(
       text: existingTransaction?.merchant ?? '',
     );
+    final selectedMerchantId =
+        useState<String?>(existingTransaction?.merchantId);
+    final selectedMerchantDomain =
+        useState<String?>(existingTransaction?.merchantDomain);
+    final selectedMerchantLogoUrl =
+        useState<String?>(existingTransaction?.merchantLogoUrl);
+    final selectedMerchantStructuredName =
+        useState<String?>(existingTransaction?.merchantStructuredName);
 
     // Rebuild when amount changes so splits can use the latest value
     useListenable(amountController);
@@ -985,6 +996,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   merchant: merchantController.text.trim().isEmpty
                       ? null
                       : merchantController.text.trim(),
+                  merchantId: selectedMerchantId.value,
+                  merchantDomain: selectedMerchantDomain.value,
+                  merchantStructuredName: selectedMerchantStructuredName.value,
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
@@ -1027,6 +1041,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   merchant: merchantController.text.trim().isEmpty
                       ? null
                       : merchantController.text.trim(),
+                  merchantId: selectedMerchantId.value,
+                  merchantDomain: selectedMerchantDomain.value,
+                  merchantStructuredName: selectedMerchantStructuredName.value,
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
@@ -1088,6 +1105,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   merchant: merchantController.text.trim().isEmpty
                       ? null
                       : merchantController.text.trim(),
+                  merchantId: selectedMerchantId.value,
+                  merchantDomain: selectedMerchantDomain.value,
+                  merchantStructuredName: selectedMerchantStructuredName.value,
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
@@ -1130,6 +1150,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   merchant: merchantController.text.trim().isEmpty
                       ? null
                       : merchantController.text.trim(),
+                  merchantId: selectedMerchantId.value,
+                  merchantDomain: selectedMerchantDomain.value,
+                  merchantStructuredName: selectedMerchantStructuredName.value,
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
@@ -1538,6 +1561,190 @@ class AddRecurringSheet extends HookConsumerWidget {
       }
     }
 
+    Future<void> handleEditMerchant() async {
+      final isIncomeMode = !isExpense;
+      final result = await showMerchantSelectionPage(
+        context: context,
+        title: isIncomeMode ? context.l10n.source : context.l10n.merchant,
+        category: selectedCategory.value ?? 'other',
+        initialQuery: merchantController.text.trim(),
+      );
+
+      if (!context.mounted || result == null) return;
+
+      if (result.isCustomText) {
+        merchantController.text = result.merchant ?? '';
+        selectedMerchantId.value = null;
+        selectedMerchantDomain.value = null;
+        selectedMerchantLogoUrl.value = null;
+        selectedMerchantStructuredName.value = null;
+      } else {
+        merchantController.text =
+            result.merchantName ?? result.descriptor ?? '';
+        selectedMerchantId.value = result.merchantId;
+        selectedMerchantDomain.value = result.merchantDomain;
+        selectedMerchantLogoUrl.value = null;
+        selectedMerchantStructuredName.value = result.merchantName;
+      }
+    }
+
+    Future<void> handleEditCategory() async {
+      final isIncomeMode = !isExpense;
+      UserCategoryLists? lists;
+      try {
+        lists = await ref.read(
+          userCategoryListsProvider.future,
+        );
+      } catch (_) {
+        lists = null;
+      }
+      if (!context.mounted) return;
+
+      final categories = isIncomeMode
+          ? (lists?.incomeCategories ?? getIncomeCategories())
+          : (lists?.expenseCategories ?? getExpenseCategories());
+
+      final result = await showCategoryPicker(
+        context: context,
+        currentCategory: selectedCategory.value ?? '',
+        isIncome: isIncomeMode,
+        allCategories: categories,
+        onCreateCategory: (name) => createUserCustomCategory(
+          ref: ref,
+          name: name,
+          isIncome: isIncomeMode,
+        ),
+      );
+      if (result != null) {
+        selectedCategory.value = result;
+      }
+    }
+
+    Future<void> handleEditAmount() async {
+      final isIncomeMode = !isExpense;
+      final displayCategory = selectedCategory.value ?? 'other';
+      final categoryColor = getCategoryColor(displayCategory, context);
+      final categoryIcon = getCategoryIcon(displayCategory);
+      final localizedCategory =
+          getCategoryTranslation(context, displayCategory);
+      final displayMerchant = merchantController.text.trim();
+      final displayDescription = descriptionController.text.trim();
+      final effectiveTitle = displayDescription.isNotEmpty
+          ? displayDescription
+          : (displayMerchant.isNotEmpty ? displayMerchant : null);
+
+      final header = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isIncomeMode
+                      ? colorScheme.success.withValues(alpha: 0.12)
+                      : colorScheme.destructive.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: isIncomeMode
+                        ? colorScheme.success.withValues(alpha: 0.2)
+                        : colorScheme.destructive.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isIncomeMode
+                            ? colorScheme.success
+                            : colorScheme.destructive,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isIncomeMode ? context.l10n.income : context.l10n.expense,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: isIncomeMode
+                            ? colorScheme.success
+                            : colorScheme.destructive,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: categoryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: categoryColor.withValues(alpha: 0.25),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      categoryIcon,
+                      size: 12,
+                      color: categoryColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      localizedCategory,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (effectiveTitle != null && effectiveTitle.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              effectiveTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 1),
+          ],
+        ],
+      );
+
+      final value = await showCalculatorKeypadSheet(
+        context: context,
+        initialValue: amountController.text.trim().isEmpty
+            ? ''
+            : amountController.text.trim(),
+        prefix: resolveCurrencySymbol(selectedCurrency.value),
+        header: header,
+      );
+      if (value != null) {
+        amountController.text = value;
+      }
+    }
+
     confirmController?.attach(handleSave);
     useEffect(() => confirmController?.detach, [confirmController]);
 
@@ -1548,803 +1755,676 @@ class AddRecurringSheet extends HookConsumerWidget {
       return null;
     }, [confirmController, isLoading.value]);
 
-    return PopScope(
-      canPop: !isLoading.value,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (confirmController == null)
-              Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: MonekoSheetConfirmButton(
-                    onPressed: handleSave,
-                    isLoading: isLoading.value,
-                  ),
-                ),
-              ),
-            Flexible(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: 16.0,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    MonekoSegmentedControl(
-                      labels: [context.l10n.expenses, context.l10n.income],
-                      selectedIndex: isExpense ? 0 : 1,
-                      height: 40,
-                      onValueChanged: (index) {
-                        final newType = index == 0 ? 'expense' : 'income';
-                        if (selectedType.value != newType) {
-                          selectedType.value = newType;
-                          selectedCategory.value = null;
-                        }
-                      },
-                    ),
-                    const SizedBox(
-                      height: 20,
-                    ),
+    final displayCategory = selectedCategory.value ?? 'other';
+    final categoryColor = getCategoryColor(displayCategory, context);
+    final gradientColors =
+        AppTheme.pocketDetailsGradient(categoryColor, colorScheme);
+    final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
+    final textColor =
+        isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
+    final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-                    if (isEditing && existingTransaction != null)
-                      _PaymentHistorySection(
-                        tx: existingTransaction!,
+    final merchantDomain = selectedMerchantDomain.value;
+    final merchantId = selectedMerchantId.value;
+    final merchantLogoUrl = selectedMerchantLogoUrl.value;
+    final hasResolvableMerchantLogo = buildMerchantLogoUrl(
+          logoUrl: merchantLogoUrl,
+          merchantId: merchantId,
+          domain: merchantDomain,
+          merchantStructuredName: selectedMerchantStructuredName.value,
+          merchantName: merchantController.text,
+        ) !=
+        null;
+    final isIncomeMode = !isExpense;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.95,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.sheetBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Scaffold(
+        backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+        body: PopScope(
+          canPop: !isLoading.value,
+          child: Stack(
+            children: [
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  SliverAppBar(
+                    expandedHeight: kToolbarHeight,
+                    pinned: true,
+                    stretch: true,
+                    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+                    forceMaterialTransparency: true,
+                    elevation: 0,
+                    leading: IconButton(
+                      icon: Icon(Icons.close, color: colorScheme.onSurface),
+                      onPressed: isLoading.value
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            colorScheme.onSurface.withValues(alpha: 0.1),
                       ),
-
-                    // Detail cards grouped in single section
-                    MonekoInput(
+                    ),
+                    actions: [
+                      MonekoSheetConfirmButton(
+                        onPressed: handleSave,
+                        isLoading: isLoading.value,
+                      ),
+                    ],
+                    flexibleSpace: const SizedBox.shrink(),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.sheetBackground,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(32),
+                          topRight: Radius.circular(32),
+                        ),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.amount,
-                            value: amountController.text.trim().isEmpty
-                                ? '0.00'
-                                : amountController.text.trim(),
-                            isFirst: true,
-                            onTap: () async {
-                              final isIncomeMode = !isExpense;
-                              final displayCategory =
-                                  selectedCategory.value ?? 'other';
-                              final categoryColor =
-                                  getCategoryColor(displayCategory, context);
-                              final categoryIcon =
-                                  getCategoryIcon(displayCategory);
-                              final localizedCategory = getCategoryTranslation(
-                                  context, displayCategory);
-                              final displayMerchant =
-                                  merchantController.text.trim();
-                              final displayDescription =
-                                  descriptionController.text.trim();
-                              final effectiveTitle =
-                                  displayDescription.isNotEmpty
-                                      ? displayDescription
-                                      : (displayMerchant.isNotEmpty
-                                          ? displayMerchant
-                                          : null);
+                          MonekoSegmentedControl(
+                            labels: [
+                              context.l10n.expenses,
+                              context.l10n.income,
+                            ],
+                            selectedIndex: isExpense ? 0 : 1,
+                            height: 40,
+                            onValueChanged: (index) {
+                              final newType = index == 0 ? 'expense' : 'income';
+                              if (selectedType.value != newType) {
+                                selectedType.value = newType;
+                                selectedCategory.value = null;
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          if (isEditing && existingTransaction != null) ...[
+                            _PaymentHistorySection(
+                              tx: existingTransaction!,
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          // Detail cards grouped in single section
+                          MonekoInput(
+                            child: Column(
+                              children: [
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: context.l10n.amount,
+                                  value: amountController.text.trim().isEmpty
+                                      ? '0.00'
+                                      : amountController.text.trim(),
+                                  isFirst: true,
+                                  onTap: handleEditAmount,
+                                ),
+                                _buildDivider(colorScheme),
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: context.l10n.space,
+                                  value: accountDisplayValue(),
+                                  isValuePlaceholder:
+                                      householdsAsync.isLoading &&
+                                          selectedAccountType.value !=
+                                              ActiveWalletType.personal,
+                                  onTap: handleEditSpace,
+                                ),
+                                _buildDivider(colorScheme),
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: context.l10n.wallet,
+                                  value: scopedAccountsAsync.when(
+                                    data: (_) {
+                                      if (scopedAccounts.isEmpty) {
+                                        return context.l10n.noWallet;
+                                      }
+                                      final currentId =
+                                          selectedFinancialAccountId.value;
+                                      if (currentId != null) {
+                                        for (final account in scopedAccounts) {
+                                          if (account.id == currentId) {
+                                            return account.name;
+                                          }
+                                        }
+                                      }
+                                      for (final account in scopedAccounts) {
+                                        if (account.isDefault) {
+                                          return account.name;
+                                        }
+                                      }
+                                      return context.l10n.tapToSet;
+                                    },
+                                    loading: () => context.l10n.loading,
+                                    error: (_, __) => context.l10n.tapToSet,
+                                  ),
+                                  isValuePlaceholder: scopedAccounts.isEmpty,
+                                  onTap: canSelectFinancialAccount
+                                      ? () async {
+                                          final currentId =
+                                              selectedFinancialAccountId.value;
+                                          final initial =
+                                              scopedAccounts.firstWhere(
+                                            (account) =>
+                                                account.id == currentId,
+                                            orElse: () => scopedAccounts.first,
+                                          );
+                                          final selected =
+                                              await showTransactionSelectionSheet<
+                                                  WalletEntity>(
+                                            context: context,
+                                            items: scopedAccounts,
+                                            getLabel: (account) => account.name,
+                                            initial: initial,
+                                          );
+                                          if (selected != null) {
+                                            selectedFinancialAccountId.value =
+                                                selected.id;
+                                            hasManuallySelectedFinancialAccount
+                                                .value = true;
+                                          }
+                                        }
+                                      : null,
+                                ),
+                                _buildDivider(colorScheme),
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: context.l10n.category,
+                                  value: selectedCategory.value != null
+                                      ? getCategoryTranslation(
+                                          context,
+                                          selectedCategory.value!,
+                                        )
+                                      : context.l10n.selectCategory,
+                                  isValuePlaceholder:
+                                      selectedCategory.value == null,
+                                  onTap: handleEditCategory,
+                                ),
+                                _buildDivider(colorScheme),
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: isExpense
+                                      ? context.l10n.merchant
+                                      : context.l10n.source,
+                                  value: merchantController.text.trim().isEmpty
+                                      ? (isExpense
+                                          ? context.l10n.addMerchant
+                                          : context.l10n.addSource)
+                                      : merchantController.text.trim(),
+                                  isValuePlaceholder:
+                                      merchantController.text.trim().isEmpty,
+                                  onTap: handleEditMerchant,
+                                ),
+                                _buildDivider(colorScheme),
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: context.l10n.currency,
+                                  value: selectedCurrency.value.toUpperCase(),
+                                  isLast: true,
+                                  onTap: () async {
+                                    final result = await showCurrencyPicker(
+                                      context: context,
+                                      currentCurrency: selectedCurrency.value,
+                                    );
+                                    if (result != null) {
+                                      selectedCurrency.value = result;
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
 
-                              final header = Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 20),
+
+                          // Frequency and date settings grouped in single section
+                          MonekoInput(
+                            child: Column(
+                              children: [
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: context.l10n.frequency,
+                                  value: formatRecurrenceSelectionLabel(
+                                    context,
+                                    frequency: selectedFrequency.value,
+                                    interval: customInterval.value,
+                                  ),
+                                  isFirst: true,
+                                  onTap: () async {
+                                    final result = await showRecurrencePicker(
+                                      context: context,
+                                      currentFrequency: selectedFrequency.value,
+                                      currentInterval: customInterval.value,
+                                    );
+                                    if (result == null) return;
+
+                                    selectedFrequency.value = result.frequency;
+                                    final interval = result.interval;
+                                    customInterval.value =
+                                        (interval != null && interval > 1)
+                                            ? interval
+                                            : null;
+                                  },
+                                ),
+                                _buildDivider(colorScheme),
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: context.l10n.startDate,
+                                  value: formatLocalizedDate(
+                                      context, startDate.value,
+                                      includeYear: true),
+                                  onTap: () async {
+                                    final result =
+                                        await showTransactionDatePicker(
+                                      context: context,
+                                      currentDate: startDate.value,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2030),
+                                    );
+                                    if (result != null) {
+                                      startDate.value = result;
+                                    }
+                                  },
+                                ),
+                                _buildDivider(colorScheme),
+                                // End date toggle row
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                  child: Row(
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 5),
-                                        decoration: BoxDecoration(
-                                          color: isIncomeMode
-                                              ? colorScheme.success
-                                                  .withValues(alpha: 0.12)
-                                              : colorScheme.destructive
-                                                  .withValues(alpha: 0.12),
-                                          borderRadius:
-                                              BorderRadius.circular(100),
-                                          border: Border.all(
-                                            color: isIncomeMode
-                                                ? colorScheme.success
-                                                    .withValues(alpha: 0.2)
-                                                : colorScheme.destructive
-                                                    .withValues(alpha: 0.2),
-                                            width: 1,
+                                      Expanded(
+                                        child: Text(
+                                          context.l10n.setEndDate,
+                                          style: TextStyle(
+                                            color: colorScheme.onSurface,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
                                           ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Container(
-                                              width: 6,
-                                              height: 6,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: isIncomeMode
-                                                    ? colorScheme.success
-                                                    : colorScheme.destructive,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              isIncomeMode
-                                                  ? context.l10n.income
-                                                  : context.l10n.expense,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                                color: isIncomeMode
-                                                    ? colorScheme.success
-                                                    : colorScheme.destructive,
-                                              ),
-                                            ),
-                                          ],
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 5),
-                                        decoration: BoxDecoration(
-                                          color: categoryColor.withValues(
-                                              alpha: 0.12),
-                                          borderRadius:
-                                              BorderRadius.circular(100),
-                                          border: Border.all(
-                                            color: categoryColor.withValues(
-                                                alpha: 0.25),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              categoryIcon,
-                                              size: 12,
-                                              color: categoryColor,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              localizedCategory,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: colorScheme.foreground,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                      AdaptiveSwitch(
+                                        value: hasEndDate.value,
+                                        onChanged: (value) {
+                                          hasEndDate.value = value;
+                                          if (!value) {
+                                            endDate.value = null;
+                                          }
+                                        },
                                       ),
                                     ],
                                   ),
-                                  if (effectiveTitle != null &&
-                                      effectiveTitle.isNotEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      effectiveTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.foreground,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 1),
-                                  ],
-                                ],
-                              );
-
-                              final value = await showCalculatorKeypadSheet(
-                                context: context,
-                                initialValue:
-                                    amountController.text.trim().isEmpty
-                                        ? ''
-                                        : amountController.text.trim(),
-                                prefix: resolveCurrencySymbol(
-                                    selectedCurrency.value),
-                                header: header,
-                              );
-                              if (value != null) {
-                                amountController.text = value;
-                              }
-                            },
-                          ),
-                          _buildDivider(colorScheme),
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.space,
-                            value: accountDisplayValue(),
-                            isValuePlaceholder: householdsAsync.isLoading &&
-                                selectedAccountType.value !=
-                                    ActiveWalletType.personal,
-                            onTap: handleEditSpace,
-                          ),
-                          _buildDivider(colorScheme),
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.wallet,
-                            value: scopedAccountsAsync.when(
-                              data: (_) {
-                                if (scopedAccounts.isEmpty) {
-                                  return context.l10n.noWallet;
-                                }
-                                final currentId =
-                                    selectedFinancialAccountId.value;
-                                if (currentId != null) {
-                                  for (final account in scopedAccounts) {
-                                    if (account.id == currentId) {
-                                      return account.name;
-                                    }
-                                  }
-                                }
-                                for (final account in scopedAccounts) {
-                                  if (account.isDefault) return account.name;
-                                }
-                                return context.l10n.tapToSet;
-                              },
-                              loading: () => context.l10n.loading,
-                              error: (_, __) => context.l10n.tapToSet,
-                            ),
-                            isValuePlaceholder: scopedAccounts.isEmpty,
-                            onTap: canSelectFinancialAccount
-                                ? () async {
-                                    final currentId =
-                                        selectedFinancialAccountId.value;
-                                    final initial = scopedAccounts.firstWhere(
-                                      (account) => account.id == currentId,
-                                      orElse: () => scopedAccounts.first,
-                                    );
-                                    final selected =
-                                        await showTransactionSelectionSheet<
-                                            WalletEntity>(
-                                      context: context,
-                                      items: scopedAccounts,
-                                      getLabel: (account) => account.name,
-                                      initial: initial,
-                                    );
-                                    if (selected != null) {
-                                      selectedFinancialAccountId.value =
-                                          selected.id;
-                                      hasManuallySelectedFinancialAccount
-                                          .value = true;
-                                    }
-                                  }
-                                : null,
-                          ),
-                          _buildDivider(colorScheme),
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.category,
-                            value: selectedCategory.value != null
-                                ? getCategoryTranslation(
-                                    context, selectedCategory.value!)
-                                : context.l10n.selectCategory,
-                            isValuePlaceholder: selectedCategory.value == null,
-                            onTap: () async {
-                              final isIncomeMode = !isExpense;
-                              UserCategoryLists? lists;
-                              try {
-                                lists = await ref.read(
-                                  userCategoryListsProvider.future,
-                                );
-                              } catch (_) {
-                                lists = null;
-                              }
-                              if (!context.mounted) return;
-
-                              final categories = isIncomeMode
-                                  ? (lists?.incomeCategories ??
-                                      getIncomeCategories())
-                                  : (lists?.expenseCategories ??
-                                      getExpenseCategories());
-
-                              final result = await showCategoryPicker(
-                                context: context,
-                                // When no category is selected, pass an empty string so
-                                // the picker shows with no preselection. Existing
-                                // transactions still pass their actual category.
-                                currentCategory: selectedCategory.value ?? '',
-                                isIncome: isIncomeMode,
-                                allCategories: categories,
-                                onCreateCategory: (name) =>
-                                    createUserCustomCategory(
-                                  ref: ref,
-                                  name: name,
-                                  isIncome: isIncomeMode,
                                 ),
-                              );
-                              if (result != null) {
-                                selectedCategory.value = result;
-                              }
-                            },
-                          ),
-                          _buildDivider(colorScheme),
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: isExpense
-                                ? context.l10n.merchant
-                                : context.l10n.source,
-                            value: merchantController.text.trim().isEmpty
-                                ? (isExpense
-                                    ? context.l10n.addMerchant
-                                    : context.l10n.addSource)
-                                : merchantController.text.trim(),
-                            isValuePlaceholder:
-                                merchantController.text.trim().isEmpty,
-                            onTap: () async {
-                              final result = await MonekoAlertDialog.show(
-                                context: context,
-                                title: isExpense
-                                    ? context.l10n.merchantOptional
-                                    : context.l10n.sourceOptional,
-                                description: null,
-                                confirmLabel: context.l10n.save,
-                                cancelLabel: context.l10n.cancel,
-                                inputConfig: MonekoAlertDialogInputConfig(
-                                  initialValue: merchantController.text.trim(),
-                                  placeholder: isExpense
-                                      ? context.l10n.addMerchant
-                                      : context.l10n.addSource,
-                                  isRequired: false,
-                                ),
-                              );
-
-                              if (!context.mounted ||
-                                  result == null ||
-                                  !result.confirmed ||
-                                  result.text == null) {
-                                return;
-                              }
-
-                              merchantController.text = result.text!.trim();
-                            },
-                          ),
-                          _buildDivider(colorScheme),
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.currency,
-                            value: selectedCurrency.value.toUpperCase(),
-                            isLast: true,
-                            onTap: () async {
-                              final result = await showCurrencyPicker(
-                                context: context,
-                                currentCurrency: selectedCurrency.value,
-                              );
-                              if (result != null) {
-                                selectedCurrency.value = result;
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Frequency and date settings grouped in single section
-                    MonekoInput(
-                      child: Column(
-                        children: [
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.frequency,
-                            value: formatRecurrenceSelectionLabel(
-                              context,
-                              frequency: selectedFrequency.value,
-                              interval: customInterval.value,
-                            ),
-                            isFirst: true,
-                            onTap: () async {
-                              final result = await showRecurrencePicker(
-                                context: context,
-                                currentFrequency: selectedFrequency.value,
-                                currentInterval: customInterval.value,
-                              );
-                              if (result == null) return;
-
-                              selectedFrequency.value = result.frequency;
-                              final interval = result.interval;
-                              customInterval.value =
-                                  (interval != null && interval > 1)
-                                      ? interval
-                                      : null;
-                            },
-                          ),
-                          _buildDivider(colorScheme),
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.startDate,
-                            value: formatLocalizedDate(context, startDate.value,
-                                includeYear: true),
-                            onTap: () async {
-                              final result = await showTransactionDatePicker(
-                                context: context,
-                                currentDate: startDate.value,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2030),
-                              );
-                              if (result != null) {
-                                startDate.value = result;
-                              }
-                            },
-                          ),
-                          _buildDivider(colorScheme),
-                          // End date toggle row
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    context.l10n.setEndDate,
-                                    style: TextStyle(
-                                      color: colorScheme.onSurface,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                AdaptiveSwitch(
-                                  value: hasEndDate.value,
-                                  onChanged: (value) {
-                                    hasEndDate.value = value;
-                                    if (!value) {
-                                      endDate.value = null;
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          // End date picker (if enabled)
-                          if (hasEndDate.value) ...[
-                            _buildDivider(colorScheme),
-                            _buildDetailCard(
-                              colorScheme: colorScheme,
-                              label: context.l10n.endDate,
-                              value: endDate.value != null
-                                  ? formatLocalizedDate(context, endDate.value!,
-                                      includeYear: true)
-                                  : context.l10n.selectEndDate,
-                              isValuePlaceholder: endDate.value == null,
-                              isLast: !hasEndDate.value,
-                              onTap: () async {
-                                final result = await showTransactionDatePicker(
-                                  context: context,
-                                  currentDate: endDate.value ??
-                                      startDate.value
-                                          .add(const Duration(days: 365)),
-                                  firstDate: startDate.value,
-                                  lastDate: DateTime(2030),
-                                );
-                                if (result != null) {
-                                  endDate.value = DateTime(
-                                    result.year,
-                                    result.month,
-                                    result.day,
-                                  );
-                                }
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Reminder section - 3 rows
-                    MonekoInput(
-                      child: Column(
-                        children: [
-                          // Row 1: Title + switch
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                Text(
-                                  context.l10n.setReminder,
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const Spacer(),
-                                AdaptiveSwitch(
-                                  value: hasReminder.value,
-                                  onChanged: (value) {
-                                    hasReminder.value = value;
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Row 2: Configuration (when enabled)
-                          if (hasReminder.value) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 16, right: 16, bottom: 8),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (reminderBeforeAffixes
-                                      .prefix.isNotEmpty) ...[
-                                    Text(
-                                      reminderBeforeAffixes.prefix,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.onSurface,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                  ],
-                                  // Value picker
-                                  GestureDetector(
+                                // End date picker (if enabled)
+                                if (hasEndDate.value) ...[
+                                  _buildDivider(colorScheme),
+                                  _buildDetailCard(
+                                    colorScheme: colorScheme,
+                                    label: context.l10n.endDate,
+                                    value: endDate.value != null
+                                        ? formatLocalizedDate(
+                                            context, endDate.value!,
+                                            includeYear: true)
+                                        : context.l10n.selectEndDate,
+                                    isValuePlaceholder: endDate.value == null,
+                                    isLast: true,
                                     onTap: () async {
-                                      final numbers = List.generate(
-                                          31, (index) => index + 1);
                                       final result =
-                                          await MonekoListPicker.show<int>(
+                                          await showTransactionDatePicker(
                                         context: context,
-                                        items: numbers,
-                                        labelBuilder: (number) =>
-                                            number.toString(),
-                                        initial: reminderValue.value,
+                                        currentDate: endDate.value ??
+                                            startDate.value
+                                                .add(const Duration(days: 365)),
+                                        firstDate: startDate.value,
+                                        lastDate: DateTime(2030),
                                       );
                                       if (result != null) {
-                                        reminderValue.value = result;
+                                        endDate.value = DateTime(
+                                          result.year,
+                                          result.month,
+                                          result.day,
+                                        );
                                       }
                                     },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.muted
-                                            .withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            reminderValue.value.toString(),
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: colorScheme.foreground,
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.arrow_drop_down,
-                                            color: colorScheme.mutedForeground,
-                                            size: 20,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  // Unit picker
-                                  GestureDetector(
-                                    onTap: () async {
-                                      final result =
-                                          await showTransactionSelectionSheet<
-                                              String>(
-                                        context: context,
-                                        items: ['days'],
-                                        getLabel: (unit) {
-                                          if (unit == 'days') {
-                                            return context.l10n.days;
-                                          }
-                                          return unit;
+                                ],
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // Reminder section - 3 rows
+                          MonekoInput(
+                            child: Column(
+                              children: [
+                                // Row 1: Title + switch
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        context.l10n.setReminder,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      AdaptiveSwitch(
+                                        value: hasReminder.value,
+                                        onChanged: (value) {
+                                          hasReminder.value = value;
                                         },
-                                        initial: reminderUnit.value,
-                                      );
-                                      if (result != null) {
-                                        reminderUnit.value = result;
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.muted
-                                            .withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
+                                    ],
+                                  ),
+                                ),
+                                // Row 2: Configuration (when enabled)
+                                if (hasReminder.value) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                        left: 16, right: 16, bottom: 8),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        if (reminderBeforeAffixes
+                                            .prefix.isNotEmpty) ...[
                                           Text(
-                                            reminderUnit.value == 'days'
-                                                ? context.l10n.days
-                                                : context.l10n.hours,
+                                            reminderBeforeAffixes.prefix,
                                             style: TextStyle(
                                               fontSize: 16,
-                                              color: colorScheme.foreground,
-                                              fontWeight: FontWeight.w600,
+                                              color: colorScheme.onSurface,
+                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
-                                          Icon(
-                                            Icons.arrow_drop_down,
-                                            color: colorScheme.mutedForeground,
-                                            size: 20,
+                                          const SizedBox(width: 8),
+                                        ],
+                                        // Value picker
+                                        GestureDetector(
+                                          onTap: () async {
+                                            final numbers = List.generate(
+                                                31, (index) => index + 1);
+                                            final result =
+                                                await MonekoListPicker.show<
+                                                    int>(
+                                              context: context,
+                                              items: numbers,
+                                              labelBuilder: (number) =>
+                                                  number.toString(),
+                                              initial: reminderValue.value,
+                                            );
+                                            if (result != null) {
+                                              reminderValue.value = result;
+                                            }
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.muted
+                                                  .withValues(alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  reminderValue.value
+                                                      .toString(),
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        colorScheme.foreground,
+                                                  ),
+                                                ),
+                                                Icon(
+                                                  Icons.arrow_drop_down,
+                                                  color: colorScheme
+                                                      .mutedForeground,
+                                                  size: 20,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Unit picker
+                                        GestureDetector(
+                                          onTap: () async {
+                                            final result =
+                                                await showTransactionSelectionSheet<
+                                                    String>(
+                                              context: context,
+                                              items: ['days'],
+                                              getLabel: (unit) {
+                                                if (unit == 'days') {
+                                                  return context.l10n.days;
+                                                }
+                                                return unit;
+                                              },
+                                              initial: reminderUnit.value,
+                                            );
+                                            if (result != null) {
+                                              reminderUnit.value = result;
+                                            }
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.muted
+                                                  .withValues(alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  reminderUnit.value == 'days'
+                                                      ? context.l10n.days
+                                                      : context.l10n.hours,
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    color:
+                                                        colorScheme.foreground,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                Icon(
+                                                  Icons.arrow_drop_down,
+                                                  color: colorScheme
+                                                      .mutedForeground,
+                                                  size: 20,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        if (reminderBeforeAffixes
+                                            .suffix.isNotEmpty) ...[
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            reminderBeforeAffixes.suffix,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: colorScheme.onSurface,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                         ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                // Row 3: Helper text (when enabled)
+                                if (hasReminder.value) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                        left: 16, right: 16, bottom: 12),
+                                    child: Text(
+                                      context.l10n
+                                          .youWillBeNotifiedBeforeEachOccurrence(
+                                        reminderValue.value,
+                                        reminderUnit.value == 'days'
+                                            ? context.l10n.days
+                                            : context.l10n.hours,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: colorScheme.mutedForeground,
+                                        fontStyle: FontStyle.italic,
                                       ),
                                     ),
                                   ),
-                                  if (reminderBeforeAffixes
-                                      .suffix.isNotEmpty) ...[
+                                ],
+                              ],
+                            ),
+                          ),
+
+                          // Sharing section for household recurring transactions.
+                          if (canShowSharingSection) ...[
+                            const SizedBox(height: 20),
+                            if (!hasAmountForSplit)
+                              Text(
+                                context.l10n.pleaseEnterAmount,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              )
+                            else if (shareableHouseholds.isNotEmpty)
+                              _buildSharingAndSplitSection(
+                                context: context,
+                                colorScheme: colorScheme,
+                                households: shareableHouseholds,
+                                isSharedWithHousehold: isSharedWithHousehold,
+                                selectedHouseholdId: selectedHouseholdId,
+                                membersAsync: membersAsync,
+                                selectedPayerUserId: selectedPayerUserId,
+                                hasManuallyChangedPayer:
+                                    hasManuallyChangedPayer,
+                                customSplitType: customSplitType,
+                                customSplits: customSplits,
+                                amountController: amountController,
+                                currencySymbol: resolveCurrencySymbol(
+                                    selectedCurrency.value),
+                                isEditing: isEditing,
+                                currentUserId: currentUserId,
+                              ),
+                          ],
+
+                          // Additional Info section - Notes
+                          const SizedBox(height: 20),
+                          MonekoInput(
+                            child: InkWell(
+                              onTap: () async {
+                                final result = await MonekoAlertDialog.show(
+                                  context: context,
+                                  title: context.l10n.descriptionOptional,
+                                  description: null,
+                                  confirmLabel: context.l10n.save,
+                                  cancelLabel: context.l10n.cancel,
+                                  inputConfig: MonekoAlertDialogInputConfig(
+                                    initialValue:
+                                        descriptionController.text.trim(),
+                                    placeholder: context.l10n.addANote,
+                                    isRequired: false,
+                                    keyboardType: TextInputType.multiline,
+                                  ),
+                                );
+
+                                if (!context.mounted ||
+                                    result == null ||
+                                    !result.confirmed ||
+                                    result.text == null) {
+                                  return;
+                                }
+
+                                descriptionController.text =
+                                    result.text!.trim();
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0, vertical: 12.0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 70, // Fixed label width
+                                      child: Text(
+                                        context.l10n.notes,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      reminderBeforeAffixes.suffix,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.onSurface,
-                                        fontWeight: FontWeight.w500,
+                                    Expanded(
+                                      child: Text(
+                                        descriptionController.text
+                                                .trim()
+                                                .isEmpty
+                                            ? context.l10n.addANote
+                                            : descriptionController.text.trim(),
+                                        textAlign: TextAlign.start,
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w400,
+                                          color: descriptionController.text
+                                                  .trim()
+                                                  .isEmpty
+                                              ? colorScheme.onSurface
+                                                  .withValues(alpha: 0.3)
+                                              : colorScheme.onSurface,
+                                        ),
                                       ),
                                     ),
                                   ],
-                                ],
-                              ),
-                            ),
-                          ],
-                          // Row 3: Helper text (when enabled)
-                          if (hasReminder.value) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 16, right: 16, bottom: 12),
-                              child: Text(
-                                context.l10n
-                                    .youWillBeNotifiedBeforeEachOccurrence(
-                                  reminderValue.value,
-                                  reminderUnit.value == 'days'
-                                      ? context.l10n.days
-                                      : context.l10n.hours,
-                                ),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: colorScheme.mutedForeground,
-                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
                             ),
+                          ),
+
+                          if (isEditing) ...[
+                            const SizedBox(height: 24),
+                            DestructiveAdaptiveButton(
+                              onPressed: isLoading.value ? null : handleDelete,
+                              child:
+                                  Text(context.l10n.deleteRecurringTransaction),
+                            ),
                           ],
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
-
-                    // Sharing section for household recurring transactions.
-                    if (canShowSharingSection) ...[
-                      const SizedBox(height: 20),
-                      if (!hasAmountForSplit)
-                        Text(
-                          context.l10n.pleaseEnterAmount,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        )
-                      else if (shareableHouseholds.isNotEmpty)
-                        _buildSharingAndSplitSection(
-                          context: context,
-                          colorScheme: colorScheme,
-                          households: shareableHouseholds,
-                          isSharedWithHousehold: isSharedWithHousehold,
-                          selectedHouseholdId: selectedHouseholdId,
-                          membersAsync: membersAsync,
-                          selectedPayerUserId: selectedPayerUserId,
-                          hasManuallyChangedPayer: hasManuallyChangedPayer,
-                          customSplitType: customSplitType,
-                          customSplits: customSplits,
-                          amountController: amountController,
-                          currencySymbol:
-                              resolveCurrencySymbol(selectedCurrency.value),
-                          isEditing: isEditing,
-                          currentUserId: currentUserId,
-                          showSharingControls: false,
-                        ),
-                    ],
-
-                    // Additional Info section - Notes
-                    const SizedBox(height: 20),
-                    MonekoInput(
-                      child: InkWell(
-                        onTap: () async {
-                          final result = await MonekoAlertDialog.show(
-                            context: context,
-                            title: context.l10n.descriptionOptional,
-                            description: null,
-                            confirmLabel: context.l10n.save,
-                            cancelLabel: context.l10n.cancel,
-                            inputConfig: MonekoAlertDialogInputConfig(
-                              initialValue: descriptionController.text.trim(),
-                              placeholder: context.l10n.addANote,
-                              isRequired: false,
-                              keyboardType: TextInputType.multiline,
-                            ),
-                          );
-
-                          if (!context.mounted ||
-                              result == null ||
-                              !result.confirmed ||
-                              result.text == null) {
-                            return;
-                          }
-
-                          descriptionController.text = result.text!.trim();
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0, vertical: 12.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(
-                                width: 70, // Fixed label width
-                                child: Text(
-                                  context.l10n.notes,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  descriptionController.text.trim().isEmpty
-                                      ? context.l10n.addANote
-                                      : descriptionController.text.trim(),
-                                  textAlign: TextAlign.start,
-                                  maxLines: 4,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w400,
-                                    color: descriptionController.text
-                                            .trim()
-                                            .isEmpty
-                                        ? colorScheme.onSurface
-                                            .withValues(alpha: 0.3)
-                                        : colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    if (isEditing) ...[
-                      const SizedBox(height: 24),
-                      DestructiveAdaptiveButton(
-                        onPressed: isLoading.value ? null : handleDelete,
-                        child: Text(context.l10n.deleteRecurringTransaction),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2445,7 +2525,6 @@ class AddRecurringSheet extends HookConsumerWidget {
     required String currencySymbol,
     required bool isEditing,
     required String? currentUserId,
-    bool showSharingControls = true,
   }) {
     if (households.isEmpty) {
       if (isSharedWithHousehold.value) {
@@ -2459,101 +2538,6 @@ class AddRecurringSheet extends HookConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showSharingControls) ...[
-          MonekoInput(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          context.l10n.shareWithHousehold,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      AdaptiveSwitch(
-                        value: isSharedWithHousehold.value,
-                        onChanged: (value) {
-                          if (!value) {
-                            isSharedWithHousehold.value = false;
-                            selectedHouseholdId.value = null;
-                            customSplitType.value = null;
-                            customSplits.value = null;
-                            return;
-                          }
-                          if (households.isEmpty) return;
-                          isSharedWithHousehold.value = true;
-                          final currentId = selectedHouseholdId.value;
-                          if (currentId == null ||
-                              !households.any((h) => h.id == currentId)) {
-                            selectedHouseholdId.value = households.first.id;
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                if (isSharedWithHousehold.value)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: () {
-                          final currentId = selectedHouseholdId.value;
-                          if (currentId != null &&
-                              households.any((h) => h.id == currentId)) {
-                            return currentId;
-                          }
-                          return households.first.id;
-                        }(),
-                        isExpanded: true,
-                        icon: Icon(
-                          Icons.arrow_drop_down,
-                          color: colorScheme.onSurface,
-                        ),
-                        items: households
-                            .map(
-                              (h) => DropdownMenuItem<String>(
-                                value: h.id,
-                                child: Text(
-                                  h.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          selectedHouseholdId.value = value;
-                          customSplitType.value = null;
-                          customSplits.value = null;
-                        },
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
         if (isSharedWithHousehold.value)
           membersAsync.when(
             data: (members) {
@@ -2688,54 +2672,39 @@ Future<bool?> showAddRecurringSheet(
   required String type,
   RecurringTransaction? existingTransaction,
 }) {
-  final confirmController = MonekoSheetConfirmController();
-  final sheet = MonekoBottomSheet.show<bool>(
+  return showModalBottomSheet<bool>(
     context: context,
-    title: existingTransaction != null
-        ? (type == 'expense'
-            ? context.l10n.editRecurringExpense
-            : context.l10n.editRecurringIncome)
-        : (type == 'expense'
-            ? context.l10n.addRecurringExpense
-            : context.l10n.addRecurringIncome),
+    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.5),
+    enableDrag: true,
+    useSafeArea: true,
     isScrollControlled: true,
-    onClose: () => Navigator.pop(context),
-    confirmController: confirmController,
-    builder: (context) => Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: AddRecurringSheet(
-        type: type,
-        existingTransaction: existingTransaction,
-        confirmController: confirmController,
-      ),
+    isDismissible: true,
+    backgroundColor:
+        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+    builder: (context) => AddRecurringSheet(
+      type: type,
+      existingTransaction: existingTransaction,
     ),
   );
-  sheet.whenComplete(confirmController.dispose);
-  return sheet;
 }
 
 Future<bool?> showLazyEditRecurringSheet(
   BuildContext context, {
   required RecurringTransaction summary,
 }) {
-  final confirmController = MonekoSheetConfirmController();
-  final sheet = MonekoBottomSheet.show<bool>(
+  return showModalBottomSheet<bool>(
     context: context,
-    title: summary.type == 'expense'
-        ? context.l10n.editRecurringExpense
-        : context.l10n.editRecurringIncome,
+    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.5),
+    enableDrag: true,
+    useSafeArea: true,
     isScrollControlled: true,
-    onClose: () => Navigator.pop(context),
-    confirmController: confirmController,
+    isDismissible: true,
+    backgroundColor:
+        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     builder: (context) => _LazyRecurringEditor(
       summary: summary,
-      confirmController: confirmController,
     ),
   );
-  sheet.whenComplete(confirmController.dispose);
-  return sheet;
 }
 
 Future<bool?> showLazyRecurringSheetById(
@@ -2744,37 +2713,30 @@ Future<bool?> showLazyRecurringSheetById(
   required String recurringId,
   String? recurringType,
 }) {
-  final confirmController = MonekoSheetConfirmController();
-  final sheet = MonekoBottomSheet.show<bool>(
+  return showModalBottomSheet<bool>(
     context: context,
-    title: recurringType == 'income'
-        ? context.l10n.editRecurringIncome
-        : recurringType == 'expense'
-            ? context.l10n.editRecurringExpense
-            : context.l10n.recurring,
+    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.5),
+    enableDrag: true,
+    useSafeArea: true,
     isScrollControlled: true,
-    onClose: () => Navigator.pop(context),
-    confirmController: confirmController,
+    isDismissible: true,
+    backgroundColor:
+        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     builder: (_) => _LazyRecurringEditorById(
       userId: userId,
       recurringId: recurringId,
-      confirmController: confirmController,
     ),
   );
-  sheet.whenComplete(confirmController.dispose);
-  return sheet;
 }
 
 class _LazyRecurringEditorById extends ConsumerWidget {
   const _LazyRecurringEditorById({
     required this.userId,
     required this.recurringId,
-    required this.confirmController,
   });
 
   final String userId;
   final String recurringId;
-  final MonekoSheetConfirmController confirmController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2790,7 +2752,6 @@ class _LazyRecurringEditorById extends ConsumerWidget {
           key: const ValueKey('recurring-detail'),
           type: transaction.type,
           existingTransaction: transaction,
-          confirmController: confirmController,
         ),
         loading: () => const _RecurringEditorSkeleton(
           key: ValueKey('recurring-detail-loading'),
@@ -2799,7 +2760,8 @@ class _LazyRecurringEditorById extends ConsumerWidget {
           key: const ValueKey('recurring-detail-error'),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: OutlinedButton(
+            child: PrimaryAdaptiveButton(
+              isExpanded: false,
               onPressed: () => ref.invalidate(
                 recurringSeriesDetailProvider(query),
               ),
@@ -2815,11 +2777,9 @@ class _LazyRecurringEditorById extends ConsumerWidget {
 class _LazyRecurringEditor extends ConsumerWidget {
   const _LazyRecurringEditor({
     required this.summary,
-    required this.confirmController,
   });
 
   final RecurringTransaction summary;
-  final MonekoSheetConfirmController confirmController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2828,7 +2788,6 @@ class _LazyRecurringEditor extends ConsumerWidget {
       return AddRecurringSheet(
         type: summary.type,
         existingTransaction: summary,
-        confirmController: confirmController,
       );
     }
 
@@ -2848,7 +2807,6 @@ class _LazyRecurringEditor extends ConsumerWidget {
           child: AddRecurringSheet(
             type: transaction.type,
             existingTransaction: transaction,
-            confirmController: confirmController,
           ),
         ),
         loading: () => const _RecurringEditorSkeleton(
@@ -2858,7 +2816,8 @@ class _LazyRecurringEditor extends ConsumerWidget {
           key: const ValueKey('recurring-detail-error'),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: OutlinedButton(
+            child: PrimaryAdaptiveButton(
+              isExpanded: false,
               onPressed: () => ref.invalidate(
                 recurringSeriesDetailProvider(query),
               ),
@@ -2893,19 +2852,19 @@ class _RecurringEditorSkeleton extends StatelessWidget {
             SizedBox(height: 20),
             Bone(
                 height: 56,
-                borderRadius: BorderRadius.all(Radius.circular(14))),
+                borderRadius: BorderRadius.all(Radius.circular(12))),
             SizedBox(height: 12),
             Bone(
                 height: 56,
-                borderRadius: BorderRadius.all(Radius.circular(14))),
+                borderRadius: BorderRadius.all(Radius.circular(12))),
             SizedBox(height: 12),
             Bone(
                 height: 56,
-                borderRadius: BorderRadius.all(Radius.circular(14))),
+                borderRadius: BorderRadius.all(Radius.circular(12))),
             SizedBox(height: 20),
             Bone(
                 height: 48,
-                borderRadius: BorderRadius.all(Radius.circular(14))),
+                borderRadius: BorderRadius.all(Radius.circular(12))),
           ],
         ),
       ),
@@ -2924,63 +2883,54 @@ class _PaymentHistorySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Material(
-          color: colorScheme.surface.withValues(alpha: 0.0),
-          child: InkWell(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => RecurringHistoryPage(transaction: tx),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 14),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.event_repeat_rounded,
-                      size: 18,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.paymentHistoryAndUpcoming,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 20,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ],
-              ),
+    return MonekoInput(
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => RecurringHistoryPage(transaction: tx),
             ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.event_repeat_rounded,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  context.l10n.paymentHistoryAndUpcoming,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: colorScheme.onSurface.withValues(alpha: 0.2),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

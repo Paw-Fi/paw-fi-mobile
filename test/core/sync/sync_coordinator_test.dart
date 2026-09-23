@@ -57,6 +57,166 @@ void main() {
     );
   });
 
+  test('an older success cannot mark a replacement payload synced', () async {
+    final now = DateTime.utc(2026, 9, 22, 12);
+    await database.enqueueMutation(
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payload: const {'mutationRevision': '1'},
+      createdAt: now,
+    );
+    final coordinator = SyncCoordinator(
+      database: database,
+      now: () => now,
+      dispatchMutation: (_) async {
+        await database.enqueueMutation(
+          clientMutationId: 'pockets-month',
+          entityType: 'pockets_month',
+          entityId: 'personal:2026-09-01:EUR',
+          operation: 'save_pockets_month',
+          payload: const {'mutationRevision': '2'},
+        );
+      },
+    );
+
+    expect(await coordinator.drainOutbox(maxMutations: 1), 0);
+    final mutation = (await database.getOutboxMutations()).single;
+    expect(mutation.status, localMutationStatusQueued);
+    expect(mutation.payloadJson, contains('"mutationRevision":"2"'));
+  });
+
+  test('an older terminal failure cannot cancel a replacement payload',
+      () async {
+    final now = DateTime.utc(2026, 9, 22, 12);
+    await database.enqueueMutation(
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payload: const {'mutationRevision': '1'},
+      createdAt: now,
+    );
+    final cancelled = <String>[];
+    final coordinator = SyncCoordinator(
+      database: database,
+      now: () => now,
+      maxAttempts: 1,
+      dispatchMutation: (_) async {
+        await database.enqueueMutation(
+          clientMutationId: 'pockets-month',
+          entityType: 'pockets_month',
+          entityId: 'personal:2026-09-01:EUR',
+          operation: 'save_pockets_month',
+          payload: const {'mutationRevision': '2'},
+        );
+        throw StateError('old failure');
+      },
+      onMutationCancelled: (mutation, _) async {
+        cancelled.add(mutation.clientMutationId);
+      },
+    );
+
+    expect(await coordinator.drainOutbox(maxMutations: 1), 0);
+    final mutation = (await database.getOutboxMutations()).single;
+    expect(mutation.status, localMutationStatusQueued);
+    expect(cancelled, isEmpty);
+  });
+
+  test('a late retryable failure cannot overwrite a synced payload', () async {
+    final now = DateTime.utc(2026, 9, 22, 12);
+    await database.enqueueMutation(
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payload: const {'mutationRevision': '1'},
+      createdAt: now,
+    );
+    final coordinator = SyncCoordinator(
+      database: database,
+      now: () => now,
+      dispatchMutation: (mutation) async {
+        await database.markMutationSyncedIfPayloadMatches(
+          clientMutationId: mutation.clientMutationId,
+          expectedPayloadJson: mutation.payloadJson,
+        );
+        throw StateError('late failure');
+      },
+    );
+
+    expect(await coordinator.drainOutbox(maxMutations: 1), 0);
+    final mutation = (await database.getOutboxMutations()).single;
+    expect(mutation.status, localMutationStatusSynced);
+    expect(mutation.attemptCount, 0);
+  });
+
+  test('a late terminal failure cannot cancel a synced payload', () async {
+    final now = DateTime.utc(2026, 9, 22, 12);
+    await database.enqueueMutation(
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payload: const {'mutationRevision': '1'},
+      createdAt: now,
+    );
+    final cancelled = <String>[];
+    final coordinator = SyncCoordinator(
+      database: database,
+      now: () => now,
+      maxAttempts: 1,
+      dispatchMutation: (mutation) async {
+        await database.markMutationSyncedIfPayloadMatches(
+          clientMutationId: mutation.clientMutationId,
+          expectedPayloadJson: mutation.payloadJson,
+        );
+        throw StateError('late failure');
+      },
+      onMutationCancelled: (mutation, _) async {
+        cancelled.add(mutation.clientMutationId);
+      },
+    );
+
+    expect(await coordinator.drainOutbox(maxMutations: 1), 0);
+    expect(
+      (await database.getOutboxMutations()).single.status,
+      localMutationStatusSynced,
+    );
+    expect(cancelled, isEmpty);
+  });
+
+  test('a replacement payload starts with a fresh retry count', () async {
+    final now = DateTime.utc(2026, 9, 22, 12);
+    await database.enqueueMutation(
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payload: const {'mutationRevision': '1'},
+      createdAt: now,
+    );
+    await database.markMutationFailed(
+      clientMutationId: 'pockets-month',
+      error: 'offline',
+      retryAfter: now,
+    );
+
+    await database.enqueueMutation(
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payload: const {'mutationRevision': '2'},
+    );
+
+    final mutation = (await database.getOutboxMutations()).single;
+    expect(mutation.status, localMutationStatusQueued);
+    expect(mutation.attemptCount, 0);
+    expect(mutation.payloadJson, contains('"mutationRevision":"2"'));
+  });
+
   test('drainOutbox applies retry backoff and continues after failure',
       () async {
     final now = DateTime.utc(2026, 4, 8, 12);

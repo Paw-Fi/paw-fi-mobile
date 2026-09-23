@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/core/theme/widget_text_styles.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -59,11 +59,14 @@ class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
             ),
           ],
         ),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Flex(
+              direction: MonekoTextScale.isAtLeast(context, 1.5)
+                  ? Axis.vertical
+                  : Axis.horizontal,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -94,7 +97,7 @@ class _WhereTheMoneyWentWidgetState extends State<WhereTheMoneyWentWidget> {
                   ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             if (filteredExpenses.isEmpty)
               _EmptyState(colorScheme: colorScheme)
             else
@@ -266,92 +269,99 @@ class _CategoryRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Row(
-        children: [
-          // Leading Icon
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
+      child: MonekoTextScale(
+        mode: MonekoTextScaling.constrained,
+        child: Row(
+          children: [
+            // Leading Icon
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: color,
+              ),
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
 
-          // Name and Bar
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        AnimatedAmountText(
-                          value: amount,
-                          symbol: symbol,
+            // Name and Bar
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: colorScheme.foreground,
-                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 120),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: AnimatedAmountText(
+                            value: amount,
+                            symbol: symbol,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.foreground,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AnimatedProgressBar(
-                        progress: percent,
-                        color: color,
-                        backgroundColor: colorScheme.surfaceContainerHighest,
-                        height: 6,
-                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    AnimatedAmountText(
-                      value: percent * 100,
-                      symbol: '',
-                      suffix: '%',
-                      decimalDigits: 0,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AnimatedProgressBar(
+                          progress: percent,
+                          color: color,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          height: 6,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      AnimatedAmountText(
+                        value: percent * 100,
+                        symbol: '',
+                        suffix: '%',
+                        decimalDigits: 0,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

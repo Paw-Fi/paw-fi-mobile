@@ -5,11 +5,13 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
 
 /// Get localized frequency text for a recurring transaction
 String getLocalizedFrequencyText(
@@ -55,6 +57,7 @@ class RecurringTransactionCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
   final bool showCurrencyFlag;
+  final bool grouped;
 
   const RecurringTransactionCard({
     super.key,
@@ -64,6 +67,7 @@ class RecurringTransactionCard extends StatelessWidget {
     this.onTap,
     this.onDelete,
     this.showCurrencyFlag = false,
+    this.grouped = false,
   });
 
   @override
@@ -82,6 +86,26 @@ class RecurringTransactionCard extends StatelessWidget {
     final adaptedCategoryColor =
         AppTheme.adaptCategoryColorForTheme(categoryColor, colorScheme);
     final categoryIcon = getCategoryIcon(transaction.category);
+    final hasMerchantLogo = buildMerchantLogoUrl(
+          logoUrl: transaction.merchantLogoUrl,
+          merchantId: transaction.merchantId,
+          domain: transaction.merchantDomain,
+          merchantStructuredName: transaction.merchantStructuredName,
+          merchantName: transaction.merchant,
+        ) !=
+        null;
+    final merchantLogo = MerchantLogo(
+      merchantId: transaction.merchantId,
+      domain: transaction.merchantDomain,
+      logoUrl: transaction.merchantLogoUrl,
+      merchantStructuredName: transaction.merchantStructuredName,
+      merchantName: transaction.merchant,
+      fallback: Icon(
+        categoryIcon,
+        color: adaptedCategoryColor,
+        size: 22,
+      ),
+    );
 
     // Format amount
     final sign = isIncome ? '+' : '-';
@@ -92,246 +116,256 @@ class RecurringTransactionCard extends StatelessWidget {
     final amountText = '$sign$currencySymbol$localizedNumber';
 
     final canConfirm = latestActionableOccurrenceDate != null;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Slidable(
-        key: ValueKey(transaction.id),
-        endActionPane: ActionPane(
-          motion: const ScrollMotion(),
-          extentRatio: 0.22,
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          hasDescription ? description : localizedCategory,
+          maxLines: isLargeText ? 2 : 1,
+          overflow: isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.foreground,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
           children: [
-            SlidableAction(
-              onPressed: (_) async {
-                if (onDelete != null) {
-                  onDelete!();
-                }
-              },
-              backgroundColor: colorScheme.destructive,
-              foregroundColor: colorScheme.onError,
-              icon: Icons.delete,
-              borderRadius: BorderRadius.circular(20),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 2,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.muted.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colorScheme.border.withValues(alpha: 0.1),
+                  width: 0.5,
+                ),
+              ),
+              child: Text(
+                getLocalizedFrequencyText(context, transaction),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.calendar_today_rounded,
+              size: 11,
+              color: colorScheme.mutedForeground,
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                formatLocalizedDate(context, nextOccurrence),
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (showCurrencyFlag) ...[
+              const SizedBox(width: 6),
+              TransactionCurrencyFlagBadge(
+                currencyCode: transaction.currency,
+              ),
+            ],
           ],
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.homeCardSurface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: colorScheme.homeCardBorder,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.homeCardShadow,
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-                spreadRadius: -4,
+      ],
+    );
+
+    return MonekoTextScale(
+      mode: MonekoTextScaling.constrained,
+      child: Container(
+        margin: grouped ? EdgeInsets.zero : const EdgeInsets.only(bottom: 8),
+        child: Slidable(
+          key: ValueKey(transaction.id),
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 0.22,
+            children: [
+              SlidableAction(
+                onPressed: (_) async {
+                  if (onDelete != null) {
+                    onDelete!();
+                  }
+                },
+                backgroundColor: colorScheme.destructive,
+                foregroundColor: colorScheme.onError,
+                icon: Icons.delete,
+                borderRadius: BorderRadius.circular(10),
               ),
             ],
           ),
-          child: Material(
-            color: colorScheme.surface.withValues(alpha: 0.0),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    // Category Icon with adapted background color and soft glow
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: adaptedCategoryColor.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: adaptedCategoryColor.withValues(alpha: 0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(
-                        categoryIcon,
-                        color: adaptedCategoryColor,
-                        size: 22,
-                      ),
+          child: Container(
+            decoration: grouped
+                ? null
+                : BoxDecoration(
+                    color: colorScheme.homeCardSurface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: colorScheme.homeCardBorder,
+                      width: 1,
                     ),
-                    const SizedBox(width: 14),
-                    // Title and subtitle info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.homeCardShadow,
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                        spreadRadius: -4,
+                      ),
+                    ],
+                  ),
+            child: Material(
+              color: colorScheme.surface.withValues(alpha: 0.0),
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(10),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Merchant logos stay rounded but are not placed on a
+                      // category-colored background. Category fallbacks retain
+                      // the existing background treatment.
+                      hasMerchantLogo
+                          ? ClipOval(
+                              child: SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: merchantLogo,
+                              ),
+                            )
+                          : ClipOval(
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: adaptedCategoryColor.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: adaptedCategoryColor.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: merchantLogo,
+                              ),
+                            ),
+                      SizedBox(
+                        width: 16,
+                      ),
+                      Expanded(child: details),
+                      SizedBox(
+                        width: 12,
+                      ),
+                      // Amount and Action/Status
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            hasDescription ? description : localizedCategory,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            amountText,
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
+                              fontWeight: FontWeight.bold,
+                              color: amountColor,
                             ),
                           ),
-                          if (hasDescription) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              localizedCategory,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: colorScheme.mutedForeground,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
                           const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              // Frequency label
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      colorScheme.muted.withValues(alpha: 0.8),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: colorScheme.border
-                                        .withValues(alpha: 0.1),
-                                    width: 0.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  getLocalizedFrequencyText(
-                                      context, transaction),
-                                  style: TextStyle(
-                                    color: colorScheme.mutedForeground,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.calendar_today_rounded,
-                                size: 11,
-                                color: colorScheme.mutedForeground,
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  formatLocalizedDate(context, nextOccurrence),
-                                  style: TextStyle(
-                                    color: colorScheme.mutedForeground,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (showCurrencyFlag) ...[
-                                const SizedBox(width: 6),
-                                TransactionCurrencyFlagBadge(
-                                  currencyCode: transaction.currency,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Amount and Action/Status
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          amountText,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: amountColor,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        if (transaction.isActive)
-                          canConfirm
-                              ? InkWell(
-                                  onTap: () =>
-                                      showConfirmRecurringOccurrenceSheet(
-                                    context: context,
-                                    recurringTransaction: transaction,
-                                    scheduledOccurrenceDate:
-                                        latestActionableOccurrenceDate!,
-                                  ),
-                                  borderRadius: BorderRadius.circular(100),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 3.5,
+                          if (transaction.isActive)
+                            canConfirm
+                                ? InkWell(
+                                    onTap: () =>
+                                        showConfirmRecurringOccurrenceSheet(
+                                      context: context,
+                                      recurringTransaction: transaction,
+                                      scheduledOccurrenceDate:
+                                          latestActionableOccurrenceDate!,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.primary
-                                          .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(100),
-                                      border: Border.all(
+                                    borderRadius: BorderRadius.circular(100),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 3.5,
+                                      ),
+                                      decoration: BoxDecoration(
                                         color: colorScheme.primary
-                                            .withValues(alpha: 0.3),
-                                        width: 1,
+                                            .withValues(alpha: 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(100),
+                                        border: Border.all(
+                                          color: colorScheme.primary
+                                              .withValues(alpha: 0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.check_rounded,
+                                            size: 12,
+                                            color: colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            context.l10n.confirmPayment,
+                                            style: TextStyle(
+                                              color: colorScheme.primary,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.check_rounded,
-                                          size: 12,
-                                          color: colorScheme.primary,
-                                        ),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          context.l10n.confirmPayment,
-                                          style: TextStyle(
-                                            color: colorScheme.primary,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink()
-                        else
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.muted.withValues(alpha: 0.4),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              context.l10n.ended.toUpperCase(),
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
+                                  )
+                                : const SizedBox.shrink()
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.muted.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                context.l10n.ended.toUpperCase(),
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -361,30 +395,20 @@ class EmptyRecurringState extends StatelessWidget {
         normalizedType == 'expense' || normalizedType == 'expenses';
     final isIncome = normalizedType == 'income' || normalizedType == 'incomes';
 
-    return Center(
+    return SizedBox(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Beautiful animated-like background circle
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: (isExpense ? colorScheme.primary : colorScheme.success)
-                    .withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: (isExpense ? colorScheme.primary : colorScheme.success)
-                      .withValues(alpha: 0.12),
-                  width: 2,
-                ),
-              ),
-              child: Icon(
-                isExpense ? Icons.autorenew_rounded : Icons.trending_up_rounded,
-                size: 44,
-                color: isExpense ? colorScheme.primary : colorScheme.success,
+            const SizedBox(height: 80),
+
+            Opacity(
+              opacity: 0.8,
+              child: Image.asset(
+                'lib/assets/mascots/moneko-planning.png',
+                width: 96,
+                height: 96,
+                fit: BoxFit.contain,
               ),
             ),
 

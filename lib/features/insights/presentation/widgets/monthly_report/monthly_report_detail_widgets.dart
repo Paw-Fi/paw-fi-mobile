@@ -326,7 +326,7 @@ class _MonthlyReportMerchantLegendItem extends StatelessWidget {
               color: colorScheme.foreground,
               height: 1.2,
             ),
-            maxLines: 1,
+            maxLines: MediaQuery.textScalerOf(context).scale(16) > 20 ? 2 : 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),

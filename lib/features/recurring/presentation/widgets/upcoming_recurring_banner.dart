@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -45,98 +46,117 @@ class UpcomingRecurringBanner extends StatelessWidget {
         resolveCurrencySymbol(displayCurrency ?? transaction.currency);
     final sign = isIncome ? '+' : '-';
     final amountText = '$sign$symbol$localized';
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
-    return Material(
-      color: colorScheme.surface.withValues(alpha: 0.0),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: BoxDecoration(
-            color: colorScheme.muted,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: colorScheme.border.withValues(alpha: 0.18),
+    return MonekoTextScale(
+      mode: MonekoTextScaling.constrained,
+      child: Material(
+        color: colorScheme.surface.withValues(alpha: 0.0),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: colorScheme.muted,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: colorScheme.border.withValues(alpha: 0.18),
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: (isIncome ? colorScheme.success : colorScheme.primary)
-                      .withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
+            child: Flex(
+              direction: isLargeText ? Axis.vertical : Axis.horizontal,
+              crossAxisAlignment: isLargeText
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color:
+                        (isIncome ? colorScheme.success : colorScheme.primary)
+                            .withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.repeat,
+                    color: isIncome ? colorScheme.success : colorScheme.primary,
+                    size: 22,
+                  ),
                 ),
-                child: Icon(
-                  Icons.repeat,
-                  color: isIncome ? colorScheme.success : colorScheme.primary,
-                  size: 22,
+                SizedBox(
+                  width: isLargeText ? 0 : 14,
+                  height: isLargeText ? 8 : 0,
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      heading,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        heading,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        dueLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: isLargeText ? 0 : 12,
+                  height: isLargeText ? 8 : 0,
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        amountText,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: isIncome
+                              ? colorScheme.success
+                              : colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
                         color: colorScheme.mutedForeground,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      dueLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    amountText,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: isIncome
-                          ? colorScheme.success
-                          : colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

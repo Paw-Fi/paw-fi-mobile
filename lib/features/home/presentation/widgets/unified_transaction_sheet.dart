@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -72,6 +73,11 @@ import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:moneko/shared/widgets/merchant_entry_sheet.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
+import 'package:moneko/features/home/presentation/pages/merchant_selection_page.dart';
+import 'package:moneko/features/home/presentation/pages/merchant_bulk_update_page.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -183,6 +189,7 @@ class _UnifiedTransactionSheetV2 extends ConsumerStatefulWidget {
 class _UnifiedTransactionSheetV2State
     extends ConsumerState<_UnifiedTransactionSheetV2> {
   final ImagePicker _imagePicker = ImagePicker();
+  TextEditingController? _merchantSearchController;
   bool _isSaving = false;
   bool _isDeleting = false;
   String? _localImagePath; // Track locally captured image for existing expenses
@@ -193,6 +200,8 @@ class _UnifiedTransactionSheetV2State
   ActiveWalletType _lastNonHouseholdAccountType = ActiveWalletType.personal;
   String? _lastNonHouseholdHouseholdId;
   TimeOfDay _selectedTime = TimeOfDay.now();
+  int _selectedTimeSecond = 0;
+  bool _hasExplicitTransactionTime = false;
   SplitType? _customSplitType;
   List<MemberSplit>? _customSplits;
   String? _initialSplitSignature;
@@ -219,6 +228,12 @@ class _UnifiedTransactionSheetV2State
   String? _editedDescription;
   String? _editedMerchant;
   bool _hasEditedMerchant = false;
+  String? _editedMerchantId;
+  String? _editedMerchantDomain;
+  String? _editedMerchantStructuredName;
+  String? _editedMerchantEvidenceDescriptor;
+  bool _editedMerchantEvidenceAllowsStructuredLearning = false;
+  bool _hasEditedMerchantIdentity = false;
 
   void debugPrint(String? message, {int? wrapWidth}) {
     if (foundation.kDebugMode && _enableDebugLogs) {
@@ -228,11 +243,12 @@ class _UnifiedTransactionSheetV2State
 
   DateTime get _effectiveNow => DateTime.now().toLocal();
 
-  DateTime _toDeviceWallTime(DateTime utcOrLocalInstant) {
-    return utcOrLocalInstant.isUtc
-        ? utcOrLocalInstant.toLocal()
-        : utcOrLocalInstant;
-  }
+  DateTime _toTransactionWallTime(DateTime utcOrLocalInstant) =>
+      toEffectiveWallTime(
+        utcOrLocalInstant: utcOrLocalInstant,
+        preferredTimezone: widget.contact?.preferredTimezone ??
+            ref.read(analyticsProvider).contact?.preferredTimezone,
+      );
 
   /// Get localized category name
   String _getLocalizedCategory(String category) =>
@@ -265,8 +281,10 @@ class _UnifiedTransactionSheetV2State
 
     // Initialize time from existing expense or now
     if (widget.existingExpense != null) {
-      final dateTime = _toDeviceWallTime(widget.existingExpense!.createdAt);
+      final dateTime =
+          _toTransactionWallTime(widget.existingExpense!.createdAt);
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
+      _selectedTimeSecond = dateTime.second;
 
       // DEBUG: Log expense details for household sharing
       debugPrint('🏠 [HOUSEHOLD SHARE] Existing expense context loaded');
@@ -320,10 +338,18 @@ class _UnifiedTransactionSheetV2State
         });
       }
     } else if (widget.newExpense != null) {
-      // For new expenses, default to current local time (BE usually returns date-only)
-      _selectedTime = TimeOfDay.now();
-
       final newExpense = widget.newExpense!;
+      final explicitDateTime = newExpense.explicitTransactionLocalDateTime;
+      if (explicitDateTime != null) {
+        _selectedTime = TimeOfDay(
+          hour: explicitDateTime.hour,
+          minute: explicitDateTime.minute,
+        );
+        _selectedTimeSecond = explicitDateTime.second;
+        _hasExplicitTransactionTime = true;
+      } else {
+        _selectedTime = TimeOfDay.now();
+      }
       if (newExpense.payerUserId != null &&
           newExpense.payerUserId!.isNotEmpty) {
         _selectedPayerUserId = newExpense.payerUserId;
@@ -455,6 +481,45 @@ class _UnifiedTransactionSheetV2State
     return widget.existingExpense!.merchant;
   }
 
+  String? get merchantStructuredName {
+    if (_hasEditedMerchantIdentity) return _editedMerchantStructuredName;
+    if (isNewExpense) {
+      return ref.read(pendingExpenseProvider)?.merchantStructuredName ??
+          widget.newExpense!.merchantStructuredName;
+    }
+    return widget.existingExpense!.merchantStructuredName;
+  }
+
+  String? get merchantDisplayName {
+    final rawMerchant = merchant?.trim();
+    if (rawMerchant?.isNotEmpty == true) return rawMerchant;
+    final structuredMerchant = merchantStructuredName?.trim();
+    return structuredMerchant?.isNotEmpty == true ? structuredMerchant : null;
+  }
+
+  String? get merchantId {
+    if (_hasEditedMerchantIdentity) return _editedMerchantId;
+    if (isNewExpense) {
+      return ref.read(pendingExpenseProvider)?.merchantId ??
+          widget.newExpense!.merchantId;
+    }
+    return widget.existingExpense!.merchantId;
+  }
+
+  String? get merchantDomain {
+    if (_hasEditedMerchantIdentity) return _editedMerchantDomain;
+    if (isNewExpense) {
+      return ref.read(pendingExpenseProvider)?.merchantDomain ??
+          widget.newExpense!.merchantDomain;
+    }
+    return widget.existingExpense!.merchantDomain;
+  }
+
+  String? get merchantLogoUrl {
+    if (_hasEditedMerchantIdentity || isNewExpense) return null;
+    return widget.existingExpense!.merchantLogoUrl;
+  }
+
   String? get receiptImageUrl {
     final url = widget.existingExpense?.receiptImageUrl;
     debugPrint('🖼️ Receipt image detected on expense');
@@ -500,6 +565,7 @@ class _UnifiedTransactionSheetV2State
         _editedCurrency != null ||
         _editedDescription != null ||
         _hasEditedMerchant ||
+        _hasEditedMerchantIdentity ||
         _editedDate != null ||
         _localImagePath != null ||
         _hasManuallyChangedPayer ||
@@ -510,7 +576,7 @@ class _UnifiedTransactionSheetV2State
 
     final existing = widget.existingExpense;
     if (existing == null) return false;
-    final originalTime = _toDeviceWallTime(existing.createdAt);
+    final originalTime = _toTransactionWallTime(existing.createdAt);
     if (_selectedTime.hour != originalTime.hour ||
         _selectedTime.minute != originalTime.minute) {
       return true;
@@ -525,8 +591,15 @@ class _UnifiedTransactionSheetV2State
         left.currency.trim().toUpperCase() ==
             right.currency.trim().toUpperCase() &&
         _sameCalendarDate(left.date, right.date) &&
+        left.transactionTime == right.transactionTime &&
         (left.description ?? '') == (right.description ?? '') &&
         (left.merchant ?? '') == (right.merchant ?? '') &&
+        left.merchantId == right.merchantId &&
+        left.merchantDomain == right.merchantDomain &&
+        left.merchantStructuredName == right.merchantStructuredName &&
+        left.merchantEvidenceDescriptor == right.merchantEvidenceDescriptor &&
+        left.merchantEvidenceAllowsStructuredLearning ==
+            right.merchantEvidenceAllowsStructuredLearning &&
         left.isIncome == right.isIncome &&
         _stringListEquals(left.breakdown, right.breakdown);
   }
@@ -970,8 +1043,10 @@ class _UnifiedTransactionSheetV2State
         ? pendingExpense.description
         : description;
     final displayMerchant = isNewExpense && pendingExpense != null
-        ? pendingExpense.merchant
-        : merchant;
+        ? (pendingExpense.merchant?.trim().isNotEmpty == true
+            ? pendingExpense.merchant
+            : pendingExpense.merchantStructuredName)
+        : merchantDisplayName;
     final displayBreakdown = isNewExpense
         ? (pendingExpense?.breakdown ?? widget.newExpense?.breakdown)
         : widget.existingExpense?.breakdown;
@@ -1030,6 +1105,14 @@ class _UnifiedTransactionSheetV2State
     final textColor =
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
+    final hasResolvableMerchantLogo = buildMerchantLogoUrl(
+          logoUrl: merchantLogoUrl,
+          merchantId: merchantId,
+          domain: merchantDomain,
+          merchantStructuredName: merchantStructuredName,
+          merchantName: displayMerchant,
+        ) !=
+        null;
 
     return Container(
       constraints: BoxConstraints(
@@ -1041,7 +1124,7 @@ class _UnifiedTransactionSheetV2State
       ),
       clipBehavior: Clip.antiAlias,
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
         body: PopScope(
           canPop: !_isSaving &&
               !_isDeleting &&
@@ -1106,15 +1189,61 @@ class _UnifiedTransactionSheetV2State
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 300),
                                 child: Container(
-                                  padding: const EdgeInsets.all(16),
+                                  key: ValueKey(
+                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|$displayCategory',
+                                  ),
+                                  padding: hasResolvableMerchantLogo
+                                      ? EdgeInsets.zero
+                                      : const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: textColor.withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(
-                                    getCategoryIcon(displayCategory),
-                                    size: 36,
-                                    color: textColor,
+                                  child: Semantics(
+                                    button: true,
+                                    label: hasResolvableMerchantLogo
+                                        ? context.l10n.merchant
+                                        : context.l10n.category,
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () {
+                                        if (hasResolvableMerchantLogo) {
+                                          unawaited(_handleEditMerchant(
+                                            displayMerchant,
+                                            isIncomeMode,
+                                          ));
+                                        } else {
+                                          _handleEditCategory(
+                                            displayCategory,
+                                            userCategoryLists,
+                                          );
+                                        }
+                                      },
+                                      child: SizedBox(
+                                        width:
+                                            hasResolvableMerchantLogo ? 68 : 36,
+                                        height:
+                                            hasResolvableMerchantLogo ? 68 : 36,
+                                        child: ClipOval(
+                                          child: MerchantLogo(
+                                            merchantId: merchantId,
+                                            domain: merchantDomain,
+                                            logoUrl: merchantLogoUrl,
+                                            merchantStructuredName:
+                                                merchantStructuredName,
+                                            merchantName: displayMerchant,
+                                            fallback: Center(
+                                              child: Icon(
+                                                getCategoryIcon(
+                                                    displayCategory),
+                                                size: 36,
+                                                color: textColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1453,33 +1582,35 @@ class _UnifiedTransactionSheetV2State
     required ColorScheme colorScheme,
     required List<String> breakdown,
   }) {
-    return AdaptiveExpansionTile(
-      iconColor: colorScheme.mutedForeground,
-      collapsedIconColor: colorScheme.mutedForeground,
-      initiallyExpanded: false,
-      title: Text(
-        context.l10n.breakdown,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: colorScheme.onSurface,
+    return MonekoInput(
+      child: AdaptiveExpansionTile(
+        iconColor: colorScheme.mutedForeground,
+        collapsedIconColor: colorScheme.mutedForeground,
+        initiallyExpanded: false,
+        title: Text(
+          context.l10n.breakdown,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
+          ),
         ),
-      ),
-      children: [
-        for (final item in breakdown)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(
-              item,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
+        children: [
+          for (final item in breakdown)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Text(
+                item,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ),
-          ),
-        const SizedBox(height: 8),
-      ],
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 
@@ -1676,7 +1807,7 @@ class _UnifiedTransactionSheetV2State
     }
 
     return MonekoInput(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2064,8 +2195,10 @@ class _UnifiedTransactionSheetV2State
         : category;
 
     final displayMerchant = isNewExpense && pendingExpense != null
-        ? pendingExpense.merchant
-        : merchant;
+        ? (pendingExpense.merchant?.trim().isNotEmpty == true
+            ? pendingExpense.merchant
+            : pendingExpense.merchantStructuredName)
+        : merchantDisplayName;
     final displayDescription = isNewExpense && pendingExpense != null
         ? pendingExpense.description
         : description;
@@ -2412,6 +2545,8 @@ class _UnifiedTransactionSheetV2State
     if (result != null) {
       setState(() {
         _selectedTime = result!;
+        _selectedTimeSecond = 0;
+        _hasExplicitTransactionTime = true;
       });
     }
   }
@@ -2507,45 +2642,359 @@ class _UnifiedTransactionSheetV2State
   }
 
   Future<void> _handleEditMerchant(
-      String? currentMerchant, bool isIncomeMode) async {
-    final result = await MonekoAlertDialog.show(
+    String? currentMerchant,
+    bool isIncomeMode,
+  ) async {
+    final initialCandidates = isNewExpense
+        ? (ref.read(pendingExpenseProvider)?.merchantCandidates ??
+                widget.newExpense?.merchantCandidates ??
+                const <ParsedMerchantCandidate>[])
+            .map((candidate) => MerchantSearchCandidate(
+                  name: candidate.name,
+                  domain: candidate.domain,
+                  source: 'logo_dev',
+                ))
+            .toList(growable: false)
+        : const <MerchantSearchCandidate>[];
+    final result = await showMerchantSelectionPage(
       context: context,
-      title:
-          '${isIncomeMode ? context.l10n.source : context.l10n.merchant} (${context.l10n.optional})',
-      description: null,
-      confirmLabel: context.l10n.save,
-      cancelLabel: context.l10n.cancel,
-      inputConfig: MonekoAlertDialogInputConfig(
-        initialValue: currentMerchant?.trim() ?? '',
-        placeholder:
-            isIncomeMode ? context.l10n.incomeSalary : context.l10n.addMerchant,
-        isRequired: false,
-      ),
+      title: isIncomeMode ? context.l10n.source : context.l10n.merchant,
+      category: category,
+      initialQuery: currentMerchant?.trim() ?? '',
+      initialCandidates: initialCandidates,
     );
 
-    if (!mounted ||
-        result == null ||
-        !result.confirmed ||
-        result.text == null) {
-      return;
-    }
-
-    final value = result.text!.trim();
-    final normalized = value.isEmpty ? null : value;
+    if (!mounted || result == null) return;
 
     if (isNewExpense) {
       final current = ref.read(pendingExpenseProvider);
       if (current != null) {
-        ref.read(pendingExpenseProvider.notifier).state =
-            current.copyWith(merchant: normalized);
+        ref.read(pendingExpenseProvider.notifier).state = current.copyWith(
+          merchant: result.merchant,
+          merchantId: result.merchantId,
+          merchantDomain: result.merchantDomain,
+          merchantStructuredName: result.merchantName,
+          merchantEvidenceDescriptor:
+              result.isCustomText ? null : result.descriptor,
+          merchantEvidenceAllowsStructuredLearning:
+              result.allowsStructuredLearning,
+        );
       }
-      return;
+    } else {
+      setState(() {
+        if (result.isCustomText) {
+          _editedMerchant = result.merchant;
+          _hasEditedMerchant = true;
+        }
+        _editedMerchantId = result.merchantId;
+        _editedMerchantDomain = result.merchantDomain;
+        _editedMerchantStructuredName = result.merchantName;
+        _editedMerchantEvidenceDescriptor =
+            result.isCustomText ? null : result.descriptor;
+        _editedMerchantEvidenceAllowsStructuredLearning =
+            result.allowsStructuredLearning;
+        _hasEditedMerchantIdentity = true;
+      });
     }
 
-    setState(() {
-      _editedMerchant = normalized;
-      _hasEditedMerchant = true;
-    });
+    if (!mounted) return;
+    final applyToOthers = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.applyMerchantToOtherTransactions,
+      description: context.l10n.chooseTransactionsForMerchant,
+      confirmLabel: context.l10n.continueAction,
+      cancelLabel: context.l10n.cancel,
+    );
+    if (applyToOthers?.confirmed != true || !mounted) return;
+    final householdScope = ref.read(householdScopeProvider);
+    final filters = ref.read(homeFilterProvider);
+    await showMerchantBulkUpdatePage(
+      context: context,
+      selection: result,
+      excludedTransactionId: widget.existingExpense?.id,
+      scope: MerchantBulkScope(
+        userId: ref.read(authProvider).uid,
+        householdId:
+            householdScope.activeAccountType == ActiveWalletType.personal
+                ? null
+                : householdScope.activeAccountHouseholdId,
+        selectedCurrency: filters.selectedCurrency,
+        selectedCurrencies: filters.normalizedSelectedCurrencies,
+      ),
+    );
+  }
+
+  // ignore: unused_element
+  Future<void> _showMerchantSearch(
+    ExpenseEntry expense,
+    String? initialQuery,
+  ) async {
+    final initialText = initialQuery?.trim() ?? '';
+    final controller = _merchantSearchController ??= TextEditingController();
+    controller.value = TextEditingValue(
+      text: initialText,
+      selection: TextSelection.collapsed(offset: initialText.length),
+    );
+    final tryAgain = context.l10n.tryAgain;
+    var isSearching = false;
+    var errorMessage = '';
+    var candidates = <Map<String, String>>[];
+    var searchGeneration = 0;
+    var lastCompletedQuery = '';
+    var hasSearched = false;
+    Timer? debounce;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.sheetBackground,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          Future<void> search() async {
+            final query = controller.text.trim();
+            if (query.isEmpty) return;
+            if (query == lastCompletedQuery) return;
+            final generation = ++searchGeneration;
+            setSheetState(() {
+              isSearching = true;
+              errorMessage = '';
+            });
+            try {
+              final response = await Supabase.instance.client.functions.invoke(
+                'merchant-user-search',
+                body: {
+                  'action': 'search',
+                  'query': query,
+                  'transactionId': expense.id,
+                },
+              );
+              final data = response.data is Map
+                  ? Map<String, dynamic>.from(response.data as Map)
+                  : <String, dynamic>{};
+              final rawCandidates = data['candidates'] as List? ?? const [];
+              if (!sheetContext.mounted || generation != searchGeneration) {
+                return;
+              }
+              candidates = rawCandidates
+                  .whereType<Map>()
+                  .map((item) => Map<String, String>.fromEntries(item.entries
+                      .where((entry) => entry.value is String)
+                      .map((entry) => MapEntry(
+                          entry.key.toString(), entry.value as String))))
+                  .where((item) =>
+                      item['name']?.isNotEmpty == true &&
+                      item['domain']?.isNotEmpty == true)
+                  .toList();
+              lastCompletedQuery = query;
+              hasSearched = true;
+            } catch (_) {
+              if (!sheetContext.mounted || generation != searchGeneration) {
+                return;
+              }
+              errorMessage = tryAgain;
+              hasSearched = true;
+            } finally {
+              if (sheetContext.mounted && generation == searchGeneration) {
+                setSheetState(() => isSearching = false);
+              }
+            }
+          }
+
+          Future<void> selectCandidate(Map<String, String> candidate) async {
+            final query = controller.text.trim();
+            if (query.isEmpty) return;
+            setSheetState(() => isSearching = true);
+            try {
+              final response = await Supabase.instance.client.functions.invoke(
+                'merchant-user-search',
+                body: {
+                  'action':
+                      candidate['source'] == 'manual' ? 'manual' : 'select',
+                  'query': query,
+                  'transactionId': expense.id,
+                  'selectedName': candidate['name'],
+                  'selectedDomain': candidate['domain'],
+                  'selectedSource': candidate['source'],
+                  'selectedMerchantId': candidate['id'],
+                },
+              );
+              final data = response.data is Map
+                  ? Map<String, dynamic>.from(response.data as Map)
+                  : <String, dynamic>{};
+              if (data['success'] != true) {
+                throw StateError('Merchant update failed');
+              }
+              if (!mounted) return;
+              // Identity correction is deliberately distinct from editing the
+              // user-facing merchant text.  The RPC changed merchant_id only;
+              // retaining this sheet's original value prevents a later save
+              // from rewriting "STARBUCKS 123" to a canonical label.
+              ref.read(transactionsFeedRefreshSignalProvider.notifier).state +=
+                  1;
+              ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+              if (sheetContext.mounted) {
+                Navigator.of(sheetContext).pop();
+              }
+            } catch (_) {
+              setSheetState(() {
+                errorMessage = tryAgain;
+                isSearching = false;
+              });
+            }
+          }
+
+          Future<void> clearMerchant() async {
+            setSheetState(() => isSearching = true);
+            try {
+              final response = await Supabase.instance.client.functions.invoke(
+                'merchant-user-search',
+                body: {
+                  'action': 'clear',
+                  'transactionId': expense.id,
+                },
+              );
+              final data = response.data is Map
+                  ? Map<String, dynamic>.from(response.data as Map)
+                  : <String, dynamic>{};
+              if (data['success'] != true) {
+                throw StateError('Merchant reset failed');
+              }
+              if (!mounted) return;
+              ref.read(transactionsFeedRefreshSignalProvider.notifier).state +=
+                  1;
+              ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+            } catch (_) {
+              setSheetState(() {
+                errorMessage = tryAgain;
+                isSearching = false;
+              });
+            }
+          }
+
+          Future<void> addMerchantWebsite() async {
+            final merchantName = controller.text.trim();
+            if (merchantName.isEmpty) return;
+            final website = await showMerchantEntrySheet(
+              context: sheetContext,
+              title: context.l10n.merchantWebsite,
+              placeholder: 'https://example.com',
+              initialValue: '',
+              saveLabel: context.l10n.save,
+              cancelLabel: context.l10n.cancel,
+            );
+            if (!sheetContext.mounted ||
+                website == null ||
+                website.value.isEmpty) {
+              return;
+            }
+            await selectCandidate({
+              'name': merchantName,
+              'domain': website.value,
+              'source': 'manual',
+            });
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  onSubmitted: (_) {
+                    debounce?.cancel();
+                    search();
+                  },
+                  onChanged: (value) {
+                    debounce?.cancel();
+                    final query = value.trim();
+                    if (query.isEmpty) {
+                      searchGeneration += 1;
+                      setSheetState(() {
+                        candidates = [];
+                        errorMessage = '';
+                        isSearching = false;
+                        hasSearched = false;
+                      });
+                      return;
+                    }
+                    debounce = Timer(const Duration(milliseconds: 400), search);
+                  },
+                  decoration: InputDecoration(
+                    labelText: context.l10n.merchant,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: isSearching ? null : search,
+                    ),
+                  ),
+                ),
+                if (errorMessage.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(errorMessage),
+                  ),
+                if (expense.merchantId?.trim().isNotEmpty == true)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: isSearching ? null : clearMerchant,
+                      child: Text(
+                          '${context.l10n.reset} ${context.l10n.merchant}'),
+                    ),
+                  ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: isSearching ? null : addMerchantWebsite,
+                    child: Text(context.l10n.addMerchantWebsite),
+                  ),
+                ),
+                if (isSearching)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                if (!isSearching &&
+                    controller.text.trim().isNotEmpty &&
+                    candidates.isEmpty &&
+                    hasSearched &&
+                    errorMessage.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(context.l10n.noResultsFound),
+                  ),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: candidates.length,
+                    itemBuilder: (_, index) {
+                      final candidate = candidates[index];
+                      return ListTile(
+                        leading: SizedBox.square(
+                          dimension: 36,
+                          child: MerchantCandidateLogo(
+                            domain: candidate['domain']!,
+                            fallback: const Icon(Icons.storefront_outlined),
+                          ),
+                        ),
+                        title: Text(candidate['name']!),
+                        subtitle: Text(candidate['domain']!),
+                        onTap: isSearching
+                            ? null
+                            : () => selectCandidate(candidate),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    debounce?.cancel();
   }
 
   Future<void> _loadMembers(String householdId) async {
@@ -2843,7 +3292,7 @@ class _UnifiedTransactionSheetV2State
         );
 
     return Semantics(
-      label: 'Loading saved split',
+      label: context.l10n.loadingSavedSplit,
       child: MonekoInput(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -3215,7 +3664,11 @@ class _UnifiedTransactionSheetV2State
       createdAt: income.createdAt,
       updatedAt: income.updatedAt,
       rawText: income.description,
-      merchant: income.source,
+      merchant: income.merchant ?? income.source,
+      merchantId: income.merchantId,
+      merchantDomain: income.merchantDomain,
+      merchantLogoUrl: income.merchantLogoUrl,
+      merchantStructuredName: income.merchantStructuredName,
       type: 'income',
       isRecurring: income.isRecurring,
     );
@@ -3287,6 +3740,14 @@ class _UnifiedTransactionSheetV2State
         'clientCreatedAt': optimisticEntry.createdAt.toIso8601String(),
         'description': expense.description,
         'merchant': expense.merchant,
+        if (expense.merchantId?.isNotEmpty == true)
+          'merchantId': expense.merchantId,
+        if (expense.merchantStructuredName?.isNotEmpty == true)
+          'merchantStructuredName': expense.merchantStructuredName,
+        if (expense.merchantEvidenceDescriptor?.isNotEmpty == true)
+          'merchantEvidenceDescriptor': expense.merchantEvidenceDescriptor,
+        if (expense.merchantEvidenceAllowsStructuredLearning)
+          'merchantEvidenceAllowStructured': true,
         if (expense.breakdown != null) 'breakdown': expense.breakdown,
         if (householdId != null) 'householdId': householdId,
         'accountId': accountId,
@@ -3380,6 +3841,7 @@ class _UnifiedTransactionSheetV2State
     required List<MemberSplit>? customSplits,
     required String? payerUserId,
     required String? localImagePath,
+    required DateTime clientCreatedAt,
   }) async {
     final localDatabase = await localWrite;
     String? receiptUrl;
@@ -3405,6 +3867,12 @@ class _UnifiedTransactionSheetV2State
               date: expense.date,
               description: expense.description,
               merchant: expense.merchant,
+              merchantId: expense.merchantId,
+              merchantDomain: expense.merchantDomain,
+              merchantStructuredName: expense.merchantStructuredName,
+              merchantEvidenceDescriptor: expense.merchantEvidenceDescriptor,
+              merchantEvidenceAllowsStructuredLearning:
+                  expense.merchantEvidenceAllowsStructuredLearning,
               householdId: householdId,
               accountId: accountId,
               clientRecordId: mutationMetadata.clientRecordId,
@@ -3413,6 +3881,7 @@ class _UnifiedTransactionSheetV2State
               customSplitType: canUseHouseholdSplits ? customSplitType : null,
               customSplits: canUseHouseholdSplits ? customSplits : null,
               payerUserId: canUseHouseholdSplits ? payerUserId : null,
+              clientCreatedAt: clientCreatedAt,
             );
 
         if (saved == null) {
@@ -3465,6 +3934,7 @@ class _UnifiedTransactionSheetV2State
               invalidateProviders: false,
               queueLocalMutation: false,
               returnQueuedOnRetry: false,
+              clientCreatedAt: clientCreatedAt,
             );
 
         if (saved == null) {
@@ -3625,8 +4095,16 @@ class _UnifiedTransactionSheetV2State
       expenseLocalDate.day,
       _selectedTime.hour,
       _selectedTime.minute,
+      _selectedTimeSecond,
     );
-    var expenseWithTime = expense.copyWith(date: expenseDateTime);
+    var expenseWithTime = expense.copyWith(
+      date: expenseDateTime,
+      transactionTime: _hasExplicitTransactionTime
+          ? '${_selectedTime.hour.toString().padLeft(2, '0')}:'
+              '${_selectedTime.minute.toString().padLeft(2, '0')}:'
+              '${_selectedTimeSecond.toString().padLeft(2, '0')}'
+          : null,
+    );
     final normalizedCategory = expenseWithTime.category.trim().toLowerCase();
     if (normalizedCategory.isEmpty ||
         normalizedCategory == 'other' ||
@@ -3669,6 +4147,14 @@ class _UnifiedTransactionSheetV2State
     }
     final optimisticId = makeOptimisticTransactionId();
     final mutationMetadata = buildTransactionMutationMetadata(optimisticId);
+    final preferredTimezone =
+        ref.read(analyticsProvider).contact?.preferredTimezone;
+    final explicitCreatedAt = _hasExplicitTransactionTime
+        ? utcInstantFromEffectiveLocalDateTime(
+            localDateTimeWall: expenseDateTime,
+            preferredTimezone: preferredTimezone,
+          )
+        : null;
     final optimisticSplitGroup = _buildOptimisticSplitGroupForSheet(
       expenseId: optimisticId,
       householdId: effectiveHouseholdId,
@@ -3689,6 +4175,7 @@ class _UnifiedTransactionSheetV2State
           _localImagePath ??
           widget.localImagePath,
       splitGroupId: optimisticSplitGroup?.id,
+      createdAt: explicitCreatedAt,
     );
     final container = ProviderScope.containerOf(context, listen: false);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -3767,6 +4254,7 @@ class _UnifiedTransactionSheetV2State
       localImagePath: expenseWithTime.localImagePath ??
           _localImagePath ??
           widget.localImagePath,
+      clientCreatedAt: optimisticEntry.createdAt,
     ));
   }
 
@@ -3947,6 +4435,12 @@ class _UnifiedTransactionSheetV2State
                 date: expenseDateTime,
                 description: expense.description,
                 merchant: expense.merchant,
+                merchantId: expense.merchantId,
+                merchantDomain: expense.merchantDomain,
+                merchantStructuredName: expense.merchantStructuredName,
+                merchantEvidenceDescriptor: expense.merchantEvidenceDescriptor,
+                merchantEvidenceAllowsStructuredLearning:
+                    expense.merchantEvidenceAllowsStructuredLearning,
                 householdId: effectiveHouseholdId,
                 accountId: selectedFinancialAccountId,
                 customSplitType:
@@ -4175,6 +4669,11 @@ class _UnifiedTransactionSheetV2State
               trimmedMerchant.isEmpty ? null : trimmedMerchant;
         }
 
+        if (_hasEditedMerchantIdentity) {
+          updates['merchant_id'] = _editedMerchantId;
+          updates['merchant_structured_name'] = _editedMerchantStructuredName;
+        }
+
         // Do not turn an unresolved wallet selector into an explicit request
         // to clear the account. In particular, split edits are committed by
         // an atomic backend RPC and require either the existing account or a
@@ -4277,12 +4776,22 @@ class _UnifiedTransactionSheetV2State
 
         // Build optional extra body for split creation or update
         Map<String, dynamic>? extraBody;
+        if (_hasEditedMerchantIdentity &&
+            _editedMerchantId != null &&
+            _editedMerchantEvidenceDescriptor != null) {
+          extraBody = {
+            'merchantEvidenceDescriptor': _editedMerchantEvidenceDescriptor,
+            'merchantEvidenceAllowStructured':
+                _editedMerchantEvidenceAllowsStructuredLearning,
+          };
+        }
         if (targetIsPortfolio && targetHouseholdId != null) {
-          extraBody = {'isPortfolio': true};
+          extraBody = {...?extraBody, 'isPortfolio': true};
         }
         if (shouldCreateSplitGroupForExisting) {
           final splitTypeStr = _customSplitType!.toString().split('.').last;
           extraBody = {
+            ...?extraBody,
             'householdId': targetHouseholdId,
             'isPortfolio': targetIsPortfolio,
             'customSplits': {
@@ -4358,6 +4867,7 @@ class _UnifiedTransactionSheetV2State
                 ? 'equal'
                 : currentType.toString().split('.').last;
             extraBody = {
+              ...?extraBody,
               // The split payload is also required for amount-only edits so
               // the backend can rescale existing lines. Tell new servers
               // explicitly whether the user actually changed the split;
@@ -4405,7 +4915,7 @@ class _UnifiedTransactionSheetV2State
           originalDate.day,
         );
         final originalCreatedAtLocal =
-            _toDeviceWallTime(widget.existingExpense!.createdAt);
+            _toTransactionWallTime(widget.existingExpense!.createdAt);
         final originalTime = TimeOfDay(
           hour: originalCreatedAtLocal.hour,
           minute: originalCreatedAtLocal.minute,
@@ -4483,6 +4993,8 @@ class _UnifiedTransactionSheetV2State
                   updates,
                   extraBody: extraBody,
                   originalExpense: widget.existingExpense,
+                  optimisticMerchantDomain:
+                      _hasEditedMerchantIdentity ? _editedMerchantDomain : null,
                 );
         debugPrint(
           '🧪 updateExpense result: success=$success updates=${updates.keys.toList()}',
@@ -4739,6 +5251,12 @@ class _UnifiedTransactionSheetV2State
         setState(() => _isDeleting = false);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _merchantSearchController?.dispose();
+    super.dispose();
   }
 }
 

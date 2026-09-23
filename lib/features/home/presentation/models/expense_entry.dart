@@ -38,6 +38,10 @@ class ExpenseEntry {
   final DateTime? updatedAt;
   final String? rawText;
   final String? merchant;
+  final String? merchantId;
+  final String? merchantDomain;
+  final String? merchantLogoUrl;
+  final String? merchantStructuredName;
   final List<String>? breakdown;
   final String? receiptImageUrl;
   final String? localReceiptImagePath;
@@ -80,6 +84,10 @@ class ExpenseEntry {
     this.updatedAt,
     this.rawText,
     this.merchant,
+    this.merchantId,
+    this.merchantDomain,
+    this.merchantLogoUrl,
+    this.merchantStructuredName,
     this.breakdown,
     this.receiptImageUrl,
     this.localReceiptImagePath,
@@ -130,6 +138,7 @@ class ExpenseEntry {
   factory ExpenseEntry.fromJson(Map<String, dynamic> json) {
     // Extract user data from nested users object if available
     final userData = json['users'] as Map<String, dynamic>?;
+    final merchantData = _parseJsonMap(json['merchants']);
 
     String stringOrEmpty(dynamic value) =>
         value == null ? '' : value.toString();
@@ -185,6 +194,17 @@ class ExpenseEntry {
           json['updated_at'] != null ? parseInstant(json['updated_at']) : null,
       rawText: _sanitizeNullable(json['raw_text'] as String?),
       merchant: _sanitizeNullable(json['merchant'] as String?),
+      merchantId: _sanitizeNullable(json['merchant_id'] as String?),
+      merchantDomain: _sanitizeNullable(
+        json['merchant_domain'] as String? ??
+            merchantData?['domain'] as String?,
+      ),
+      merchantLogoUrl: _sanitizeNullable(
+        json['merchant_logo_url'] as String? ??
+            merchantData?['logo_identifier'] as String?,
+      ),
+      merchantStructuredName:
+          _sanitizeNullable(json['merchant_structured_name'] as String?),
       breakdown: json['breakdown'] != null
           ? (json['breakdown'] as List)
               .map((e) => sanitizeUtf16(e.toString()))
@@ -254,6 +274,10 @@ class ExpenseEntry {
       'updated_at': updatedAt?.toIso8601String(),
       'raw_text': rawText,
       'merchant': merchant,
+      'merchant_id': merchantId,
+      'merchant_domain': merchantDomain,
+      'merchant_logo_url': merchantLogoUrl,
+      'merchant_structured_name': merchantStructuredName,
       'breakdown': breakdown,
       'receipt_image_url': receiptImageUrl,
       'localReceiptImagePath': localReceiptImagePath,
@@ -301,6 +325,10 @@ class ExpenseEntry {
     DateTime? updatedAt,
     String? rawText,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantLogoUrl,
+    String? merchantStructuredName,
     List<String>? breakdown,
     String? receiptImageUrl,
     String? localReceiptImagePath,
@@ -344,6 +372,11 @@ class ExpenseEntry {
       updatedAt: updatedAt ?? this.updatedAt,
       rawText: rawText ?? this.rawText,
       merchant: merchant ?? this.merchant,
+      merchantId: merchantId ?? this.merchantId,
+      merchantDomain: merchantDomain ?? this.merchantDomain,
+      merchantLogoUrl: merchantLogoUrl ?? this.merchantLogoUrl,
+      merchantStructuredName:
+          merchantStructuredName ?? this.merchantStructuredName,
       breakdown: breakdown ?? this.breakdown,
       receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
       localReceiptImagePath:

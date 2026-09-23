@@ -11,15 +11,29 @@ final themeModeProvider =
 });
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system) {
-    _loadThemeMode();
+  ThemeModeNotifier({SharedPreferences? preferences})
+      : _preferences = preferences,
+        super(preferences == null
+            ? ThemeMode.system
+            : _themeModeFromString(preferences.getString(_storageKey))) {
+    if (preferences == null) {
+      _loadThemeMode();
+    }
   }
 
   static const _storageKey = 'moneko_theme_mode';
+  final SharedPreferences? _preferences;
+  int _writeRevision = 0;
 
   Future<void> _loadThemeMode() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = _preferences ?? await SharedPreferences.getInstance();
     final stored = prefs.getString(_storageKey);
+
+    // Do not let a slow startup read overwrite a selection made while it was
+    // loading.
+    if (_writeRevision > 0) {
+      return;
+    }
 
     if (stored == null) {
       state = ThemeMode.system;
@@ -30,12 +44,13 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
+    _writeRevision++;
     state = mode;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = _preferences ?? await SharedPreferences.getInstance();
     await prefs.setString(_storageKey, _themeModeToString(mode));
   }
 
-  ThemeMode _themeModeFromString(String value) {
+  static ThemeMode _themeModeFromString(String? value) {
     switch (value) {
       case 'dark':
         return ThemeMode.dark;
@@ -66,6 +81,11 @@ extension AppColorScheme on ColorScheme {
   Color get card => brightness == Brightness.dark
       ? AppTheme.darkCardBg
       : AppTheme.lightCardBg;
+
+  /// Bright, softened tint for Browse tool icon containers.
+  Color browseIconBackground(Color accent) =>
+      Color.lerp(card, accent, brightness == Brightness.dark ? 0.24 : 0.16) ??
+      card;
 
   Color get appBackground => brightness == Brightness.dark
       ? AppTheme.darkBackground
@@ -305,6 +325,11 @@ extension AppColorScheme on ColorScheme {
         alpha: brightness == Brightness.dark ? 0.3 : 0.05,
       );
 
+  /// Stronger outline for the exposed portion of collapsed wallet cards.
+  Color get walletCardCollapsedBorder => brightness == Brightness.dark
+      ? Colors.white.withValues(alpha: 0.86)
+      : Colors.black.withValues(alpha: 0.86);
+
   /// Pockets: Progress track
   Color get pocketProgressTrack => brightness == Brightness.dark
       ? foreground.withValues(alpha: 0.08)
@@ -375,18 +400,17 @@ extension AppColorScheme on ColorScheme {
   Color get householdMember => AppTheme.householdMember;
 
   /// Recurring summary card gradient colors
-  List<Color> get recurringSummaryGradient =>
-      brightness == Brightness.dark
-          ? [
-              primary.withValues(alpha: 0.12),
-              surface.withValues(alpha: 0.04),
-            ]
-          : [
-              AppTheme.lightRecurringSummaryGradientStart,
-              AppTheme.lightRecurringSummaryGradientBlush,
-              AppTheme.lightRecurringSummaryGradientCool,
-              AppTheme.lightRecurringSummaryGradientEnd,
-            ];
+  List<Color> get recurringSummaryGradient => brightness == Brightness.dark
+      ? [
+          primary.withValues(alpha: 0.12),
+          surface.withValues(alpha: 0.04),
+        ]
+      : [
+          AppTheme.lightRecurringSummaryGradientStart,
+          AppTheme.lightRecurringSummaryGradientBlush,
+          AppTheme.lightRecurringSummaryGradientCool,
+          AppTheme.lightRecurringSummaryGradientEnd,
+        ];
 
   /// Recurring summary card border
   Color get recurringSummaryBorder => brightness == Brightness.dark

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -32,6 +33,7 @@ class UncategorizedBanner extends StatelessWidget {
     final symbol = resolveCurrencySymbol(currency);
     final localized = formatLocalizedNumber(context, normalized);
     final totalDisplay = '$symbol$localized';
+    final titleFontSize = MonekoTextScale.isAtLeast(context, 1.5) ? 18.0 : 14.0;
     return GestureDetector(
         onTap: () => showUncategorizedSheet(
               context,
@@ -75,7 +77,7 @@ class UncategorizedBanner extends StatelessWidget {
                     RichText(
                       text: TextSpan(
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: titleFontSize,
                           color: colorScheme.mutedForeground,
                           fontFamily: Theme.of(context)
                               .textTheme
@@ -94,7 +96,7 @@ class UncategorizedBanner extends StatelessWidget {
                           TextSpan(
                             text: context.l10n.unallocatedSpendLabel,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: titleFontSize,
                               fontWeight: FontWeight.w600,
                               color: colorScheme.foreground,
                               letterSpacing: -0.3,

@@ -69,6 +69,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     Map<String, dynamic> updates, {
     Map<String, dynamic>? extraBody,
     ExpenseEntry? originalExpense,
+    String? optimisticMerchantDomain,
   }) async {
     state = state.copyWith(
       isLoading: true,
@@ -127,7 +128,11 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         // 2. Create optimistic update (what the UI will show immediately)
         final storageOriginal =
             durableOriginalExpense ?? providerOriginalExpense;
-        optimisticExpense = _applyUpdates(storageOriginal, updates);
+        optimisticExpense = _applyUpdates(
+          storageOriginal,
+          updates,
+          optimisticMerchantDomain: optimisticMerchantDomain,
+        );
         originalForRollback = storageOriginal;
 
         _debugPrint('💾 Applying optimistic update');
@@ -873,11 +878,58 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     return grouped;
   }
 
+  Future<bool> updateExpensesBatch({
+    required List<ExpenseEntry> entries,
+    required Map<String, dynamic> updates,
+    required String? householdId,
+    required List<String>? currencies,
+    required Map<String, String> descriptorsById,
+  }) async {
+    if (entries.isEmpty) return true;
+    final mutationMetadata = buildTransactionMutationMetadataForRecord(
+      clientRecordId: 'merchant-batch-${DateTime.now().microsecondsSinceEpoch}',
+      operation: 'batch_update_transaction',
+    );
+    final updatedEntries = entries
+        .map((entry) => _applyUpdates(entry, updates))
+        .toList(growable: false);
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransactionBatchUpdate(
+        originalEntries: entries,
+        updatedEntries: updatedEntries,
+        clientMutationId: mutationMetadata.clientMutationId,
+        payload: {
+          ...mutationMetadata.toRequestJson(),
+          'userId': ref.read(authProvider).uid,
+          'transactionIds': entries.map((entry) => entry.id).toList(),
+          'householdId': householdId,
+          'currencies': currencies,
+          'updates': updates,
+          'descriptorsById': descriptorsById,
+        },
+      );
+      for (var index = 0; index < entries.length; index += 1) {
+        _applyOptimisticUpdateToProvider(
+          updatedEntries[index],
+          originalExpense: entries[index],
+        );
+      }
+      await _refreshAfterLocalTransactionMutation(ref.read(authProvider).uid);
+      unawaited(drainMobileOutbox(ref));
+      return true;
+    } catch (error) {
+      state = state.copyWith(error: error.toString());
+      return false;
+    }
+  }
+
   /// Apply field updates to an expense, creating a new instance
   ExpenseEntry _applyUpdates(
     ExpenseEntry expense,
-    Map<String, dynamic> updates,
-  ) {
+    Map<String, dynamic> updates, {
+    String? optimisticMerchantDomain,
+  }) {
     final updatedDate = updates['date'] != null
         ? (() {
             final value = updates['date']?.toString();
@@ -938,6 +990,17 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       merchant: updates.containsKey('merchant')
           ? updates['merchant'] as String?
           : expense.merchant,
+      merchantId: updates.containsKey('merchant_id')
+          ? updates['merchant_id'] as String?
+          : expense.merchantId,
+      merchantDomain: updates.containsKey('merchant_id')
+          ? optimisticMerchantDomain
+          : expense.merchantDomain,
+      merchantLogoUrl:
+          updates.containsKey('merchant_id') ? null : expense.merchantLogoUrl,
+      merchantStructuredName: updates.containsKey('merchant_structured_name')
+          ? updates['merchant_structured_name'] as String?
+          : expense.merchantStructuredName,
       breakdown: expense.breakdown,
       receiptImageUrl: updates.containsKey('receipt_image_url')
           ? updates['receipt_image_url'] as String?

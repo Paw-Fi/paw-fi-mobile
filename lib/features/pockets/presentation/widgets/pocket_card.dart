@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_style_constants.dart';
@@ -87,222 +89,225 @@ class PocketCard extends StatelessWidget {
     // For simplicity and readability in this premium design, we'll use a glassmorphism card
     // with the liquid in the background, and text on top with a slight shadow or background.
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.pocketCardSurface,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(
-          color: colorScheme.pocketCardBorder,
-          width: 1,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
-        child: Stack(
-          children: [
-            // Liquid Animation
-            Positioned.fill(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(end: progress.clamp(0.0, 1.0)),
-                duration: const Duration(milliseconds: 1500),
-                curve: Curves.elasticOut,
-                builder: (context, value, child) {
-                  return LiquidPocket(
-                    fillLevel: value,
-                    color: fillColor,
-                  );
-                },
-              ),
+    return MonekoTextScale(
+      mode: MonekoTextScaling.constrained,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.pocketCardSurface,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.08),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
+          ],
+          border: Border.all(
+            color: colorScheme.pocketCardBorder,
+            width: 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: Stack(
+            children: [
+              // Liquid Animation
+              Positioned.fill(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: progress.clamp(0.0, 1.0)),
+                  duration: const Duration(milliseconds: 1500),
+                  curve: Curves.elasticOut,
+                  builder: (context, value, child) {
+                    return LiquidPocket(
+                      fillLevel: value,
+                      color: fillColor,
+                    );
+                  },
+                ),
+              ),
 
-            // Content Overlay
-            Material(
-              color: colorScheme.surface.withValues(alpha: 0.0),
-              child: InkWell(
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _PocketLogoAvatar(
-                            logoUrl: pocket.logoUrl,
-                            iconData: iconData,
-                            baseColor: baseColor,
-                            colorScheme: colorScheme,
-                          ),
-                          if (isOverBudget)
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: colorScheme.error,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.priority_high_rounded,
-                                color: colorScheme.primaryForeground,
-                                size: 14,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.pocketGlassSurfaceSoft,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.pocketGlassShadow,
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              // Content Overlay
+              Material(
+                color: colorScheme.surface.withValues(alpha: 0.0),
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              pocket.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.pocketTitle,
-                              ),
+                            _PocketLogoAvatar(
+                              logoUrl: pocket.logoUrl,
+                              iconData: iconData,
+                              baseColor: baseColor,
+                              colorScheme: colorScheme,
                             ),
-                            const SizedBox(height: 4),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                transitionBuilder: (child, animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  );
-                                },
-                                child: Text.rich(
-                                  key: ValueKey('${pocket.spent}_$limit'),
-                                  TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: spentDisplay,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: isOverBudget
-                                              ? colorScheme.error
-                                              : colorScheme.pocketTitle,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: ' / $limitDisplay',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: colorScheme.pocketSubtitle,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  maxLines: 1,
+                            if (isOverBudget)
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.error,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.priority_high_rounded,
+                                  color: colorScheme.primaryForeground,
+                                  size: 14,
                                 ),
                               ),
-                            ),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeInOut,
-                              child: rolloverBadgeText == null
-                                  ? const SizedBox.shrink()
-                                  : Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.primary
-                                              .withValues(alpha: 0.12),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                          border: Border.all(
-                                            color: colorScheme.primary
-                                                .withValues(alpha: 0.18),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          rolloverBadgeText,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                            ),
-                            const SizedBox(height: 6),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Container(
-                                height: 4,
-                                width: double.infinity,
-                                color: colorScheme.pocketProgressTrack,
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    return Stack(
+                          ],
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.pocketGlassSurfaceSoft,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.pocketGlassShadow,
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                pocket.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.pocketTitle,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  transitionBuilder: (child, animation) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    );
+                                  },
+                                  child: Text.rich(
+                                    key: ValueKey('${pocket.spent}_$limit'),
+                                    TextSpan(
                                       children: [
-                                        AnimatedContainer(
-                                          duration: const Duration(
-                                              milliseconds: 1000),
-                                          curve: Curves.easeOutQuart,
-                                          width: constraints.maxWidth *
-                                              progress.clamp(0.0, 1.0),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: getProgressGradient(
-                                                colorScheme,
-                                                baseColor,
-                                                progress,
-                                                isOverBudget,
-                                              ),
-                                            ),
+                                        TextSpan(
+                                          text: spentDisplay,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: isOverBudget
+                                                ? colorScheme.error
+                                                : colorScheme.pocketTitle,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: ' / $limitDisplay',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: colorScheme.pocketSubtitle,
                                           ),
                                         ),
                                       ],
-                                    );
-                                  },
+                                    ),
+                                    maxLines: 1,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                              AnimatedSize(
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeInOut,
+                                child: rolloverBadgeText == null
+                                    ? const SizedBox.shrink()
+                                    : Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.primary
+                                                .withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                            border: Border.all(
+                                              color: colorScheme.primary
+                                                  .withValues(alpha: 0.18),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            rolloverBadgeText,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Container(
+                                  height: 4,
+                                  width: double.infinity,
+                                  color: colorScheme.pocketProgressTrack,
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return Stack(
+                                        children: [
+                                          AnimatedContainer(
+                                            duration: const Duration(
+                                                milliseconds: 1000),
+                                            curve: Curves.easeOutQuart,
+                                            width: constraints.maxWidth *
+                                                progress.clamp(0.0, 1.0),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: getProgressGradient(
+                                                  colorScheme,
+                                                  baseColor,
+                                                  progress,
+                                                  isOverBudget,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -333,19 +338,19 @@ class _PocketLogoAvatar extends StatelessWidget {
         width: 33,
         height: 33,
         child: ClipOval(
-          child: Image.network(
-            trimmedLogoUrl,
+          child: CachedNetworkImage(
+            imageUrl: trimmedLogoUrl,
             fit: BoxFit.cover,
-            cacheWidth: cacheSize,
-            cacheHeight: cacheSize,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
+            memCacheWidth: cacheSize,
+            memCacheHeight: cacheSize,
+            cacheKey: trimmedLogoUrl,
+            placeholder: (_, __) {
               return _PocketFallbackIcon(
                 iconData: iconData,
                 baseColor: baseColor,
               );
             },
-            errorBuilder: (_, __, ___) => _PocketFallbackIcon(
+            errorWidget: (_, __, ___) => _PocketFallbackIcon(
               iconData: iconData,
               baseColor: baseColor,
             ),

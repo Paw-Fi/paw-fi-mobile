@@ -125,274 +125,305 @@ class PocketsAiBudgetSuggestionsPage extends HookConsumerWidget {
         ),
         centerTitle: true,
       ),
-      body: result.when(
-        loading: () => const _SuggestionsLoadingView(),
-        error: (error, _) => _SuggestionsErrorView(
-          colorScheme: colorScheme,
-          onRetry: () =>
-              ref.invalidate(pocketsAiBudgetSuggestionsProvider(request)),
-        ),
-        data: (data) {
-          final totalPocketTargetsCents = data.suggestions.fold<int>(
-            0,
-            (sum, item) => sum + item.amountCents,
-          );
-          final totalSuggestedCents =
-              data.suggestedTotalBudgetCents == totalPocketTargetsCents
-                  ? data.suggestedTotalBudgetCents!
-                  : totalPocketTargetsCents;
-          final totalIncomingCarryCents = data.suggestions.fold<int>(
-            0,
-            (sum, item) {
-              final pocket = pocketMap[item.envelopeId];
-              final incomingCarryCents = item.incomingCarryCents ??
-                  pocket?.rolloverFromPreviousCents ??
-                  pocket?.openingRolloverCents ??
-                  0;
-              return sum + incomingCarryCents;
-            },
-          );
-
-          final coachingCards = data.insights.isNotEmpty
-              ? data.insights
-                  .map(
-                    (insight) => _CoachingCardItem(
-                      title: insight.title.trim(),
-                      body: insight.summary.trim(),
-                      action: insight.action?.trim(),
-                      tagColor: colorScheme.primary,
-                    ),
-                  )
-                  .toList(growable: false)
-              : [
-                  if (data.celebration != null &&
-                      data.celebration!.trim().isNotEmpty)
-                    _CoachingCardItem(
-                      tag: context.l10n.win,
-                      title: context.l10n.whatYouDidWell,
-                      body: data.celebration!.trim(),
-                      tagColor: colorScheme.primary,
-                    ),
-                  if (data.topSpendInsight != null &&
-                      data.topSpendInsight!.trim().isNotEmpty)
-                    _CoachingCardItem(
-                      tag: context.l10n.strategy,
-                      title: context.l10n.smartSpendingStrategy,
-                      body: data.topSpendInsight!.trim(),
-                      tagColor: colorScheme.primary,
-                    ),
-                  if (data.pocketsHealthTip != null &&
-                      data.pocketsHealthTip!.trim().isNotEmpty)
-                    _CoachingCardItem(
-                      tag: context.l10n.mindset,
-                      title: context.l10n.budgetingPeaceOfMind,
-                      body: data.pocketsHealthTip!.trim(),
-                      tagColor: colorScheme.primary,
-                    ),
-                ];
-
-          return CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 6, 18, 40),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Hero Editorial Statement (Apple-style Typography)
-                      _EditorialHeroHeader(
-                        colorScheme: colorScheme,
-                        currencySymbol: currencySymbol,
-                        totalSuggestedCents: totalSuggestedCents,
-                        totalIncomingCarryCents: totalIncomingCarryCents,
-                        monthLabel: monthLabel,
-                        headline: data.headline,
-                        summary: data.summary,
-                        cashFlow: data.cashFlow,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Coaching Stories Carousel
-                      if (coachingCards.isNotEmpty) ...[
-                        _CoachingFlashCardsCarousel(
-                          cards: coachingCards,
-                          colorScheme: colorScheme,
-                          textTheme: textTheme,
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // Section Header
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${context.l10n.suggestedPocketTargets.toUpperCase()} (${data.suggestions.length})',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.2,
-                                color: colorScheme.mutedForeground,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              context.l10n.pocketsAiPagePocketsSectionSubtitle,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.mutedForeground,
-                                letterSpacing: -0.1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Pocket Suggestion Items
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: data.suggestions.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final item = data.suggestions[index];
-                          final pocket = pocketMap[item.envelopeId];
-                          return _PocketSuggestionComboItem(
-                            item: item,
-                            pocket: pocket,
-                            totalBudget: pocketsState.totalBudget,
-                            usesPreviousMonthPockets:
-                                data.usesPreviousMonthPockets,
-                            currency: effectiveCurrency,
-                            currencySymbol: currencySymbol,
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 28),
-                      Text(
-                        context.l10n.pocketsAiPageDisclaimer,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.7),
-                          height: 1.45,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Bottom Apply Button
-                      PrimaryAdaptiveButton(
-                        onPressed: isApplying.value
-                            ? null
-                            : () async {
-                                final rootNavigator =
-                                    Navigator.of(context, rootNavigator: true);
-                                final toastContext = rootNavigator.context;
-                                isApplying.value = true;
-                                var dialogOpen = false;
-                                showBlockingProcessingDialog(
-                                  context: toastContext,
-                                  message: context.l10n.saving,
-                                );
-                                dialogOpen = true;
-
-                                void closeDialog() {
-                                  if (!dialogOpen) return;
-                                  if (rootNavigator.canPop()) {
-                                    rootNavigator.pop();
-                                  }
-                                  dialogOpen = false;
-                                }
-
-                                try {
-                                  final sourceSuggestedMap = <String, int>{
-                                    for (final s in data.suggestions)
-                                      s.envelopeId: s.amountCents,
-                                  };
-                                  var suggestedMap = sourceSuggestedMap;
-
-                                  if (pocketsState.editing.isEmpty &&
-                                      (pocketsState.hasPreviousMonthPockets ||
-                                          data.usesPreviousMonthPockets) &&
-                                      scopeParams.periodMonth != null) {
-                                    final prevMonth =
-                                        previousFinancialCycleStart(
-                                      scopeParams.periodMonth!,
-                                      startDay: scopeParams
-                                          .normalizedFinancialMonthStartDay,
-                                    );
-                                    final copiedPocketIds =
-                                        await pocketsNotifier
-                                            .copyPocketsFromMonth(prevMonth);
-                                    suggestedMap =
-                                        rebindCopiedPocketSuggestionAmounts(
-                                      sourceAmountsCents: sourceSuggestedMap,
-                                      copiedPocketIds: copiedPocketIds,
-                                    );
-                                  }
-
-                                  pocketsNotifier.applySuggestedPocketAmounts(
-                                    suggestedMap,
-                                    suggestedTotalBudgetCents:
-                                        data.suggestedTotalBudgetCents,
-                                  );
-                                  await pocketsNotifier.saveChanges();
-
-                                  closeDialog();
-                                  if (context.mounted) {
-                                    AppToast.success(
-                                      context,
-                                      context
-                                          .l10n.aiBudgetPlanAppliedSuccessfully,
-                                    );
-                                    Navigator.of(context).pop();
-                                  }
-                                } catch (error) {
-                                  closeDialog();
-                                  if (context.mounted) {
-                                    AppToast.error(
-                                      context,
-                                      error is PocketsAiBudgetSuggestionsException &&
-                                              error.code == 'POCKETS_CHANGED'
-                                          ? context.l10n
-                                              .pocketsChangedWhilePreparingPlan
-                                          : error.toString(),
-                                    );
-                                  }
-                                } finally {
-                                  closeDialog();
-                                  if (context.mounted) {
-                                    isApplying.value = false;
-                                  }
-                                }
-                              },
-                        prefixIcon: isApplying.value
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator.adaptive(
-                                    strokeWidth: 2),
-                              )
-                            : const SizedBox(),
-                        child: Text(context.l10n.apply),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 450),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final offset = Tween<Offset>(
+            begin: const Offset(0, 0.025),
+            end: Offset.zero,
+          ).animate(animation);
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: offset, child: child),
           );
         },
+        child: result.when(
+          loading: () => const KeyedSubtree(
+            key: ValueKey('pockets_ai_budget_suggestions_loading'),
+            child: _SuggestionsLoadingView(),
+          ),
+          error: (error, _) => KeyedSubtree(
+            key: const ValueKey('pockets_ai_budget_suggestions_error'),
+            child: _SuggestionsErrorView(
+              colorScheme: colorScheme,
+              onRetry: () =>
+                  ref.invalidate(pocketsAiBudgetSuggestionsProvider(request)),
+            ),
+          ),
+          data: (data) {
+            final totalPocketTargetsCents = data.suggestions.fold<int>(
+              0,
+              (sum, item) => sum + item.amountCents,
+            );
+            final totalSuggestedCents =
+                data.suggestedTotalBudgetCents == totalPocketTargetsCents
+                    ? data.suggestedTotalBudgetCents!
+                    : totalPocketTargetsCents;
+            final totalIncomingCarryCents = data.suggestions.fold<int>(
+              0,
+              (sum, item) {
+                final pocket = pocketMap[item.envelopeId];
+                final incomingCarryCents = item.incomingCarryCents ??
+                    pocket?.rolloverFromPreviousCents ??
+                    pocket?.openingRolloverCents ??
+                    0;
+                return sum + incomingCarryCents;
+              },
+            );
+
+            final coachingCards = data.insights.isNotEmpty
+                ? data.insights
+                    .map(
+                      (insight) => _CoachingCardItem(
+                        title: insight.title.trim(),
+                        body: insight.summary.trim(),
+                        action: insight.action?.trim(),
+                        tagColor: colorScheme.primary,
+                      ),
+                    )
+                    .toList(growable: false)
+                : [
+                    if (data.celebration != null &&
+                        data.celebration!.trim().isNotEmpty)
+                      _CoachingCardItem(
+                        tag: context.l10n.win,
+                        title: context.l10n.whatYouDidWell,
+                        body: data.celebration!.trim(),
+                        tagColor: colorScheme.primary,
+                      ),
+                    if (data.topSpendInsight != null &&
+                        data.topSpendInsight!.trim().isNotEmpty)
+                      _CoachingCardItem(
+                        tag: context.l10n.strategy,
+                        title: context.l10n.smartSpendingStrategy,
+                        body: data.topSpendInsight!.trim(),
+                        tagColor: colorScheme.primary,
+                      ),
+                    if (data.pocketsHealthTip != null &&
+                        data.pocketsHealthTip!.trim().isNotEmpty)
+                      _CoachingCardItem(
+                        tag: context.l10n.mindset,
+                        title: context.l10n.budgetingPeaceOfMind,
+                        body: data.pocketsHealthTip!.trim(),
+                        tagColor: colorScheme.primary,
+                      ),
+                  ];
+
+            return KeyedSubtree(
+              key: const ValueKey('pockets_ai_budget_suggestions_data'),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 6, 18, 40),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Hero Editorial Statement (Apple-style Typography)
+                          _EditorialHeroHeader(
+                            colorScheme: colorScheme,
+                            currencySymbol: currencySymbol,
+                            totalSuggestedCents: totalSuggestedCents,
+                            totalIncomingCarryCents: totalIncomingCarryCents,
+                            monthLabel: monthLabel,
+                            headline: data.headline,
+                            summary: data.summary,
+                            cashFlow: data.cashFlow,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Coaching Stories Carousel
+                          if (coachingCards.isNotEmpty) ...[
+                            _CoachingFlashCardsCarousel(
+                              cards: coachingCards,
+                              colorScheme: colorScheme,
+                              textTheme: textTheme,
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+
+                          // Section Header
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${context.l10n.suggestedPocketTargets.toUpperCase()} (${data.suggestions.length})',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.2,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  context
+                                      .l10n.pocketsAiPagePocketsSectionSubtitle,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.mutedForeground,
+                                    letterSpacing: -0.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Pocket Suggestion Items
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: data.suggestions.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final item = data.suggestions[index];
+                              final pocket = pocketMap[item.envelopeId];
+                              return _PocketSuggestionComboItem(
+                                item: item,
+                                pocket: pocket,
+                                totalBudget: pocketsState.totalBudget,
+                                usesPreviousMonthPockets:
+                                    data.usesPreviousMonthPockets,
+                                currency: effectiveCurrency,
+                                currencySymbol: currencySymbol,
+                                colorScheme: colorScheme,
+                                textTheme: textTheme,
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 28),
+                          Text(
+                            context.l10n.pocketsAiPageDisclaimer,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.mutedForeground
+                                  .withValues(alpha: 0.7),
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Bottom Apply Button
+                          PrimaryAdaptiveButton(
+                            onPressed: isApplying.value
+                                ? null
+                                : () async {
+                                    final rootNavigator = Navigator.of(context,
+                                        rootNavigator: true);
+                                    final toastContext = rootNavigator.context;
+                                    isApplying.value = true;
+                                    var dialogOpen = false;
+                                    showBlockingProcessingDialog(
+                                      context: toastContext,
+                                      message: context.l10n.saving,
+                                    );
+                                    dialogOpen = true;
+
+                                    void closeDialog() {
+                                      if (!dialogOpen) return;
+                                      if (rootNavigator.canPop()) {
+                                        rootNavigator.pop();
+                                      }
+                                      dialogOpen = false;
+                                    }
+
+                                    try {
+                                      final sourceSuggestedMap = <String, int>{
+                                        for (final s in data.suggestions)
+                                          s.envelopeId: s.amountCents,
+                                      };
+                                      var suggestedMap = sourceSuggestedMap;
+
+                                      if (pocketsState.editing.isEmpty &&
+                                          (pocketsState
+                                                  .hasPreviousMonthPockets ||
+                                              data.usesPreviousMonthPockets) &&
+                                          scopeParams.periodMonth != null) {
+                                        final prevMonth =
+                                            previousFinancialCycleStart(
+                                          scopeParams.periodMonth!,
+                                          startDay: scopeParams
+                                              .normalizedFinancialMonthStartDay,
+                                        );
+                                        final copiedPocketIds =
+                                            await pocketsNotifier
+                                                .copyPocketsFromMonth(
+                                                    prevMonth);
+                                        suggestedMap =
+                                            rebindCopiedPocketSuggestionAmounts(
+                                          sourceAmountsCents:
+                                              sourceSuggestedMap,
+                                          copiedPocketIds: copiedPocketIds,
+                                        );
+                                      }
+
+                                      pocketsNotifier
+                                          .applySuggestedPocketAmounts(
+                                        suggestedMap,
+                                        suggestedTotalBudgetCents:
+                                            data.suggestedTotalBudgetCents,
+                                      );
+                                      await pocketsNotifier.saveChanges();
+
+                                      closeDialog();
+                                      if (context.mounted) {
+                                        AppToast.success(
+                                          context,
+                                          context.l10n
+                                              .aiBudgetPlanAppliedSuccessfully,
+                                        );
+                                        Navigator.of(context).pop();
+                                      }
+                                    } catch (error) {
+                                      closeDialog();
+                                      if (context.mounted) {
+                                        AppToast.error(
+                                          context,
+                                          error is PocketsAiBudgetSuggestionsException &&
+                                                  error.code ==
+                                                      'POCKETS_CHANGED'
+                                              ? context.l10n
+                                                  .pocketsChangedWhilePreparingPlan
+                                              : error.toString(),
+                                        );
+                                      }
+                                    } finally {
+                                      closeDialog();
+                                      if (context.mounted) {
+                                        isApplying.value = false;
+                                      }
+                                    }
+                                  },
+                            prefixIcon: isApplying.value
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator.adaptive(
+                                        strokeWidth: 2),
+                                  )
+                                : const SizedBox(),
+                            child: Text(context.l10n.apply),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -527,13 +558,12 @@ class _EditorialHeroHeader extends StatelessWidget {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(
-                    hasDebt ? '−' : '+',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.mutedForeground.withValues(alpha: 0.7),
-                    ),
+                  child: Icon(
+                    hasDebt
+                        ? Icons.trending_down_rounded
+                        : Icons.trending_up_rounded,
+                    size: 18,
+                    color: colorScheme.mutedForeground.withValues(alpha: 0.7),
                   ),
                 ),
                 Expanded(
@@ -683,8 +713,9 @@ class _KnownCashFlowSummary extends StatelessWidget {
               ),
               _CashFlowAmount(
                 label: context.l10n.remaining,
-                amount: '${remaining < 0 ? '−' : ''}${format(remaining)}',
+                amount: format(remaining),
                 color: remaining < 0 ? colorScheme.error : colorScheme.primary,
+                isNegative: remaining < 0,
               ),
             ],
           ),
@@ -709,11 +740,13 @@ class _CashFlowAmount extends StatelessWidget {
     required this.label,
     required this.amount,
     required this.color,
+    this.isNegative,
   });
 
   final String label;
   final String amount;
   final Color color;
+  final bool? isNegative;
 
   @override
   Widget build(BuildContext context) {
@@ -722,14 +755,11 @@ class _CashFlowAmount extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            amount,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
-              color: color,
-            ),
+          _SignedAmountDisplay(
+            amount: amount,
+            color: color,
+            isNegative: isNegative,
+            fontSize: 16,
           ),
           const SizedBox(height: 2),
           Text(
@@ -1029,15 +1059,13 @@ class _PocketSuggestionComboItem extends StatelessWidget {
         item.rolloverEnabled || (pocket?.rolloverEnabled ?? false);
     final suggestedAvailableCents = item.amountCents + incomingCarryCents;
 
-    String moneyFromCents(int cents, {bool includeSign = false}) {
+    String moneyFromCents(int cents) {
       final amount = formatLocalizedNumber(context, cents.abs() / 100.0);
-      final sign = !includeSign || cents == 0 ? '' : (cents > 0 ? '+' : '-');
-      return '$sign$currencySymbol$amount';
+      return '$currencySymbol$amount';
     }
 
     final availableAfterPlanDisplay = moneyFromCents(
       suggestedAvailableCents,
-      includeSign: suggestedAvailableCents < 0,
     );
 
     void showPlanDetails() {
@@ -1052,11 +1080,11 @@ class _PocketSuggestionComboItem extends StatelessWidget {
         builder: (_) => _PocketPlanDetailsSheet(
           pocketName: pocketName,
           suggestedAddDisplay: moneyFromCents(item.amountCents),
-          incomingCarryDisplay: moneyFromCents(
-            incomingCarryCents,
-            includeSign: incomingCarryCents != 0,
-          ),
+          incomingCarryDisplay: moneyFromCents(incomingCarryCents),
+          incomingCarryIsNegative: incomingCarryCents < 0,
+          incomingCarryHasDirection: incomingCarryCents != 0,
           availableAfterPlanDisplay: availableAfterPlanDisplay,
+          availableAfterPlanIsNegative: suggestedAvailableCents < 0,
           rolloverEnabled: rolloverEnabled,
           historicalSpentDisplay: spentDisplay,
           historicalPlannedDisplay: limitDisplay,
@@ -1147,14 +1175,13 @@ class _PocketSuggestionComboItem extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              availableAfterPlanDisplay,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                                color: colorScheme.pocketTitle,
-                              ),
+                            _SignedAmountDisplay(
+                              amount: availableAfterPlanDisplay,
+                              color: colorScheme.pocketTitle,
+                              isNegative:
+                                  suggestedAvailableCents < 0 ? true : null,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
                             ),
                           ],
                         ),
@@ -1216,7 +1243,10 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
     required this.pocketName,
     required this.suggestedAddDisplay,
     required this.incomingCarryDisplay,
+    required this.incomingCarryIsNegative,
+    required this.incomingCarryHasDirection,
     required this.availableAfterPlanDisplay,
+    required this.availableAfterPlanIsNegative,
     required this.rolloverEnabled,
     required this.historicalSpentDisplay,
     required this.historicalPlannedDisplay,
@@ -1230,7 +1260,10 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
   final String pocketName;
   final String suggestedAddDisplay;
   final String incomingCarryDisplay;
+  final bool incomingCarryIsNegative;
+  final bool incomingCarryHasDirection;
   final String availableAfterPlanDisplay;
+  final bool availableAfterPlanIsNegative;
   final bool rolloverEnabled;
   final String historicalSpentDisplay;
   final String historicalPlannedDisplay;
@@ -1299,11 +1332,15 @@ class _PocketPlanDetailsSheet extends StatelessWidget {
                 _PlanDetailRow(
                   label: context.l10n.carriedIn,
                   value: incomingCarryDisplay,
+                  isNegative: incomingCarryIsNegative,
+                  showDirectionIcon: incomingCarryHasDirection,
                   colorScheme: colorScheme,
                 ),
               _PlanDetailRow(
                 label: context.l10n.availableAfterPlan,
                 value: availableAfterPlanDisplay,
+                isNegative: availableAfterPlanIsNegative,
+                showDirectionIcon: availableAfterPlanIsNegative,
                 emphasized: true,
                 colorScheme: colorScheme,
               ),
@@ -1435,12 +1472,16 @@ class _PlanDetailRow extends StatelessWidget {
     required this.value,
     required this.colorScheme,
     this.emphasized = false,
+    this.isNegative = false,
+    this.showDirectionIcon = false,
   });
 
   final String label;
   final String value;
   final ColorScheme colorScheme;
   final bool emphasized;
+  final bool isNegative;
+  final bool showDirectionIcon;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -1458,19 +1499,59 @@ class _PlanDetailRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: emphasized ? 16 : 14.5,
-                fontWeight: emphasized ? FontWeight.w800 : FontWeight.w600,
-                letterSpacing: -0.2,
-                color:
-                    emphasized ? colorScheme.primary : colorScheme.foreground,
-              ),
+            _SignedAmountDisplay(
+              amount: value,
+              color: emphasized ? colorScheme.primary : colorScheme.foreground,
+              isNegative: showDirectionIcon ? isNegative : null,
+              fontSize: emphasized ? 16 : 14.5,
+              fontWeight: emphasized ? FontWeight.w800 : FontWeight.w600,
             ),
           ],
         ),
       );
+}
+
+class _SignedAmountDisplay extends StatelessWidget {
+  const _SignedAmountDisplay({
+    required this.amount,
+    required this.color,
+    required this.isNegative,
+    required this.fontSize,
+    this.fontWeight = FontWeight.w700,
+  });
+
+  final String amount;
+  final Color color;
+  final bool? isNegative;
+  final double fontSize;
+  final FontWeight fontWeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      amount,
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        letterSpacing: -0.3,
+        color: color,
+      ),
+    );
+    if (isNegative == null) return text;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isNegative! ? Icons.trending_down_rounded : Icons.trending_up_rounded,
+          size: fontSize + 2,
+          color: color,
+        ),
+        const SizedBox(width: 2),
+        text,
+      ],
+    );
+  }
 }
 
 class _SuggestionsLoadingView extends StatelessWidget {
@@ -1488,6 +1569,7 @@ class _SuggestionsLoadingView extends StatelessWidget {
         l10n.balancingPocketTargets,
         l10n.finalizingYourPlan,
       ],
+      iconSize: 132,
       stepDurations: const [
         Duration(milliseconds: 3500),
         Duration(milliseconds: 4500),

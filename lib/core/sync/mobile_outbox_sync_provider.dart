@@ -227,7 +227,26 @@ Future<void> _dispatchMobileMutation(
             'Transaction create sync succeeded without a saved transaction payload',
           );
         }
-        final savedEntry = ExpenseEntry.fromJson(savedPayload).copyWith(
+        final queuedTransaction = _mapValue(payload['transaction']);
+        final queuedEntry = queuedTransaction == null
+            ? null
+            : ExpenseEntry.fromJson(queuedTransaction);
+        final parsedSavedEntry = ExpenseEntry.fromJson(savedPayload);
+        final matchingQueuedMerchantDomain =
+            parsedSavedEntry.merchantId != null &&
+                    parsedSavedEntry.merchantId == queuedEntry?.merchantId
+                ? queuedEntry?.merchantDomain
+                : null;
+        final matchingQueuedMerchantLogoUrl =
+            parsedSavedEntry.merchantId != null &&
+                    parsedSavedEntry.merchantId == queuedEntry?.merchantId
+                ? queuedEntry?.merchantLogoUrl
+                : null;
+        final savedEntry = parsedSavedEntry.copyWith(
+          merchantDomain:
+              parsedSavedEntry.merchantDomain ?? matchingQueuedMerchantDomain,
+          merchantLogoUrl:
+              parsedSavedEntry.merchantLogoUrl ?? matchingQueuedMerchantLogoUrl,
           clientRecordId: mutation.entityId,
           clientMutationId: mutation.clientMutationId,
           idempotencyKey:
@@ -239,7 +258,6 @@ Future<void> _dispatchMobileMutation(
           savedEntry: savedEntry,
           clientMutationId: mutation.clientMutationId,
         );
-        final queuedTransaction = _mapValue(payload['transaction']);
         if (reconciledEntry != null) {
           reconcileSyncedHouseholdTransactionOverlays(
             expensesNotifier:
@@ -326,6 +344,35 @@ Future<void> _dispatchMobileMutation(
         clientMutationId: mutation.clientMutationId,
       );
       _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
+      return;
+    case 'batch_update_transaction':
+      final responseBody = await _invokeMutationFunction(
+        'update-transactions-batch',
+        {
+          ..._metadataFromPayload(payload),
+          'transactionIds': payload['transactionIds'],
+          'householdId': payload['householdId'],
+          'currencies': payload['currencies'],
+          'updates': _mapValue(payload['updates']) ?? const <String, dynamic>{},
+          'descriptorsById': payload['descriptorsById'],
+        },
+      );
+      final responseData = responseBody['data'];
+      if (responseData is! List) {
+        throw StateError(
+            'Batch transaction update sync succeeded without rows');
+      }
+      final entries = responseData
+          .whereType<Map>()
+          .map((entry) =>
+              ExpenseEntry.fromJson(Map<String, dynamic>.from(entry)))
+          .toList(growable: false);
+      await database.markOptimisticTransactionBatchUpdateSynced(
+        entries: entries,
+        clientMutationId: mutation.clientMutationId,
+      );
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       return;
     case 'skip_recurring_occurrence':
       await _invokeMutationFunction(
@@ -502,6 +549,36 @@ Future<void> _handleCancelledMobileMutation(
   MonekoDatabase database,
   LocalMutationOutboxData mutation,
 ) async {
+  if (mutation.entityType == 'pockets_month') {
+    final currentMutations = await database.getOutboxMutations();
+    if (!cancelledPocketMutationStillOwnsOutbox(
+      mutation,
+      currentMutations,
+    )) {
+      return;
+    }
+    final payload = _decodePayload(mutation.payloadJson);
+    final userId = payload['userId']?.toString() ?? '';
+    final restoreResult = await restorePocketsRollbackSnapshot(
+      payload,
+      database: database,
+      mutation: mutation,
+    );
+    if (restoreResult == PocketsRollbackRestoreResult.stale) return;
+    if (restoreResult == PocketsRollbackRestoreResult.unavailable &&
+        userId.isNotEmpty) {
+      await clearPocketsCachesForUser(ref, userId: userId);
+    }
+    ref.invalidate(pocketsProvider);
+    ref.invalidate(pocketDetailsProvider);
+    ref.read(pocketsRefreshSignalProvider.notifier).state += 1;
+    ref.read(widgetSyncVersionProvider.notifier).state += 1;
+    ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
+      id: mutation.clientMutationId,
+      feature: 'pockets',
+    );
+    return;
+  }
   if (mutation.entityType != 'wallet') {
     await database.markTransactionMutationExhausted(mutation: mutation);
     ref
@@ -555,6 +632,19 @@ Future<void> _handleCancelledMobileMutation(
     ref,
     _walletIdsForMutation(mutation, payload),
   );
+}
+
+bool cancelledPocketMutationStillOwnsOutbox(
+  LocalMutationOutboxData cancelledMutation,
+  Iterable<LocalMutationOutboxData> currentMutations,
+) {
+  return cancelledMutation.entityType == 'pockets_month' &&
+      currentMutations.any(
+        (current) =>
+            current.clientMutationId == cancelledMutation.clientMutationId &&
+            current.payloadJson == cancelledMutation.payloadJson &&
+            current.status == localMutationStatusCancelled,
+      );
 }
 
 List<ExpenseEntry> _walletTransferOriginalEntries(

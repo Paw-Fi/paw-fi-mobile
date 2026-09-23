@@ -43,7 +43,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          monthlyIntroInsightsProvider(insightParams).overrideWithValue(testState),
+          monthlyIntroInsightsProvider(insightParams)
+              .overrideWithValue(testState),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -74,7 +75,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('+€230'), findsOneWidget);
+    expect(find.text('€230'), findsOneWidget);
+    expect(find.byIcon(Icons.trending_up_rounded), findsOneWidget);
     expect(find.text('Carried forward'), findsOneWidget);
 
     // Verify milestone badge
@@ -120,7 +122,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          monthlyIntroInsightsProvider(insightParams).overrideWithValue(testState),
+          monthlyIntroInsightsProvider(insightParams)
+              .overrideWithValue(testState),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -143,7 +146,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('+€92'), findsOneWidget);
+    expect(find.text('€92'), findsOneWidget);
+    expect(find.byIcon(Icons.trending_up_rounded), findsOneWidget);
     expect(find.text('Above plan in August'), findsOneWidget);
   });
 

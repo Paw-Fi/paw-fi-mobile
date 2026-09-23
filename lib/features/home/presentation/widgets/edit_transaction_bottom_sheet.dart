@@ -207,14 +207,15 @@ class _EditTransactionBottomSheetState
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: colorScheme.brightness == Brightness.dark
-                                  ? Colors.white.withValues(alpha: 0.05)
-                                  : Colors.black.withValues(alpha: 0.03),
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.04),
                               borderRadius: BorderRadius.circular(100),
                               border: Border.all(
-                                color: colorScheme.outline.withValues(alpha: 0.08),
+                                color:
+                                    colorScheme.outline.withValues(alpha: 0.08),
                                 width: 1,
                               ),
                             ),
@@ -240,7 +241,8 @@ class _EditTransactionBottomSheetState
                           ),
                         ],
                       ),
-                      if (effectiveTitle != null && effectiveTitle.isNotEmpty) ...[
+                      if (effectiveTitle != null &&
+                          effectiveTitle.isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Text(
                           effectiveTitle,
@@ -758,8 +760,7 @@ class _EditTransactionBottomSheetState
     final result = await MonekoAlertDialog.show(
       context: context,
       title: 'Transaction Moved',
-      description:
-          'This transaction has been moved to $newCurrency currency.',
+      description: 'This transaction has been moved to $newCurrency currency.',
       confirmLabel: 'Got it',
       showCancelButton: false,
       content: Column(

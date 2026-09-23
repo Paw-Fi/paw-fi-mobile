@@ -287,8 +287,9 @@ Future<int?> _defaultImportExpensesAction(
       };
 
       try {
-        final response =
-            await supabase.functions.invoke(endpoint, body: saveBody);
+        final response = await supabase.functions
+            .invoke(endpoint, body: saveBody)
+            .timeout(const Duration(seconds: 60));
         if (response.data != null && response.data['success'] == true) {
           success += 1;
         }

@@ -493,6 +493,11 @@ class GroupedTransactionsList extends StatelessWidget {
                   showPendingChip: expense.isProviderPending,
                   showCurrencyFlag: showCurrencyFlag,
                   accountLabel: expense.accountName,
+                  merchantId: expense.merchantId,
+                  merchantDomain: expense.merchantDomain,
+                  merchantLogoUrl: expense.merchantLogoUrl,
+                  merchantStructuredName: expense.merchantStructuredName,
+                  merchantName: expense.merchant,
                   useCustomCategoryStyleOverrides:
                       expense.householdId?.trim().isEmpty ?? true,
                 ),
@@ -879,6 +884,11 @@ class SliverGroupedTransactionsList extends StatelessWidget {
                   showPendingChip: expense.isProviderPending,
                   showCurrencyFlag: showCurrencyFlag,
                   accountLabel: expense.accountName,
+                  merchantId: expense.merchantId,
+                  merchantDomain: expense.merchantDomain,
+                  merchantLogoUrl: expense.merchantLogoUrl,
+                  merchantStructuredName: expense.merchantStructuredName,
+                  merchantName: expense.merchant,
                   useCustomCategoryStyleOverrides:
                       expense.householdId?.trim().isEmpty ?? true,
                 ),

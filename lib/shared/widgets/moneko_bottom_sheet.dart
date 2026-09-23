@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
 class MonekoSheetConfirmController extends ChangeNotifier {
@@ -107,7 +108,7 @@ class MonekoBottomSheet {
       elevation: elevation,
       shape: shape ??
           const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
           ),
       clipBehavior: clipBehavior,
       constraints: constraints,
@@ -164,7 +165,7 @@ class _MonekoSheetContent extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
         border: Border(top: BorderSide(color: colorScheme.sheetBorder)),
       ),
       child: Column(
@@ -179,63 +180,67 @@ class _MonekoSheetContent extends StatelessWidget {
               onCloseWithContext != null ||
               onConfirm != null ||
               confirmController != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Close Button
-                  if (onCloseWithContext != null || onClose != null)
-                    IconButton(
-                      onPressed: () {
-                        if (onCloseWithContext != null) {
-                          onCloseWithContext!(context);
-                        } else {
-                          onClose?.call();
-                        }
-                      },
-                      icon: Icon(Icons.close, color: colorScheme.onSurface),
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.onSurface.withValues(alpha: 0.1),
-                      ),
-                    )
-                  else
-                    const SizedBox(width: 48),
+            MonekoTextScale(
+              mode: MonekoTextScaling.compact,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Close Button
+                    if (onCloseWithContext != null || onClose != null)
+                      IconButton(
+                        onPressed: () {
+                          if (onCloseWithContext != null) {
+                            onCloseWithContext!(context);
+                          } else {
+                            onClose?.call();
+                          }
+                        },
+                        icon: Icon(Icons.close, color: colorScheme.onSurface),
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                              colorScheme.onSurface.withValues(alpha: 0.1),
+                        ),
+                      )
+                    else
+                      const SizedBox(width: 48),
 
-                  // Title
-                  if (title != null)
-                    Expanded(
-                      child: Text(
-                        title!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
+                    // Title
+                    if (title != null)
+                      Expanded(
+                        child: Text(
+                          title!,
+                          maxLines:
+                              MonekoTextScale.isAtLeast(context, 1.5) ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
                         ),
                       ),
-                    ),
 
-                  // Check Button
-                  if (confirmController != null)
-                    AnimatedBuilder(
-                      animation: confirmController!,
-                      builder: (context, _) => MonekoSheetConfirmButton(
-                        onPressed: confirmController!.confirm,
-                        isLoading: confirmController!.isLoading,
-                      ),
-                    )
-                  else if (onConfirm != null)
-                    MonekoSheetConfirmButton(
-                      onPressed: onConfirm,
-                      isLoading: isConfirmLoading,
-                    )
-                  else
-                    const SizedBox(width: 48),
-                ],
+                    // Check Button
+                    if (confirmController != null)
+                      AnimatedBuilder(
+                        animation: confirmController!,
+                        builder: (context, _) => MonekoSheetConfirmButton(
+                          onPressed: confirmController!.confirm,
+                          isLoading: confirmController!.isLoading,
+                        ),
+                      )
+                    else if (onConfirm != null)
+                      MonekoSheetConfirmButton(
+                        onPressed: onConfirm,
+                        isLoading: isConfirmLoading,
+                      )
+                    else
+                      const SizedBox(width: 48),
+                  ],
+                ),
               ),
             ),
 

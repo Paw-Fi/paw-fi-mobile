@@ -100,6 +100,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'SA': 'SAR',
     'MW': 'MWK',
     'MU': 'MUR',
+    'MA': 'MAD',
     'TR': 'TRY',
   };
 

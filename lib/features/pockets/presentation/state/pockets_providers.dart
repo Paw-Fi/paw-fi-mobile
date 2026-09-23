@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
@@ -310,6 +311,20 @@ List<String>? normalizePocketSelectedCurrencies(List<String>? currencies) {
   return normalized;
 }
 
+@foundation.visibleForTesting
+String resolvePocketResponseCurrency({
+  required String requestedCurrency,
+  required String? responseCurrency,
+  required bool allowCurrencyFallback,
+}) {
+  final requested = requestedCurrency.trim().toUpperCase();
+  final response = responseCurrency?.trim().toUpperCase();
+  if (allowCurrencyFallback && response != null && response.isNotEmpty) {
+    return response;
+  }
+  return requested;
+}
+
 String _pocketsCurrenciesCacheKey(
   String selectedCurrency,
   List<String>? selectedCurrencies,
@@ -439,6 +454,87 @@ Future<void> clearPocketsCachesForUser(
   } finally {
     bypass.state = bypass.state > 0 ? bypass.state - 1 : 0;
   }
+}
+
+enum PocketsRollbackRestoreResult { restored, unavailable, stale }
+
+Future<PocketsRollbackRestoreResult> restorePocketsRollbackSnapshot(
+  Map<String, dynamic> payload, {
+  required MonekoDatabase database,
+  required LocalMutationOutboxData mutation,
+}) async {
+  final rawState = payload['rollbackState'];
+  final userId = payload['userId']?.toString().trim() ?? '';
+  final currency = payload['currency']?.toString().trim().toUpperCase() ?? '';
+  if (rawState is! Map || userId.isEmpty || currency.isEmpty) {
+    return PocketsRollbackRestoreResult.unavailable;
+  }
+
+  final rollbackState = PocketsState.fromCacheJson(
+    Map<String, dynamic>.from(rawState),
+  ).copyWith(isLoading: false, clearError: true);
+  final scopeName = payload['scope']?.toString();
+  PocketsScopeType? scope;
+  for (final value in PocketsScopeType.values) {
+    if (value.name == scopeName) {
+      scope = value;
+      break;
+    }
+  }
+  if (scope == null) return PocketsRollbackRestoreResult.unavailable;
+
+  final selectedCurrencies =
+      ((payload['selectedCurrencies'] as List?) ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false);
+  final normalizedSelectedCurrencies =
+      normalizePocketSelectedCurrencies(selectedCurrencies);
+  final financialMonthStartDay = normalizeFinancialMonthStartDay(
+    (payload['financialMonthStartDay'] as num?)?.toInt(),
+  );
+  final includeUpcomingRecurring = payload['includeUpcomingRecurring'] != false;
+  final allowCurrencyFallback = payload['allowCurrencyFallback'] == true;
+  final householdId = payload['householdId']?.toString();
+  final periodMonth = _formatDate(rollbackState.periodMonth);
+  final currenciesKey = _pocketsCurrenciesCacheKey(
+    currency,
+    normalizedSelectedCurrencies,
+  );
+  final cacheKey = (
+    userId: userId,
+    scope: scope,
+    householdId: householdId,
+    periodMonth: periodMonth,
+    currency: currency,
+    currenciesKey: currenciesKey,
+    financialMonthStartDay: financialMonthStartDay,
+    includeUpcomingRecurring: includeUpcomingRecurring,
+    allowCurrencyFallback: allowCurrencyFallback,
+  );
+  final restoredAt = DateTime.now();
+  final cachePayload = <String, dynamic>{
+    'cached_at': restoredAt.toIso8601String(),
+    'state': rollbackState.toCacheJson(),
+  };
+  final didRestore = await persistPocketsRollbackCacheIfMutationMatches(
+    database,
+    key: pocketsPersistedCacheKey(
+      userId: userId,
+      scope: scope.name,
+      householdId: householdId,
+      periodMonth: periodMonth,
+      currency: currency,
+      currenciesKey: currenciesKey,
+      financialMonthStartDay: financialMonthStartDay,
+      includeUpcomingRecurring: includeUpcomingRecurring,
+      allowCurrencyFallback: allowCurrencyFallback,
+    ),
+    payload: cachePayload,
+    mutation: mutation,
+  );
+  if (!didRestore) return PocketsRollbackRestoreResult.stale;
+  _pocketsMonthCache.set(cacheKey, rollbackState, restoredAt);
+  return PocketsRollbackRestoreResult.restored;
 }
 
 void _invalidatePocketsCachesForUser(
@@ -943,8 +1039,20 @@ class PocketsScopeParams {
   List<String>? get normalizedSelectedCurrencies =>
       normalizePocketSelectedCurrencies(selectedCurrencies);
 
+  String? get normalizedCurrency {
+    final normalized = currency?.trim().toUpperCase();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
   int get normalizedFinancialMonthStartDay =>
       normalizeFinancialMonthStartDay(financialMonthStartDay);
+
+  DateTime? get normalizedPeriodMonth => periodMonth == null
+      ? null
+      : financialCycleStartForDate(
+          periodMonth!,
+          startDay: normalizedFinancialMonthStartDay,
+        );
 
   PocketsScopeParams copyWith({
     PocketsScopeType? scope,
@@ -975,8 +1083,8 @@ class PocketsScopeParams {
     return other is PocketsScopeParams &&
         other.scope == scope &&
         other.householdId == householdId &&
-        other.periodMonth == periodMonth &&
-        other.currency == currency &&
+        other.normalizedPeriodMonth == normalizedPeriodMonth &&
+        other.normalizedCurrency == normalizedCurrency &&
         _sameStringList(
           other.normalizedSelectedCurrencies,
           normalizedSelectedCurrencies,
@@ -991,13 +1099,26 @@ class PocketsScopeParams {
   int get hashCode => Object.hash(
         scope,
         householdId,
-        periodMonth,
-        currency,
+        normalizedPeriodMonth,
+        normalizedCurrency,
         Object.hashAll(normalizedSelectedCurrencies ?? const <String>[]),
         normalizedFinancialMonthStartDay,
         isBootstrapCurrency,
         includeUpcomingRecurring,
       );
+}
+
+PocketsScopeParams previousPocketsScopeParams(PocketsScopeParams params) {
+  final currentMonth = financialCycleStartForDate(
+    params.periodMonth ?? DateTime.now(),
+    startDay: params.normalizedFinancialMonthStartDay,
+  );
+  return params.copyWith(
+    periodMonth: previousFinancialCycleStart(
+      currentMonth,
+      startDay: params.normalizedFinancialMonthStartDay,
+    ),
+  );
 }
 
 Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
@@ -1144,7 +1265,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
 // back to the correct wallet without account_id, and removing it reintroduces
 // the "wallet recurring transactions are missing" regression.
 const _recurringExpensesSelectFields =
-    'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
+    'id, date, category, raw_text, merchant, merchant_id, merchant_structured_name, merchants(domain, logo_identifier), breakdown, source, amount_cents, '
     'currency, owner_type, privacy_scope, household_id, is_recurring, '
     'user_id, split_group_id, account_id, bank_account_id, provider, recurrence_rule, type, '
     'attachments, created_at, updated_at';
@@ -1590,8 +1711,12 @@ Map<String, dynamic> buildPocketsMonthMutationPayload({
   required List<PocketEnvelope> pockets,
   required Map<String, List<String>> envelopeCategories,
   List<String> deletedPocketIds = const [],
+  String? mutationRevision,
+  PocketsState? rollbackState,
 }) {
   return {
+    if (mutationRevision != null) 'mutationRevision': mutationRevision,
+    if (rollbackState != null) 'rollbackState': rollbackState.toCacheJson(),
     'userId': userId,
     'scope': scopeType.name,
     'householdId': householdId,
@@ -2278,6 +2403,103 @@ class _PendingPocketCategoryAssignment {
   final PocketsState previousState;
 }
 
+class PocketsMutationHandle {
+  const PocketsMutationHandle({
+    required this.clientMutationId,
+    required this.revision,
+  });
+
+  final String clientMutationId;
+  final String revision;
+}
+
+@foundation.visibleForTesting
+PocketsState resolvePocketsRollbackStateForReplacement({
+  required Iterable<LocalMutationOutboxData> existingMutations,
+  required String clientMutationId,
+  required PocketsState currentRollbackState,
+}) {
+  for (final existing in existingMutations) {
+    if (existing.clientMutationId != clientMutationId ||
+        (existing.status != localMutationStatusQueued &&
+            existing.status != localMutationStatusFailed &&
+            existing.status != localMutationStatusSyncing)) {
+      continue;
+    }
+    try {
+      final existingPayload = jsonDecode(existing.payloadJson);
+      final existingRollback =
+          existingPayload is Map ? existingPayload['rollbackState'] : null;
+      if (existingRollback is Map) {
+        return PocketsState.fromCacheJson(
+          Map<String, dynamic>.from(existingRollback),
+        );
+      }
+    } catch (_) {}
+    break;
+  }
+  return currentRollbackState;
+}
+
+@foundation.visibleForTesting
+List<String> resolvePocketsDeletedPocketIdsForReplacement({
+  required Iterable<LocalMutationOutboxData> existingMutations,
+  required String clientMutationId,
+  required Iterable<String> currentDeletedPocketIds,
+}) {
+  final deletedPocketIds = <String>{};
+
+  void addCanonicalIds(Iterable<dynamic> ids) {
+    deletedPocketIds.addAll(
+      ids
+          .map((id) => id.toString().trim())
+          .where((id) => id.isNotEmpty && !id.startsWith('optimistic-')),
+    );
+  }
+
+  for (final existing in existingMutations) {
+    if (existing.clientMutationId != clientMutationId ||
+        (existing.status != localMutationStatusQueued &&
+            existing.status != localMutationStatusFailed &&
+            existing.status != localMutationStatusSyncing)) {
+      continue;
+    }
+    try {
+      final existingPayload = jsonDecode(existing.payloadJson);
+      final existingDeletedPocketIds =
+          existingPayload is Map ? existingPayload['deletedPocketIds'] : null;
+      if (existingDeletedPocketIds is Iterable) {
+        addCanonicalIds(existingDeletedPocketIds);
+      }
+    } catch (_) {}
+    break;
+  }
+
+  addCanonicalIds(currentDeletedPocketIds);
+  return deletedPocketIds.toList(growable: false);
+}
+
+@foundation.visibleForTesting
+bool shouldRestoreOptimisticPockets({
+  required String? latestMutationRevision,
+  required PocketsMutationHandle mutation,
+  required LocalMutationOutboxData? currentMutation,
+}) {
+  if (latestMutationRevision != mutation.revision) return false;
+  if (currentMutation == null) return true;
+  if (currentMutation.clientMutationId != mutation.clientMutationId ||
+      currentMutation.status != localMutationStatusCancelled) {
+    return false;
+  }
+  try {
+    final payload = jsonDecode(currentMutation.payloadJson);
+    return payload is Map &&
+        payload['mutationRevision']?.toString() == mutation.revision;
+  } catch (_) {
+    return false;
+  }
+}
+
 class PocketsNotifier extends StateNotifier<PocketsState> {
   PocketsNotifier(this.ref, this.params) : super(PocketsState.initial()) {
     // Auto-load once when the notifier is created.
@@ -2336,6 +2558,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   bool _isDrainingSilentReload = false;
   bool _isSilentReloadScheduled = false;
   int _refreshRevision = 0;
+  int _pocketsMutationSequence = 0;
+  String? _latestPocketsMutationRevision;
   int _categoryAssignmentMutationSequence = 0;
   final Map<String, int> _categoryAssignmentRevisions = {};
   final Map<String, _PendingPocketCategoryAssignment>
@@ -3052,12 +3276,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final budgetRow = payload['budget'] as Map?;
       final budgetId = budgetRow?['id']?.toString() ??
           (budgetRows.isEmpty ? null : budgetRows.first['id']?.toString());
-      final rpcCurrency =
-          (payload['selected_currency'] as String?)?.toUpperCase();
-      if (!hasMultiCurrencySelection &&
-          rpcCurrency != null &&
-          rpcCurrency.isNotEmpty) {
-        selectedCurrency = rpcCurrency;
+      final rpcCurrency = payload['selected_currency'] as String?;
+      if (!hasMultiCurrencySelection) {
+        selectedCurrency = resolvePocketResponseCurrency(
+          requestedCurrency: initialCurrency,
+          responseCurrency: rpcCurrency,
+          allowCurrencyFallback: allowCurrencyFallback,
+        );
       }
 
       double centsInSelectedCurrency(num? amountCents, String? sourceCurrency) {
@@ -3934,8 +4159,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   /// envelope IDs (for example AI suggestions) must use this mapping before
   /// applying any changes to the copied pockets.
   Future<Map<String, String>> copyPocketsFromMonth(DateTime sourceMonth) async {
-    if (state.isLoading) return const <String, String>{};
-    if (state.editing.isNotEmpty) return const <String, String>{};
+    if (state.isLoading) {
+      throw StateError('Wait for pockets to finish loading before copying');
+    }
+    if (state.editing.isNotEmpty) {
+      throw StateError('The destination month already has pockets');
+    }
 
     final authUser = ref.read(authProvider);
     if (authUser.isEmpty) {
@@ -3980,9 +4209,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final hasExplicitCurrency =
         explicitCurrency != null && explicitCurrency.isNotEmpty;
 
-    var effectiveCurrency = state.currency.trim().toUpperCase();
+    var effectiveCurrency = explicitCurrency ?? '';
     if (effectiveCurrency.isEmpty) {
-      effectiveCurrency = explicitCurrency ?? '';
+      effectiveCurrency = state.currency.trim().toUpperCase();
     }
     if (effectiveCurrency.isEmpty) {
       effectiveCurrency = ref.read(selectedHomeCurrencyCodeProvider);
@@ -4040,6 +4269,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       targetMonth,
       startDay: params.normalizedFinancialMonthStartDay,
     );
+    if (sourceMonthStart == targetMonthStart) {
+      throw StateError('Source and destination months must be different');
+    }
     final targetPeriodMonth = _formatBudgetMonth(targetMonthStart);
 
     var currentBudgetId = state.budgetId?.trim();
@@ -4106,7 +4338,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     state = state.copyWith(isLoading: false, clearError: true);
 
     final previousState = state;
-    String? queuedMutationId;
+    PocketsMutationHandle? queuedMutation;
     try {
       final nowIso = DateTime.now().toIso8601String();
 
@@ -4403,7 +4635,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         savedEnvelopeCategories: optimisticCategories,
         clearError: true,
       );
-      queuedMutationId = await queueCurrentPocketsSnapshotForSync();
+      queuedMutation = await queueCurrentPocketsSnapshotForSync(
+        rollbackState: previousState,
+      );
 
       final linksPayload = <Map<String, dynamic>>[];
       var insertedCount = 0;
@@ -4452,7 +4686,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
         final insertRes = await supabase
             .from('budget_envelopes')
-            .insert(envelopePayload)
+            .upsert(envelopePayload, onConflict: 'budget_id,name')
             .select('id')
             .maybeSingle();
 
@@ -4487,7 +4721,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       if (linksPayload.isNotEmpty) {
-        await supabase.from('envelope_category_links').insert(linksPayload);
+        await supabase.from('envelope_category_links').upsert(
+              linksPayload,
+              onConflict: 'envelope_id,category',
+            );
       }
 
       _debugLog(
@@ -4502,19 +4739,24 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // Refresh analytics + widgets so other surfaces reflect the copied pockets.
       ref.read(analyticsProvider.notifier).refresh(authUser.uid);
       ref.read(widgetSyncVersionProvider.notifier).state++;
-      final database = await ref.read(localDatabaseProvider.future);
-      await database.markMutationSynced(queuedMutationId);
+      await markQueuedPocketsSnapshotSynced(queuedMutation);
       return copiedPocketIds;
     } catch (e) {
-      if (queuedMutationId != null && _shouldKeepQueuedLocalMutation(e)) {
+      if (queuedMutation != null && _shouldKeepQueuedLocalMutation(e)) {
         ref.read(analyticsProvider.notifier).refresh(authUser.uid);
         ref.read(widgetSyncVersionProvider.notifier).state++;
         rethrow;
       }
+      if (queuedMutation != null) {
+        await cancelQueuedPocketsSnapshot(queuedMutation, e);
+      }
       if (!mounted) rethrow;
-      state = previousState.copyWith(
-        isLoading: false,
-        error: ErrorHandler.getUserFriendlyMessage(e),
+      await restoreOptimisticPockets(
+        previousState.copyWith(
+          isLoading: false,
+          error: ErrorHandler.getUserFriendlyMessage(e),
+        ),
+        mutation: queuedMutation,
       );
       rethrow;
     }
@@ -4610,7 +4852,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return;
     }
     final previousState = state;
-    String? queuedMutationId;
+    PocketsMutationHandle? queuedMutation;
     try {
       final authUser = ref.read(authProvider);
       final selectedCurrency = _resolveWriteCurrency();
@@ -4652,14 +4894,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         savedEnvelopeCategories: state.envelopeCategories,
         clearError: true,
       );
-      await _persistCurrentStateSnapshot(
-        userId: authUser.uid,
-        scopeType: scopeType,
-        householdId: householdId,
-        periodMonth: financialPeriodMonth,
-        currency: selectedCurrency,
-      );
-      queuedMutationId = _pocketsMutationId(
+      queuedMutation = _nextPocketsMutation(
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
@@ -4667,7 +4902,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency: selectedCurrency,
       );
       await _enqueuePocketsSaveMutation(
-        clientMutationId: queuedMutationId,
+        mutation: queuedMutation,
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
@@ -4676,6 +4911,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         budgetId: null,
         totalBudgetCents: (state.totalBudget * 100).round(),
         pockets: optimisticSaved,
+        rollbackState: previousState,
+      );
+      await _persistCurrentStateSnapshot(
+        userId: authUser.uid,
+        scopeType: scopeType,
+        householdId: householdId,
+        periodMonth: financialPeriodMonth,
+        currency: selectedCurrency,
       );
       // The saved snapshot is now available locally. Notify every mounted
       // period provider so Home's date selector updates immediately instead
@@ -4860,29 +5103,27 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // Force widget sync so both budget and top-spending widgets
       // reflect the latest pocket configuration.
       ref.read(widgetSyncVersionProvider.notifier).state++;
-      final database = await ref.read(localDatabaseProvider.future);
-      await database.markMutationSynced(queuedMutationId);
+      await markQueuedPocketsSnapshotSynced(queuedMutation);
     } catch (e) {
-      if (queuedMutationId != null && _shouldKeepQueuedLocalMutation(e)) {
+      if (queuedMutation != null && _shouldKeepQueuedLocalMutation(e)) {
         ref
             .read(analyticsProvider.notifier)
             .refresh(ref.read(authProvider).uid);
         ref.read(widgetSyncVersionProvider.notifier).state++;
         return;
       }
-      if (queuedMutationId != null && isMissingRolloverColumnError(e)) {
-        final database = await ref.read(localDatabaseProvider.future);
-        await database.markMutationCancelled(
-          clientMutationId: queuedMutationId,
-          error: e,
-        );
+      if (queuedMutation != null) {
+        await cancelQueuedPocketsSnapshot(queuedMutation, e);
       }
-      if (!mounted) return;
-      state = previousState.copyWith(
-        error: isMissingRolloverColumnError(e)
-            ? rolloverBackendUnavailableMessage
-            : ErrorHandler.getUserFriendlyMessage(e),
+      if (!mounted) rethrow;
+      final errorMessage = isMissingRolloverColumnError(e)
+          ? rolloverBackendUnavailableMessage
+          : ErrorHandler.getUserFriendlyMessage(e);
+      await restoreOptimisticPockets(
+        previousState.copyWith(error: errorMessage),
+        mutation: queuedMutation,
       );
+      rethrow;
     }
   }
 
@@ -4919,18 +5160,19 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     ref.read(pocketsRefreshSignalProvider.notifier).state++;
   }
 
-  Future<void> rebindOptimisticPocketId({
+  Future<PocketsMutationHandle> rebindOptimisticPocketId({
     required String optimisticId,
     required String canonicalId,
+    PocketsState? rollbackState,
   }) async {
-    if (!mounted) return;
+    if (!mounted) throw StateError('Pockets provider is no longer mounted');
     state = rebindOptimisticPocketIdInState(
       state,
       optimisticId: optimisticId,
       canonicalId: canonicalId,
     );
     final authUser = ref.read(authProvider);
-    if (authUser.isEmpty) return;
+    if (authUser.isEmpty) throw StateError('Not authenticated');
     await _persistCurrentStateSnapshot(
       userId: authUser.uid,
       scopeType: params.scope,
@@ -4938,11 +5180,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       periodMonth: _formatDate(state.periodMonth),
       currency: _resolveWriteCurrency(),
     );
-    await queueCurrentPocketsSnapshotForSync();
+    return queueCurrentPocketsSnapshotForSync(
+      rollbackState: rollbackState,
+    );
   }
 
-  Future<String> queueCurrentPocketsSnapshotForSync({
+  Future<PocketsMutationHandle> queueCurrentPocketsSnapshotForSync({
     List<String> deletedPocketIds = const [],
+    PocketsState? rollbackState,
   }) async {
     final authUser = ref.read(authProvider);
     if (authUser.isEmpty) {
@@ -4958,14 +5203,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (isScopedToHousehold && householdId == null) {
       throw StateError('No household selected for scoped budget save');
     }
-    await _persistCurrentStateSnapshot(
-      userId: authUser.uid,
-      scopeType: scopeType,
-      householdId: householdId,
-      periodMonth: financialPeriodMonth,
-      currency: selectedCurrency,
-    );
-    final mutationId = _pocketsMutationId(
+    final mutation = _nextPocketsMutation(
       userId: authUser.uid,
       scopeType: scopeType,
       householdId: householdId,
@@ -4973,7 +5211,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       currency: selectedCurrency,
     );
     await _enqueuePocketsSaveMutation(
-      clientMutationId: mutationId,
+      mutation: mutation,
       userId: authUser.uid,
       scopeType: scopeType,
       householdId: householdId,
@@ -4983,18 +5221,105 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       totalBudgetCents: (state.totalBudget * 100).round(),
       pockets: state.saved,
       deletedPocketIds: deletedPocketIds,
+      rollbackState: rollbackState,
     );
-    return mutationId;
+    await _persistCurrentStateSnapshot(
+      userId: authUser.uid,
+      scopeType: scopeType,
+      householdId: householdId,
+      periodMonth: financialPeriodMonth,
+      currency: selectedCurrency,
+    );
+    return mutation;
   }
 
-  Future<void> markQueuedPocketsSnapshotSynced(String clientMutationId) async {
+  Future<LocalMutationOutboxData?> _currentPocketsMutation(
+    PocketsMutationHandle mutation,
+  ) async {
     final database = await ref.read(localDatabaseProvider.future);
-    await database.markMutationSynced(clientMutationId);
+    final rows = await database.getOutboxMutations();
+    for (final row in rows) {
+      if (row.clientMutationId == mutation.clientMutationId) return row;
+    }
+    return null;
   }
 
-  void restoreOptimisticPockets(PocketsState previousState) {
+  Future<LocalMutationOutboxData?> _currentQueuedPocketsMutation(
+    PocketsMutationHandle mutation,
+  ) async {
+    final current = await _currentPocketsMutation(mutation);
+    if (current == null) return null;
+    try {
+      final payload = jsonDecode(current.payloadJson);
+      return payload is Map &&
+              payload['mutationRevision']?.toString() == mutation.revision
+          ? current
+          : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> markQueuedPocketsSnapshotSynced(
+    PocketsMutationHandle mutation,
+  ) async {
+    final current = await _currentQueuedPocketsMutation(mutation);
+    if (current == null) return;
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.markMutationSyncedIfPayloadMatches(
+      clientMutationId: mutation.clientMutationId,
+      expectedPayloadJson: current.payloadJson,
+    );
+  }
+
+  Future<void> cancelQueuedPocketsSnapshot(
+    PocketsMutationHandle mutation,
+    Object error,
+  ) async {
+    final current = await _currentQueuedPocketsMutation(mutation);
+    if (current == null) return;
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.markMutationCancelledIfPayloadMatches(
+      clientMutationId: mutation.clientMutationId,
+      expectedPayloadJson: current.payloadJson,
+      error: error,
+    );
+  }
+
+  Future<void> restoreOptimisticPockets(
+    PocketsState previousState, {
+    PocketsMutationHandle? mutation,
+  }) async {
     if (!mounted) return;
+    final currentMutation =
+        mutation == null ? null : await _currentPocketsMutation(mutation);
+    if (mutation != null &&
+        !shouldRestoreOptimisticPockets(
+          latestMutationRevision: _latestPocketsMutationRevision,
+          mutation: mutation,
+          currentMutation: currentMutation,
+        )) {
+      _prepareFreshMutationReload();
+      return;
+    }
     state = previousState;
+    final authUser = ref.read(authProvider);
+    if (!authUser.isEmpty) {
+      await _persistCurrentStateSnapshot(
+        userId: authUser.uid,
+        scopeType: params.scope,
+        householdId: params.householdId,
+        periodMonth: _formatDate(previousState.periodMonth),
+        currency: previousState.currency,
+      );
+    }
+    ref.read(pocketsRefreshSignalProvider.notifier).state++;
+    if (mutation != null) {
+      ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
+        id: mutation.clientMutationId,
+        feature: 'pockets',
+      );
+    }
   }
 
   Future<void> createBudgetFromTemplate({
@@ -5015,7 +5340,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     final previousState = state;
     state = state.copyWith(isLoading: false, clearError: true);
-    String? queuedMutationId;
+    PocketsMutationHandle? queuedMutation;
 
     try {
       final selectedCurrency = _resolveWriteCurrency();
@@ -5091,14 +5416,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         savedEnvelopeCategories: optimisticCategories,
         clearError: true,
       );
-      await _persistCurrentStateSnapshot(
-        userId: authUser.uid,
-        scopeType: scopeType,
-        householdId: householdId,
-        periodMonth: financialPeriodMonth,
-        currency: selectedCurrency,
-      );
-      queuedMutationId = _pocketsMutationId(
+      queuedMutation = _nextPocketsMutation(
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
@@ -5106,7 +5424,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency: selectedCurrency,
       );
       await _enqueuePocketsSaveMutation(
-        clientMutationId: queuedMutationId,
+        mutation: queuedMutation,
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
@@ -5115,6 +5433,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         budgetId: state.budgetId,
         totalBudgetCents: totalBudgetCents,
         pockets: optimisticPockets,
+        rollbackState: previousState,
+      );
+      await _persistCurrentStateSnapshot(
+        userId: authUser.uid,
+        scopeType: scopeType,
+        householdId: householdId,
+        periodMonth: financialPeriodMonth,
+        currency: selectedCurrency,
       );
 
       // 1. Upsert Budget
@@ -5236,18 +5562,23 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       await _load(bypassCache: true);
       ref.read(analyticsProvider.notifier).refresh(authUser.uid);
       ref.read(widgetSyncVersionProvider.notifier).state++;
-      final database = await ref.read(localDatabaseProvider.future);
-      await database.markMutationSynced(queuedMutationId);
+      await markQueuedPocketsSnapshotSynced(queuedMutation);
     } catch (e) {
-      if (queuedMutationId != null && _shouldKeepQueuedLocalMutation(e)) {
+      if (queuedMutation != null && _shouldKeepQueuedLocalMutation(e)) {
         ref.read(analyticsProvider.notifier).refresh(authUser.uid);
         ref.read(widgetSyncVersionProvider.notifier).state++;
         return;
       }
-      if (!mounted) return;
-      state = previousState.copyWith(
-        isLoading: false,
-        error: ErrorHandler.getUserFriendlyMessage(e),
+      if (queuedMutation != null) {
+        await cancelQueuedPocketsSnapshot(queuedMutation, e);
+      }
+      if (!mounted) rethrow;
+      await restoreOptimisticPockets(
+        previousState.copyWith(
+          isLoading: false,
+          error: ErrorHandler.getUserFriendlyMessage(e),
+        ),
+        mutation: queuedMutation,
       );
       rethrow;
     }
@@ -5684,7 +6015,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }
 
   Future<void> _enqueuePocketsSaveMutation({
-    required String clientMutationId,
+    required PocketsMutationHandle mutation,
     required String userId,
     required PocketsScopeType scopeType,
     required String? householdId,
@@ -5694,38 +6025,69 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required int totalBudgetCents,
     required List<PocketEnvelope> pockets,
     List<String> deletedPocketIds = const [],
+    PocketsState? rollbackState,
   }) async {
     final database = await ref.read(localDatabaseProvider.future);
+    final existingMutations = await database.getOutboxMutations();
+    final effectiveRollbackState = rollbackState == null
+        ? null
+        : resolvePocketsRollbackStateForReplacement(
+            existingMutations: existingMutations,
+            clientMutationId: mutation.clientMutationId,
+            currentRollbackState: rollbackState,
+          );
+    final effectiveDeletedPocketIds =
+        resolvePocketsDeletedPocketIdsForReplacement(
+      existingMutations: existingMutations,
+      clientMutationId: mutation.clientMutationId,
+      currentDeletedPocketIds: deletedPocketIds,
+    );
+    final payload = buildPocketsMonthMutationPayload(
+      userId: userId,
+      scopeType: scopeType,
+      householdId: householdId,
+      periodMonth: periodMonth,
+      currency: currency,
+      budgetId: budgetId,
+      totalBudgetCents: totalBudgetCents,
+      pockets: pockets,
+      envelopeCategories: state.envelopeCategories,
+      deletedPocketIds: effectiveDeletedPocketIds,
+      mutationRevision: mutation.revision,
+      rollbackState: effectiveRollbackState,
+    )..addAll({
+        'selectedCurrencies': params.normalizedSelectedCurrencies,
+        'financialMonthStartDay': params.normalizedFinancialMonthStartDay,
+        'includeUpcomingRecurring': params.includeUpcomingRecurring,
+        'allowCurrencyFallback': params.isBootstrapCurrency,
+      });
     await database.enqueueMutation(
-      clientMutationId: clientMutationId,
+      clientMutationId: mutation.clientMutationId,
       entityType: 'pockets_month',
       entityId:
           '${scopeType.name}:${householdId ?? 'personal'}:$periodMonth:$currency',
       operation: 'save_pockets_month',
-      payload: buildPocketsMonthMutationPayload(
-        userId: userId,
-        scopeType: scopeType,
-        householdId: householdId,
-        periodMonth: periodMonth,
-        currency: currency,
-        budgetId: budgetId,
-        totalBudgetCents: totalBudgetCents,
-        pockets: pockets,
-        envelopeCategories: state.envelopeCategories,
-        deletedPocketIds: deletedPocketIds,
-      ),
+      payload: payload,
     );
   }
 
-  String _pocketsMutationId({
+  PocketsMutationHandle _nextPocketsMutation({
     required String userId,
     required PocketsScopeType scopeType,
     required String? householdId,
     required String periodMonth,
     required String currency,
   }) {
-    return 'mobile:pockets_${userId}_${scopeType.name}_${householdId ?? 'personal'}_${periodMonth}_$currency'
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+    final mutationId =
+        'mobile:pockets_${userId}_${scopeType.name}_${householdId ?? 'personal'}_${periodMonth}_$currency'
+            .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+    final revision =
+        '${DateTime.now().microsecondsSinceEpoch}_${++_pocketsMutationSequence}';
+    _latestPocketsMutationRevision = revision;
+    return PocketsMutationHandle(
+      clientMutationId: mutationId,
+      revision: revision,
+    );
   }
 
   void _showPreviewModeToast() {
@@ -5744,9 +6106,7 @@ TransactionsFeedQuery buildPocketsTransactionsRefreshQuery({
     monthStart,
     startDay: state.financialMonthStartDay,
   ).subtract(const Duration(days: 1));
-  final selectedCurrency = state.currency.trim().isNotEmpty
-      ? state.currency.trim()
-      : params.currency?.trim();
+  final selectedCurrency = params.normalizedCurrency ?? state.currency.trim();
   return TransactionsFeedQuery(
     userId: userId,
     householdId:

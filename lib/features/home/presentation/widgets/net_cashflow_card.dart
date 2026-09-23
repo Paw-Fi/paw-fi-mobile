@@ -6,6 +6,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 Widget buildNetCashflowCard(
@@ -34,78 +35,82 @@ Widget buildNetCashflowCard(
       isNegative ? '-$symbol$localizedAmount' : '$symbol$localizedAmount';
   final isBetter = currentNet > previousNet;
 
-  return Container(
-    key: key,
-    width: double.infinity,
-    decoration: BoxDecoration(
-      color: colorScheme.homeCardSurface,
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(
-        color: colorScheme.homeCardBorder,
-        width: 1,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: colorScheme.homeCardShadow,
-          blurRadius: 32,
-          offset: const Offset(0, 8),
-          spreadRadius: -4,
+  return MonekoTextScale(
+    mode: MonekoTextScaling.constrained,
+    child: Container(
+      key: key,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.homeCardBorder,
+          width: 1,
         ),
-      ],
-    ),
-    padding: const EdgeInsets.all(18.0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.l10n.netCashFlow.toUpperCase(),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.0,
-            color: colorScheme.mutedForeground,
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
           ),
-        ),
-        const SizedBox(height: 8),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: RepaintBoundary(
-            child: AnimatedAmountText(
-              value: currentNet.abs(),
-              symbol: symbol,
-              isNegative: currentNet < 0,
-              style: TextStyle(
-                fontSize: _netCashflowFontSize(displayText),
-                fontWeight: FontWeight.w700,
-                letterSpacing: -1.0,
-                color: colorScheme.foreground,
-                height: 1.1,
+        ],
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.netCashFlow.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.0,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: RepaintBoundary(
+              child: AnimatedAmountText(
+                value: currentNet.abs(),
+                symbol: symbol,
+                isNegative: currentNet < 0,
+                style: TextStyle(
+                  fontSize: _netCashflowFontSize(displayText),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -1.0,
+                  color: colorScheme.foreground,
+                  height: 1.1,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: (isBetter ? colorScheme.success : colorScheme.destructive)
-                .withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: (isBetter ? colorScheme.success : colorScheme.destructive)
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isBetter
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_down_rounded,
+                  color:
+                      isBetter ? colorScheme.success : colorScheme.destructive,
+                  size: 16,
+                ),
+              ],
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isBetter
-                    ? Icons.trending_up_rounded
-                    : Icons.trending_down_rounded,
-                color: isBetter ? colorScheme.success : colorScheme.destructive,
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

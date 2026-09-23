@@ -77,7 +77,7 @@ class ImportReviewCompletedView extends StatelessWidget {
             24,
             32,
             24,
-            24 ,
+            24,
           ),
           sliver: SliverList.list(
             children: [
@@ -104,8 +104,13 @@ class ImportReviewCompletedView extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.fromLTRB(
                 24, 0, 24, 48 + MediaQuery.paddingOf(context).bottom),
-            child: SizedBox(
-              height: 56,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: 56,
+                maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                    ? double.infinity
+                    : 56,
+              ),
               child: FilledButton(
                 onPressed: onClose,
                 style: FilledButton.styleFrom(
@@ -140,7 +145,7 @@ class _LoggedTransactionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isSaved = item.saveStatus == 'saved';
-    
+
     final statusLabel = switch (item.saveStatus) {
       'saved' => context.l10n.importReviewTransactionLogged,
       'duplicate' => 'Already logged',
@@ -148,13 +153,13 @@ class _LoggedTransactionCard extends StatelessWidget {
       'failed' => 'Could not log',
       _ => 'Processed',
     };
-    
+
     final statusColor = switch (item.saveStatus) {
       'saved' => scheme.success,
       'failed' => scheme.error,
       _ => scheme.mutedForeground,
     };
-    
+
     return Container(
       decoration: BoxDecoration(
         color: scheme.card,

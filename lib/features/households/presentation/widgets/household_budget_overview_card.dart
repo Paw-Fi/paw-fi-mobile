@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/widget_text_styles.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
@@ -50,6 +51,7 @@ Widget buildHouseholdBudgetOverviewCard(
   final budgetPercentage = totalBudgetCents > 0
       ? (totalBudgetSpentCents / totalBudgetCents * 100).clamp(0, 100)
       : 0.0;
+  final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
   final card = Container(
     key: key,
@@ -70,26 +72,44 @@ Widget buildHouseholdBudgetOverviewCard(
         ),
       ],
     ),
-    padding: const EdgeInsets.all(24.0),
+    padding: const EdgeInsets.all(16.0),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header Row: Title and Date Range
-        Row(
+        Flex(
+          direction: isLargeText ? Axis.vertical : Axis.horizontal,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.spentByHousehold,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: colorScheme.mutedForeground,
+            if (isLargeText)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.spentByHousehold,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.mutedForeground,
+                    ),
                   ),
+                ],
+              )
+            else
+              Flexible(
+                fit: FlexFit.loose,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.spentByHousehold,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
             const SizedBox(width: 4),
             Builder(
               builder: (context) {
@@ -103,7 +123,7 @@ Widget buildHouseholdBudgetOverviewCard(
                 );
               },
             ),
-            const Spacer(),
+            if (!isLargeText) const Spacer() else const SizedBox(height: 8),
             // Transaction count with icon
             Icon(
               Icons.receipt_outlined,
@@ -196,21 +216,21 @@ Widget buildHouseholdBudgetOverviewCard(
           const SizedBox(height: 12),
 
           // Budget Stats Row
-          Row(
+          Flex(
+            direction: isLargeText ? Axis.vertical : Axis.horizontal,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Spent
-              Expanded(
-                child: Column(
+              if (isLargeText)
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       context.l10n.spent,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color:
-                            colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        color: colorScheme.mutedForeground,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -226,12 +246,40 @@ Widget buildHouseholdBudgetOverviewCard(
                       ),
                     ),
                   ],
+                )
+              else
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.spent,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      AnimatedAmountText(
+                        value: budgetSpentAmount,
+                        symbol: symbol,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.foreground,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
               // Remaining
-              Expanded(
-                child: Column(
+              if (isLargeText)
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
@@ -241,8 +289,7 @@ Widget buildHouseholdBudgetOverviewCard(
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color:
-                            colorScheme.mutedForeground.withValues(alpha: 0.7),
+                        color: colorScheme.mutedForeground,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -260,8 +307,40 @@ Widget buildHouseholdBudgetOverviewCard(
                       ),
                     ),
                   ],
+                )
+              else
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        budgetRemainingAmount >= 0
+                            ? context.l10n.remaining
+                            : context.l10n.overBudget,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      AnimatedAmountText(
+                        value: budgetRemainingAmount.abs(),
+                        symbol: symbol,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: budgetRemainingAmount >= 0
+                              ? colorScheme.success
+                              : colorScheme.destructive,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ],

@@ -412,7 +412,7 @@ class NotificationDispatcher {
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
         final rpcResponse = await supabase.rpc(
-          'get_user_expense_by_id_v1',
+          'get_user_expense_by_id_v2',
           params: {
             'p_user_id': userId,
             'p_expense_id': expenseId,
@@ -480,7 +480,7 @@ class NotificationDispatcher {
         final response = await supabase
             .from('expenses')
             .select(
-                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,breakdown,receipt_image_url,household_id,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,account_id,type,is_recurring')
+                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,merchant_id,merchant_structured_name,merchants(domain, logo_identifier),breakdown,receipt_image_url,household_id,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,account_id,type,is_recurring')
             .eq('id', expenseId)
             .isFilter('deleted_at', null)
             .maybeSingle();

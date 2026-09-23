@@ -30,13 +30,16 @@ class SwipeHintRow extends StatelessWidget {
               color: colorScheme.mutedForeground.withValues(alpha: 0.8),
             ),
             const SizedBox(width: 5),
-            Text(
-              text,
-              style: TextStyle(
-                color: colorScheme.mutedForeground.withValues(alpha: 0.8),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.2,
+            Flexible(
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.mutedForeground.withValues(alpha: 0.8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.2,
+                ),
               ),
             ),
           ],
@@ -45,4 +48,3 @@ class SwipeHintRow extends StatelessWidget {
     );
   }
 }
-

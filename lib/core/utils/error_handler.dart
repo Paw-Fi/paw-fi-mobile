@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum BackendErrorContext {
@@ -37,6 +39,16 @@ class ErrorHandler {
     final mappedBackend = _mapBackendError(normalized, context);
     if (mappedBackend != null) {
       return mappedBackend;
+    }
+
+    if (error is TimeoutException) {
+      if (context == BackendErrorContext.analyzeExpense) {
+        return 'This took too long. Please try again.';
+      }
+      if (context == BackendErrorContext.scenarioPlanner) {
+        return 'Scenario analysis timed out. Please try again.';
+      }
+      return 'Request timed out. Please try again.';
     }
 
     final errorString = error.toString().toLowerCase();

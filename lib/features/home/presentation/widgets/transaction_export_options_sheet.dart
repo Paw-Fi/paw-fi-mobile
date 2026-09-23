@@ -145,7 +145,7 @@ class _TransactionExportOptionsSheetState
     final textTheme = Theme.of(context).textTheme;
 
     return Material(
-      color: Colors.transparent,
+      color: scheme.surface.withValues(alpha: 0.0),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: Container(
@@ -198,7 +198,10 @@ class _TransactionExportOptionsSheetState
                                 _format == TransactionExportFormat.excel
                                     ? 0
                                     : 1,
-                            height: 52,
+                            height:
+                                MediaQuery.textScalerOf(context).scale(16) > 20
+                                    ? 64
+                                    : 52,
                             onValueChanged: (index) {
                               setState(() {
                                 _format = index == 0

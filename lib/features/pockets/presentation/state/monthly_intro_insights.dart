@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/app/locale_provider.dart';
-import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -188,14 +188,14 @@ MonthlyIntroState evaluateMonthlyIntroInsights({
   List<RecurringTransaction> recurringExpenses = const [],
   int? monthsUsingMoneko,
   double? twoMonthsAgoSpend,
+  int financialMonthStartDay = 1,
   AppLocalizations? l10n,
   String? localeName,
 }) {
   final strings = l10n ?? AppLocalizationsEn('en');
-  final previousMonth = DateTime(
-    currentMonth.year,
-    currentMonth.month - 1,
-    1,
+  final previousMonth = previousFinancialCycleStart(
+    currentMonth,
+    startDay: financialMonthStartDay,
   );
   final currentMonthName = DateFormat('MMMM', localeName).format(currentMonth);
   final previousMonthName =
@@ -430,12 +430,7 @@ final monthlyIntroInsightsProvider =
   final localeName = intlSafeLocaleName(appLocale);
   final scopeParams = params.scopeParams;
   final currentMonth = scopeParams.periodMonth ?? DateTime.now();
-  final previousMonth = DateTime(
-    currentMonth.year,
-    currentMonth.month - 1,
-    1,
-  );
-  final previousScopeParams = scopeParams.copyWith(periodMonth: previousMonth);
+  final previousScopeParams = previousPocketsScopeParams(scopeParams);
 
   final currentPocketsState = ref.watch(pocketsProvider(scopeParams));
   final previousPocketsState = ref.watch(pocketsProvider(previousScopeParams));
@@ -474,7 +469,7 @@ final monthlyIntroInsightsProvider =
   double? twoMonthsAgoSpend;
   try {
     final database = ref.watch(localDatabaseProvider).valueOrNull;
-    if (database != null) {
+    if (database != null && scopeParams.normalizedFinancialMonthStartDay == 1) {
       final twoMonthsAgo = DateTime(
         currentMonth.year,
         currentMonth.month - 2,
@@ -504,6 +499,7 @@ final monthlyIntroInsightsProvider =
     recurringExpenses: recurringExpenses,
     monthsUsingMoneko: monthsUsingMoneko,
     twoMonthsAgoSpend: twoMonthsAgoSpend,
+    financialMonthStartDay: scopeParams.normalizedFinancialMonthStartDay,
     l10n: l10n,
     localeName: localeName,
   );

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 final pocketsPersistedCacheBypassCountProvider = StateProvider<int>((ref) => 0);
@@ -99,6 +100,24 @@ Future<void> persistPocketsCache(
 
   final prefs = _readPrefsOrNull(ref);
   await prefs?.setString(key, jsonEncode(payload));
+}
+
+Future<bool> persistPocketsRollbackCacheIfMutationMatches(
+  MonekoDatabase database, {
+  required String key,
+  required Map<String, dynamic> payload,
+  required LocalMutationOutboxData mutation,
+}) {
+  final cachedAt = resolvePersistedPocketsCachedAt(payload) ?? DateTime.now();
+  return database.upsertJsonCacheIfMutationMatches(
+    namespace: _pocketsCacheNamespace,
+    cacheKey: key,
+    payload: payload,
+    cachedAt: cachedAt,
+    clientMutationId: mutation.clientMutationId,
+    expectedPayloadJson: mutation.payloadJson,
+    expectedStatus: localMutationStatusCancelled,
+  );
 }
 
 Future<void> clearAllPersistedPocketsCachesForUser(

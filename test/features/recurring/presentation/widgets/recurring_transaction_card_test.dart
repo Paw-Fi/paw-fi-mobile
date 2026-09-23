@@ -58,4 +58,49 @@ void main() {
 
     expect(find.byType(TransactionCurrencyFlagBadge), findsNothing);
   });
+
+  testWidgets('keeps recurring rows to a title and schedule line',
+      (tester) async {
+    final recurring = transaction().copyWith(description: 'Monthly rent');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: RecurringTransactionCard(
+            transaction: recurring,
+            nextOccurrenceDate: DateTime(2026, 8, 1),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Monthly rent'), findsOneWidget);
+    expect(find.text('Housing'), findsNothing);
+    expect(find.byIcon(Icons.calendar_today_rounded), findsOneWidget);
+  });
+
+  testWidgets('reflows the recurring card at large text', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: Scaffold(
+            body: RecurringTransactionCard(
+              transaction: transaction().copyWith(
+                description: 'A very long localized recurring transaction',
+              ),
+              nextOccurrenceDate: DateTime(2026, 8, 1),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('-\$100'), findsOneWidget);
+  });
 }

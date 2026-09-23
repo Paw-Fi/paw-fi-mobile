@@ -471,8 +471,13 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           : HouseholdConstants.continueButtonLabel,
       button: true,
       enabled: !isValidating,
-      child: SizedBox(
-        height: 56,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: 56,
+          maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+              ? double.infinity
+              : 56,
+        ),
         child: PrimaryAdaptiveButton(
           onPressed: isValidating ? null : _validateInvite,
           child: Row(
@@ -559,8 +564,13 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           Semantics(
             label: context.l10n.joinHouseholdName(householdName),
             button: true,
-            child: SizedBox(
-              height: 56,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: 56,
+                maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                    ? double.infinity
+                    : 56,
+              ),
               child: PrimaryAdaptiveButton(
                 onPressed: _acceptInvite,
                 child: Row(
@@ -1046,9 +1056,13 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             Semantics(
               label: HouseholdConstants.goToHouseholdButtonLabel,
               button: true,
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 56,
+                  maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                      ? double.infinity
+                      : 56,
+                ),
                 child: PrimaryAdaptiveButton(
                   onPressed: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -1138,8 +1152,13 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             Semantics(
               label: HouseholdConstants.tryAgainButtonLabel,
               button: true,
-              child: SizedBox(
-                height: 56,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 56,
+                  maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                      ? double.infinity
+                      : 56,
+                ),
                 child: PrimaryAdaptiveButton(
                   onPressed: () {
                     if (!mounted) return;

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 class SubtleAdaptiveButton extends StatelessWidget {
   const SubtleAdaptiveButton({
@@ -16,12 +17,13 @@ class SubtleAdaptiveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     if (isIOS) {
       return CupertinoButton(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         color: scheme.inputBackground,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         onPressed: onPressed,
         minimumSize: const Size(0, 0),
         child: SizedBox(
@@ -29,8 +31,8 @@ class SubtleAdaptiveButton extends StatelessWidget {
           child: Center(
             child: Text(
               label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isLargeText ? 3 : 1,
+              overflow: isLargeText ? null : TextOverflow.ellipsis,
               style: TextStyle(
                 color: scheme.foreground,
                 fontWeight: FontWeight.w400,
@@ -43,22 +45,22 @@ class SubtleAdaptiveButton extends StatelessWidget {
     }
 
     return Material(
-      color: Colors.transparent,
+      color: scheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Ink(
           decoration: BoxDecoration(
             color: scheme.inputBackground,
-            border: Border.all(color: scheme.border),
-            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: scheme.border.withValues(alpha: 0.6)),
+            borderRadius: BorderRadius.circular(10),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Center(
             child: Text(
               label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: isLargeText ? 3 : 1,
+              overflow: isLargeText ? null : TextOverflow.ellipsis,
               style: TextStyle(
                 color: scheme.foreground,
                 fontWeight: FontWeight.w400,

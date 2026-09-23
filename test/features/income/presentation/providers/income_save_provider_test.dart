@@ -32,6 +32,7 @@ void main() {
   });
 
   test('saveIncome sends household custom splits and payer user id', () async {
+    final transactionOccurredAt = DateTime.utc(2026, 4, 20, 18, 45, 27);
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
     Map<String, dynamic>? capturedSaveBody;
@@ -143,6 +144,7 @@ void main() {
             MemberSplit(member: members[1], amount: 40),
           ],
           payerUserId: 'user_2',
+          clientCreatedAt: transactionOccurredAt,
         );
 
     expect(saved?.id, 'optimistic_income_1');
@@ -159,6 +161,10 @@ void main() {
     expect(capturedSaveBody!['clientMutationId'], 'mobile:optimistic_income_1');
     expect(capturedSaveBody!['idempotencyKey'], 'mobile:optimistic_income_1');
     expect(capturedSaveBody!['payerUserId'], 'user_2');
+    expect(
+      capturedSaveBody!['clientCreatedAt'],
+      transactionOccurredAt.toIso8601String(),
+    );
     expect(capturedSaveBody!['customSplits'], {
       'splitType': 'amount',
       'memberSplits': [

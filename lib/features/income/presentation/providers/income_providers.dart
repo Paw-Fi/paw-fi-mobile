@@ -202,6 +202,11 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     required DateTime date,
     String? description,
     String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantStructuredName,
+    String? merchantEvidenceDescriptor,
+    bool merchantEvidenceAllowsStructuredLearning = false,
     String? source,
     String ownerType = 'me',
     String privacyScope = 'full',
@@ -217,6 +222,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    DateTime? clientCreatedAt,
   }) async {
     state = const AsyncValue.loading();
 
@@ -225,6 +231,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           ref.read(householdScopeProvider).isPortfolioId(householdId);
       final accountingDate = DateTime(date.year, date.month, date.day);
       final now = DateTime.now();
+      final effectiveCreatedAt = clientCreatedAt ?? now;
       final optimisticId = clientRecordId?.trim().isNotEmpty == true
           ? clientRecordId!.trim()
           : 'optimistic-income-${now.microsecondsSinceEpoch}';
@@ -241,10 +248,19 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         'category': category,
         'currency': currency,
         'date': formatDateOnlyYmd(accountingDate),
-        'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+        'clientCreatedAt': effectiveCreatedAt.toUtc().toIso8601String(),
         if (description != null && description.isNotEmpty)
           'description': description,
         if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
+        if (merchantId != null && merchantId.isNotEmpty)
+          'merchantId': merchantId,
+        if (merchantStructuredName != null && merchantStructuredName.isNotEmpty)
+          'merchantStructuredName': merchantStructuredName,
+        if (merchantEvidenceDescriptor != null &&
+            merchantEvidenceDescriptor.isNotEmpty)
+          'merchantEvidenceDescriptor': merchantEvidenceDescriptor,
+        if (merchantEvidenceAllowsStructuredLearning)
+          'merchantEvidenceAllowStructured': true,
         if (source != null && source.isNotEmpty) 'source': source,
         'ownerType': ownerType,
         'privacyScope': privacyScope,
@@ -303,6 +319,10 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
         category: category,
         description: description,
         source: source,
+        merchant: merchant,
+        merchantId: merchantId,
+        merchantDomain: merchantDomain,
+        merchantStructuredName: merchantStructuredName,
         amount: amount,
         currency: currency,
         ownerType: ownerType,
@@ -316,7 +336,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
             ? null
             : RecurrenceRule.fromJson(recurrenceRule),
         attachments: const [],
-        createdAt: now,
+        createdAt: effectiveCreatedAt,
         privacyRedacted: false,
       );
       final database = await ref.read(localDatabaseProvider.future);
@@ -329,9 +349,12 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           amountCents: (amount * 100).round(),
           currency: currency,
           category: category,
-          createdAt: now,
+          createdAt: effectiveCreatedAt,
           rawText: description,
           merchant: merchant,
+          merchantId: merchantId,
+          merchantDomain: merchantDomain,
+          merchantStructuredName: merchantStructuredName,
           walletId: accountId,
           type: 'income',
           isRecurring: isRecurring,

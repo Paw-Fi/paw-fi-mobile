@@ -129,10 +129,10 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       List<DailyBudgetEntry> allBudgets = [];
 
       try {
-        debugPrint('[Analytics] Fetching via RPC (get_user_analytics)...');
+        debugPrint('[Analytics] Fetching via RPC (get_user_analytics_v2)...');
         final stopwatch = Stopwatch()..start();
 
-        final rpcResponse = await supabase.rpc('get_user_analytics',
+        final rpcResponse = await supabase.rpc('get_user_analytics_v2',
             params: {'p_user_id': userId}).timeout(_rpcTimeout);
 
         stopwatch.stop();
@@ -933,7 +933,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     required Duration timeout,
   }) async {
     var query = supabase.from('expenses').select(
-        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,breakdown,receipt_image_url,household_id,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,account_id,type,is_recurring');
+        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,merchant_id,merchant_structured_name,merchants(domain, logo_identifier),breakdown,receipt_image_url,household_id,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,account_id,type,is_recurring');
 
     if (contactIds.isNotEmpty) {
       final orFilter =
@@ -945,7 +945,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
     final response = await query
         .isFilter('deleted_at', null)
-        // Match get_user_analytics: a recurring row is a template, not a
+        // Match get_user_analytics_v2: a recurring row is a template, not a
         // posted transaction for analytics or aggregate fallback data.
         .eq('is_recurring', false)
         .order('date', ascending: false)

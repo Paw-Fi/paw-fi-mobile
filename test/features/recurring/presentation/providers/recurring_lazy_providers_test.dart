@@ -118,19 +118,19 @@ void main() {
 
     expect(
       await container.read(recurringActionableBadgeProvider(_scope).future),
-      isFalse,
+      0,
     );
     await _flushEvents();
     expect(
       container.read(recurringActionableBadgeProvider(_scope)).valueOrNull,
-      isFalse,
+      0,
     );
 
     refresh.complete({'success': true, 'data': true});
     await _flushEvents();
     expect(
       container.read(recurringActionableBadgeProvider(_scope)).valueOrNull,
-      isTrue,
+      1,
     );
   });
 
@@ -261,7 +261,7 @@ void main() {
 
     expect(
       await container.read(recurringActionableBadgeProvider(_scope).future),
-      isTrue,
+      1,
     );
 
     final first =
@@ -274,7 +274,7 @@ void main() {
     await _flushEvents();
     expect(
       container.read(recurringActionableBadgeProvider(_scope)).valueOrNull,
-      isFalse,
+      0,
     );
 
     container.read(recurringSeriesOptimisticProvider.notifier).upsert(
@@ -292,7 +292,7 @@ void main() {
     await _flushEvents();
     expect(
       container.read(recurringActionableBadgeProvider(_scope)).valueOrNull,
-      isTrue,
+      1,
     );
   });
 }

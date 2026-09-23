@@ -3,6 +3,7 @@ import 'package:markdown_widget/markdown_widget.dart';
 import 'package:chewie/chewie.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:video_player/video_player.dart';
@@ -73,14 +74,15 @@ class WalletSyncSetupSheet extends StatelessWidget {
                             title: l10n.openTheShortcutsApp,
                             description: l10n
                                 .openShortcutsAndTapTheAutomationsTabAtTheBottom,
-                            action: SizedBox(
-                              height: 48,
+                            action: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 48),
                               child: PrimaryAdaptiveButton(
                                 onPressed: isSyncing ? null : onFinish,
                                 child: isSyncing
                                     ? const CircularProgressIndicator.adaptive()
                                     : Text(
                                         l10n.openShortcuts,
+                                        textAlign: TextAlign.center,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 16,
@@ -163,9 +165,12 @@ class WalletSyncSetupSheet extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
     final l10n = context.l10n;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 16, 16),
-      child: Row(
+      child: Flex(
+        direction: isLargeText ? Axis.vertical : Axis.horizontal,
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(
@@ -190,10 +195,14 @@ class WalletSyncSetupSheet extends StatelessWidget {
               ),
             ],
           ),
-          IconButton(
-            icon: Icon(Icons.close_rounded,
-                color: colorScheme.foreground, size: 24),
-            onPressed: () => Navigator.of(context).pop(),
+          if (isLargeText) const SizedBox(height: 4),
+          Align(
+            alignment: AlignmentDirectional.topEnd,
+            child: IconButton(
+              icon: Icon(Icons.close_rounded,
+                  color: colorScheme.foreground, size: 24),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
           ),
         ],
       ),

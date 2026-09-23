@@ -141,8 +141,14 @@ class TrialWelcomeDialog extends StatelessWidget {
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                      child: SizedBox(
-                        height: 52,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: 52,
+                          maxHeight:
+                              MediaQuery.textScalerOf(context).scale(16) > 20
+                                  ? double.infinity
+                                  : 52,
+                        ),
                         child: PrimaryAdaptiveButton(
                           onPressed: () => Navigator.of(context).pop(),
                           child: Text(l10n.trialWelcomeCta),
@@ -168,11 +174,11 @@ class _TrialWelcomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-        child: Image.asset(
-          'lib/assets/gifs/moneko-box-pop.gif',
-          width: 64,
-          height: 64,
-          fit: BoxFit.contain,      
+      child: Image.asset(
+        'lib/assets/gifs/moneko-box-pop.gif',
+        width: 64,
+        height: 64,
+        fit: BoxFit.contain,
       ),
     );
   }

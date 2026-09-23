@@ -55,6 +55,28 @@ void main() {
   });
 
   group('BuildOptimisticEntry', () {
+    test('uses an explicit transaction occurrence instant when provided', () {
+      final transaction = ParsedExpense(
+        amount: 30,
+        category: 'food',
+        currency: 'USD',
+        currencySymbol: '\$',
+        date: DateTime(2026, 9, 2),
+        transactionTime: '18:45:27',
+      );
+      final occurredAt = DateTime.utc(2026, 9, 2, 10, 45, 27);
+
+      final entry = buildOptimisticEntry(
+        transaction: transaction,
+        optimisticId: 'optimistic_explicit_time',
+        userId: 'user1',
+        type: 'expense',
+        createdAt: occurredAt,
+      );
+
+      expect(entry.createdAt, occurredAt);
+    });
+
     test('builds entry with correct optimistic ID', () {
       final transaction = ParsedExpense(
         isIncome: false,
@@ -104,6 +126,30 @@ void main() {
       expect(entry.type, 'income');
       expect(entry.amountCents, 100000);
       expect(entry.category, 'salary');
+    });
+
+    test('preserves canonical merchant identity in the optimistic row', () {
+      final transaction = ParsedExpense(
+        amount: 50,
+        category: 'groceries',
+        currency: 'USD',
+        currencySymbol: r'$',
+        date: DateTime(2026, 9, 17),
+        merchantId: 'merchant-tesco',
+        merchantDomain: 'tesco.com',
+        merchantStructuredName: 'Tesco',
+      );
+
+      final entry = buildOptimisticEntry(
+        transaction: transaction,
+        optimisticId: 'optimistic_tesco',
+        userId: 'user1',
+        type: 'expense',
+      );
+
+      expect(entry.merchantId, 'merchant-tesco');
+      expect(entry.merchantDomain, 'tesco.com');
+      expect(entry.merchantStructuredName, 'Tesco');
     });
 
     test('builds entry with household ID', () {

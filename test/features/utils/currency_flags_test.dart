@@ -21,6 +21,8 @@ void main() {
       expect(
           getCurrencyFlagPath('MUR'), 'lib/assets/images/flags/mauritius.png');
       expect(getCurrencyFlagPath('ZMW'), 'lib/assets/images/flags/zambia.png');
+      expect(
+          getCurrencyFlagPath('MAD'), 'lib/assets/images/flags/morocco.png');
     });
 
     test('returns null for currencies without flags', () {
@@ -38,6 +40,7 @@ void main() {
       expect(getCurrencyFlagPath('jmd'), 'lib/assets/images/flags/jamaica.png');
       expect(getCurrencyFlagPath('mwk'), 'lib/assets/images/flags/malawi.png');
       expect(getCurrencyFlagPath('zmw'), 'lib/assets/images/flags/zambia.png');
+      expect(getCurrencyFlagPath('mad'), 'lib/assets/images/flags/morocco.png');
     });
 
     test('handles empty and special input', () {
@@ -92,6 +95,7 @@ void main() {
         'VND': 'vietnam',
         'DOP': 'dominican',
         'XOF': 'senegal',
+        'MAD': 'morocco',
       };
 
       for (final entry in mappedCurrencies.entries) {
@@ -121,6 +125,10 @@ void main() {
       expect(
         getPlaidCountryFlagPath('MU'),
         'lib/assets/images/flags/mauritius.png',
+      );
+      expect(
+        getPlaidCountryFlagPath('MA'),
+        'lib/assets/images/flags/morocco.png',
       );
     });
   });

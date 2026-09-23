@@ -25,11 +25,20 @@ final _activeSubscription = Subscription(
   createdAt: DateTime.now(),
 );
 
+final _trialSubscription = Subscription(
+  id: 'subscription-trial',
+  userId: 'u1',
+  plan: 'plus',
+  status: 'trialing',
+  currentPeriodEnd: DateTime.now().add(const Duration(days: 7)),
+  createdAt: DateTime.now(),
+);
+
 class _TestSubscriptionManagementNotifier
     extends SubscriptionManagementNotifier {
   @override
   Future<SubscriptionDetails?> build() async => SubscriptionDetails(
-        subscription: _activeSubscription,
+        subscription: _trialSubscription,
         invoices: const [],
       );
 
@@ -37,7 +46,7 @@ class _TestSubscriptionManagementNotifier
   Future<void> refresh() async {
     state = AsyncData(
       SubscriptionDetails(
-        subscription: _activeSubscription,
+        subscription: _trialSubscription,
         invoices: const [],
       ),
     );
@@ -52,7 +61,7 @@ class _DelayedSubscriptionManagementNotifier
 
   @override
   Future<SubscriptionDetails?> build() async => SubscriptionDetails(
-        subscription: _activeSubscription,
+        subscription: _trialSubscription,
         invoices: const [],
       );
 
@@ -62,12 +71,21 @@ class _DelayedSubscriptionManagementNotifier
 
 class _TestSubscriptionNotifier extends SubscriptionNotifier {
   @override
-  Future<Subscription?> build() async => _activeSubscription;
+  Future<Subscription?> build() async => _trialSubscription;
 
   @override
   Future<void> refresh() async {
-    state = AsyncData(_activeSubscription);
+    state = AsyncData(_trialSubscription);
   }
+}
+
+class _ActiveSubscriptionManagementNotifier
+    extends SubscriptionManagementNotifier {
+  @override
+  Future<SubscriptionDetails?> build() async => SubscriptionDetails(
+        subscription: _activeSubscription,
+        invoices: const [],
+      );
 }
 
 class _TestAuth extends Auth {
@@ -147,13 +165,41 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(skipButton);
     await tester.pumpAndSettle();
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
 
     expect(find.text('Dashboard'), findsOneWidget);
     expect(prefs.getBool('onboarding_completed:u1'), true);
   });
 
+  testWidgets('skips the subscription step for active subscribers',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await _pumpPage(
+      tester,
+      prefs: prefs,
+      overrides: [
+        subscriptionManagementProvider.overrideWith(
+          _ActiveSubscriptionManagementNotifier.new,
+        ),
+      ],
+    );
+
+    expect(find.text('Plus Plan'), findsNothing);
+    final skipButton = find.text("I'll do this later");
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dashboard'), findsOneWidget);
+  });
+
   testWidgets(
-      'final action navigates without waiting for notification or subscription work',
+      'notification action advances without waiting for notification work',
       (tester) async {
     final prefs = await SharedPreferences.getInstance();
     final notificationsCompleter = Completer<void>();
@@ -184,10 +230,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Dashboard'), findsOneWidget);
-    expect(prefs.getBool('onboarding_completed:u1'), true);
+    expect(find.text('Plus Plan'), findsOneWidget);
+    expect(prefs.getBool('onboarding_completed:u1'), isNull);
     expect(notificationsCompleter.isCompleted, false);
     expect(subscriptionRefreshCompleter.isCompleted, false);
+
+    await tester.tap(skipButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(prefs.getBool('onboarding_completed:u1'), true);
 
     notificationsCompleter.complete();
     subscriptionRefreshCompleter.complete();

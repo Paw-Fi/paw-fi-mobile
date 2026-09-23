@@ -30,7 +30,7 @@ bool _isTransactionUpdateOperation(String operation) =>
 bool _isTransactionDeleteOperation(String operation) =>
     operation == 'unconfirm_recurring_occurrence';
 
-const int _localDatabaseSchemaVersion = 9;
+const int _localDatabaseSchemaVersion = 12;
 const Duration _localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
@@ -1043,6 +1043,65 @@ class MonekoDatabase {
       }
     });
 
+    _notifyChanged();
+  }
+
+  Future<void> writeOptimisticTransactionBatchUpdate({
+    required List<ExpenseEntry> originalEntries,
+    required List<ExpenseEntry> updatedEntries,
+    required String clientMutationId,
+    required Map<String, dynamic> payload,
+  }) async {
+    if (originalEntries.length != updatedEntries.length ||
+        originalEntries.isEmpty) {
+      throw ArgumentError('Batch transaction update entries must align');
+    }
+    final touched = <_SummaryKey>{
+      for (final entry in originalEntries) _SummaryKey.fromEntry(entry),
+      for (final entry in updatedEntries) _SummaryKey.fromEntry(entry),
+    };
+    _runInTransaction(() {
+      for (final entry in updatedEntries) {
+        _upsertTransaction(
+          entry.copyWith(clientMutationId: clientMutationId),
+          syncStatus: localSyncStatusLocal,
+        );
+      }
+      _enqueueMutationRow(
+        clientMutationId: clientMutationId,
+        entityType: 'transaction',
+        entityId: 'batch:$clientMutationId',
+        operation: 'batch_update_transaction',
+        payload: {
+          ...payload,
+          'originalEntries':
+              originalEntries.map((entry) => entry.toJson()).toList(),
+        },
+      );
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+    _notifyChanged();
+  }
+
+  Future<void> markOptimisticTransactionBatchUpdateSynced({
+    required List<ExpenseEntry> entries,
+    required String clientMutationId,
+  }) async {
+    _runInTransaction(() {
+      for (final entry in entries) {
+        if (_transactionMutationStillOwnsEntry(entry.id, clientMutationId)) {
+          _upsertTransaction(entry,
+              syncStatus: localSyncStatusSynced, preserveLocalPending: false);
+          _rebuildSummary(_SummaryKey.fromEntry(entry));
+        }
+      }
+      _markMutationStatus(
+        clientMutationId: clientMutationId,
+        status: localMutationStatusSynced,
+      );
+    });
     _notifyChanged();
   }
 
@@ -3263,6 +3322,48 @@ class MonekoDatabase {
     );
   }
 
+  Future<bool> upsertJsonCacheIfMutationMatches({
+    required String namespace,
+    required String cacheKey,
+    required Map<String, dynamic> payload,
+    required DateTime cachedAt,
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required String expectedStatus,
+  }) async {
+    final now = DateTime.now().toUtc();
+    _db.execute(
+      '''
+      INSERT INTO local_json_cache (
+        namespace, cache_key, payload_json, cached_at, updated_at
+      )
+      SELECT ?, ?, ?, ?, ?
+      WHERE EXISTS (
+        SELECT 1
+        FROM local_mutation_outbox
+        WHERE client_mutation_id = ?
+          AND payload_json = ?
+          AND status = ?
+      )
+      ON CONFLICT(namespace, cache_key) DO UPDATE SET
+        payload_json = excluded.payload_json,
+        cached_at = excluded.cached_at,
+        updated_at = excluded.updated_at
+      ''',
+      [
+        namespace,
+        cacheKey,
+        jsonEncode(payload),
+        _instant(cachedAt),
+        _instant(now),
+        clientMutationId,
+        expectedPayloadJson,
+        expectedStatus,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
   Future<void> deleteJsonCacheByPrefix({
     required String namespace,
     required String cacheKeyPrefix,
@@ -3930,6 +4031,21 @@ class MonekoDatabase {
     );
   }
 
+  Future<bool> markMutationSyncingIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+  }) async {
+    return _markMutationStatusIfPayloadMatches(
+      clientMutationId: clientMutationId,
+      expectedPayloadJson: expectedPayloadJson,
+      status: localMutationStatusSyncing,
+      expectedStatuses: const [
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+      ],
+    );
+  }
+
   Future<void> deferMutation(String clientMutationId) async {
     _db.execute(
       '''
@@ -3945,10 +4061,49 @@ class MonekoDatabase {
     );
   }
 
+  Future<bool> deferMutationIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+  }) async {
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?, retry_after = NULL, updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status = ?
+      ''',
+      [
+        localMutationStatusQueued,
+        _instant(DateTime.now().toUtc()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusSyncing,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
   Future<void> markMutationSynced(String clientMutationId) async {
     _markMutationStatus(
       clientMutationId: clientMutationId,
       status: localMutationStatusSynced,
+    );
+  }
+
+  Future<bool> markMutationSyncedIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+  }) async {
+    return _markMutationStatusIfPayloadMatches(
+      clientMutationId: clientMutationId,
+      expectedPayloadJson: expectedPayloadJson,
+      status: localMutationStatusSynced,
+      expectedStatuses: const [
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing,
+      ],
     );
   }
 
@@ -3964,6 +4119,37 @@ class MonekoDatabase {
     );
   }
 
+  Future<bool> markMutationFailedIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required Object error,
+    required DateTime retryAfter,
+  }) async {
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?,
+          attempt_count = attempt_count + 1,
+          last_error = ?,
+          retry_after = ?,
+          updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status = ?
+      ''',
+      [
+        localMutationStatusFailed,
+        error.toString(),
+        _instant(retryAfter),
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusSyncing,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
   Future<void> markMutationCancelled({
     required String clientMutationId,
     required Object error,
@@ -3972,6 +4158,36 @@ class MonekoDatabase {
       clientMutationId: clientMutationId,
       error: error,
     );
+  }
+
+  Future<bool> markMutationCancelledIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required Object error,
+  }) async {
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?,
+          last_error = ?,
+          retry_after = NULL,
+          updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status IN (?, ?, ?)
+      ''',
+      [
+        localMutationStatusCancelled,
+        error.toString(),
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing,
+      ],
+    );
+    return _lastStatementChangedRow();
   }
 
   void _markMutationStatus({
@@ -3986,6 +4202,40 @@ class MonekoDatabase {
       ''',
       [status, _instant(DateTime.now()), clientMutationId],
     );
+  }
+
+  bool _markMutationStatusIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required String status,
+    required List<String> expectedStatuses,
+  }) {
+    final statusPlaceholders = List.filled(
+      expectedStatuses.length,
+      '?',
+    ).join(', ');
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?, updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status IN ($statusPlaceholders)
+      ''',
+      [
+        status,
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        ...expectedStatuses,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
+  bool _lastStatementChangedRow() {
+    final rows = _db.select('SELECT changes() AS changed_rows');
+    return ((rows.first['changed_rows'] as int?) ?? 0) > 0;
   }
 
   void _markMutationFailedRow({
@@ -4053,6 +4303,10 @@ class MonekoDatabase {
         local_updated_at TEXT NOT NULL DEFAULT '',
         raw_text TEXT,
         merchant TEXT,
+        merchant_id TEXT,
+        merchant_domain TEXT,
+        merchant_logo_url TEXT,
+        merchant_structured_name TEXT,
         breakdown_json TEXT,
         receipt_image_url TEXT,
         local_receipt_image_path TEXT,
@@ -4253,6 +4507,10 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'updated_at', 'TEXT');
       _ensureColumn('local_transactions', 'raw_text', 'TEXT');
       _ensureColumn('local_transactions', 'merchant', 'TEXT');
+      _ensureColumn('local_transactions', 'merchant_id', 'TEXT');
+      _ensureColumn('local_transactions', 'merchant_domain', 'TEXT');
+      _ensureColumn('local_transactions', 'merchant_logo_url', 'TEXT');
+      _ensureColumn('local_transactions', 'merchant_structured_name', 'TEXT');
       _ensureColumn('local_transactions', 'breakdown_json', 'TEXT');
       _ensureColumn('local_transactions', 'receipt_image_url', 'TEXT');
       _ensureColumn('local_transactions', 'local_receipt_image_path', 'TEXT');
@@ -4409,8 +4667,9 @@ class MonekoDatabase {
         analytics_is_final, analytics_spending_multiplier,
         analytics_counts_toward_income, is_recurring, provider_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
-        idempotency_key, sync_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        idempotency_key, sync_status, merchant_id, merchant_domain,
+        merchant_logo_url, merchant_structured_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
@@ -4425,6 +4684,28 @@ class MonekoDatabase {
         local_updated_at = excluded.local_updated_at,
         raw_text = excluded.raw_text,
         merchant = excluded.merchant,
+        merchant_id = excluded.merchant_id,
+        merchant_domain = CASE
+          WHEN excluded.merchant_id IS NOT NULL
+            AND excluded.merchant_id = local_transactions.merchant_id
+            AND excluded.merchant_domain IS NULL
+          THEN local_transactions.merchant_domain
+          ELSE excluded.merchant_domain
+        END,
+        merchant_logo_url = CASE
+          WHEN excluded.merchant_id IS NOT NULL
+            AND excluded.merchant_id = local_transactions.merchant_id
+            AND excluded.merchant_logo_url IS NULL
+          THEN local_transactions.merchant_logo_url
+          ELSE excluded.merchant_logo_url
+        END,
+        merchant_structured_name = CASE
+          WHEN excluded.merchant_id IS NOT NULL
+            AND excluded.merchant_id = local_transactions.merchant_id
+            AND excluded.merchant_structured_name IS NULL
+          THEN local_transactions.merchant_structured_name
+          ELSE excluded.merchant_structured_name
+        END,
         breakdown_json = excluded.breakdown_json,
         receipt_image_url = excluded.receipt_image_url,
         local_receipt_image_path = excluded.local_receipt_image_path,
@@ -4528,6 +4809,10 @@ class MonekoDatabase {
         entry.clientMutationId,
         entry.idempotencyKey,
         syncStatus,
+        entry.merchantId,
+        entry.merchantDomain,
+        entry.merchantLogoUrl,
+        entry.merchantStructuredName,
       ],
     );
     return true;
@@ -4680,6 +4965,7 @@ class MonekoDatabase {
         payload_json = excluded.payload_json,
         updated_at = excluded.updated_at,
         status = excluded.status,
+        attempt_count = 0,
         last_error = NULL,
         retry_after = NULL
       ''',
@@ -4882,6 +5168,10 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     updatedAt: _parseNullableDate(row['updated_at'] as String?),
     rawText: row['raw_text'] as String?,
     merchant: row['merchant'] as String?,
+    merchantId: row['merchant_id'] as String?,
+    merchantDomain: row['merchant_domain'] as String?,
+    merchantLogoUrl: row['merchant_logo_url'] as String?,
+    merchantStructuredName: row['merchant_structured_name'] as String?,
     breakdown: _decodeStringList(row['breakdown_json'] as String?),
     receiptImageUrl: row['receipt_image_url'] as String?,
     localReceiptImagePath: row['local_receipt_image_path'] as String?,

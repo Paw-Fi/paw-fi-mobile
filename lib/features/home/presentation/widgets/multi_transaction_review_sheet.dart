@@ -1477,9 +1477,8 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
-                              color: colorScheme.brightness == Brightness.dark
-                                  ? Colors.white.withValues(alpha: 0.05)
-                                  : Colors.black.withValues(alpha: 0.03),
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.04),
                               borderRadius: BorderRadius.circular(100),
                               border: Border.all(
                                 color:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -146,5 +147,70 @@ void main() {
     );
     expect(amountTapTarget, findsOneWidget);
     expect(tester.widget<GestureDetector>(amountTapTarget).onTap, isNull);
+  });
+
+  testWidgets('preconfirmation defaults paid date to the scheduled date',
+      (tester) async {
+    const walletQuery =
+        WalletsCurrencyQuery(householdId: null, currency: 'USD');
+    final scheduledDate = DateTime.now().add(const Duration(days: 30));
+    final recurringTransaction = RecurringTransaction(
+      id: 'recurring-id',
+      date: scheduledDate,
+      category: 'housing',
+      amount: 100,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime.now(),
+      serverNextOccurrenceDate: scheduledDate,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          walletsByCurrencyProvider(walletQuery).overrideWith(
+            (ref) async => [],
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: FilledButton(
+                onPressed: () => showConfirmRecurringOccurrenceSheet(
+                  context: context,
+                  recurringTransaction: recurringTransaction,
+                  scheduledOccurrenceDate: scheduledDate,
+                  allowNextPreconfirmation: true,
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final paidDateRow = tester
+        .widgetList<MonekoDisclosureRow>(find.byType(MonekoDisclosureRow))
+        .firstWhere((row) => row.label == 'Date paid');
+    expect(
+      paidDateRow.value,
+      formatLocalizedDate(
+          tester.element(find.text('Date paid')), scheduledDate),
+    );
+
+    paidDateRow.onTap!();
+    await tester.pumpAndSettle();
+    expect(
+        tester.widget<DatePickerDialog>(find.byType(DatePickerDialog)).lastDate,
+        DateTime(2100, 12, 31));
   });
 }

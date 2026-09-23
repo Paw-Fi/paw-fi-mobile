@@ -107,15 +107,43 @@ bool canConfirmOccurrenceAt(
   );
 }
 
+bool isNextFutureRecurringOccurrence({
+  required RecurringTransaction transaction,
+  required DateTime scheduledOccurrenceDate,
+  required DateTime userNow,
+}) {
+  final nextOccurrence = transaction.serverNextOccurrenceDate;
+  if (nextOccurrence == null) return false;
+
+  final userToday = DateTime(userNow.year, userNow.month, userNow.day);
+  final normalizedScheduledDate = DateTime(
+    scheduledOccurrenceDate.year,
+    scheduledOccurrenceDate.month,
+    scheduledOccurrenceDate.day,
+  );
+  return normalizedScheduledDate.isAfter(userToday) &&
+      formatDateOnlyYmd(nextOccurrence) ==
+          formatDateOnlyYmd(normalizedScheduledDate);
+}
+
 bool canSubmitRecurringOccurrenceConfirmationAt({
   required RecurringTransaction transaction,
   required DateTime scheduledOccurrenceDate,
   required DateTime paidDate,
   required DateTime userNow,
+  bool allowNextPreconfirmation = false,
 }) {
   final userToday = DateTime(userNow.year, userNow.month, userNow.day);
   final normalizedPaidDate =
       DateTime(paidDate.year, paidDate.month, paidDate.day);
-  return !normalizedPaidDate.isAfter(userToday) &&
-      canConfirmOccurrenceAt(transaction, scheduledOccurrenceDate, userNow);
+  final isNextFutureOccurrence = allowNextPreconfirmation &&
+      isNextFutureRecurringOccurrence(
+        transaction: transaction,
+        scheduledOccurrenceDate: scheduledOccurrenceDate,
+        userNow: userNow,
+      );
+  return (isNextFutureOccurrence || !normalizedPaidDate.isAfter(userToday)) &&
+      (isNextFutureOccurrence ||
+          canConfirmOccurrenceAt(
+              transaction, scheduledOccurrenceDate, userNow));
 }

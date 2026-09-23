@@ -72,6 +72,7 @@ ExpenseEntry buildOptimisticEntry({
   String? localReceiptImagePath,
   String? accountId,
   String? splitGroupId,
+  DateTime? createdAt,
 }) {
   return ExpenseEntry(
     id: optimisticId,
@@ -82,9 +83,13 @@ ExpenseEntry buildOptimisticEntry({
     amountCents: transaction.amountCents.abs(),
     currency: transaction.currency,
     category: transaction.category,
-    createdAt: DateTime.now(),
+    createdAt: createdAt ?? DateTime.now(),
     rawText: transaction.description,
     merchant: transaction.merchant,
+    merchantId: transaction.merchantId,
+    merchantDomain: transaction.merchantDomain,
+    merchantLogoUrl: transaction.merchantLogoUrl,
+    merchantStructuredName: transaction.merchantStructuredName,
     breakdown: transaction.breakdown,
     receiptImageUrl: receiptImageUrl,
     localReceiptImagePath: localReceiptImagePath,

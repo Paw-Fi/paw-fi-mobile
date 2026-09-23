@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +15,8 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
@@ -19,8 +24,12 @@ import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_au
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
+import 'package:moneko/shared/widgets/messaging_app_logo.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
@@ -29,7 +38,7 @@ import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
 const _kOnboardingReviewPromptShownKey = 'onboarding_review_prompt_shown';
-const _kTotalSteps = 3;
+const _kBaseTotalSteps = 3;
 const _kSubscriptionRefreshTimeout = Duration(seconds: 10);
 const _kTrialGrantTimeout = Duration(seconds: 20);
 
@@ -152,6 +161,11 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final pageController = usePageController();
     final currentPage = useState(0);
     final colorScheme = Theme.of(context).colorScheme;
+    final subscriptionAsync = ref.watch(subscriptionManagementProvider);
+    final showSubscriptionStep =
+        subscriptionAsync.valueOrNull?.subscription?.status?.toLowerCase() ==
+            'trialing';
+    final totalSteps = _kBaseTotalSteps + (showSubscriptionStep ? 1 : 0);
     final notificationFlowStarted = useState(false);
     final notificationFlowCompleted = useState(false);
     final selectedImportApp = useState<String>('YNAB');
@@ -197,7 +211,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
     void next() {
       if (!context.mounted) return;
-      if (currentPage.value < _kTotalSteps - 1) {
+      if (currentPage.value < totalSteps - 1) {
         goToPage(currentPage.value + 1);
       } else {
         unawaited(showFinishPage());
@@ -205,7 +219,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     void skip() {
-      if (currentPage.value == _kTotalSteps - 1) {
+      if (currentPage.value == totalSteps - 1) {
         unawaited(showFinishPage());
         return;
       }
@@ -234,11 +248,25 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           }),
         );
         notificationFlowCompleted.value = true;
-        await showFinishPage();
+        next();
       } finally {
         if (context.mounted) {
           notificationFlowStarted.value = false;
         }
+      }
+    }
+
+    Future<void> handleSubscriptionFlow() async {
+      await PlusLockedSheet.show(
+        context,
+        highlightedFeature: PlusFeature.messagingAppCapture,
+      );
+      if (!context.mounted) return;
+
+      final subscription =
+          ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+      if (subscription?.isSubscribed ?? false) {
+        await showFinishPage();
       }
     }
 
@@ -328,6 +356,9 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           case 2:
             await handleNotificationsFlow();
             return;
+          case 3:
+            await handleSubscriptionFlow();
+            return;
           default:
             next();
         }
@@ -352,6 +383,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           ? context.l10n.continueAction
           : context.l10n.importExpenses,
       2 => context.l10n.turnOnNotifications,
+      3 => context.l10n.viewPlans,
       _ => context.l10n.continueAction,
     };
 
@@ -390,6 +422,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                       },
                     ),
                     const _NotificationsStep(),
+                    if (showSubscriptionStep) const _SubscriptionStep(),
                   ],
                 ),
               ),
@@ -400,7 +433,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(_kTotalSteps, (i) {
+                      children: List.generate(totalSteps, (i) {
                         final active = currentPage.value == i;
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -419,7 +452,9 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      height: 52,
+                      height: MediaQuery.textScalerOf(context).scale(16) > 20
+                          ? null
+                          : 52,
                       child: PrimaryAdaptiveButton(
                         onPressed: isPrimaryBusy.value
                             ? null
@@ -519,284 +554,231 @@ enum _ExpenseCaptureSource {
   }
 }
 
+const _kMonekoSaveGif = 'lib/assets/gifs/moneko-save-smooth-v2.gif';
+
+String? _merchantLabelOf(ParsedExpense? item) {
+  if (item == null) return null;
+  final raw = item.merchant?.trim();
+  if (raw != null && raw.isNotEmpty) return raw;
+  final structured = item.merchantStructuredName?.trim();
+  if (structured != null && structured.isNotEmpty) return structured;
+  return null;
+}
+
 Future<void> _showLoggedExpenseResultSheet(
   BuildContext context,
   OnboardingLoggedExpensePreview preview,
 ) {
   final colorScheme = Theme.of(context).colorScheme;
+  final l10n = context.l10n;
+  final localeName = Localizations.localeOf(context).toString();
+  final items = preview.items;
+  final firstItem = items.isEmpty ? null : items.first;
 
   // Calculate total amount if there are multiple items
-  final totalAmount = preview.items.isNotEmpty
-      ? preview.items.fold<double>(0, (sum, item) => sum + item.amount)
+  final totalAmount = items.isNotEmpty
+      ? items.fold<double>(0, (sum, item) => sum + item.amount)
       : preview.amount;
 
   final totalAmountLabel =
       '${resolveCurrencySymbol(preview.currency)}${NumberFormat('#,##0.00').format(totalAmount)}';
 
-  return showModalBottomSheet<void>(
+  final merchantName = _merchantLabelOf(firstItem);
+  final subtitle = items.length > 1
+      ? l10n.onboardingPostAuthExpenseExtractedMultiple(items.length)
+      : (merchantName ?? preview.description);
+  final descriptionText = preview.description.trim();
+  final showDescriptionRow = descriptionText.isNotEmpty &&
+      descriptionText != subtitle &&
+      descriptionText != preview.sourceLabel;
+
+  unawaited(HapticFeedback.mediumImpact());
+
+  return MonekoBottomSheet.show<void>(
     context: context,
     useRootNavigator: true,
-    backgroundColor: colorScheme.sheetBackground,
     isScrollControlled: true,
-    useSafeArea: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (context) {
+    builder: (sheetContext) {
+      final detailRows = <Widget>[
+        if (merchantName != null && firstItem != null)
+          _ResultDetailRow(
+            leading: _MerchantLogoBadge(
+              item: firstItem,
+              fallbackIcon: Icons.storefront_outlined,
+              fallbackColor: colorScheme.mutedForeground,
+            ),
+            label: l10n.merchant,
+            value: merchantName,
+          ),
+        _ResultDetailRow(
+          leading: _CategoryIconBadge(
+            category: firstItem?.category ?? preview.category,
+          ),
+          label: l10n.category,
+          value: _capitalize(firstItem?.category ?? preview.category),
+        ),
+        if (firstItem != null)
+          _ResultDetailRow(
+            leading: const _ResultIconBadge(
+              icon: Icons.calendar_today_rounded,
+            ),
+            label: l10n.date,
+            value: DateFormat.yMMMd(localeName).format(firstItem.date),
+          ),
+        if (showDescriptionRow)
+          _ResultDetailRow(
+            leading: const _ResultIconBadge(icon: Icons.notes_rounded),
+            label: l10n.description,
+            value: descriptionText,
+          ),
+      ];
+
       return SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colorScheme.border.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(999),
+              _SheetReveal(
+                child: SizedBox(
+                  height: 150,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 220,
+                        height: 220,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              colorScheme.primary.withValues(alpha: 0.10),
+                              colorScheme.primary.withValues(alpha: 0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Image.asset(
+                        _kMonekoSaveGif,
+                        height: 150,
+                        excludeFromSemantics: true,
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 6),
+              _SheetReveal(
+                delay: const Duration(milliseconds: 90),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          context.l10n.onboardingPostAuthExpenseCaptured,
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.foreground,
-                            letterSpacing: -0.5,
-                          ),
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 13,
+                          color: colorScheme.primary,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          preview.items.length > 1
-                              ? context.l10n
-                                  .onboardingPostAuthExpenseExtractedMultiple(
-                                      preview.items.length)
-                              : context.l10n
-                                  .onboardingPostAuthExpenseExtractedSingle,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: colorScheme.mutedForeground,
-                            height: 1.3,
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            l10n.onboardingPostAuthExpenseCaptured,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.primary,
+                              letterSpacing: 0.6,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    Text(
+                      totalAmountLabel,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 44,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                        letterSpacing: -1.4,
+                        height: 1.05,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colorScheme.mutedForeground,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 28),
-              if (preview.items.length <= 1) ...[
-                // Single item view (Original detailed design)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: colorScheme.cardSurface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: colorScheme.border.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            color: colorScheme.primary,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            context.l10n.analysisResult,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      _ExtractedDetailRow(
-                        label: context.l10n.amount,
-                        value: totalAmountLabel,
-                        isHighlight: true,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: Divider(
-                          height: 1,
-                          color: colorScheme.border.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      _ExtractedDetailRow(
-                        label: context.l10n.category,
-                        value: _capitalize(preview.category),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: Divider(
-                          height: 1,
-                          color: colorScheme.border.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      _ExtractedDetailRow(
-                        label: context.l10n.description,
-                        value: preview.description,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: Divider(
-                          height: 1,
-                          color: colorScheme.border.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      _ExtractedDetailRow(
-                        label: context.l10n.inputSource,
-                        value: preview.sourceLabel,
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                // Multiple items view
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: colorScheme.cardSurface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: colorScheme.border.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.auto_awesome_rounded,
-                                color: colorScheme.primary,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                context.l10n
-                                    .onboardingPostAuthAiExtractionCount(
-                                        preview.items.length),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            totalAmountLabel,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Divider(
-                        height: 1,
-                        color: colorScheme.border.withValues(alpha: 0.3),
-                      ),
-                      const SizedBox(height: 12),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height * 0.4,
-                        ),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: preview.items.length,
-                          separatorBuilder: (context, index) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Divider(
-                              height: 1,
-                              color: colorScheme.border.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          itemBuilder: (context, index) {
-                            final item = preview.items[index];
-                            final itemAmount =
-                                '${item.currencySymbol}${NumberFormat('#,##0.00').format(item.amount)}';
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.description ??
-                                            context.l10n.unknown,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.foreground,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _capitalize(item.category),
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: colorScheme.mutedForeground,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  itemAmount,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.foreground,
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: PrimaryAdaptiveButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(context.l10n.looksGood),
+              Flexible(
+                child: _SheetReveal(
+                  delay: const Duration(milliseconds: 180),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.sheetElementBackground,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight:
+                            MediaQuery.of(sheetContext).size.height * 0.34,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        itemCount:
+                            items.length > 1 ? items.length : detailRows.length,
+                        separatorBuilder: (context, index) => Divider(
+                          height: 1,
+                          indent: 64,
+                          endIndent: 16,
+                          color: colorScheme.border.withValues(alpha: 0.3),
+                        ),
+                        itemBuilder: (context, index) => items.length > 1
+                            ? _LoggedItemRow(
+                                item: items[index],
+                                localeName: localeName,
+                              )
+                            : detailRows[index],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _SheetReveal(
+                delay: const Duration(milliseconds: 250),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: MediaQuery.textScalerOf(context).scale(16) > 20
+                      ? null
+                      : 52,
+                  child: PrimaryAdaptiveButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    child: Text(l10n.looksGood),
+                  ),
                 ),
               ),
             ],
@@ -812,50 +794,262 @@ String _capitalize(String s) {
   return s[0].toUpperCase() + s.substring(1);
 }
 
-class _ExtractedDetailRow extends StatelessWidget {
-  const _ExtractedDetailRow({
-    required this.label,
-    required this.value,
-    this.isHighlight = false,
+class _SheetReveal extends StatefulWidget {
+  const _SheetReveal({
+    required this.child,
+    this.delay = Duration.zero,
   });
 
+  final Widget child;
+  final Duration delay;
+
+  @override
+  State<_SheetReveal> createState() => _SheetRevealState();
+}
+
+class _SheetRevealState extends State<_SheetReveal>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    final curved = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
+    _opacity = curved;
+    _offset = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(curved);
+    if (widget.delay == Duration.zero) {
+      _controller.forward();
+    } else {
+      Future<void>.delayed(widget.delay, () {
+        if (mounted) _controller.forward();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _offset,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _ResultDetailRow extends StatelessWidget {
+  const _ResultDetailRow({
+    required this.leading,
+    required this.label,
+    required this.value,
+  });
+
+  final Widget leading;
   final String label;
   final String value;
-  final bool isHighlight;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Padding(
-            padding: EdgeInsets.only(top: isHighlight ? 4 : 0),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: Text(
-              label,
+              value,
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.mutedForeground,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultIconBadge extends StatelessWidget {
+  const _ResultIconBadge({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: colorScheme.onSurface.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, size: 19, color: colorScheme.mutedForeground),
+    );
+  }
+}
+
+class _CategoryIconBadge extends StatelessWidget {
+  const _CategoryIconBadge({required this.category});
+
+  final String? category;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = getCategoryColor(category, context);
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(getCategoryIcon(category), size: 19, color: color),
+    );
+  }
+}
+
+class _MerchantLogoBadge extends StatelessWidget {
+  const _MerchantLogoBadge({
+    required this.item,
+    required this.fallbackIcon,
+    required this.fallbackColor,
+  });
+
+  final ParsedExpense item;
+  final IconData fallbackIcon;
+  final Color fallbackColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: colorScheme.onSurface.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: MerchantLogo(
+        merchantId: item.merchantId,
+        domain: item.merchantDomain,
+        logoUrl: item.merchantLogoUrl,
+        merchantStructuredName: item.merchantStructuredName,
+        merchantName: item.merchant,
+        fallback: Center(
+          child: Icon(fallbackIcon, size: 19, color: fallbackColor),
         ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
+      ),
+    );
+  }
+}
+
+class _LoggedItemRow extends StatelessWidget {
+  const _LoggedItemRow({
+    required this.item,
+    required this.localeName,
+  });
+
+  final ParsedExpense item;
+  final String localeName;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final trimmedDescription = item.description?.trim() ?? '';
+    final title = trimmedDescription.isNotEmpty
+        ? trimmedDescription
+        : (_merchantLabelOf(item) ?? _capitalize(item.category));
+    final subtitle =
+        '${_capitalize(item.category)} · ${DateFormat.MMMd(localeName).format(item.date)}';
+    final amountLabel =
+        '${item.currencySymbol}${NumberFormat('#,##0.00').format(item.amount)}';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+      child: Row(
+        children: [
+          _MerchantLogoBadge(
+            item: item,
+            fallbackIcon: getCategoryIcon(item.category),
+            fallbackColor: getCategoryColor(item.category, context),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            amountLabel,
             style: TextStyle(
-              fontSize: isHighlight ? 22 : 15,
-              fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
               color: colorScheme.foreground,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -935,11 +1129,23 @@ class _LogExpenseStep extends StatelessWidget {
             const SizedBox(height: 20),
           ],
           // Also show the inline summary so users can see the result if they close the sheet
-          if (loggedExpensePreview != null)
-            _LoggedExpenseInlineSummary(
-              preview: loggedExpensePreview!,
-              onViewResult: onViewResult,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => SizeTransition(
+              sizeFactor: animation,
+              axisAlignment: -1,
+              child: FadeTransition(opacity: animation, child: child),
             ),
+            child: loggedExpensePreview == null
+                ? const SizedBox.shrink(key: ValueKey('no-preview'))
+                : _LoggedExpenseInlineSummary(
+                    key: const ValueKey('preview'),
+                    preview: loggedExpensePreview!,
+                    onViewResult: onViewResult,
+                  ),
+          ),
         ],
       ),
     );
@@ -948,6 +1154,7 @@ class _LogExpenseStep extends StatelessWidget {
 
 class _LoggedExpenseInlineSummary extends StatelessWidget {
   const _LoggedExpenseInlineSummary({
+    super.key,
     required this.preview,
     required this.onViewResult,
   });
@@ -988,6 +1195,14 @@ class _LoggedExpenseInlineSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Center(
+            child: Image.asset(
+              _kMonekoSaveGif,
+              height: 92,
+              excludeFromSemantics: true,
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Container(
@@ -1264,6 +1479,143 @@ class _NotificationsStep extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubscriptionStep extends StatelessWidget {
+  const _SubscriptionStep();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final autoCaptureLabel = defaultTargetPlatform == TargetPlatform.iOS
+        ? context.l10n.onboardingIntroSlide5AppleBody
+        : context.l10n.onboardingIntroSlide5AndroidBody;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 20, 10, 0),
+            child: Text(
+              context.l10n.plusPlan,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.foreground,
+                letterSpacing: -0.5,
+                height: 1.15,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              context.l10n.plusLockedDescription,
+              style: TextStyle(
+                fontSize: 15,
+                color: colorScheme.mutedForeground,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            height: 190,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.16),
+              ),
+            ),
+            alignment: Alignment.bottomCenter,
+            child: Image.asset(
+              'lib/assets/images/household/budget-together.png',
+              height: 190,
+              fit: BoxFit.contain,
+              semanticLabel: context.l10n.paywallBenefit0,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _SubscriptionBenefitTile(
+            leading: Icon(
+              Icons.family_restroom_rounded,
+              color: colorScheme.primary,
+              size: 21,
+            ),
+            label: context.l10n.paywallBenefit0,
+          ),
+          const SizedBox(height: 10),
+          _SubscriptionBenefitTile(
+            leading: MessagingAppLogo(
+              type: MessagingAppLogoType.whatsapp,
+              color: colorScheme.primary,
+              size: 21,
+            ),
+            label: context.l10n.plusLockedMessagingAppCapture,
+          ),
+          const SizedBox(height: 10),
+          _SubscriptionBenefitTile(
+            leading: Icon(
+              Icons.account_balance_wallet_rounded,
+              color: colorScheme.primary,
+              size: 21,
+            ),
+            label: autoCaptureLabel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubscriptionBenefitTile extends StatelessWidget {
+  const _SubscriptionBenefitTile({
+    required this.leading,
+    required this.label,
+  });
+
+  final Widget leading;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.check_circle_rounded,
+            color: colorScheme.primary,
+            size: 20,
           ),
         ],
       ),

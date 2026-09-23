@@ -973,6 +973,7 @@ class TransactionPreviewTile extends StatelessWidget {
               isIncome: isIncome,
               onTap: onTap,
               dense: true,
+              merchantName: row.merchant,
               showRecurringChip: row.isRecurring,
               trailingWidget: isError
                   ? StatusBadge(
@@ -1188,6 +1189,7 @@ class _ReleaseRecurringSeriesSheet extends StatelessWidget {
                         isIncome: (row.type ?? '').toLowerCase() == 'income',
                         dense: true,
                         showCurrencyFlag: true,
+                        merchantName: row.merchant,
                       );
                     },
                   ),

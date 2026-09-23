@@ -351,7 +351,7 @@ class _BulkConfirmPastOccurrencesFormState
               foregroundColor: colorScheme.onPrimary,
               minimumSize: const Size.fromHeight(50),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
               ),
               elevation: 0,
             ),

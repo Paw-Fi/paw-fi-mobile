@@ -12,7 +12,6 @@ import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
-import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
@@ -550,7 +549,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       }
 
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
-      String? queuedMutationId;
+      PocketsMutationHandle? queuedMutation;
       try {
         final nowIso = DateTime.now().toIso8601String();
         final originalAmountCents = existingEnvelope?.budgetAmountCents ?? 0;
@@ -661,8 +660,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           totalBudget: totalBudget,
           budgetId: budgetId,
         );
-        queuedMutationId =
-            await pocketsNotifier.queueCurrentPocketsSnapshotForSync();
+        queuedMutation =
+            await pocketsNotifier.queueCurrentPocketsSnapshotForSync(
+          rollbackState: previousPocketsState,
+        );
 
         Future<void> persistSiblingAllocations() async {
           for (var index = 0; index < siblingPockets.length; index++) {
@@ -749,9 +750,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             throw Exception(l10n.failedToCreateEnvelope);
           }
           envelopeId = id;
-          await pocketsNotifier.rebindOptimisticPocketId(
+          queuedMutation = await pocketsNotifier.rebindOptimisticPocketId(
             optimisticId: optimisticEnvelopeId,
             canonicalId: envelopeId,
+            rollbackState: previousPocketsState,
           );
 
           await persistSiblingAllocations();
@@ -776,7 +778,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
         await ref
             .read(pocketsProvider(scopeParams).notifier)
-            .markQueuedPocketsSnapshotSynced(queuedMutationId);
+            .markQueuedPocketsSnapshotSynced(queuedMutation);
 
         if (isScopedToHousehold && householdId != null) {
           ref
@@ -797,23 +799,24 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, message);
         }
       } catch (e) {
-        if (queuedMutationId != null && shouldKeepQueuedPocketsMutation(e)) {
+        if (queuedMutation != null && shouldKeepQueuedPocketsMutation(e)) {
           if (context.mounted) {
             Navigator.of(context).pop();
             AppToast.info(context, context.l10n.offlineSyncMessage);
           }
           return;
         }
-        if (queuedMutationId != null && isMissingRolloverColumnError(e)) {
-          final database = await ref.read(localDatabaseProvider.future);
-          await database.markMutationCancelled(
-            clientMutationId: queuedMutationId,
-            error: e,
-          );
+        if (queuedMutation != null) {
+          await ref
+              .read(pocketsProvider(scopeParams).notifier)
+              .cancelQueuedPocketsSnapshot(queuedMutation, e);
         }
-        ref
+        await ref
             .read(pocketsProvider(scopeParams).notifier)
-            .restoreOptimisticPockets(previousPocketsState);
+            .restoreOptimisticPockets(
+              previousPocketsState,
+              mutation: queuedMutation,
+            );
         if (context.mounted) {
           AppToast.error(
             context,
@@ -855,7 +858,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         isLoading.value = true;
       }
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
-      String? queuedMutationId;
+      PocketsMutationHandle? queuedMutation;
       try {
         final remainingPockets = allPockets
             .where((pocket) => pocket.id != existingEnvelope!.id)
@@ -883,9 +886,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           totalBudget: totalBudget,
           budgetId: budgetId,
         );
-        queuedMutationId =
+        queuedMutation =
             await pocketsNotifier.queueCurrentPocketsSnapshotForSync(
           deletedPocketIds: [existingEnvelope!.id],
+          rollbackState: previousPocketsState,
         );
 
         final deleteResult = await supabase.rpc(
@@ -924,7 +928,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
         await ref
             .read(pocketsProvider(scopeParams).notifier)
-            .markQueuedPocketsSnapshotSynced(queuedMutationId);
+            .markQueuedPocketsSnapshotSynced(queuedMutation);
 
         final isScopedToHousehold =
             scopeParams.scope != PocketsScopeType.personal;
@@ -947,7 +951,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, l10n.pocketDeleted);
         }
       } catch (e) {
-        if (queuedMutationId != null && shouldKeepQueuedPocketsMutation(e)) {
+        if (queuedMutation != null && shouldKeepQueuedPocketsMutation(e)) {
           if (context.mounted) {
             Navigator.of(context).pop();
             onDeleteCompleted?.call();
@@ -955,9 +959,17 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           }
           return;
         }
-        ref
+        if (queuedMutation != null) {
+          await ref
+              .read(pocketsProvider(scopeParams).notifier)
+              .cancelQueuedPocketsSnapshot(queuedMutation, e);
+        }
+        await ref
             .read(pocketsProvider(scopeParams).notifier)
-            .restoreOptimisticPockets(previousPocketsState);
+            .restoreOptimisticPockets(
+              previousPocketsState,
+              mutation: queuedMutation,
+            );
         if (context.mounted) {
           AppToast.error(context, l10n.failedToDeletePocket);
         }

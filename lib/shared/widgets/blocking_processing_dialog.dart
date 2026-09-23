@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -245,6 +246,7 @@ class _NonBlockingProcessingBannerState
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final (background, border, accent, icon) = switch (_outcome) {
       ProcessingOverlayOutcome.success => (
@@ -343,8 +345,10 @@ class _NonBlockingProcessingBannerState
                           children: [
                             Text(
                               _message,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: isLargeText ? 4 : 2,
+                              overflow: isLargeText
+                                  ? TextOverflow.visible
+                                  : TextOverflow.ellipsis,
                               style: Theme.of(context)
                                   .textTheme
                                   .bodyMedium
@@ -360,8 +364,10 @@ class _NonBlockingProcessingBannerState
                                 _subMessage ??
                                     context.l10n
                                         .workingForElapsed(_elapsedLabel),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                maxLines: isLargeText ? 3 : 1,
+                                overflow: isLargeText
+                                    ? TextOverflow.visible
+                                    : TextOverflow.ellipsis,
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall

@@ -96,7 +96,8 @@ class ConnectSocialBottomSheet extends ConsumerWidget {
                         context: rootContext,
                         isScrollControlled: true,
                         useSafeArea: true,
-                        backgroundColor: Colors.transparent,
+                        backgroundColor:
+                            colorScheme.surface.withValues(alpha: 0.0),
                         builder: (context) => const TelegramTutorialModal(),
                       );
                     },
@@ -134,7 +135,8 @@ class ConnectSocialBottomSheet extends ConsumerWidget {
                         context: rootContext,
                         isScrollControlled: true,
                         useSafeArea: true,
-                        backgroundColor: Colors.transparent,
+                        backgroundColor:
+                            colorScheme.surface.withValues(alpha: 0.0),
                         builder: (context) => const WhatsAppTutorialModal(),
                       );
                     },

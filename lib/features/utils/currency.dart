@@ -71,6 +71,7 @@ const Map<String, String> currencyOptions = {
   'XOF': 'CFA',
   'CRC': '₡',
   'XAF': 'FCFA',
+  'MAD': 'د.م.',
 };
 
 const String _defaultCurrencySymbol = r'$';
@@ -138,6 +139,9 @@ Map<String, String> _buildCurrencyAliases() {
     'MAURITIAN RUPEE': 'MUR',
     '£S': 'SYP',
     'ZK': 'ZMW',
+    'DH': 'MAD',
+    'DHS': 'MAD',
+    'MOROCCAN DIRHAM': 'MAD',
   });
 
   return aliases;

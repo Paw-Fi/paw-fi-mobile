@@ -174,25 +174,28 @@ class OnboardingSaveBudgetPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 32),
         SizedBox(
-          height: 48,
           width: double.infinity,
-          child: Material(
-            color: theme.colorScheme.card,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Material(
+              color: theme.colorScheme.card,
               borderRadius: BorderRadius.circular(12),
-              onTap: () => _exploreAppInPreview(context, ref),
-              child: Container(
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: theme.colorScheme.border),
-                ),
-                child: Text(
-                  context.l10n.onboardingPreAuthSaveBudgetPreview,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.foreground,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _exploreAppInPreview(context, ref),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.colorScheme.border),
+                  ),
+                  child: Text(
+                    context.l10n.onboardingPreAuthSaveBudgetPreview,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.foreground,
+                    ),
                   ),
                 ),
               ),

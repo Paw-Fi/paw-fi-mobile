@@ -213,7 +213,7 @@ List<_KeyedRecentEntry> _keyedLatestRecentEntries(
 int _recentExpensesSignature(List<ExpenseEntry> expenses) {
   var hash = expenses.length;
   for (final expense in expenses) {
-    hash = Object.hash(
+    hash = Object.hashAll([
       hash,
       expense.id,
       expense.date.millisecondsSinceEpoch,
@@ -224,6 +224,10 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.category,
       expense.rawText,
       expense.merchant,
+      expense.merchantId,
+      expense.merchantDomain,
+      expense.merchantLogoUrl,
+      expense.merchantStructuredName,
       expense.receiptImageUrl,
       expense.localReceiptImagePath,
       expense.splitGroupId,
@@ -231,7 +235,7 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.providerPending,
       expense.analyticsIsFinal,
       expense.isRecurring,
-    );
+    ]);
   }
   return hash;
 }
@@ -508,7 +512,7 @@ class _RecentTransactionsCardState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       0,
                       16,
                       0,
@@ -558,88 +562,92 @@ class _RecentTransactionsCardState
       preferredTimezone: widget.contact?.preferredTimezone,
     );
 
-    return Slidable(
-      key: ValueKey('slidable_${row.key}'),
-      enabled: !row.isRemoving,
-      endActionPane: ActionPane(
-        motion: const ScrollMotion(),
-        extentRatio: 0.22,
-        children: [
-          SlidableAction(
-            onPressed: (_) async {
-              final l10n = context.l10n;
-              final rootNavigator = Navigator.of(context, rootNavigator: true);
-              final toastContext = rootNavigator.context;
-              final deletedId = e.id.trim();
+    return SizedBox(
+      width: double.infinity,
+      child: Slidable(
+        key: ValueKey('slidable_${row.key}'),
+        enabled: !row.isRemoving,
+        endActionPane: ActionPane(
+          motion: const ScrollMotion(),
+          extentRatio: 0.22,
+          children: [
+            SlidableAction(
+              onPressed: (_) async {
+                final l10n = context.l10n;
+                final rootNavigator =
+                    Navigator.of(context, rootNavigator: true);
+                final toastContext = rootNavigator.context;
+                final deletedId = e.id.trim();
 
-              setState(() {
-                if (deletedId.isNotEmpty) {
-                  _optimisticallyDeletedIds.add(deletedId);
-                }
-                _rows = _rows
-                    .where(
-                      (currentRow) =>
-                          currentRow.key != row.key &&
-                          (deletedId.isEmpty ||
-                              currentRow.entry.id.trim() != deletedId),
-                    )
-                    .toList(growable: false);
-              });
-              AppToast.success(toastContext, l10n.transactionDeleted);
-              final success = await ref
-                  .read(transactionEditProvider.notifier)
-                  .deleteExpensesOptimistically([e]);
-
-              if (!success) {
-                if (!mounted) return;
-                final error = ref.read(transactionEditProvider).error;
                 setState(() {
-                  _optimisticallyDeletedIds.remove(deletedId);
+                  if (deletedId.isNotEmpty) {
+                    _optimisticallyDeletedIds.add(deletedId);
+                  }
+                  _rows = _rows
+                      .where(
+                        (currentRow) =>
+                            currentRow.key != row.key &&
+                            (deletedId.isEmpty ||
+                                currentRow.entry.id.trim() != deletedId),
+                      )
+                      .toList(growable: false);
                 });
-                _syncRows(_keyedEntriesFor(_visibleExpenses(
-                  widget.allExpenses,
-                )));
-                if (!toastContext.mounted) return;
-                AppToast.error(
-                  toastContext,
-                  ErrorHandler.getUserFriendlyMessage(
-                    error,
-                    context: BackendErrorContext.deleteExpense,
+                AppToast.success(toastContext, l10n.transactionDeleted);
+                final success = await ref
+                    .read(transactionEditProvider.notifier)
+                    .deleteExpensesOptimistically([e]);
+
+                if (!success) {
+                  if (!mounted) return;
+                  final error = ref.read(transactionEditProvider).error;
+                  setState(() {
+                    _optimisticallyDeletedIds.remove(deletedId);
+                  });
+                  _syncRows(_keyedEntriesFor(_visibleExpenses(
+                    widget.allExpenses,
+                  )));
+                  if (!toastContext.mounted) return;
+                  AppToast.error(
+                    toastContext,
+                    ErrorHandler.getUserFriendlyMessage(
+                      error,
+                      context: BackendErrorContext.deleteExpense,
+                    ),
+                  );
+                }
+              },
+              backgroundColor: colorScheme.destructive,
+              foregroundColor: colorScheme.onError,
+              icon: Icons.delete,
+              label: context.l10n.delete,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ],
+        ),
+        child: buildExpenseTransactionTile(
+          context: context,
+          expense: e,
+          category: e.category,
+          rawText: e.merchant?.trim().isNotEmpty == true
+              ? e.merchant!.trim()
+              : e.rawText,
+          date: displayDateTime,
+          amount: e.amount,
+          currency: e.currency ?? widget.selectedCurrency ?? 'USD',
+          isIncome: isIncome,
+          onTap: row.isRemoving
+              ? null
+              : () => showTransactionDetailsSheet(
+                    context,
+                    expense: e,
+                    recurringTransactionsById: widget.recurringTransactionsById,
+                    recurringOccurrence:
+                        widget.recurringOccurrencesByActualTransactionId[e.id],
+                    recurringIdForOccurrence:
+                        widget.recurringIdsByActualTransactionId[e.id],
+                    contact: widget.contact,
                   ),
-                );
-              }
-            },
-            backgroundColor: colorScheme.destructive,
-            foregroundColor: colorScheme.onError,
-            icon: Icons.delete,
-            label: context.l10n.delete,
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ],
-      ),
-      child: buildExpenseTransactionTile(
-        context: context,
-        expense: e,
-        category: e.category,
-        rawText: e.merchant?.trim().isNotEmpty == true
-            ? e.merchant!.trim()
-            : e.rawText,
-        date: displayDateTime,
-        amount: e.amount,
-        currency: e.currency ?? widget.selectedCurrency ?? 'USD',
-        isIncome: isIncome,
-        onTap: row.isRemoving
-            ? null
-            : () => showTransactionDetailsSheet(
-                  context,
-                  expense: e,
-                  recurringTransactionsById: widget.recurringTransactionsById,
-                  recurringOccurrence:
-                      widget.recurringOccurrencesByActualTransactionId[e.id],
-                  recurringIdForOccurrence:
-                      widget.recurringIdsByActualTransactionId[e.id],
-                  contact: widget.contact,
-                ),
+        ),
       ),
     );
   }

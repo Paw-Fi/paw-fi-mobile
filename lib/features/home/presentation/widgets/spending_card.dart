@@ -13,6 +13,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 import 'package:moneko/features/home/presentation/widgets/multi_currency_total_breakdown_sheet.dart';
 
@@ -134,6 +135,7 @@ class _SpendingCardState extends State<SpendingCard> {
   @override
   Widget build(BuildContext context) {
     final intervalType = getChartIntervalTypeFromFilter(widget.dateFilter);
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final now = widget.referenceNow ?? DateTime.now();
     final derivedData = _derivedDataFor(intervalType, now);
     final sortedDates = derivedData.sortedDates;
@@ -222,312 +224,319 @@ class _SpendingCardState extends State<SpendingCard> {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        (widget.headerLabel ?? context.l10n.spent)
-                            .toUpperCase(),
+      padding: const EdgeInsets.all(16.0),
+      child: MonekoTextScale(
+        mode: MonekoTextScaling.constrained,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Section
+            Flex(
+              direction: MonekoTextScale.isAtLeast(context, 1.5)
+                  ? Axis.vertical
+                  : Axis.horizontal,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          (widget.headerLabel ?? context.l10n.spent)
+                              .toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.0,
+                            color: widget.colorScheme.mutedForeground,
+                          ),
+                        ),
+                        if (shouldShowBreakdownIcon) ...[
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _showBreakdownSheet(
+                              currencyTypeTotals,
+                              totalSpent,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.info_outline_rounded,
+                                size: 14,
+                                color: widget.colorScheme.mutedForeground,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    RepaintBoundary(
+                      child: AnimatedAmountText(
+                        value: totalSpent,
+                        symbol: symbol,
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.0,
-                          color: widget.colorScheme.mutedForeground,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -1.0,
+                          color: widget.colorScheme.foreground,
+                          height: 1.1,
                         ),
-                      ),
-                      if (shouldShowBreakdownIcon) ...[
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => _showBreakdownSheet(
-                            currencyTypeTotals,
-                            totalSpent,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: Icon(
-                              Icons.info_outline_rounded,
-                              size: 14,
-                              color: widget.colorScheme.mutedForeground,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  RepaintBoundary(
-                    child: AnimatedAmountText(
-                      value: totalSpent,
-                      symbol: symbol,
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -1.0,
-                        color: widget.colorScheme.foreground,
-                        height: 1.1,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              if (sortedDates.length > _windowSize)
-                _buildNavigationControls(maxWindowStart),
-            ],
-          ),
+                  ],
+                ),
+                if (sortedDates.length > _windowSize)
+                  _buildNavigationControls(maxWindowStart),
+              ],
+            ),
 
-          const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-          // Chart Section
-          RepaintBoundary(
-            child: SizedBox(
-              height: 160,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: animationStart, end: 1),
-                duration: animationDuration,
-                curve: Curves.easeOutCubic,
-                onEnd: () {
-                  if (!_hasPlayedEntranceAnimation) {
-                    _markEntranceAnimationPlayed();
-                  }
-                },
-                builder: (context, animationValue, child) {
-                  // Interpolate spots from 0 to actual values
-                  final animatedSpots = adjustedVisibleData.map((spot) {
-                    return FlSpot(
-                      spot.x,
-                      spot.y * animationValue,
-                    );
-                  }).toList();
+            // Chart Section
+            RepaintBoundary(
+              child: SizedBox(
+                height: 160,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: animationStart, end: 1),
+                  duration: animationDuration,
+                  curve: Curves.easeOutCubic,
+                  onEnd: () {
+                    if (!_hasPlayedEntranceAnimation) {
+                      _markEntranceAnimationPlayed();
+                    }
+                  },
+                  builder: (context, animationValue, child) {
+                    // Interpolate spots from 0 to actual values
+                    final animatedSpots = adjustedVisibleData.map((spot) {
+                      return FlSpot(
+                        spot.x,
+                        spot.y * animationValue,
+                      );
+                    }).toList();
 
-                  return LineChart(
-                    LineChartData(
-                      gridData: const FlGridData(show: false),
-                      titlesData: FlTitlesData(
-                        leftTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            interval: 1,
-                            reservedSize: 34,
-                            getTitlesWidget: (value, meta) {
-                              if (value.toInt() >= visibleDates.length ||
-                                  value.toInt() < 0) {
-                                return const SizedBox();
-                              }
-                              final date = visibleDates[value.toInt()];
-                              final locale = Localizations.localeOf(context);
-                              final localeName = intlSafeLocaleName(locale);
+                    return LineChart(
+                      LineChartData(
+                        gridData: const FlGridData(show: false),
+                        titlesData: FlTitlesData(
+                          leftTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: 1,
+                              reservedSize: isLargeText ? 46 : 34,
+                              getTitlesWidget: (value, meta) {
+                                if (value.toInt() >= visibleDates.length ||
+                                    value.toInt() < 0) {
+                                  return const SizedBox();
+                                }
+                                final date = visibleDates[value.toInt()];
+                                final locale = Localizations.localeOf(context);
+                                final localeName = intlSafeLocaleName(locale);
 
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: widget.dateFilter ==
-                                        DateRangeFilter.thisMonth
-                                    ? Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            DateFormat('d', localeName)
-                                                .format(date),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: widget
-                                                  .colorScheme.mutedForeground,
-                                              height: 1.0,
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: widget.dateFilter ==
+                                          DateRangeFilter.thisMonth
+                                      ? Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              DateFormat('d', localeName)
+                                                  .format(date),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: widget.colorScheme
+                                                    .mutedForeground,
+                                                height: 1.0,
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            DateFormat('MMM', localeName)
-                                                .format(date),
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w500,
-                                              color: widget
-                                                  .colorScheme.mutedForeground,
-                                              height: 1.0,
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              DateFormat('MMM', localeName)
+                                                  .format(date),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
+                                                color: widget.colorScheme
+                                                    .mutedForeground,
+                                                height: 1.0,
+                                              ),
                                             ),
+                                          ],
+                                        )
+                                      : Text(
+                                          formatDateForInterval(
+                                              date, intervalType),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: widget
+                                                .colorScheme.mutedForeground,
                                           ),
-                                        ],
-                                      )
-                                    : Text(
-                                        formatDateForInterval(
-                                            date, intervalType),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: widget
-                                              .colorScheme.mutedForeground,
                                         ),
-                                      ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      borderData: FlBorderData(show: false),
-                      lineTouchData: LineTouchData(
-                        enabled: true,
-                        touchSpotThreshold: 24,
-                        touchTooltipData: LineTouchTooltipData(
-                          getTooltipColor: (touchedSpot) =>
-                              widget.colorScheme.surface,
-                          tooltipBorder: BorderSide(
-                              color: widget.colorScheme.outline
-                                  .withValues(alpha: 0.1)),
-                          tooltipRoundedRadius: 12,
-                          tooltipPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          getTooltipItems: (touchedSpots) {
-                            return touchedSpots.map((spot) {
-                              if (spot.spotIndex >= visibleDates.length) {
-                                return null;
-                              }
-                              final date = visibleDates[spot.spotIndex];
-                              final locale = Localizations.localeOf(context);
-                              final localeName = intlSafeLocaleName(locale);
-                              final formattedDate = widget.dateFilter ==
-                                          DateRangeFilter.thisMonth &&
-                                      intervalType == 'daily'
-                                  ? DateFormat('d MMM', localeName).format(date)
-                                  : formatDateForInterval(date, intervalType);
-                              final currencyCode =
-                                  widget.selectedCurrency ?? 'USD';
-                              final symbol =
-                                  resolveCurrencySymbol(currencyCode);
-                              final localizedY =
-                                  formatLocalizedNumber(context, spot.y);
-                              final amount = '$symbol$localizedY';
-                              return LineTooltipItem(
-                                '$formattedDate\n',
-                                TextStyle(
-                                  color: widget.colorScheme.mutedForeground,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text: amount,
-                                    style: TextStyle(
-                                      color: widget.colorScheme.foreground,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }).toList();
-                          },
-                        ),
-                        touchCallback: (FlTouchEvent event,
-                            LineTouchResponse? touchResponse) {
-                          setState(() {
-                            if (event is FlPanEndEvent ||
-                                event is FlPanCancelEvent ||
-                                event is FlTapUpEvent ||
-                                event is FlTapCancelEvent ||
-                                event is FlLongPressEnd) {
-                              _touchedIndex = null;
-                              return;
-                            }
-                            if (touchResponse == null ||
-                                touchResponse.lineBarSpots == null) {
-                              _touchedIndex = null;
-                              return;
-                            }
-                            _touchedIndex =
-                                touchResponse.lineBarSpots!.first.spotIndex;
-                          });
-                        },
-                        handleBuiltInTouches: true,
-                      ),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: animatedSpots,
-                          isCurved: true,
-                          curveSmoothness: 0.35,
-                          color: widget.colorScheme.primary,
-                          barWidth: 3,
-                          isStrokeCapRound: true,
-                          dotData: FlDotData(
-                            show: true,
-                            getDotPainter: (spot, percent, barData, index) {
-                              // Highlight the last point (current/most recent)
-                              final isLastPoint =
-                                  index == animatedSpots.length - 1 &&
-                                      _currentWindowStart + index ==
-                                          allCumulativeData.length - 1;
-
-                              if (isLastPoint) {
-                                return FlDotCirclePainter(
-                                  radius: 6,
-                                  color: widget.colorScheme.primary,
-                                  strokeWidth: 4,
-                                  strokeColor: widget.colorScheme.surface,
                                 );
-                              }
-                              // Show dots on touch
-                              if (_touchedIndex != null &&
-                                  index == _touchedIndex) {
-                                return FlDotCirclePainter(
-                                  radius: 6,
-                                  color: widget.colorScheme.primary,
-                                  strokeWidth: 4,
-                                  strokeColor: widget.colorScheme.surface,
-                                );
-                              }
-                              return FlDotCirclePainter(
-                                  radius: 0,
-                                  color: widget.colorScheme.surface
-                                      .withValues(alpha: 0.0));
-                            },
-                          ),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                widget.colorScheme.primary
-                                    .withValues(alpha: 0.2 * animationValue),
-                                widget.colorScheme.primary
-                                    .withValues(alpha: 0.0),
-                              ],
+                              },
                             ),
                           ),
                         ),
-                      ],
-                      minY: minY,
-                      maxY: maxY,
-                    ),
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 400),
-                    curve: Curves.easeOutCubic,
-                  );
-                },
+                        borderData: FlBorderData(show: false),
+                        lineTouchData: LineTouchData(
+                          enabled: true,
+                          touchSpotThreshold: 24,
+                          touchTooltipData: LineTouchTooltipData(
+                            getTooltipColor: (touchedSpot) =>
+                                widget.colorScheme.surface,
+                            tooltipBorder: BorderSide(
+                                color: widget.colorScheme.outline
+                                    .withValues(alpha: 0.1)),
+                            tooltipRoundedRadius: 12,
+                            tooltipPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            getTooltipItems: (touchedSpots) {
+                              return touchedSpots.map((spot) {
+                                if (spot.spotIndex >= visibleDates.length) {
+                                  return null;
+                                }
+                                final date = visibleDates[spot.spotIndex];
+                                final locale = Localizations.localeOf(context);
+                                final localeName = intlSafeLocaleName(locale);
+                                final formattedDate = widget.dateFilter ==
+                                            DateRangeFilter.thisMonth &&
+                                        intervalType == 'daily'
+                                    ? DateFormat('d MMM', localeName)
+                                        .format(date)
+                                    : formatDateForInterval(date, intervalType);
+                                final currencyCode =
+                                    widget.selectedCurrency ?? 'USD';
+                                final symbol =
+                                    resolveCurrencySymbol(currencyCode);
+                                final localizedY =
+                                    formatLocalizedNumber(context, spot.y);
+                                final amount = '$symbol$localizedY';
+                                return LineTooltipItem(
+                                  '$formattedDate\n',
+                                  TextStyle(
+                                    color: widget.colorScheme.mutedForeground,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: amount,
+                                      style: TextStyle(
+                                        color: widget.colorScheme.foreground,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList();
+                            },
+                          ),
+                          touchCallback: (FlTouchEvent event,
+                              LineTouchResponse? touchResponse) {
+                            setState(() {
+                              if (event is FlPanEndEvent ||
+                                  event is FlPanCancelEvent ||
+                                  event is FlTapUpEvent ||
+                                  event is FlTapCancelEvent ||
+                                  event is FlLongPressEnd) {
+                                _touchedIndex = null;
+                                return;
+                              }
+                              if (touchResponse == null ||
+                                  touchResponse.lineBarSpots == null) {
+                                _touchedIndex = null;
+                                return;
+                              }
+                              _touchedIndex =
+                                  touchResponse.lineBarSpots!.first.spotIndex;
+                            });
+                          },
+                          handleBuiltInTouches: true,
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: animatedSpots,
+                            isCurved: true,
+                            curveSmoothness: 0.35,
+                            color: widget.colorScheme.primary,
+                            barWidth: 3,
+                            isStrokeCapRound: true,
+                            dotData: FlDotData(
+                              show: true,
+                              getDotPainter: (spot, percent, barData, index) {
+                                // Highlight the last point (current/most recent)
+                                final isLastPoint =
+                                    index == animatedSpots.length - 1 &&
+                                        _currentWindowStart + index ==
+                                            allCumulativeData.length - 1;
+
+                                if (isLastPoint) {
+                                  return FlDotCirclePainter(
+                                    radius: 6,
+                                    color: widget.colorScheme.primary,
+                                    strokeWidth: 4,
+                                    strokeColor: widget.colorScheme.surface,
+                                  );
+                                }
+                                // Show dots on touch
+                                if (_touchedIndex != null &&
+                                    index == _touchedIndex) {
+                                  return FlDotCirclePainter(
+                                    radius: 6,
+                                    color: widget.colorScheme.primary,
+                                    strokeWidth: 4,
+                                    strokeColor: widget.colorScheme.surface,
+                                  );
+                                }
+                                return FlDotCirclePainter(
+                                    radius: 0,
+                                    color: widget.colorScheme.surface
+                                        .withValues(alpha: 0.0));
+                              },
+                            ),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  widget.colorScheme.primary
+                                      .withValues(alpha: 0.2 * animationValue),
+                                  widget.colorScheme.primary
+                                      .withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                        minY: minY,
+                        maxY: maxY,
+                      ),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 400),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -11,6 +13,215 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
+  group('authoritative pocket scope identity', () {
+    test('keeps the requested currency when RPC returns a stale currency', () {
+      expect(
+        resolvePocketResponseCurrency(
+          requestedCurrency: 'EUR',
+          responseCurrency: 'JPY',
+          allowCurrencyFallback: false,
+        ),
+        'EUR',
+      );
+    });
+
+    test('accepts the RPC currency only for an explicit bootstrap fallback',
+        () {
+      expect(
+        resolvePocketResponseCurrency(
+          requestedCurrency: 'EUR',
+          responseCurrency: 'JPY',
+          allowCurrencyFallback: true,
+        ),
+        'JPY',
+      );
+    });
+
+    test('previous scope uses the prior custom financial cycle', () {
+      final current = PocketsScopeParams(
+        scope: PocketsScopeType.household,
+        householdId: 'house-1',
+        periodMonth: DateTime(2026, 9, 15),
+        currency: 'EUR',
+        selectedCurrencies: const ['EUR'],
+        financialMonthStartDay: 15,
+        includeUpcomingRecurring: true,
+      );
+
+      final previous = previousPocketsScopeParams(current);
+
+      expect(previous.periodMonth, DateTime(2026, 8, 15));
+      expect(previous.householdId, 'house-1');
+      expect(previous.currency, 'EUR');
+      expect(previous.normalizedSelectedCurrencies, isNull);
+      expect(previous.normalizedFinancialMonthStartDay, 15);
+      expect(previous.includeUpcomingRecurring, isTrue);
+    });
+
+    test('scope equality isolates currency, household, cycle, and recurrence',
+        () {
+      final base = PocketsScopeParams(
+        scope: PocketsScopeType.household,
+        householdId: 'house-1',
+        periodMonth: DateTime(2026, 9, 15),
+        currency: 'EUR',
+        selectedCurrencies: const ['EUR', 'USD'],
+        financialMonthStartDay: 15,
+        includeUpcomingRecurring: true,
+      );
+
+      expect(base, isNot(base.copyWith(currency: 'JPY')));
+      expect(base, isNot(base.copyWith(householdId: 'house-2')));
+      expect(base, isNot(base.copyWith(periodMonth: DateTime(2026, 8, 15))));
+      expect(base, isNot(base.copyWith(financialMonthStartDay: 1)));
+      expect(base, isNot(base.copyWith(includeUpcomingRecurring: false)));
+    });
+
+    test('dates inside one custom financial cycle share a provider key', () {
+      final cycleStart = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 9, 15),
+        currency: 'EUR',
+        financialMonthStartDay: 15,
+      );
+      final dateInsideCycle = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 9, 28, 18, 30),
+        currency: 'EUR',
+        financialMonthStartDay: 15,
+      );
+
+      expect(dateInsideCycle, cycleStart);
+      expect(dateInsideCycle.hashCode, cycleStart.hashCode);
+    });
+  });
+
+  test('replacement pocket mutation preserves the earliest rollback state', () {
+    final authoritative = PocketsState.initial().copyWith(
+      isLoading: false,
+      periodMonth: DateTime(2026, 9, 1),
+      currency: 'EUR',
+      totalBudget: 100,
+      savedTotalBudget: 100,
+    );
+    final alreadyOptimistic = authoritative.copyWith(
+      totalBudget: 120,
+      savedTotalBudget: 120,
+    );
+    final now = DateTime(2026, 9, 22);
+    final existing = LocalMutationOutboxData(
+      id: 1,
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payloadJson: jsonEncode({
+        'rollbackState': authoritative.toCacheJson(),
+      }),
+      createdAt: now,
+      updatedAt: now,
+      attemptCount: 1,
+      status: localMutationStatusFailed,
+      lastError: 'offline',
+      retryAfter: now,
+    );
+
+    final rollback = resolvePocketsRollbackStateForReplacement(
+      existingMutations: [existing],
+      clientMutationId: 'pockets-month',
+      currentRollbackState: alreadyOptimistic,
+    );
+
+    expect(rollback.totalBudget, 100);
+  });
+
+  test('replacement pocket mutation preserves unresolved deletion tombstones',
+      () {
+    final now = DateTime(2026, 9, 22);
+    final existing = LocalMutationOutboxData(
+      id: 1,
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payloadJson: jsonEncode({
+        'deletedPocketIds': ['deleted-pocket', ' optimistic-pocket '],
+      }),
+      createdAt: now,
+      updatedAt: now,
+      attemptCount: 1,
+      status: localMutationStatusFailed,
+      lastError: 'offline',
+      retryAfter: now,
+    );
+
+    final deletedPocketIds = resolvePocketsDeletedPocketIdsForReplacement(
+      existingMutations: [existing],
+      clientMutationId: 'pockets-month',
+      currentDeletedPocketIds: const ['second-pocket', 'deleted-pocket'],
+    );
+
+    expect(deletedPocketIds, ['deleted-pocket', 'second-pocket']);
+  });
+
+  test('restores only the latest unpersisted or cancelled pocket mutation', () {
+    const mutation = PocketsMutationHandle(
+      clientMutationId: 'pockets-month',
+      revision: 'revision-1',
+    );
+    final now = DateTime(2026, 9, 22);
+    LocalMutationOutboxData mutationRow(String status) =>
+        LocalMutationOutboxData(
+          id: 1,
+          clientMutationId: mutation.clientMutationId,
+          entityType: 'pockets_month',
+          entityId: 'personal:2026-09-01:EUR',
+          operation: 'save_pockets_month',
+          payloadJson: jsonEncode({
+            'mutationRevision': mutation.revision,
+          }),
+          createdAt: now,
+          updatedAt: now,
+          attemptCount: 0,
+          status: status,
+          lastError: status == localMutationStatusCancelled ? 'rejected' : null,
+          retryAfter: null,
+        );
+
+    expect(
+      shouldRestoreOptimisticPockets(
+        latestMutationRevision: mutation.revision,
+        mutation: mutation,
+        currentMutation: null,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldRestoreOptimisticPockets(
+        latestMutationRevision: mutation.revision,
+        mutation: mutation,
+        currentMutation: mutationRow(localMutationStatusCancelled),
+      ),
+      isTrue,
+    );
+    expect(
+      shouldRestoreOptimisticPockets(
+        latestMutationRevision: 'revision-2',
+        mutation: mutation,
+        currentMutation: null,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldRestoreOptimisticPockets(
+        latestMutationRevision: mutation.revision,
+        mutation: mutation,
+        currentMutation: mutationRow(localMutationStatusSynced),
+      ),
+      isFalse,
+    );
+  });
+
   test('pocket refresh signal invalidates every mounted period revision', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);

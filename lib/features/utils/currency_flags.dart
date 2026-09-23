@@ -72,6 +72,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'XOF': 'senegal',
     'CRC': 'costa_rica',
     'XAF': 'cameroon',
+    'MAD': 'morocco',
   };
 
   final flagName = flagMap[code];

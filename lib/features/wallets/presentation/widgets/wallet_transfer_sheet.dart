@@ -98,7 +98,7 @@ Future<WalletTransferResult?> showWalletTransferSheet(
 
   return showModalBottomSheet<WalletTransferResult>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.5),
+    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.5),
     // An edit may have unsaved fields. Keep dismissal inside the sheet so it
     // can ask for confirmation instead of silently dropping those fields.
     enableDrag: initialTransfer == null,
@@ -295,9 +295,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
       final header = Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: colorScheme.brightness == Brightness.dark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.black.withValues(alpha: 0.03),
+          color: colorScheme.onSurface.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(100),
           border: Border.all(
             color: colorScheme.outline.withValues(alpha: 0.08),
@@ -955,7 +953,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
     return showModalBottomSheet<String>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
+      barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.5),
       enableDrag: true,
       useSafeArea: true,
       builder: (context) {

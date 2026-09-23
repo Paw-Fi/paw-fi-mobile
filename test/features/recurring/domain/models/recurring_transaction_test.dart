@@ -106,6 +106,36 @@ void main() {
       expect(transaction.type, 'expense');
     });
 
+    test('fromJson reads a canonical merchant domain from a direct relation',
+        () {
+      final transaction = RecurringTransaction.fromJson({
+        'id': 'rec_merchant_relation',
+        'date': '2026-09-01',
+        'category': 'subscriptions',
+        'amount_cents': 1200,
+        'currency': 'USD',
+        'owner_type': 'me',
+        'privacy_scope': 'full',
+        'type': 'expense',
+        'attachments': [],
+        'created_at': '2026-09-01T00:00:00.000Z',
+        'merchant_id': 'merchant_netflix',
+        'merchant_structured_name': 'Netflix',
+        'merchants': {
+          'domain': 'netflix.com',
+          'logo_identifier':
+              'https://plaid-merchant-logos.plaid.com/netflix.png',
+        },
+      });
+
+      expect(transaction.merchantId, 'merchant_netflix');
+      expect(transaction.merchantDomain, 'netflix.com');
+      expect(transaction.merchantLogoUrl,
+          'https://plaid-merchant-logos.plaid.com/netflix.png');
+      expect(transaction.merchantStructuredName, 'Netflix');
+      expect(transaction.toJson()['merchant_structured_name'], 'Netflix');
+    });
+
     test('fromJson preserves analytics classification', () {
       final transaction = RecurringTransaction.fromJson({
         'id': 'rec_transfer',

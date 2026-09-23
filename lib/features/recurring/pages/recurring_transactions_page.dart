@@ -36,6 +36,7 @@ import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
@@ -61,12 +62,12 @@ class RecurringTransactionsPage extends ConsumerStatefulWidget {
 
 class _RecurringTransactionsPageState
     extends ConsumerState<RecurringTransactionsPage> {
-  final GlobalKey _recurringFabSpotlightKey = GlobalKey();
   final GlobalKey _recurringTabBarSpotlightKey = GlobalKey();
   late final PageController _pageController;
   late SpotlightTourController _recurringTourController;
   Locale? _recurringTourLocale;
   bool _didInitRecurringTour = false;
+  bool _didRequestRecurringTour = false;
 
   /// Force refresh (used by pull-to-refresh)
   Future<void> _refresh(RecurringSeriesPageQuery query) async {
@@ -97,15 +98,6 @@ class _RecurringTransactionsPageState
       tourId: 'recurring_transactions_v1',
       steps: [
         SpotlightStep(
-          id: 'recurring_fab',
-          targetKey: _recurringFabSpotlightKey,
-          title: context.l10n.recurringTourFabTitle,
-          description: context.l10n.recurringTourFabDescription,
-          placement: SpotlightPlacement.top,
-          padding: 6,
-          borderRadius: 34,
-        ),
-        SpotlightStep(
           id: 'recurring_tab_bar',
           targetKey: _recurringTabBarSpotlightKey,
           title: context.l10n.recurringTourTabsTitle,
@@ -122,8 +114,10 @@ class _RecurringTransactionsPageState
 
   Future<void> _startRecurringTourIfNeeded(int currentTabIndex) async {
     if (!_didInitRecurringTour || currentTabIndex != 1) return;
+    if (_didRequestRecurringTour) return;
     if (supabase.auth.currentUser == null) return;
 
+    _didRequestRecurringTour = true;
     await _recurringTourController.start(context);
   }
 
@@ -498,7 +492,7 @@ class _RecurringTransactionsPageState
     // Build summary card
     final summaryCardSliver = SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: _buildSummaryCard(
           colorScheme: colorScheme,
           total: totalCommitted,
@@ -517,24 +511,14 @@ class _RecurringTransactionsPageState
       return [
         summaryCardSliver,
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final summary = summaries[index];
-                final latestActionableOccurrenceDate =
-                    _latestActionableOccurrenceDate(summary);
-                return RecurringTransactionCard(
-                  transaction: summary.transaction,
-                  nextOccurrenceDate: summary.nextOccurrenceDate,
-                  latestActionableOccurrenceDate:
-                      latestActionableOccurrenceDate,
-                  showCurrencyFlag: hasMultipleSelectedCurrencies,
-                  onTap: null,
-                  onDelete: null,
-                );
-              },
-              childCount: summaries.length,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          sliver: SliverToBoxAdapter(
+            child: _buildRecurringGroupCard(
+              colorScheme: colorScheme,
+              summaries: summaries,
+              showCurrencyFlag: hasMultipleSelectedCurrencies,
+              onTransactionTap: null,
+              onTransactionDelete: null,
             ),
           ),
         ),
@@ -550,7 +534,7 @@ class _RecurringTransactionsPageState
 
     Widget buildSectionHeader(String title, int count) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
         child: Row(
           children: [
             Text(
@@ -596,25 +580,16 @@ class _RecurringTransactionsPageState
       );
       slivers.add(
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final summary = groupTransactions[index];
-                final transaction = summary.transaction;
-                final latestActionableOccurrenceDate =
-                    _latestActionableOccurrenceDate(summary);
-                return RecurringTransactionCard(
-                  transaction: transaction,
-                  nextOccurrenceDate: summary.nextOccurrenceDate,
-                  latestActionableOccurrenceDate:
-                      latestActionableOccurrenceDate,
-                  showCurrencyFlag: hasMultipleSelectedCurrencies,
-                  onTap: () => _showTransactionDetails(transaction),
-                  onDelete: () => _deleteTransaction(transaction, householdId),
-                );
-              },
-              childCount: groupTransactions.length,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverToBoxAdapter(
+            child: _buildRecurringGroupCard(
+              colorScheme: colorScheme,
+              summaries: groupTransactions,
+              showCurrencyFlag: hasMultipleSelectedCurrencies,
+              onTransactionTap: (transaction) =>
+                  _showTransactionDetails(transaction),
+              onTransactionDelete: (transaction) =>
+                  _deleteTransaction(transaction, householdId),
             ),
           ),
         ),
@@ -642,7 +617,7 @@ class _RecurringTransactionsPageState
       slivers.add(
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Skeletonizer(
               enabled: paginationState?.isLoadingMore == true,
               effect: ShimmerEffect(
@@ -665,12 +640,66 @@ class _RecurringTransactionsPageState
 
     // Bottom spacing
     slivers.add(
-      const SliverToBoxAdapter(
-        child: SizedBox(height: 40),
+      SliverToBoxAdapter(
+        child: SizedBox(
+          height: PlatformInfo.isIOS26OrHigher() ? 120 : 40,
+        ),
       ),
     );
 
     return slivers;
+  }
+
+  Widget _buildRecurringGroupCard({
+    required ColorScheme colorScheme,
+    required List<RecurringSeriesSummary> summaries,
+    required bool showCurrencyFlag,
+    required ValueChanged<RecurringTransaction>? onTransactionTap,
+    required ValueChanged<RecurringTransaction>? onTransactionDelete,
+  }) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: colorScheme.homeCardBorder,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < summaries.length; index++) ...[
+            RecurringTransactionCard(
+              transaction: summaries[index].transaction,
+              nextOccurrenceDate: summaries[index].nextOccurrenceDate,
+              latestActionableOccurrenceDate:
+                  _latestActionableOccurrenceDate(summaries[index]),
+              showCurrencyFlag: showCurrencyFlag,
+              grouped: true,
+              onTap: onTransactionTap == null
+                  ? null
+                  : () => onTransactionTap(summaries[index].transaction),
+              onDelete: onTransactionDelete == null
+                  ? null
+                  : () => onTransactionDelete(summaries[index].transaction),
+            ),
+            if (index < summaries.length - 1)
+              const SizedBox(
+                height: 8,
+              ),
+          ],
+        ],
+      ),
+    );
   }
 
   DateTime? _latestActionableOccurrenceDate(RecurringSeriesSummary summary) {
@@ -706,98 +735,185 @@ class _RecurringTransactionsPageState
     final subtext = isIncome
         ? context.l10n.activePaycheckCount(activeCount)
         : context.l10n.activeBillCount(activeCount);
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     final isDark = colorScheme.brightness == Brightness.dark;
 
     final content = Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.mutedForeground,
-                      letterSpacing: 0.2,
-                    ),
+          if (isLargeText)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                    letterSpacing: 0.2,
                   ),
-                ],
-              ),
-              if (showCurrencyBreakdown)
-                Semantics(
-                  button: true,
-                  label: label,
-                  child: InkWell(
-                    onTap: () => showMultiCurrencyTotalBreakdownSheet(
-                      context: context,
-                      colorScheme: colorScheme,
-                      currencyTypeTotals: currencyTotals,
-                      rates: rateTable,
-                      targetCurrency: currencyCode,
-                      totalSpent: total,
-                      title: label,
-                      allowSingleCurrency: true,
-                    ),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 12,
-                            color: colorScheme.mutedForeground,
+                ),
+                if (showCurrencyBreakdown)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Semantics(
+                      button: true,
+                      label: label,
+                      child: InkWell(
+                        onTap: () => showMultiCurrencyTotalBreakdownSheet(
+                          context: context,
+                          colorScheme: colorScheme,
+                          currencyTypeTotals: currencyTotals,
+                          rates: rateTable,
+                          targetCurrency: currencyCode,
+                          totalSpent: total,
+                          title: label,
+                          allowSingleCurrency: true,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 12,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'CONVERTED',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.mutedForeground,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'CONVERTED',
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.mutedForeground,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
+                if (showCurrencyBreakdown)
+                  Semantics(
+                    button: true,
+                    label: label,
+                    child: InkWell(
+                      onTap: () => showMultiCurrencyTotalBreakdownSheet(
+                        context: context,
+                        colorScheme: colorScheme,
+                        currencyTypeTotals: currencyTotals,
+                        rates: rateTable,
+                        targetCurrency: currencyCode,
+                        totalSpent: total,
+                        title: label,
+                        allowSingleCurrency: true,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 12,
+                              color: colorScheme.mutedForeground,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'CONVERTED',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.mutedForeground,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           const SizedBox(height: 12),
-          Row(
-            textBaseline: TextBaseline.alphabetic,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            children: [
-              Text(
-                '$symbol$localizedTotal',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.foreground,
-                  letterSpacing: -1,
+          if (isLargeText)
+            Wrap(
+              spacing: 6,
+              runSpacing: 2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '$symbol$localizedTotal',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    letterSpacing: -1,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                currencyCode,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.mutedForeground,
+                Text(
+                  currencyCode,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.mutedForeground,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            Row(
+              textBaseline: TextBaseline.alphabetic,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              children: [
+                Text(
+                  '$symbol$localizedTotal',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    letterSpacing: -1,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  currencyCode,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 8),
           Text(
             subtext,
@@ -819,7 +935,7 @@ class _RecurringTransactionsPageState
           end: Alignment.bottomRight,
           colors: colorScheme.recurringSummaryGradient,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
             color: isDark
@@ -840,7 +956,7 @@ class _RecurringTransactionsPageState
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(10),
         child: isDark
             ? BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),

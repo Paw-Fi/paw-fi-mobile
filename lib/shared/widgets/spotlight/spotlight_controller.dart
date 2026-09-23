@@ -53,9 +53,9 @@ class SpotlightTourController {
     // Wait until all spotlight targets are actually laid out so that
     // their GlobalKeys have a valid context and size before we
     // compute highlight rectangles in the overlay.
-    await _waitForTargetsToBeReady();
+    final targetsReady = await _waitForTargetsToBeReady();
 
-    if (!context.mounted) return;
+    if (!context.mounted || !targetsReady) return;
 
     _showOverlay(context);
   }
@@ -74,7 +74,7 @@ class SpotlightTourController {
   /// valid RenderBox with size. This prevents starting the tour while
   /// the layout tree is still building, which would otherwise cause
   /// null contexts and zero-sized highlight rects.
-  Future<void> _waitForTargetsToBeReady() async {
+  Future<bool> _waitForTargetsToBeReady() async {
     const maxAttempts = 20;
     var attempt = 0;
 
@@ -90,12 +90,14 @@ class SpotlightTourController {
       });
 
       if (allReady) {
-        return;
+        return true;
       }
 
       attempt++;
       await Future.delayed(const Duration(milliseconds: 50));
     }
+
+    return false;
   }
 
   void _showOverlay(BuildContext context) {

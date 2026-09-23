@@ -37,6 +37,12 @@ import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+@visibleForTesting
+String plaidClassificationOverrideRpcName(SyncedTransaction transaction) =>
+    transaction.needsClassificationReview
+        ? 'set_transaction_analytics_override_group_v1'
+        : 'set_transaction_analytics_override_v1';
+
 class PlaidSyncReviewPage extends ConsumerStatefulWidget {
   const PlaidSyncReviewPage({
     super.key,
@@ -750,7 +756,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     if (userId.isEmpty) return;
     try {
       final result = await Supabase.instance.client.rpc(
-        'set_transaction_analytics_override_group_v1',
+        plaidClassificationOverrideRpcName(transaction),
         params: {
           'p_user_id': userId,
           'p_expense_id': transaction.expense.id,
@@ -1054,7 +1060,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }) async {
     final userId = ref.read(authProvider).uid;
     final rows = await Supabase.instance.client.rpc(
-      'get_plaid_sync_review_transactions_v2',
+      'get_plaid_sync_review_transactions_v3',
       params: {
         'p_user_id': userId,
         'p_bank_connection_id': widget.session.connectionId,

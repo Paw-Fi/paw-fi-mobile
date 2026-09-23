@@ -1173,12 +1173,12 @@ Widget _buildBreakdownSkeleton(ColorScheme colorScheme, {Key? key}) {
       child: Card(
         color: colorScheme.cardSurface,
         child: const Padding(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Spending breakdown'),
-              SizedBox(height: 32),
+              SizedBox(height: 24),
               Expanded(child: Center(child: Text('Chart placeholder'))),
               SizedBox(height: 24),
               Text('Legend placeholder'),
@@ -1202,12 +1202,12 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme, {Key? key}) {
       child: Card(
         color: colorScheme.cardSurface,
         child: const Padding(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Where the money went'),
-              SizedBox(height: 32),
+              SizedBox(height: 24),
               Text('Category row placeholder'),
               SizedBox(height: 16),
               Text('Category row placeholder'),

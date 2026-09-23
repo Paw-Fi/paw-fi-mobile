@@ -13,6 +13,30 @@ extension L10nX on BuildContext {
   }
 }
 
+extension RecurrencePickerL10nX on AppLocalizations {
+  String recurrenceDaysUnit(int count) => count == 1 ? 'day' : 'days';
+  String recurrenceWeeksUnit(int count) => count == 1 ? 'week' : 'weeks';
+  String recurrenceMonthsUnit(int count) => count == 1 ? 'month' : 'months';
+  String recurrenceYearsUnit(int count) => count == 1 ? 'year' : 'years';
+}
+
+extension HomeDashboardL10nX on AppLocalizations {}
+
+extension MerchantIdentityL10nX on AppLocalizations {
+  String get merchantWebsite => 'Merchant website';
+  String get addMerchantWebsite => 'Add merchant website';
+  String get findMerchantLogos => 'Find merchant logos';
+  String get findMerchantLogosDescription =>
+      'Scan unresolved merchants, reuse known matches, and review only ambiguous results.';
+  String get merchantLogoScanError =>
+      'Merchant logo scan is unavailable right now. Try again.';
+  String get merchantLogoQuotaReached =>
+      'Today\'s search limit was reached. Your progress is saved.';
+  String get resolved => 'Resolved';
+  String get needsReview => 'Needs review';
+  String get skipped => 'Skipped';
+}
+
 extension PocketsAiSuggestionsL10nX on AppLocalizations {
   String get win => 'Win';
   String get strategy => 'Strategy';
@@ -87,7 +111,6 @@ extension BankConnectionsRecoveryL10nX on AppLocalizations {
 }
 
 extension PlaidClassificationReviewL10nX on AppLocalizations {
-
   String plaidAnalyticsClassLabel(String analyticsClass) =>
       switch (analyticsClass) {
         'consumer_spend' => plaidConsumerSpend,
@@ -102,4 +125,3 @@ extension PlaidClassificationReviewL10nX on AppLocalizations {
         _ => plaidExcludeFromBudget,
       };
 }
-

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 class PrimaryAdaptiveButton extends StatelessWidget {
   const PrimaryAdaptiveButton({
@@ -19,6 +20,7 @@ class PrimaryAdaptiveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     final Widget content = prefixIcon == null
         ? child
@@ -43,8 +45,8 @@ class PrimaryAdaptiveButton extends StatelessWidget {
         onPressed: onPressed,
         child: DefaultTextStyle.merge(
           textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: isLargeText ? null : 1,
+          overflow: isLargeText ? null : TextOverflow.ellipsis,
           style: TextStyle(
             color: scheme.primaryForeground,
             fontSize: 16,

@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +36,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/animated_pulsing_icon.dart';
+import 'package:moneko/shared/widgets/preparation_loading_view.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
@@ -1064,166 +1065,186 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
     }
 
+    final isLoading = setupError.value == null && !isDone.value;
+    final title = setupError.value != null
+        ? context.l10n.onboardingPreparingTitleError
+        : isDone.value
+            ? completionCopy.value?.title ??
+                context.l10n.onboardingPreparingTitleDone
+            : context.l10n.onboardingPreparingTitleLoading;
+    final body = setupError.value != null
+        ? (setupError.value == 'budget_validation_failed'
+            ? context.l10n.onboardingPreparingBodyErrorDashboard
+            : context.l10n.onboardingPreparingBodyErrorRetry)
+        : isDone.value
+            ? completionCopy.value?.body ??
+                context.l10n.onboardingPreparingBodyDone
+            : context.l10n.onboardingPreparingBodyLoading;
+
     return StatusBarOverlayRegion(
-        child: AdaptiveScaffold(
-      appBar: null,
-      body: SafeArea(
-        child: Material(
-          color: colorScheme.appBackground,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 32, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Spacer(),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 400),
-                  transitionBuilder:
-                      (Widget child, Animation<double> animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                          CurvedAnimation(
-                              curve: Curves.easeOutBack, parent: animation),
+      child: AdaptiveScaffold(
+        appBar: null,
+        body: SafeArea(
+          child: Material(
+            color: colorScheme.appBackground,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 48,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _PreparingIllustration(
+                          progress: progress.value,
+                          hasError: setupError.value != null,
+                          colorScheme: colorScheme,
                         ),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: setupError.value != null
-                      ? Icon(
-                          setupError.value == 'budget_validation_failed'
-                              ? Icons.warning_rounded
-                              : Icons.error_outline_rounded,
-                          key: const ValueKey('error'),
-                          size: 72,
-                          color: colorScheme.destructive,
-                        )
-                      : isDone.value
-                          ? Icon(
-                              Icons.check_circle_rounded,
-                              key: const ValueKey('done'),
-                              size: 72,
-                              color: colorScheme.success,
-                            )
-                          : AnimatedPulsingIcon(
-                              key: const ValueKey('loading'),
-                              color: colorScheme.primary,
+                        if (isLoading) ...[
+                          const SizedBox(height: 24),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 280),
+                            child: ShimmeringText(
+                              text: progressLabel.value,
+                              key: ValueKey(progressLabel.value),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              shimmering: true,
                             ),
-                ),
-                const SizedBox(height: 32),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Text(
-                    setupError.value != null
-                        ? context.l10n.onboardingPreparingTitleError
-                        : isDone.value
-                            ? completionCopy.value?.title ??
-                                context.l10n.onboardingPreparingTitleDone
-                            : context.l10n.onboardingPreparingTitleLoading,
-                    key: ValueKey(setupError.value != null
-                        ? 'error'
-                        : isDone.value
-                            ? 'done'
-                            : 'loading'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Text(
-                    setupError.value != null
-                        ? (setupError.value == 'budget_validation_failed'
-                            ? context.l10n.onboardingPreparingBodyErrorDashboard
-                            : context.l10n.onboardingPreparingBodyErrorRetry)
-                        : isDone.value
-                            ? completionCopy.value?.body ??
-                                context.l10n.onboardingPreparingBodyDone
-                            : context.l10n.onboardingPreparingBodyLoading,
-                    key: ValueKey(setupError.value != null
-                        ? 'error_body'
-                        : isDone.value
-                            ? 'done_body'
-                            : 'loading_body'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colorScheme.mutedForeground,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 48),
-                AnimatedOpacity(
-                  opacity:
-                      (isDone.value || setupError.value != null) ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 400),
-                  child: Column(
-                    children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0.0, end: progress.value),
-                        duration: const Duration(milliseconds: 800),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, _) => ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            value: value,
-                            minHeight: 8,
-                            backgroundColor: colorScheme.mutedForeground
-                                .withValues(alpha: 0.15),
-                            color: colorScheme.primary,
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        child: ShimmeringText(
-                          text: progressLabel.value,
-                          key: ValueKey(progressLabel.value),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.mutedForeground,
+                        ],
+                        if (!isLoading) ...[
+                          const SizedBox(height: 26),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: Text(
+                              title,
+                              key: ValueKey(title),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: colorScheme.foreground,
+                                letterSpacing: -0.6,
+                                height: 1.15,
+                              ),
+                            ),
                           ),
-                          shimmering: setupError.value == null && !isDone.value,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(flex: 2),
-                SizedBox(
-                  height: 52,
-                  child: IgnorePointer(
-                    ignoring: !isPrimaryActionEnabled,
-                    child: PrimaryAdaptiveButton(
-                      onPressed: isPrimaryActionEnabled
-                          ? () => unawaited(onPrimaryActionTap())
-                          : null,
-                      child: Text(
-                        setupError.value == 'budget_validation_failed'
-                            ? context.l10n.onboardingPreparingCtaOpenDashboard
-                            : setupError.value != null
-                                ? context.l10n.onboardingPreparingCtaTryAgain
-                                : context.l10n.continueAction,
-                      ),
+                          const SizedBox(height: 12),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: Text(
+                              body,
+                              key: ValueKey(body),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: colorScheme.mutedForeground,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 36),
+                        if (isPrimaryActionEnabled)
+                          SizedBox(
+                            height:
+                                MediaQuery.textScalerOf(context).scale(16) > 20
+                                    ? null
+                                    : 52,
+                            child: PrimaryAdaptiveButton(
+                              onPressed: () => unawaited(onPrimaryActionTap()),
+                              child: Text(context.l10n.continueAction),
+                            ),
+                          ),
+                        if (kDebugMode && isPrimaryActionEnabled)
+                          Semantics(
+                            button: true,
+                            label: context.l10n.retry,
+                            child: TextButton.icon(
+                              onPressed: () {
+                                progress.value = _kTrialGrantProgressStart;
+                                progressLabel.value = context
+                                    .l10n.onboardingPreparingProgressInitial;
+                                setupError.value = null;
+                                completionCopy.value = null;
+                                isDone.value = false;
+                              },
+                              icon: const Icon(Icons.bug_report_outlined),
+                              label: Text(context.l10n.retry),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
       ),
-    ));
+    );
+  }
+}
+
+class _PreparingIllustration extends StatelessWidget {
+  const _PreparingIllustration({
+    required this.progress,
+    required this.hasError,
+    required this.colorScheme,
+  });
+
+  final double progress;
+  final bool hasError;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final isComplete = !hasError && progress >= 1.0;
+    final statusIcon = hasError
+        ? Icons.error_outline_rounded
+        : isComplete
+            ? Icons.check_circle_rounded
+            : null;
+
+    return SizedBox(
+      height: 200,
+      child: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            PreparationProgressRing(
+              key: const ValueKey('onboarding_preparing_progress_ring'),
+              progress: progress,
+              color: hasError
+                  ? colorScheme.destructive
+                  : isComplete
+                      ? colorScheme.success
+                      : colorScheme.primary,
+              size: 200,
+            ),
+            if (statusIcon == null)
+              AnimatedPulsingIcon(
+                color: colorScheme.primary,
+                containerSize: 96,
+                iconSize: 32,
+              )
+            else
+              Icon(
+                statusIcon,
+                size: 56,
+                color: hasError ? colorScheme.destructive : colorScheme.success,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

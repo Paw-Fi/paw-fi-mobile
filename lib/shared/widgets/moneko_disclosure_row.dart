@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 class MonekoDisclosureRow extends StatelessWidget {
   final String label;
@@ -24,6 +25,7 @@ class MonekoDisclosureRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isEnabled = onTap != null;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     return InkWell(
       onTap: onTap,
@@ -33,46 +35,91 @@ class MonekoDisclosureRow extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-        child: Row(
-          crossAxisAlignment:
-              multiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: isEnabled
-                    ? colorScheme.onSurface
-                    : colorScheme.onSurface.withValues(alpha: 0.4),
+        child: isLargeText
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? colorScheme.onSurface
+                          : colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          value,
+                          maxLines: 6,
+                          overflow: TextOverflow.visible,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: isValuePlaceholder || !isEnabled
+                                ? colorScheme.onSurface.withValues(alpha: 0.4)
+                                : colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                      if (isEnabled) ...[
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 20,
+                          color: colorScheme.onSurface.withValues(alpha: 0.2),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: multiline
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: isEnabled
+                          ? colorScheme.onSurface
+                          : colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      value,
+                      textAlign: TextAlign.end,
+                      maxLines: multiline ? 3 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: isValuePlaceholder || !isEnabled
+                            ? colorScheme.onSurface.withValues(alpha: 0.4)
+                            : colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                  if (isEnabled) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: colorScheme.onSurface.withValues(alpha: 0.2),
+                    ),
+                  ],
+                ],
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                value,
-                textAlign: TextAlign.end,
-                maxLines: multiline ? 3 : 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  color: isValuePlaceholder || !isEnabled
-                      ? colorScheme.onSurface.withValues(alpha: 0.4)
-                      : colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-            ),
-            if (isEnabled) ...[
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: colorScheme.onSurface.withValues(alpha: 0.2),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

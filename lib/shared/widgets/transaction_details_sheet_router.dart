@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
@@ -6,6 +7,7 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
@@ -72,6 +74,37 @@ Future<bool?> showTransactionDetailsSheet(
     return false;
   }
 
+  // A paginated or stale parent map can miss the recurring template even
+  // though the materialized row still has its parent identity. Resolve the
+  // parent before falling back to the ordinary transaction editor.
+  if (actualRecurringId != null &&
+      actualRecurringId.isNotEmpty &&
+      expense.scheduledOccurrenceDate != null) {
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      final recurringTransaction = await container.read(
+        recurringSeriesDetailProvider(
+          RecurringSeriesDetailQuery(
+            userId: expense.userId ?? '',
+            recurringId: actualRecurringId,
+          ),
+        ).future,
+      );
+      if (!context.mounted) return false;
+      await showConfirmRecurringOccurrenceSheet(
+        context: context,
+        recurringTransaction: recurringTransaction,
+        scheduledOccurrenceDate: expense.scheduledOccurrenceDate!,
+        existingOccurrence:
+            RecurringOccurrenceTimelineItem.fromLocalEntry(expense),
+      );
+      return false;
+    } catch (_) {
+      // Preserve ordinary transaction routing if the parent cannot be loaded.
+    }
+  }
+
+  if (!context.mounted) return false;
   if (isWalletTransferExpenseEntry(expense)) {
     return showWalletTransferEditorForExpense(
       context,
@@ -82,6 +115,7 @@ Future<bool?> showTransactionDetailsSheet(
     );
   }
 
+  if (!context.mounted) return false;
   return showUnifiedTransactionSheet(
     context,
     existingExpense: expense,

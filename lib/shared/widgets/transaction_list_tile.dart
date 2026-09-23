@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -11,6 +12,7 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 
 class TransactionListTile extends StatelessWidget {
@@ -31,6 +33,11 @@ class TransactionListTile extends StatelessWidget {
   final bool showPendingChip;
   final bool? showCurrencyFlag;
   final String? accountLabel;
+  final String? merchantId;
+  final String? merchantDomain;
+  final String? merchantLogoUrl;
+  final String? merchantStructuredName;
+  final String? merchantName;
   final bool useCustomCategoryStyleOverrides;
 
   const TransactionListTile({
@@ -52,6 +59,11 @@ class TransactionListTile extends StatelessWidget {
     this.showPendingChip = false,
     this.showCurrencyFlag,
     this.accountLabel,
+    this.merchantId,
+    this.merchantDomain,
+    this.merchantLogoUrl,
+    this.merchantStructuredName,
+    this.merchantName,
     this.useCustomCategoryStyleOverrides = true,
   });
 
@@ -119,6 +131,22 @@ class TransactionListTile extends StatelessWidget {
         final displayTitle = trimmedDescription.isNotEmpty
             ? trimmedDescription
             : (trimmedTitle.isNotEmpty ? trimmedTitle : category);
+        final hasMerchantLogo = buildMerchantLogoUrl(
+              logoUrl: merchantLogoUrl,
+              merchantId: merchantId,
+              domain: merchantDomain,
+              merchantStructuredName: merchantStructuredName,
+              merchantName: merchantName,
+            ) !=
+            null;
+        final merchantLogo = MerchantLogo(
+          merchantId: merchantId,
+          domain: merchantDomain,
+          logoUrl: merchantLogoUrl,
+          merchantStructuredName: merchantStructuredName,
+          merchantName: merchantName,
+          fallback: Icon(icon, color: color, size: 20),
+        );
 
         // Build badge chips
         final chips = <Widget>[];
@@ -128,7 +156,7 @@ class TransactionListTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 'You',
@@ -148,7 +176,7 @@ class TransactionListTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: colorScheme.tertiary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -168,7 +196,7 @@ class TransactionListTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: colorScheme.warningSurface,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   context.l10n.pending,
@@ -187,6 +215,7 @@ class TransactionListTile extends StatelessWidget {
           chips.add(TransactionCurrencyFlagBadge(currencyCode: currency));
         }
 
+        final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
         Widget? subtitleNode;
         if (subtitleWidget != null) {
           subtitleNode = Row(
@@ -212,10 +241,12 @@ class TransactionListTile extends StatelessWidget {
                   Flexible(
                     child: Text(
                       base,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: isLargeText ? 3 : 1,
+                      overflow: isLargeText
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: colorScheme.mutedForeground,
                       ),
                     ),
@@ -230,10 +261,11 @@ class TransactionListTile extends StatelessWidget {
             } else {
               subtitleNode = Text(
                 base,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: isLargeText ? 3 : 1,
+                overflow:
+                    isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: colorScheme.mutedForeground,
                 ),
               );
@@ -242,59 +274,115 @@ class TransactionListTile extends StatelessWidget {
         } else if (subtitle != null) {
           subtitleNode = Text(
             subtitle!,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: isLargeText ? 3 : 1,
+            overflow:
+                isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               color: colorScheme.mutedForeground,
             ),
           );
         }
 
-        return ListTile(
+        final leading = hasMerchantLogo
+            ? ClipOval(
+                child: SizedBox(width: 36, height: 36, child: merchantLogo),
+              )
+            : ClipOval(
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurface.withValues(alpha: 0.04),
+                    shape: BoxShape.circle,
+                  ),
+                  child: merchantLogo,
+                ),
+              );
+        final amountNode = Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              formattedAmount,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: isIncome ? colorScheme.success : colorScheme.foreground,
+              ),
+            ),
+            if (trailingWidget != null) ...[
+              const SizedBox(height: 2),
+              trailingWidget!,
+            ],
+          ],
+        );
+        final defaultTile = ListTile(
           onTap: onTap,
           dense: dense,
+          minVerticalPadding: 6,
           contentPadding: EdgeInsets.zero,
-          leading: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colorScheme.onSurface.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
+          leading: leading,
           title: Text(
             displayTitle,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: colorScheme.foreground,
             ),
           ),
           subtitle: subtitleNode,
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                formattedAmount,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color:
-                      isIncome ? colorScheme.success : colorScheme.foreground,
+          trailing: amountNode,
+        );
+        final largeTile = InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                leading,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayTitle,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      if (subtitleNode != null) ...[
+                        const SizedBox(height: 2),
+                        subtitleNode,
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              if (trailingWidget != null) ...[
-                const SizedBox(height: 2),
-                trailingWidget!,
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: amountNode,
+                  ),
+                ),
               ],
-            ],
+            ),
           ),
+        );
+
+        return MonekoTextScale(
+          mode: MonekoTextScaling.constrained,
+          child: isLargeText ? largeTile : defaultTile,
         );
       },
     );
@@ -375,6 +463,11 @@ Widget buildExpenseTransactionTile({
       showRecurringChip: showRecurringChip ??
           (expense != null && shouldShowRecurringChipForExpense(expense)),
       showPendingChip: showPendingChip ?? expense?.isProviderPending ?? false,
+      merchantId: expense?.merchantId,
+      merchantDomain: expense?.merchantDomain,
+      merchantLogoUrl: expense?.merchantLogoUrl,
+      merchantStructuredName: expense?.merchantStructuredName,
+      merchantName: expense?.merchant,
       // A shared transaction's category is shared data. Do not let a viewer's
       // private category-style preference make that same record look different
       // to another household member.

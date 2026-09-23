@@ -37,9 +37,9 @@ import 'household_optimistic_providers.dart';
 const _householdEntityCacheTtl = Duration(minutes: 30);
 const _householdTransactionCacheTtl = Duration(minutes: 10);
 const _householdExpenseSelectFields =
-    'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, breakdown, receipt_image_url, created_at, updated_at, split_group_id, parent_recurring_id, scheduled_occurrence_date, recurring_confirmed_at, recurring_confirmation_source, type, is_recurring, account_id';
+    'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, merchant_id, merchant_structured_name, merchants(domain, logo_identifier), breakdown, receipt_image_url, created_at, updated_at, split_group_id, parent_recurring_id, scheduled_occurrence_date, recurring_confirmed_at, recurring_confirmation_source, type, is_recurring, account_id';
 const _legacyHouseholdExpenseSelectFields =
-    'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, breakdown, receipt_image_url, created_at, updated_at, split_group_id, parent_recurring_id, type, is_recurring, account_id';
+    'id, contact_id, user_id, household_id, date, amount_cents,currency, category, raw_text, merchant, merchant_id, merchant_structured_name, merchants(domain, logo_identifier), breakdown, receipt_image_url, created_at, updated_at, split_group_id, parent_recurring_id, type, is_recurring, account_id';
 
 final _householdBackgroundRefreshes = <String, Future<void>>{};
 

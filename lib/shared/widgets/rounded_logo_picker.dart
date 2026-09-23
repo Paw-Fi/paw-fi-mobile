@@ -1,5 +1,6 @@
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -113,25 +114,22 @@ class RoundedLogoPicker extends HookWidget {
                           ),
                         )
                       : hasLogo
-                          ? Image.network(
-                              logoUrl!,
+                          ? CachedNetworkImage(
+                              imageUrl: logoUrl!,
                               key: ValueKey(logoUrl),
                               fit: BoxFit.cover,
-                              cacheWidth:
+                              memCacheWidth:
                                   (44 * MediaQuery.of(context).devicePixelRatio)
                                       .round(),
-                              cacheHeight:
+                              memCacheHeight:
                                   (44 * MediaQuery.of(context).devicePixelRatio)
                                       .round(),
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return _LogoFallbackIcon(
-                                  icon: fallbackIcon,
-                                  color: accentColor,
-                                );
-                              },
-                              errorBuilder: (_, __, ___) => _LogoFallbackIcon(
+                              cacheKey: logoUrl,
+                              placeholder: (_, __) => _LogoFallbackIcon(
+                                icon: fallbackIcon,
+                                color: accentColor,
+                              ),
+                              errorWidget: (_, __, ___) => _LogoFallbackIcon(
                                 icon: fallbackIcon,
                                 color: accentColor,
                               ),

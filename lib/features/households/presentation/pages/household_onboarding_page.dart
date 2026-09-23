@@ -88,9 +88,13 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
               child: Column(
                 children: [
                   // Create Household button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: 56,
+                      maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                          ? double.infinity
+                          : 56,
+                    ),
                     child: PrimaryAdaptiveButton(
                       onPressed: _navigateToCreate,
                       child: Row(
@@ -114,9 +118,13 @@ class _HouseholdOnboardingPageState extends State<HouseholdOnboardingPage> {
                   const SizedBox(height: 12),
 
                   // Join with Invite button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: 56,
+                      maxHeight: MediaQuery.textScalerOf(context).scale(16) > 20
+                          ? double.infinity
+                          : 56,
+                    ),
                     child: AdaptiveButton.child(
                       onPressed: _navigateToJoin,
                       style: AdaptiveButtonStyle.bordered,

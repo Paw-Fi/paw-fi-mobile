@@ -51,29 +51,44 @@ class SyncCoordinator {
       final mutation = await database.nextRetryableMutation(_currentTime);
       if (mutation == null) break;
 
-      await database.markMutationSyncing(mutation.clientMutationId);
+      final didMarkSyncing = await database.markMutationSyncingIfPayloadMatches(
+        clientMutationId: mutation.clientMutationId,
+        expectedPayloadJson: mutation.payloadJson,
+      );
+      if (!didMarkSyncing) continue;
 
       try {
         await dispatchMutation(mutation);
-        await database.markMutationSynced(mutation.clientMutationId);
-        syncedCount += 1;
+        final didMarkSynced = await database.markMutationSyncedIfPayloadMatches(
+          clientMutationId: mutation.clientMutationId,
+          expectedPayloadJson: mutation.payloadJson,
+        );
+        if (didMarkSynced) syncedCount += 1;
       } catch (error) {
         if (error is DeferredLocalMutationException) {
-          await database.deferMutation(mutation.clientMutationId);
+          await database.deferMutationIfPayloadMatches(
+            clientMutationId: mutation.clientMutationId,
+            expectedPayloadJson: mutation.payloadJson,
+          );
           break;
         }
         final nextAttempt = mutation.attemptCount + 1;
         if (error is NonRetryableLocalMutationException ||
             (!isDurableHouseholdSettlementMutation(mutation) &&
                 nextAttempt >= maxAttempts)) {
-          await database.markMutationCancelled(
+          final didCancel =
+              await database.markMutationCancelledIfPayloadMatches(
             clientMutationId: mutation.clientMutationId,
+            expectedPayloadJson: mutation.payloadJson,
             error: error,
           );
-          await onMutationCancelled?.call(mutation, error);
+          if (didCancel) {
+            await onMutationCancelled?.call(mutation, error);
+          }
         } else {
-          await database.markMutationFailed(
+          await database.markMutationFailedIfPayloadMatches(
             clientMutationId: mutation.clientMutationId,
+            expectedPayloadJson: mutation.payloadJson,
             error: error,
             retryAfter: _currentTime.add(retryDelayForAttempt(nextAttempt)),
           );

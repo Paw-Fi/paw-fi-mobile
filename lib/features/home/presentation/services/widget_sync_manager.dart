@@ -22,6 +22,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 
 String _colorToHex(Color color) {
   final r =
@@ -113,6 +116,31 @@ class WidgetSyncManager extends HookConsumerWidget {
 
     final analyticsData = ref.watch(analyticsProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+    final walletAuthHeaders = ref.watch(walletAuthHeadersProvider);
+    final shortcutWalletStates = <String, AsyncValue<List<WalletEntity>>>{};
+    final households = householdsAsync.valueOrNull;
+    if (user.uid.isNotEmpty &&
+        walletAuthHeaders != null &&
+        households != null) {
+      shortcutWalletStates['personal'] = ref.watch(
+        shortcutDestinationWalletsByHouseholdIdProvider(null),
+      );
+      for (final household in households) {
+        shortcutWalletStates[household.id] = ref.watch(
+          shortcutDestinationWalletsByHouseholdIdProvider(household.id),
+        );
+      }
+    }
+    final isShortcutCatalogReady = shortcutWalletStates.isNotEmpty &&
+        shortcutWalletStates.values.every((state) => state.hasValue);
+    final shortcutWalletCatalogSignature = shortcutWalletStates.entries
+        .expand(
+          (entry) => (entry.value.valueOrNull ?? const <WalletEntity>[]).map(
+            (wallet) =>
+                '${entry.key}:${wallet.id}:${wallet.name}:${wallet.currency}',
+          ),
+        )
+        .join('|');
     final selectedWidgetCurrency = normalizeWidgetSyncCurrency(
       ref.watch(selectedHomeCurrencyCodeProvider),
     );
@@ -127,20 +155,15 @@ class WidgetSyncManager extends HookConsumerWidget {
     final widgetSyncVersion = ref.watch(widgetSyncVersionProvider);
     final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
 
-    // Ensure configuration options (spaces) are always saved
-    // for the iOS AppIntent, independent of analytics loading state.
+    // Keep the native AppIntent catalog independent of analytics loading.
     useEffect(() {
-      if (user.uid.isEmpty ||
-          householdsAsync.isLoading ||
-          householdsAsync.hasError ||
-          householdsAsync.valueOrNull == null) {
+      if (user.uid.isEmpty || households == null || !isShortcutCatalogReady) {
         return null;
       }
 
-      final households = householdsAsync.valueOrNull!;
-
       Future<void> syncConfigOptions() async {
         await WidgetService().saveConfigurationOptions(
+          userId: user.uid,
           households: [
             {'id': 'personal', 'name': 'Personal', 'isPortfolio': false},
             ...households.map(
@@ -151,13 +174,29 @@ class WidgetSyncManager extends HookConsumerWidget {
               },
             ),
           ],
+          wallets: shortcutWalletStates.entries
+              .expand(
+                (entry) =>
+                    (entry.value.valueOrNull ?? const <WalletEntity>[]).map(
+                  (wallet) => {
+                    'id': wallet.id,
+                    'name': wallet.name,
+                    'spaceId': entry.key,
+                    'currency': wallet.currency.trim().toUpperCase(),
+                  },
+                ),
+              )
+              .toList(growable: false),
         );
       }
 
       syncConfigOptions();
       return null;
     }, [
-      householdsAsync.valueOrNull,
+      user.uid,
+      households,
+      isShortcutCatalogReady,
+      shortcutWalletCatalogSignature,
     ]);
 
     // Keep widget sync recoverable if the initial background analytics warm-up

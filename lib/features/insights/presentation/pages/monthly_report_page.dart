@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -26,6 +28,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
@@ -272,8 +275,7 @@ class MonthlyReportPage extends HookConsumerWidget {
       queryState.value = normalized;
     }
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
       body: AnimatedSwitcher(
         duration: animationsDisabled
             ? Duration.zero
@@ -356,7 +358,7 @@ class MonthlyReportPage extends HookConsumerWidget {
         ),
         padding: EdgeInsets.fromLTRB(
           _monthlyReportPageHorizontalPadding,
-          20,
+          20 + getSubPageTopPadding(context),
           _monthlyReportPageHorizontalPadding,
           24 + MediaQuery.paddingOf(context).bottom,
         ),
@@ -1389,8 +1391,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
     final isCompletedPeriod =
         isMonthlyReportPeriodCompleted(effectiveQuery, now: now);
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
@@ -2851,8 +2852,7 @@ class MonthlyReportDrillDownPage extends HookConsumerWidget {
             .toList(growable: true);
     transactions.sort((a, b) => b.date.compareTo(a.date));
 
-    return Scaffold(
-      backgroundColor: colorScheme.appBackground,
+    return AdaptiveScaffold(
       body: SafeArea(
         child: _MonthlyReportDetailShell(
           colorScheme: colorScheme,
@@ -3905,11 +3905,12 @@ class _MonthlyReportDetailShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         _monthlyReportPageHorizontalPadding,
-        20,
+        20 + getSubPageTopPadding(context),
         _monthlyReportPageHorizontalPadding,
         24 + MediaQuery.paddingOf(context).bottom,
       ),
@@ -3957,7 +3958,7 @@ class _MonthlyReportDetailShell extends StatelessWidget {
                         color: colorScheme.foreground,
                         height: 1.1,
                       ),
-                      maxLines: 1,
+                      maxLines: isLargeText ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

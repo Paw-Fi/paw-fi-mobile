@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
 class CategoryPieChart extends StatefulWidget {
@@ -87,6 +88,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final derivedData = _derivedDataFor(context, colorScheme);
     final categorySummaries = derivedData.categorySummaries;
     final totalSpent = derivedData.totalSpent;
@@ -176,12 +178,15 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                 Center(
                   child: hasData
                       ? SizedBox(
-                          width: 110,
+                          width: isLargeText ? 150 : 130,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              SizedBox(
-                                height: 18,
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: isLargeText ? 0 : 32,
+                                  maxHeight: isLargeText ? 72 : 32,
+                                ),
                                 child: Text(
                                   selected == null
                                       ? ''
@@ -190,7 +195,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                                           selected.category,
                                         ),
                                   textAlign: TextAlign.center,
-                                  maxLines: 1,
+                                  maxLines: isLargeText ? 3 : 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 13,
@@ -213,10 +218,14 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              SizedBox(
-                                height: 18,
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: isLargeText ? 0 : 18,
+                                  maxHeight: isLargeText ? 32 : 18,
+                                ),
                                 child: Text(
                                   selected == null ? context.l10n.spent : '',
+                                  maxLines: isLargeText ? 2 : 1,
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: colorScheme.mutedForeground,
@@ -290,16 +299,18 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Flexible(
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 150),
                   child: Text(
                     getCategoryTranslation(context, category.category),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: colorScheme.foreground,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

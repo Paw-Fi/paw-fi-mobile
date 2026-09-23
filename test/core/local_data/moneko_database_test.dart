@@ -71,6 +71,64 @@ void main() {
       expect(rows.single.parentRecurringId, 'recurring_series_1');
     });
 
+    test('round-trips merchant identity and clears it from delta updates',
+        () async {
+      final entry = _entry(
+        id: 'merchant-expense',
+        userId: 'user_1',
+        amountCents: 450,
+      ).copyWith(
+        merchant: 'STARBUCKS 123',
+        merchantId: 'merchant-starbucks',
+        merchantDomain: 'starbucks.com',
+        merchantLogoUrl: 'https://plaid-merchant-logos.plaid.com/starbucks.png',
+        merchantStructuredName: 'Starbucks',
+      );
+      await database.upsertTransactions([entry]);
+      var rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+      );
+      expect(rows.single.merchantId, 'merchant-starbucks');
+      expect(rows.single.merchantDomain, 'starbucks.com');
+      expect(rows.single.merchantLogoUrl,
+          'https://plaid-merchant-logos.plaid.com/starbucks.png');
+      expect(rows.single.merchantStructuredName, 'Starbucks');
+
+      await database.upsertTransactions([
+        ExpenseEntry.fromJson({
+          ...entry.toJson(),
+          'merchant_domain': null,
+          'merchant_structured_name': null,
+        }),
+      ]);
+      rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+      );
+      expect(rows.single.merchantId, 'merchant-starbucks');
+      expect(rows.single.merchantDomain, 'starbucks.com');
+      expect(rows.single.merchantLogoUrl,
+          'https://plaid-merchant-logos.plaid.com/starbucks.png');
+      expect(rows.single.merchantStructuredName, 'Starbucks');
+
+      await database.upsertTransactions([
+        ExpenseEntry.fromJson({
+          ...entry.toJson(),
+          'merchant_id': null,
+          'merchant_domain': null,
+          'merchant_logo_url': null,
+        }),
+      ]);
+      rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+      );
+      expect(rows.single.merchantId, isNull);
+      expect(rows.single.merchantDomain, isNull);
+      expect(rows.single.merchantLogoUrl, isNull);
+    });
+
     test('recent rows exclude a recurring template but keep its occurrence',
         () async {
       await database.upsertTransactions([
@@ -178,7 +236,7 @@ void main() {
           '2026-06-10T09:00:00.000Z'
         ],
       );
-      oldDatabase.execute('PRAGMA user_version = 8');
+      oldDatabase.execute('PRAGMA user_version = 9');
 
       final migrated =
           MonekoDatabase.fromExistingDatabaseForTesting(oldDatabase);
@@ -191,6 +249,8 @@ void main() {
         expect(rows.single.scheduledOccurrenceDate, isNull);
         expect(rows.single.recurringConfirmedAt, isNull);
         expect(rows.single.recurringConfirmationSource, isNull);
+        expect(rows.single.merchantId, isNull);
+        expect(rows.single.merchantDomain, isNull);
 
         await migrated.upsertTransactions([
           rows.single.copyWith(
@@ -198,6 +258,8 @@ void main() {
             scheduledOccurrenceDate: DateTime(2026, 6, 10),
             recurringConfirmedAt: DateTime.utc(2026, 6, 11),
             recurringConfirmationSource: 'manual',
+            merchantId: 'merchant-1',
+            merchantDomain: 'merchant.example',
           ),
         ]);
         rows = await migrated.getTransactionsByScheduledOccurrenceRange(
@@ -207,6 +269,8 @@ void main() {
           endDate: DateTime(2026, 6, 10),
         );
         expect(rows.single.recurringConfirmationSource, 'manual');
+        expect(rows.single.merchantId, 'merchant-1');
+        expect(rows.single.merchantDomain, 'merchant.example');
       } finally {
         await migrated.close();
       }
@@ -462,6 +526,70 @@ void main() {
       expect(recovered!.clientMutationId, 'interrupted');
       expect(recovered.status, localMutationStatusQueued);
       expect(recovered.retryAfter, isNull);
+    });
+
+    test('stale mutation cannot overwrite a replacement cache snapshot',
+        () async {
+      const mutationId = 'pockets-month';
+      await database.enqueueMutation(
+        clientMutationId: mutationId,
+        entityType: 'pockets_month',
+        entityId: 'personal:2026-09-01:EUR',
+        operation: 'save_pockets_month',
+        payload: const {'mutationRevision': '1'},
+      );
+      final first = (await database.getOutboxMutations()).single;
+      await database.markMutationCancelledIfPayloadMatches(
+        clientMutationId: mutationId,
+        expectedPayloadJson: first.payloadJson,
+        error: 'rejected',
+      );
+      expect(
+        await database.upsertJsonCacheIfMutationMatches(
+          namespace: 'pockets_month',
+          cacheKey: 'scope-key',
+          payload: const {'state': 'old'},
+          cachedAt: DateTime.utc(2026, 9, 22),
+          clientMutationId: mutationId,
+          expectedPayloadJson: first.payloadJson,
+          expectedStatus: localMutationStatusCancelled,
+        ),
+        isTrue,
+      );
+
+      await database.enqueueMutation(
+        clientMutationId: mutationId,
+        entityType: 'pockets_month',
+        entityId: 'personal:2026-09-01:EUR',
+        operation: 'save_pockets_month',
+        payload: const {'mutationRevision': '2'},
+      );
+      await database.upsertJsonCache(
+        namespace: 'pockets_month',
+        cacheKey: 'scope-key',
+        payload: const {'state': 'new'},
+      );
+
+      expect(
+        await database.upsertJsonCacheIfMutationMatches(
+          namespace: 'pockets_month',
+          cacheKey: 'scope-key',
+          payload: const {'state': 'old'},
+          cachedAt: DateTime.utc(2026, 9, 22),
+          clientMutationId: mutationId,
+          expectedPayloadJson: first.payloadJson,
+          expectedStatus: localMutationStatusCancelled,
+        ),
+        isFalse,
+      );
+      expect(
+        (await database.getJsonCache(
+          namespace: 'pockets_month',
+          cacheKey: 'scope-key',
+        ))
+            ?.payload,
+        const {'state': 'new'},
+      );
     });
 
     test('pending household gate retains old and new update scopes', () async {

@@ -14,6 +14,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 class TransactionsPieChart extends ConsumerStatefulWidget {
   final ColorScheme colorScheme;
@@ -198,140 +199,95 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
     String displayAmount(double amount) =>
         '$symbol${formatLocalizedNumber(context, amount)}';
 
-    return Skeletonizer(
-      enabled: widget.isLoading,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Pie Chart Area
-          SizedBox(
-            height: 240,
-            child: Stack(
-              children: [
-                Center(
-                  child: SizedBox(
-                    width: 240,
-                    height: 240,
-                    child: PieChart(
-                      key: ValueKey(Object.hashAll(
-                        categorySummaries.map((summary) => summary.category),
-                      )),
-                      PieChartData(
-                        pieTouchData: PieTouchData(
-                          touchCallback: (event, response) {
-                            if (widget.isLoading || !hasData) return;
-                            if (event is FlTapDownEvent) {
-                              if (response?.touchedSection != null) {
-                                setState(() {
-                                  final nextIndex = response!
-                                      .touchedSection!.touchedSectionIndex;
-                                  _touchedIndex = _touchedIndex == nextIndex
-                                      ? null
-                                      : nextIndex;
-                                });
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
+    return MonekoTextScale(
+      mode: MonekoTextScaling.compact,
+      child: Skeletonizer(
+        enabled: widget.isLoading,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Pie Chart Area
+            SizedBox(
+              height: isLargeText ? 270 : 240,
+              child: Stack(
+                children: [
+                  Center(
+                    child: SizedBox(
+                      width: isLargeText ? 270 : 240,
+                      height: isLargeText ? 270 : 240,
+                      child: PieChart(
+                        key: ValueKey(Object.hashAll(
+                          categorySummaries.map((summary) => summary.category),
+                        )),
+                        PieChartData(
+                          pieTouchData: PieTouchData(
+                            touchCallback: (event, response) {
+                              if (widget.isLoading || !hasData) return;
+                              if (event is FlTapDownEvent) {
+                                if (response?.touchedSection != null) {
+                                  setState(() {
+                                    final nextIndex = response!
+                                        .touchedSection!.touchedSectionIndex;
+                                    _touchedIndex = _touchedIndex == nextIndex
+                                        ? null
+                                        : nextIndex;
+                                  });
+                                }
+                              } else if (event is FlTapUpEvent ||
+                                  event is FlTapCancelEvent) {
+                                // Optionally keep selection or clear it
                               }
-                            } else if (event is FlTapUpEvent ||
-                                event is FlTapCancelEvent) {
-                              // Optionally keep selection or clear it
-                            }
-                          },
-                        ),
-                        sectionsSpace: 4,
-                        centerSpaceRadius:
-                            100, // Narrow radius for the donut look
-                        sections:
-                            categorySummaries.asMap().entries.map((entry) {
-                          final idx = entry.key;
-                          final category = entry.value;
-                          final isTouched = idx == _touchedIndex;
+                            },
+                          ),
+                          sectionsSpace: 4,
+                          centerSpaceRadius:
+                              100, // Narrow radius for the donut look
+                          sections:
+                              categorySummaries.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final category = entry.value;
+                            final isTouched = idx == _touchedIndex;
 
-                          return PieChartSectionData(
-                            color: category.color,
-                            value: category.amount,
-                            title: '', // No title inside pie section
-                            radius: hasData
-                                ? (isTouched ? 23 : 15)
-                                : 12, // Thinner section
-                            showTitle: false,
-                          );
-                        }).toList(),
+                            return PieChartSectionData(
+                              color: category.color,
+                              value: category.amount,
+                              title: '', // No title inside pie section
+                              radius: hasData
+                                  ? (isTouched ? 23 : 15)
+                                  : 12, // Thinner section
+                              showTitle: false,
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                // Center Text
-                Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: selected != null
-                        ? Column(
-                            key: const ValueKey('selected'),
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                getCategoryTranslation(
-                                        context, selected.category)
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 1.0,
-                                  color: widget.colorScheme.mutedForeground,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  displayAmount(selected.amount),
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w700,
-                                    color: widget.colorScheme.foreground,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : GestureDetector(
-                            onTap: widget.currencyTypeTotals.length > 1
-                                ? () => _showBreakdownSheet(context, totalSpent)
-                                : null,
-                            behavior: HitTestBehavior.opaque,
-                            child: Column(
-                              key: const ValueKey('total'),
+                  // Center Text
+                  Center(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: selected != null
+                          ? Column(
+                              key: const ValueKey('selected'),
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      context.l10n.totalSpent.toUpperCase(),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 1.0,
-                                        color:
-                                            widget.colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                    if (widget.currencyTypeTotals.length >
-                                        1) ...[
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.info_outline_rounded,
-                                        size: 14,
-                                        color:
-                                            widget.colorScheme.mutedForeground,
-                                      ),
-                                    ],
-                                  ],
+                                Text(
+                                  getCategoryTranslation(
+                                          context, selected.category)
+                                      .toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 1.0,
+                                    color: widget.colorScheme.mutedForeground,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 FittedBox(
                                   fit: BoxFit.scaleDown,
                                   child: Text(
-                                    displayAmount(totalSpent),
+                                    displayAmount(selected.amount),
                                     style: TextStyle(
                                       fontSize: 28,
                                       fontWeight: FontWeight.w700,
@@ -339,205 +295,257 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  widget.periodLabel,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                    color: widget.colorScheme.mutedForeground,
-                                  ),
-                                ),
                               ],
-                            ),
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          // Legend Cards
-          if (!hasData && !widget.isLoading)
-            const SizedBox(height: 120)
-          else
-            SizedBox(
-              height: 120, // Increased height to accommodate enhanced shadows
-              child: ListView.separated(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                itemCount: categorySummaries.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final category = categorySummaries[index];
-                  final visibleTotal = categorySummaries.fold<double>(
-                    0.0,
-                    (sum, summary) => sum + summary.amount,
-                  );
-                  final percent = visibleTotal > 0
-                      ? (category.amount / visibleTotal) * 100
-                      : 0.0;
-                  final isSelected = _touchedIndex == index;
-                  final canOpenCategory = isTransactionsPieCategoryNavigable(
-                    category.category,
-                  );
-
-                  return GestureDetector(
-                    onTap: canOpenCategory && !widget.isLoading
-                        ? () {
-                            setState(() {
-                              _touchedIndex = index;
-                            });
-                            _openCategoryDetails(context, category.category);
-                          }
-                        : () {
-                            if (widget.isLoading) return;
-                            setState(() {
-                              _touchedIndex = isSelected ? null : index;
-                            });
-                          },
-                    behavior: HitTestBehavior.opaque,
-                    child: AnimatedContainer(
-                      key: ValueKey(
-                          'transactions-pie-legend-${category.category}'),
-                      duration: const Duration(milliseconds: 200),
-                      width: 180, // Increased width to show it's scrollable
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? widget.colorScheme.homeCardSurface
-                            : widget
-                                .colorScheme.card, // Fallback to a card surface
-                        borderRadius: BorderRadius.circular(
-                            10), // Use radius 10 from aesthetics
-                        border: Border.all(
-                          color: isSelected
-                              ? widget.colorScheme.primary
-                                  .withValues(alpha: 0.5)
-                              : widget.colorScheme.surface
-                                  .withValues(alpha: 0.0),
-                          width: 1,
-                        ),
-                        boxShadow: Theme.of(context).brightness ==
-                                Brightness.dark
-                            ? [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.4),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                  spreadRadius: -1,
-                                ),
-                                BoxShadow(
-                                  color: widget.colorScheme.surface
-                                      .withValues(alpha: 0.2),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 8),
-                                  spreadRadius: -2,
-                                ),
-                              ]
-                            : [
-                                BoxShadow(
-                                  color: widget.colorScheme.homeCardShadow
-                                      .withValues(alpha: 0.15),
-                                  blurRadius: 13,
-                                  offset: const Offset(0, 2),
-                                  spreadRadius: -6,
-                                ),
-                                BoxShadow(
-                                  color: widget.colorScheme.homeCardShadow
-                                      .withValues(alpha: 0.08),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 3),
-                                  spreadRadius: -2,
-                                ),
-                              ],
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: category.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  getCategoryTranslation(
-                                      context, category.category),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: widget.colorScheme.foreground,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        displayAmount(category.amount),
+                            )
+                          : GestureDetector(
+                              onTap: widget.currencyTypeTotals.length > 1
+                                  ? () =>
+                                      _showBreakdownSheet(context, totalSpent)
+                                  : null,
+                              behavior: HitTestBehavior.opaque,
+                              child: Column(
+                                key: const ValueKey('total'),
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        context.l10n.totalSpent.toUpperCase(),
                                         style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: widget.colorScheme.foreground,
-                                          letterSpacing: -0.5,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 1.0,
+                                          color: widget
+                                              .colorScheme.mutedForeground,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (widget.currencyTypeTotals.length >
+                                          1) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.info_outline_rounded,
+                                          size: 14,
+                                          color: widget
+                                              .colorScheme.mutedForeground,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      displayAmount(totalSpent),
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: widget.colorScheme.foreground,
                                       ),
                                     ),
-                                    if (canOpenCategory) ...[
-                                      const SizedBox(width: 2),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 16,
-                                        color:
-                                            widget.colorScheme.mutedForeground,
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    widget.periodLabel,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: widget.colorScheme.mutedForeground,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${percent.toStringAsFixed(0)}% OF TOTAL',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: widget.colorScheme.mutedForeground,
-                              letterSpacing: 0.5,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-        ],
+            const SizedBox(height: 32),
+            // Legend Cards
+            if (!hasData && !widget.isLoading)
+              const SizedBox(height: 120)
+            else
+              SizedBox(
+                height: isLargeText ? 144 : 120,
+                child: ListView.separated(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: categorySummaries.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final category = categorySummaries[index];
+                    final visibleTotal = categorySummaries.fold<double>(
+                      0.0,
+                      (sum, summary) => sum + summary.amount,
+                    );
+                    final percent = visibleTotal > 0
+                        ? (category.amount / visibleTotal) * 100
+                        : 0.0;
+                    final isSelected = _touchedIndex == index;
+                    final canOpenCategory = isTransactionsPieCategoryNavigable(
+                      category.category,
+                    );
+
+                    return GestureDetector(
+                      onTap: canOpenCategory && !widget.isLoading
+                          ? () {
+                              setState(() {
+                                _touchedIndex = index;
+                              });
+                              _openCategoryDetails(context, category.category);
+                            }
+                          : () {
+                              if (widget.isLoading) return;
+                              setState(() {
+                                _touchedIndex = isSelected ? null : index;
+                              });
+                            },
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedContainer(
+                        key: ValueKey(
+                            'transactions-pie-legend-${category.category}'),
+                        duration: const Duration(milliseconds: 200),
+                        width: 180, // Increased width to show it's scrollable
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? widget.colorScheme.homeCardSurface
+                              : widget.colorScheme
+                                  .card, // Fallback to a card surface
+                          borderRadius: BorderRadius.circular(
+                              10), // Use radius 10 from aesthetics
+                          border: Border.all(
+                            color: isSelected
+                                ? widget.colorScheme.primary
+                                    .withValues(alpha: 0.5)
+                                : widget.colorScheme.surface
+                                    .withValues(alpha: 0.0),
+                            width: 1,
+                          ),
+                          boxShadow: Theme.of(context).brightness ==
+                                  Brightness.dark
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                    spreadRadius: -1,
+                                  ),
+                                  BoxShadow(
+                                    color: widget.colorScheme.surface
+                                        .withValues(alpha: 0.2),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 8),
+                                    spreadRadius: -2,
+                                  ),
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: widget.colorScheme.homeCardShadow
+                                        .withValues(alpha: 0.15),
+                                    blurRadius: 13,
+                                    offset: const Offset(0, 2),
+                                    spreadRadius: -6,
+                                  ),
+                                  BoxShadow(
+                                    color: widget.colorScheme.homeCardShadow
+                                        .withValues(alpha: 0.08),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 3),
+                                    spreadRadius: -2,
+                                  ),
+                                ],
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: category.color,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    getCategoryTranslation(
+                                        context, category.category),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: widget.colorScheme.foreground,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          displayAmount(category.amount),
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color:
+                                                widget.colorScheme.foreground,
+                                            letterSpacing: -0.5,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (canOpenCategory) ...[
+                                        const SizedBox(width: 2),
+                                        Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 16,
+                                          color: widget
+                                              .colorScheme.mutedForeground,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${percent.toStringAsFixed(0)}% OF TOTAL',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: widget.colorScheme.mutedForeground,
+                                letterSpacing: 0.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

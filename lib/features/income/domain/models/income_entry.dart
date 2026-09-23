@@ -11,6 +11,11 @@ class IncomeEntry {
   final String category;
   final String? description;
   final String? source;
+  final String? merchant;
+  final String? merchantId;
+  final String? merchantDomain;
+  final String? merchantLogoUrl;
+  final String? merchantStructuredName;
   final double amount; // In major units
   final String currency;
   final String ownerType; // 'me', 'partner', 'household'
@@ -40,6 +45,11 @@ class IncomeEntry {
     required this.category,
     this.description,
     this.source,
+    this.merchant,
+    this.merchantId,
+    this.merchantDomain,
+    this.merchantLogoUrl,
+    this.merchantStructuredName,
     required this.amount,
     required this.currency,
     required this.ownerType,
@@ -135,6 +145,9 @@ class IncomeEntry {
         .whereType<Map>()
         .map((e) => Attachment.fromJson(Map<String, dynamic>.from(e)))
         .toList(growable: false);
+    final merchantData = json['merchants'] is Map
+        ? Map<String, dynamic>.from(json['merchants'] as Map)
+        : null;
 
     final id = json['id'];
     if (id is! String || id.trim().isEmpty) {
@@ -148,6 +161,18 @@ class IncomeEntry {
       description: asNonEmptyString(json['description']) ??
           asNonEmptyString(json['raw_text']),
       source: asNonEmptyString(json['source']),
+      merchant: asNonEmptyString(json['merchant']),
+      merchantId: asNonEmptyString(json['merchantId']) ??
+          asNonEmptyString(json['merchant_id']),
+      merchantDomain: asNonEmptyString(json['merchantDomain']) ??
+          asNonEmptyString(json['merchant_domain']) ??
+          asNonEmptyString(merchantData?['domain']),
+      merchantLogoUrl: asNonEmptyString(json['merchantLogoUrl']) ??
+          asNonEmptyString(json['merchant_logo_url']) ??
+          asNonEmptyString(merchantData?['logo_identifier']),
+      merchantStructuredName:
+          asNonEmptyString(json['merchantStructuredName']) ??
+              asNonEmptyString(json['merchant_structured_name']),
       amount: amountMajor,
       currency: (json['currency'] as String?) ?? 'USD',
       ownerType: asNonEmptyString(json['ownerType']) ??
@@ -200,6 +225,11 @@ class IncomeEntry {
       'category': category,
       'description': description,
       'source': source,
+      'merchant': merchant,
+      'merchant_id': merchantId,
+      'merchant_domain': merchantDomain,
+      'merchant_logo_url': merchantLogoUrl,
+      'merchant_structured_name': merchantStructuredName,
       'amountMajor': amount,
       'currency': currency,
       'ownerType': ownerType,
@@ -228,6 +258,11 @@ class IncomeEntry {
     String? category,
     String? description,
     String? source,
+    String? merchant,
+    String? merchantId,
+    String? merchantDomain,
+    String? merchantLogoUrl,
+    String? merchantStructuredName,
     double? amount,
     String? currency,
     String? ownerType,
@@ -254,6 +289,12 @@ class IncomeEntry {
       category: category ?? this.category,
       description: description ?? this.description,
       source: source ?? this.source,
+      merchant: merchant ?? this.merchant,
+      merchantId: merchantId ?? this.merchantId,
+      merchantDomain: merchantDomain ?? this.merchantDomain,
+      merchantLogoUrl: merchantLogoUrl ?? this.merchantLogoUrl,
+      merchantStructuredName:
+          merchantStructuredName ?? this.merchantStructuredName,
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       ownerType: ownerType ?? this.ownerType,

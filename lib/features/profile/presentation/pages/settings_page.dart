@@ -35,7 +35,6 @@ import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_modal.dart';
-import 'package:moneko/features/profile/presentation/widgets/category_customization_sheet.dart';
 import 'package:moneko/features/profile/presentation/widgets/support_contact_options_sheet.dart';
 // import 'package:moneko/features/subscription/data/models/subscription_details.dart'; // Removed unused import
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -43,7 +42,6 @@ import 'package:moneko/features/subscription/presentation/pages/plan_selection_p
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 // import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart'; // Removed unused import
@@ -62,6 +60,7 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_settings_tile.dart';
+import 'package:moneko/shared/widgets/messaging_app_logo.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -80,7 +79,6 @@ import 'package:moneko/features/profile/presentation/pages/financial_month_setti
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
-import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
 import 'package:moneko/features/app_lock/data/app_lock_config.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/app_lock/presentation/pages/app_lock_setup_page.dart';
@@ -1169,27 +1167,6 @@ class SettingsPage extends HookConsumerWidget {
                   _SettingsGroup(
                     title: context.l10n.account,
                     children: [
-                      _SettingsTile(
-                        icon: Icons.pie_chart,
-                        label: context.l10n.accountOverview,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) =>
-                                  const OverviewDashboardPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.account_balance_outlined,
-                        label: context.l10n.bankConnections,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const BankConnectionsPage(),
-                          ),
-                        ),
-                      ),
                       FutureBuilder<Map<String, dynamic>?>(
                         key: ValueKey('name-${nameReloadKey.value}'),
                         future: () async {
@@ -1470,24 +1447,9 @@ class SettingsPage extends HookConsumerWidget {
                               pickedTheme == currentTheme) {
                             return;
                           }
-                          ref
+                          await ref
                               .read(themeModeProvider.notifier)
                               .setThemeMode(pickedTheme);
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.category_rounded,
-                        label: context.l10n.categories,
-                        value: context.l10n.settingsCustomCategoriesAction,
-                        onTap: () async {
-                          await MonekoBottomSheet.show(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: colorScheme.sheetBackground,
-                            builder: (sheetContext) {
-                              return const CategoryCustomizationSheet();
-                            },
-                          );
                         },
                       ),
                     ],
@@ -1604,14 +1566,9 @@ class SettingsPage extends HookConsumerWidget {
                       },
                     ),
                     _SettingsTile(
-                      customIcon: SvgPicture.string(
-                        _telegramSvg,
-                        width: 20,
-                        height: 20,
-                        colorFilter: ColorFilter.mode(
-                          colorScheme.onSurface,
-                          BlendMode.srcIn,
-                        ),
+                      customIcon: MessagingAppLogo(
+                        type: MessagingAppLogoType.telegram,
+                        color: colorScheme.onSurface,
                       ),
                       label: ref.watch(telegramBindingProvider).asData?.value ==
                               true
@@ -1650,14 +1607,9 @@ class SettingsPage extends HookConsumerWidget {
                       },
                     ),
                     _SettingsTile(
-                      customIcon: SvgPicture.string(
-                        _whatsappRealSvg,
-                        width: 20,
-                        height: 20,
-                        colorFilter: ColorFilter.mode(
-                          colorScheme.onSurface,
-                          BlendMode.srcIn,
-                        ),
+                      customIcon: MessagingAppLogo(
+                        type: MessagingAppLogoType.whatsapp,
+                        color: colorScheme.onSurface,
                       ),
                       label: context.l10n.whatsAppConnected,
                       value: ref.watch(whatsAppBindingProvider).asData?.value ==
@@ -2090,17 +2042,21 @@ class SettingsPage extends HookConsumerWidget {
 
                   const SizedBox(height: 40),
                   Center(
-                    child: material.Text(
-                      packageInfo.hasData
-                          ? context.l10n.version(packageInfo.data!.version)
-                          : '',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 10,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        material.Text(
+                          packageInfo.hasData
+                              ? context.l10n.version(packageInfo.data!.version)
+                              : '',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -2375,6 +2331,45 @@ Future<void> _showSubmitFeedbackSheet(BuildContext context) async {
   await _showSupportSheet(
     context: context,
     mode: _SupportSheetMode.feedback,
+  );
+}
+
+/// Shared entry points for the Browse catalog. Settings keeps its original
+/// tiles, while Browse can open the same existing flows without duplicating
+/// their private sheet implementations.
+Future<void> showSiriExpenseTutorialSheet(BuildContext context) async {
+  await MonekoBottomSheet.show<void>(
+    context: context,
+    isScrollControlled: true,
+    title: context.l10n.logExpenseWithSiri,
+    onClose: () => Navigator.of(context).pop(),
+    builder: (_) => const _SiriExpenseTutorial(),
+  );
+}
+
+Future<void> showReportBugFlow(BuildContext context) async {
+  final option = await SupportContactOptionsSheet.show(context);
+  if (!context.mounted || option == null) return;
+  if (option == SupportContactOption.ticket) {
+    await _showReportBugSheet(context);
+    return;
+  }
+  await launchUrl(
+    Uri.parse(Links.redditCommunity),
+    mode: LaunchMode.externalApplication,
+  );
+}
+
+Future<void> showFeatureRequestFlow(BuildContext context) async {
+  final option = await SupportContactOptionsSheet.show(context);
+  if (!context.mounted || option == null) return;
+  if (option == SupportContactOption.ticket) {
+    await _showSubmitFeedbackSheet(context);
+    return;
+  }
+  await launchUrl(
+    Uri.parse(Links.redditCommunity),
+    mode: LaunchMode.externalApplication,
   );
 }
 
@@ -3765,13 +3760,6 @@ class _InitialsAvatar extends StatelessWidget {
 
 // End of _MembershipCard class
 // _MembershipCard class is removed as requested by the user.
-
-// Actual WhatsApp Path:
-const String _whatsappRealSvg =
-    '''<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>WhatsApp</title><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.008-.57-.008-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>''';
-
-const String _telegramSvg =
-    '''<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Telegram</title><path d="M11.944 0A12 12 0 1 0 24 12 12.002 12.002 0 0 0 11.944 0Zm5.368 7.747-1.968 9.28c-.146.66-.534.822-1.083.512l-2.99-2.206-1.444 1.39c-.159.159-.292.292-.595.292l.213-3.053 5.56-5.022c.242-.213-.054-.332-.376-.12l-6.873 4.33-2.962-.926c-.646-.2-.66-.646.136-.956l11.584-4.468c.535-.2 1.003.12.798.947Z"/></svg>''';
 
 String _displayLocaleName(Locale locale) {
   final lc = locale.languageCode.toLowerCase();
