@@ -107,6 +107,7 @@
   - `lib/features/wallets/presentation/widgets/wallet_card.dart`.
 - [x] Wallet overview/detail/history and bank connections
   - Verify native values, wallet binding labels, transfer rows, filters, bank account rows, and actions.
+  - Wallet overview headers and income/spending metrics reflow for large text and narrow available widths; the large-text overview uses a naturally sized, animated active card instead of a fixed-height page viewport, and the swipe hint wraps within the available width.
   - `lib/features/wallets/presentation/pages/`, `lib/features/wallets/presentation/widgets/`.
 - [x] Wallet create/edit/transfer/balance/Plaid sheets
   - Verify headers, financial values, input fields, action rows, and keyboard scrolling.

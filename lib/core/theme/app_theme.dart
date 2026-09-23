@@ -11,15 +11,29 @@ final themeModeProvider =
 });
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system) {
-    _loadThemeMode();
+  ThemeModeNotifier({SharedPreferences? preferences})
+      : _preferences = preferences,
+        super(preferences == null
+            ? ThemeMode.system
+            : _themeModeFromString(preferences.getString(_storageKey))) {
+    if (preferences == null) {
+      _loadThemeMode();
+    }
   }
 
   static const _storageKey = 'moneko_theme_mode';
+  final SharedPreferences? _preferences;
+  int _writeRevision = 0;
 
   Future<void> _loadThemeMode() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = _preferences ?? await SharedPreferences.getInstance();
     final stored = prefs.getString(_storageKey);
+
+    // Do not let a slow startup read overwrite a selection made while it was
+    // loading.
+    if (_writeRevision > 0) {
+      return;
+    }
 
     if (stored == null) {
       state = ThemeMode.system;
@@ -30,12 +44,13 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
+    _writeRevision++;
     state = mode;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = _preferences ?? await SharedPreferences.getInstance();
     await prefs.setString(_storageKey, _themeModeToString(mode));
   }
 
-  ThemeMode _themeModeFromString(String value) {
+  static ThemeMode _themeModeFromString(String? value) {
     switch (value) {
       case 'dark':
         return ThemeMode.dark;

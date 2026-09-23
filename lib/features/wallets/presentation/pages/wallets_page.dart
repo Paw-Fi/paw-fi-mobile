@@ -61,8 +61,10 @@ class AccountsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final previewSelectedMonthState = useState<DateTime?>(null);
     final monthPageController = usePageController(viewportFraction: 0.96);
+    final measuredOverviewHeight = useState<MapEntry<String, double>?>(null);
     final colorScheme = Theme.of(context).colorScheme;
-    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
+    final isExpandedHeader = MonekoTextScale.isAtLeast(context, 1.2);
+    final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final actions = ref.watch(walletActionsProvider);
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
@@ -548,6 +550,14 @@ class AccountsPage extends HookConsumerWidget {
               }
 
               final selectedMonth = activeCarouselMonth;
+              final overviewHeightKey = '${selectedMonth.toIso8601String()}|'
+                  '$textScale|${MediaQuery.sizeOf(context).width}|'
+                  '${Localizations.localeOf(context)}|'
+                  '${hasDismissedSwipeHintState.value}';
+              final overviewHeight =
+                  measuredOverviewHeight.value?.key == overviewHeightKey
+                      ? measuredOverviewHeight.value!.value
+                      : null;
               final currencyRates =
                   ref.watch(currencyRateTableProvider).valueOrNull ??
                       const CurrencyRateTable(
@@ -606,15 +616,13 @@ class AccountsPage extends HookConsumerWidget {
                   children: [
                     RepaintBoundary(
                       child: SizedBox(
-                        height: isLargeText
-                            ? ((!hasDismissedSwipeHintState.value &&
-                                    availableMonths.length > 1)
-                                ? 460
-                                : 420)
-                            : ((!hasDismissedSwipeHintState.value &&
-                                    availableMonths.length > 1)
-                                ? 290
-                                : 260),
+                        height: overviewHeight ??
+                            (isExpandedHeader
+                                ? 500
+                                : (!hasDismissedSwipeHintState.value &&
+                                        availableMonths.length > 1)
+                                    ? 290
+                                    : 260),
                         child: PageView.builder(
                           itemCount: availableMonths.length,
                           controller: monthPageController,
@@ -667,25 +675,50 @@ class AccountsPage extends HookConsumerWidget {
                                   const EdgeInsets.symmetric(horizontal: 4),
                               child: Container(
                                 key: isActive ? netWorthSpotlightKey : null,
-                                child: _WalletsOverviewCard(
-                                  availableMonths: availableMonths,
-                                  monthStart: monthStart,
-                                  selectedMonthStart: selectedMonth,
-                                  snapshot: monthSnapshot != null
-                                      ? accountsSnapshotForMonth(
-                                          monthSnapshot,
-                                        )
-                                      : displayedSelectedSnapshot,
-                                  history: isPreviewMode
-                                      ? previewWalletsData?.history
-                                      : walletsPageState?.history,
-                                  currencyCode: selectedCurrencyCode,
-                                  hasDismissedSwipeHint:
-                                      hasDismissedSwipeHintState.value,
-                                  error: !isPreviewMode && isActive
-                                      ? walletsPageState?.selectedMonthError
+                                child: OverflowBox(
+                                  key: isActive
+                                      ? const ValueKey(
+                                          'wallets-overview-active')
                                       : null,
-                                  isLoading: isOverviewLoading,
+                                  minHeight: 0,
+                                  maxHeight: double.infinity,
+                                  alignment: Alignment.topCenter,
+                                  child: _WalletsOverviewCard(
+                                    onHeightChanged: isActive
+                                        ? (height) {
+                                            final current =
+                                                measuredOverviewHeight.value;
+                                            if (current?.key ==
+                                                    overviewHeightKey &&
+                                                (current!.value - height)
+                                                        .abs() <
+                                                    1) {
+                                              return;
+                                            }
+                                            measuredOverviewHeight.value =
+                                                MapEntry(
+                                                    overviewHeightKey, height);
+                                          }
+                                        : null,
+                                    availableMonths: availableMonths,
+                                    monthStart: monthStart,
+                                    selectedMonthStart: selectedMonth,
+                                    snapshot: monthSnapshot != null
+                                        ? accountsSnapshotForMonth(
+                                            monthSnapshot,
+                                          )
+                                        : displayedSelectedSnapshot,
+                                    history: isPreviewMode
+                                        ? previewWalletsData?.history
+                                        : walletsPageState?.history,
+                                    currencyCode: selectedCurrencyCode,
+                                    hasDismissedSwipeHint:
+                                        hasDismissedSwipeHintState.value,
+                                    error: !isPreviewMode && isActive
+                                        ? walletsPageState?.selectedMonthError
+                                        : null,
+                                    isLoading: isOverviewLoading,
+                                  ),
                                 ),
                               ),
                             );
@@ -763,11 +796,13 @@ class _AnimatedNumberText extends StatelessWidget {
   final double value;
   final String symbol;
   final TextStyle style;
+  final bool singleLine;
 
   const _AnimatedNumberText({
     required this.value,
     required this.symbol,
     required this.style,
+    this.singleLine = false,
   });
 
   @override
@@ -780,6 +815,8 @@ class _AnimatedNumberText extends StatelessWidget {
         return Text(
           '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(val)))}',
           style: style,
+          maxLines: singleLine ? 1 : null,
+          softWrap: !singleLine,
         );
       },
     );
@@ -787,6 +824,7 @@ class _AnimatedNumberText extends StatelessWidget {
 }
 
 class _WalletsOverviewCard extends HookConsumerWidget {
+  final ValueChanged<double>? onHeightChanged;
   final List<DateTime> availableMonths;
   final DateTime monthStart;
   final DateTime selectedMonthStart;
@@ -798,6 +836,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
   final Object? error;
 
   const _WalletsOverviewCard({
+    this.onHeightChanged,
     required this.availableMonths,
     required this.monthStart,
     required this.selectedMonthStart,
@@ -811,7 +850,21 @@ class _WalletsOverviewCard extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cardKey = useMemoized(() => GlobalKey(), []);
+    final contentEndKey = useMemoized(() => GlobalKey(), []);
+    if (onHeightChanged != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final card = cardKey.currentContext?.findRenderObject();
+        final contentEnd = contentEndKey.currentContext?.findRenderObject();
+        if (card is RenderBox && contentEnd is RenderBox) {
+          final contentBottom =
+              contentEnd.localToGlobal(Offset.zero, ancestor: card).dy;
+          onHeightChanged!(contentBottom + 21);
+        }
+      });
+    }
     final colorScheme = Theme.of(context).colorScheme;
+    final isExpandedHeader = MonekoTextScale.isAtLeast(context, 1.2);
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final symbol = resolveCurrencySymbol(currencyCode);
     final monthLabel =
@@ -871,6 +924,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
     }
 
     return Container(
+      key: cardKey,
       width: double.infinity,
       decoration: BoxDecoration(
         color: colorScheme.cardSurface,
@@ -890,12 +944,12 @@ class _WalletsOverviewCard extends HookConsumerWidget {
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisSize: MainAxisSize.max,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Flex(
-            direction: isLargeText ? Axis.vertical : Axis.horizontal,
-            crossAxisAlignment: isLargeText
+            direction: isExpandedHeader ? Axis.vertical : Axis.horizontal,
+            crossAxisAlignment: isExpandedHeader
                 ? CrossAxisAlignment.start
                 : CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -908,7 +962,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              if (isLargeText) const SizedBox(height: 8),
+              if (isExpandedHeader) const SizedBox(height: 8),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Container(
@@ -922,6 +976,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
                   ),
                   child: Text(
                     monthLabel,
+                    key: const ValueKey('wallets-overview-month-label'),
                     style: TextStyle(
                       color: colorScheme.onSurfaceVariant,
                       fontSize: 12,
@@ -955,11 +1010,13 @@ class _WalletsOverviewCard extends HookConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         FittedBox(
+                          key: const ValueKey('wallets-overview-total-amount'),
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
                           child: _AnimatedNumberText(
                             value: snapshot.netWorth,
                             symbol: symbol,
+                            singleLine: true,
                             style: TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.w800,
@@ -1096,9 +1153,10 @@ class _WalletsOverviewCard extends HookConsumerWidget {
               ),
             ),
           if (!hasDismissedSwipeHint && availableMonths.length > 1) ...[
-            const Spacer(),
+            const SizedBox(height: 12),
             SwipeHintRow(text: context.l10n.swipeRightPreviousMonths),
           ],
+          SizedBox(key: contentEndKey, height: 0),
         ],
       ),
     );

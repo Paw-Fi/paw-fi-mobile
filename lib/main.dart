@@ -305,6 +305,9 @@ void main() {
         overrides: [
           // Provide SharedPreferences instance to selected household provider
           sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+          themeModeProvider.overrideWith(
+            (ref) => ThemeModeNotifier(preferences: sharedPreferences),
+          ),
           previewModeProvider.overrideWith(
             (ref) => PreviewModeNotifier(
               initiallyActive:

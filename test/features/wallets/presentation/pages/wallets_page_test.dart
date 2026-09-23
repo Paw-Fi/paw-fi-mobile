@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -23,6 +24,8 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_providers.
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
+import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/shared/widgets/swipe_hint_row.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAuthNotifier extends Auth {
@@ -301,6 +304,109 @@ void main() {
 
     expect(find.text('Spending'), findsWidgets);
     expect(find.text('Total Net Worth'), findsWidgets);
+  });
+
+  testWidgets(
+      'wallet overview fits the title, totals, chart, and hint at large text',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final prefs = await SharedPreferences.getInstance();
+
+    for (final scale in [1.2, 1.3, 1.5, 2.0, 3.0]) {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(_FakeAuthNotifier.new),
+            authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+            bankConnectionsProvider.overrideWith((ref) async => const []),
+            appPreferredTimezoneProvider.overrideWith((ref) => null),
+            mainShellTabIndexProvider.overrideWith((ref) => 0),
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            scopedWalletsProvider.overrideWith(
+              () => _StaticScopedWalletsNotifier(const []),
+            ),
+            effectiveScopeWalletsProvider.overrideWith((ref) => const []),
+            walletsDataServiceProvider
+                .overrideWithValue(_FakeWalletsDataService()),
+            householdScopeProvider.overrideWith(
+              (ref) => const HouseholdScope(
+                viewMode: ViewMode.personal,
+                selected: SelectedHouseholdState(),
+                portfolioHouseholdIds: <String>{},
+              ),
+            ),
+            viewModeProvider.overrideWith(
+              (ref) => ViewModeNotifier()..setPersonalMode(),
+            ),
+          ],
+          child: MaterialApp(
+            locale: const Locale('es'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+              ),
+              child: child!,
+            ),
+            home: const AccountsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull, reason: 'text scale $scale');
+      final activeCard = find.byKey(const ValueKey('wallets-overview-active'));
+      final title = find.descendant(
+        of: activeCard,
+        matching: find.text('Patrimonio neto total'),
+      );
+      final monthLabel = find.descendant(
+        of: activeCard,
+        matching: find.byKey(const ValueKey('wallets-overview-month-label')),
+      );
+      expect(title, findsOneWidget);
+      expect(monthLabel, findsOneWidget);
+      final totalAmount = find.descendant(
+        of: activeCard,
+        matching: find.byKey(const ValueKey('wallets-overview-total-amount')),
+      );
+      final totalAmountText = find.descendant(
+        of: totalAmount,
+        matching: find.byType(Text),
+      );
+      expect(totalAmount, findsOneWidget);
+      expect(tester.widget<Text>(totalAmountText).maxLines, 1);
+      expect(tester.widget<Text>(totalAmountText).softWrap, isFalse);
+      expect(
+        tester.getTopLeft(monthLabel).dy,
+        greaterThan(tester.getBottomLeft(title).dy),
+        reason: 'the month must move below the title at scale $scale',
+      );
+      final hint = find.descendant(
+        of: activeCard,
+        matching: find.byType(SwipeHintRow),
+      );
+      final chart = find.descendant(
+        of: activeCard,
+        matching: find.byType(LineChart),
+      );
+      expect(hint, findsOneWidget);
+      expect(chart, findsOneWidget);
+      final chartBottom = tester.getRect(chart).bottom;
+      final hintTop = tester.getRect(hint).top;
+      expect(hintTop - chartBottom, closeTo(12, 1));
+      final pageBottom = tester.getRect(find.byType(PageView)).bottom;
+      final hintBottom = tester.getRect(hint).bottom;
+      expect(
+        hintBottom,
+        lessThan(pageBottom),
+        reason: 'swipe hint must remain inside the carousel at scale $scale',
+      );
+    }
   });
 
   testWidgets('current month net worth follows displayed wallet balances',

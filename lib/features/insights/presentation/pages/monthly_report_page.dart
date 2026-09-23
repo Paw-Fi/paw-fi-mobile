@@ -28,6 +28,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
@@ -357,7 +358,7 @@ class MonthlyReportPage extends HookConsumerWidget {
         ),
         padding: EdgeInsets.fromLTRB(
           _monthlyReportPageHorizontalPadding,
-          20,
+          20 + getSubPageTopPadding(context),
           _monthlyReportPageHorizontalPadding,
           24 + MediaQuery.paddingOf(context).bottom,
         ),
@@ -3909,7 +3910,7 @@ class _MonthlyReportDetailShell extends StatelessWidget {
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         _monthlyReportPageHorizontalPadding,
-        20,
+        20 + getSubPageTopPadding(context),
         _monthlyReportPageHorizontalPadding,
         24 + MediaQuery.paddingOf(context).bottom,
       ),

@@ -1447,7 +1447,7 @@ class SettingsPage extends HookConsumerWidget {
                               pickedTheme == currentTheme) {
                             return;
                           }
-                          ref
+                          await ref
                               .read(themeModeProvider.notifier)
                               .setThemeMode(pickedTheme);
                         },
@@ -2045,7 +2045,6 @@ class SettingsPage extends HookConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                     
                         material.Text(
                           packageInfo.hasData
                               ? context.l10n.version(packageInfo.data!.version)
@@ -2055,7 +2054,6 @@ class SettingsPage extends HookConsumerWidget {
                             fontSize: 10,
                           ),
                         ),
-                   
                       ],
                     ),
                   ),
