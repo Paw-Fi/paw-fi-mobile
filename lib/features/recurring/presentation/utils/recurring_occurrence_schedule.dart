@@ -112,9 +112,6 @@ bool isNextFutureRecurringOccurrence({
   required DateTime scheduledOccurrenceDate,
   required DateTime userNow,
 }) {
-  final nextOccurrence = transaction.serverNextOccurrenceDate;
-  if (nextOccurrence == null) return false;
-
   final userToday = DateTime(userNow.year, userNow.month, userNow.day);
   final normalizedScheduledDate = DateTime(
     scheduledOccurrenceDate.year,
@@ -122,8 +119,20 @@ bool isNextFutureRecurringOccurrence({
     scheduledOccurrenceDate.day,
   );
   return normalizedScheduledDate.isAfter(userToday) &&
-      formatDateOnlyYmd(nextOccurrence) ==
-          formatDateOnlyYmd(normalizedScheduledDate);
+      isServerNextRecurringOccurrence(
+        transaction: transaction,
+        scheduledOccurrenceDate: normalizedScheduledDate,
+      );
+}
+
+bool isServerNextRecurringOccurrence({
+  required RecurringTransaction transaction,
+  required DateTime scheduledOccurrenceDate,
+}) {
+  final nextOccurrence = transaction.serverNextOccurrenceDate;
+  if (nextOccurrence == null) return false;
+  return formatDateOnlyYmd(nextOccurrence) ==
+      formatDateOnlyYmd(scheduledOccurrenceDate);
 }
 
 bool canSubmitRecurringOccurrenceConfirmationAt({

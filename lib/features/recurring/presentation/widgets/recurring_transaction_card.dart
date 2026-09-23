@@ -10,6 +10,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
+import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
 
@@ -272,11 +273,11 @@ class RecurringTransactionCard extends StatelessWidget {
                                 child: merchantLogo,
                               ),
                             ),
-                      SizedBox(
+                      const SizedBox(
                         width: 16,
                       ),
                       Expanded(child: details),
-                      SizedBox(
+                      const SizedBox(
                         width: 12,
                       ),
                       // Amount and Action/Status
@@ -302,6 +303,12 @@ class RecurringTransactionCard extends StatelessWidget {
                                       recurringTransaction: transaction,
                                       scheduledOccurrenceDate:
                                           latestActionableOccurrenceDate!,
+                                      allowNextPreconfirmation:
+                                          isServerNextRecurringOccurrence(
+                                        transaction: transaction,
+                                        scheduledOccurrenceDate:
+                                            latestActionableOccurrenceDate!,
+                                      ),
                                     ),
                                     borderRadius: BorderRadius.circular(100),
                                     child: Container(

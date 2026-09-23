@@ -81,6 +81,35 @@ void main() {
     expect(find.byIcon(Icons.calendar_today_rounded), findsOneWidget);
   });
 
+  testWidgets('shows confirm action for a projection-disabled occurrence',
+      (tester) async {
+    final occurrenceDate = DateTime(2026, 10, 1);
+    final recurring = transaction().copyWith(
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: occurrenceDate,
+        projectionEnabled: false,
+      ),
+      serverNextOccurrenceDate: occurrenceDate,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: RecurringTransactionCard(
+            transaction: recurring,
+            nextOccurrenceDate: occurrenceDate,
+            latestActionableOccurrenceDate: occurrenceDate,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Confirm'), findsOneWidget);
+  });
+
   testWidgets('reflows the recurring card at large text', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

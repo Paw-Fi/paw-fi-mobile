@@ -753,7 +753,7 @@ class RecurringActionableBadgeNotifier
     var count = 0;
     for (final summary in overlaid) {
       if (!summary.hasActionableOccurrence) continue;
-      count += summary.actionableCount > 0 ? summary.actionableCount : 1;
+      count += summary.actionableCount;
     }
     return count;
   }

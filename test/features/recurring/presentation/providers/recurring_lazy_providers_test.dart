@@ -134,6 +134,29 @@ void main() {
     );
   });
 
+  test('future confirmable occurrence does not activate the shell badge',
+      () async {
+    final envelope = _seriesEnvelope('Future');
+    final data = envelope['data']! as Map<String, dynamic>;
+    final item = (data['items']! as List).single as Map<String, dynamic>;
+    item['latest_actionable_occurrence_date'] = '2026-08-15';
+    item['actionable_count'] = 0;
+    remote.responses['recurring-read:listSeries'] = envelope;
+    remote.responses['recurring-read:badge'] = {
+      'success': true,
+      'data': false,
+    };
+    await repository.fetchSeriesPage(scope: _scope);
+    await repository.fetchBadge(_scope);
+    final container = _container(repository);
+    addTearDown(container.dispose);
+
+    expect(
+      await container.read(recurringActionableBadgeProvider(_scope).future),
+      0,
+    );
+  });
+
   test('older failed series mutation cannot roll back a newer edit', () {
     final notifier = RecurringSeriesOptimisticNotifier();
     final first = notifier.upsert(

@@ -6,6 +6,7 @@ RecurringTransaction _transaction({
   required bool reminderEnabled,
   required int reminderValue,
   required String reminderUnit,
+  bool projectionEnabled = true,
 }) {
   return RecurringTransaction(
     id: 'recurring-id',
@@ -25,6 +26,7 @@ RecurringTransaction _transaction({
       reminderEnabled: reminderEnabled,
       reminderValue: reminderValue,
       reminderUnit: reminderUnit,
+      projectionEnabled: projectionEnabled,
     ),
     type: 'expense',
     attachments: const [],
@@ -186,6 +188,23 @@ void main() {
         allowNextPreconfirmation: true,
       ),
       isFalse,
+    );
+  });
+
+  test('projection setting does not block the server next occurrence', () {
+    final transaction = _transaction(
+      reminderEnabled: false,
+      reminderValue: 0,
+      reminderUnit: 'days',
+      projectionEnabled: false,
+    ).copyWith(serverNextOccurrenceDate: scheduledOccurrence);
+
+    expect(
+      isServerNextRecurringOccurrence(
+        transaction: transaction,
+        scheduledOccurrenceDate: scheduledOccurrence,
+      ),
+      isTrue,
     );
   });
 

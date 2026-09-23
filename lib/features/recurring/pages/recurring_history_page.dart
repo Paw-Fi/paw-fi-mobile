@@ -46,10 +46,19 @@ class RecurringHistoryPage extends HookConsumerWidget {
         .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
     final userToday = DateTime(userNow.year, userNow.month, userNow.day);
-    final nextOccurrence = transaction.serverNextOccurrenceDate ??
-        transaction.getNextOccurrence(
-          userToday.subtract(const Duration(days: 1)),
-        );
+    final recurrenceEndDate = transaction.recurrenceRule?.endDate;
+    final hasEnded = recurrenceEndDate != null &&
+        DateTime(
+          recurrenceEndDate.year,
+          recurrenceEndDate.month,
+          recurrenceEndDate.day,
+        ).isBefore(userToday);
+    final nextOccurrence = hasEnded
+        ? null
+        : transaction.serverNextOccurrenceDate ??
+            transaction.getNextOccurrence(
+              userToday.subtract(const Duration(days: 1)),
+            );
 
     final description = transaction.description?.trim();
     final hasDescription = description != null && description.isNotEmpty;
@@ -136,6 +145,15 @@ class RecurringHistoryPage extends HookConsumerWidget {
         ),
       );
     }
+    for (final skippedDate in locallySkippedDates.value) {
+      final occurrence = DateTime.tryParse(skippedDate);
+      if (occurrence != null) {
+        timelineByDate[skippedDate] = RecurringOccurrenceTimelineItem(
+          scheduledOccurrenceDate: occurrence,
+          status: 'skipped',
+        );
+      }
+    }
 
     final latestUnconfirmedOccurrence = eligibleOccurrences.where((occurrence) {
       final item = timelineByDate[formatDateOnlyYmd(occurrence)];
@@ -146,49 +164,50 @@ class RecurringHistoryPage extends HookConsumerWidget {
       if (latest == null || occurrence.isAfter(latest)) return occurrence;
       return latest;
     });
-    final futureReference = latestUnconfirmedOccurrence != null &&
-            formatDateOnlyYmd(latestUnconfirmedOccurrence) ==
-                formatDateOnlyYmd(nextOccurrence)
+    final futureReference = nextOccurrence == null ||
+            latestUnconfirmedOccurrence != null &&
+                formatDateOnlyYmd(latestUnconfirmedOccurrence) ==
+                    formatDateOnlyYmd(nextOccurrence)
         ? null
         : nextOccurrence;
     final nextDueOccurrence =
         latestUnconfirmedOccurrence ?? futureReference ?? nextOccurrence;
 
+    final reversedOccurrences = mergeRecurringHistoryOccurrenceDates(
+      futureReference: futureReference,
+      occurrences: occurrences,
+    );
     double totalCumulativeAmount = 0.0;
     int paidCyclesCount = 0;
+    int pendingCyclesCount = 0;
 
-    for (final occurrence in occurrences) {
+    for (final occurrence in reversedOccurrences) {
       final dateStr = formatDateOnlyYmd(occurrence);
       final item = timelineByDate[dateStr];
       final double occAmount = item?.amountCents != null
           ? (item!.amountCents! / 100.0)
           : transaction.amount;
 
-      if (item?.isConfirmed == true || item?.isSkipped == true) {
-        paidCyclesCount++;
-      }
       if (item?.isConfirmed == true) {
+        paidCyclesCount++;
         totalCumulativeAmount += occAmount;
+      } else if (item?.isSkipped != true) {
+        pendingCyclesCount++;
       }
     }
 
     final totalCumulativeText =
         '$sign$currencySymbol${formatLocalizedNumber(context, double.parse(formatAmount(totalCumulativeAmount)))}';
 
-    final reversedOccurrences = mergeRecurringHistoryOccurrenceDates(
-      futureReference: futureReference,
-      occurrences: occurrences,
-    );
     final filteredList = reversedOccurrences.where((occurrence) {
       final dateString = formatDateOnlyYmd(occurrence);
       final item = timelineByDate[dateString];
-      final isResolved = item?.isConfirmed == true || item?.isSkipped == true;
 
       if (activeFilter.value == _HistoryFilter.paid) {
-        return isResolved;
+        return item?.isConfirmed == true;
       }
       if (activeFilter.value == _HistoryFilter.pending) {
-        return !isResolved;
+        return item?.isConfirmed != true && item?.isSkipped != true;
       }
       return true;
     }).toList();
@@ -386,14 +405,19 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                           context,
                                           colorScheme,
                                           label: context.l10n.totalCycles,
-                                          value: '${occurrences.length}',
+                                          value:
+                                              '${reversedOccurrences.length}',
                                         ),
                                         _buildStatItem(
                                           context,
                                           colorScheme,
                                           label: context.l10n.nextDue,
-                                          value: formatLocalizedDate(
-                                              context, nextDueOccurrence),
+                                          value: nextDueOccurrence == null
+                                              ? context.l10n.ended
+                                              : formatLocalizedDate(
+                                                  context,
+                                                  nextDueOccurrence,
+                                                ),
                                         ),
                                       ],
                                     ),
@@ -410,37 +434,43 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                   horizontal: 16, vertical: 8),
                               child: Row(
                                 children: [
-                                  _buildFilterChip(
-                                    context,
-                                    colorScheme,
-                                    label: context.l10n.all,
-                                    isSelected: activeFilter.value ==
-                                        _HistoryFilter.all,
-                                    count: occurrences.length,
-                                    onTap: () =>
-                                        activeFilter.value = _HistoryFilter.all,
+                                  Expanded(
+                                    child: _buildFilterChip(
+                                      context,
+                                      colorScheme,
+                                      label: context.l10n.all,
+                                      isSelected: activeFilter.value ==
+                                          _HistoryFilter.all,
+                                      count: reversedOccurrences.length,
+                                      onTap: () => activeFilter.value =
+                                          _HistoryFilter.all,
+                                    ),
                                   ),
                                   const SizedBox(width: 8),
-                                  _buildFilterChip(
-                                    context,
-                                    colorScheme,
-                                    label: context.l10n.paid,
-                                    isSelected: activeFilter.value ==
-                                        _HistoryFilter.paid,
-                                    count: paidCyclesCount,
-                                    onTap: () => activeFilter.value =
-                                        _HistoryFilter.paid,
+                                  Expanded(
+                                    child: _buildFilterChip(
+                                      context,
+                                      colorScheme,
+                                      label: context.l10n.paid,
+                                      isSelected: activeFilter.value ==
+                                          _HistoryFilter.paid,
+                                      count: paidCyclesCount,
+                                      onTap: () => activeFilter.value =
+                                          _HistoryFilter.paid,
+                                    ),
                                   ),
                                   const SizedBox(width: 8),
-                                  _buildFilterChip(
-                                    context,
-                                    colorScheme,
-                                    label: context.l10n.pending,
-                                    isSelected: activeFilter.value ==
-                                        _HistoryFilter.pending,
-                                    count: occurrences.length - paidCyclesCount,
-                                    onTap: () => activeFilter.value =
-                                        _HistoryFilter.pending,
+                                  Expanded(
+                                    child: _buildFilterChip(
+                                      context,
+                                      colorScheme,
+                                      label: context.l10n.pending,
+                                      isSelected: activeFilter.value ==
+                                          _HistoryFilter.pending,
+                                      count: pendingCyclesCount,
+                                      onTap: () => activeFilter.value =
+                                          _HistoryFilter.pending,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -485,13 +515,6 @@ class RecurringHistoryPage extends HookConsumerWidget {
 
                                     final formattedDate = formatLocalizedDate(
                                         context, occurrence);
-                                    final isFutureReference = futureReference !=
-                                            null &&
-                                        occurrence.year ==
-                                            futureReference.year &&
-                                        occurrence.month ==
-                                            futureReference.month &&
-                                        occurrence.day == futureReference.day;
                                     final isActionableConfirmation =
                                         !isSkipped &&
                                             latestUnconfirmedOccurrence !=
@@ -504,8 +527,6 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                     .month &&
                                             occurrence.day ==
                                                 latestUnconfirmedOccurrence.day;
-                                    final isUpcoming = isFutureReference;
-
                                     final occurrenceDateOnly = DateTime(
                                       occurrence.year,
                                       occurrence.month,
@@ -520,6 +541,12 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                       scheduledOccurrenceDate: occurrence,
                                       userNow: userNow,
                                     );
+                                    final isUpcoming = isNextFutureOccurrence;
+                                    final canUseActionableConfirmation =
+                                        isActionableConfirmation &&
+                                            (!occurrenceDateOnly
+                                                    .isAfter(userToday) ||
+                                                !hasConfirmedFutureOccurrence);
                                     final canPreconfirm = !isConfirmed &&
                                         !isSkipped &&
                                         !hasConfirmedFutureOccurrence &&
@@ -589,7 +616,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                               recurringTransaction: transaction,
                                               occurrence: timelineItem!,
                                             )
-                                        : isActionableConfirmation ||
+                                        : canUseActionableConfirmation ||
                                                 canPreconfirm
                                             ? () =>
                                                 showConfirmRecurringOccurrenceSheet(
@@ -784,7 +811,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                       ],
                                                     ),
                                                     const SizedBox(height: 6),
-                                                    if ((isActionableConfirmation ||
+                                                    if ((canUseActionableConfirmation ||
                                                             canPreconfirm) &&
                                                         !isConfirmed)
                                                       Wrap(
@@ -862,7 +889,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                                 MainAxisSize
                                                                     .min,
                                                             children: [
-                                                              if (isFutureReference)
+                                                              if (isNextFutureOccurrence)
                                                                 TextButton(
                                                                   onPressed: userId
                                                                           .isEmpty
@@ -1004,7 +1031,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .w400)),
-                                                          if (isFutureReference)
+                                                          if (isNextFutureOccurrence)
                                                             TextButton(
                                                               onPressed: userId
                                                                       .isEmpty
@@ -1142,6 +1169,9 @@ class RecurringHistoryPage extends HookConsumerWidget {
         ),
         child: Text(
           titleText,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
