@@ -12,6 +12,9 @@ import 'package:moneko/features/auth/auth.dart';
 
 const _googleWebClientId =
     '1075784863194-p530784s5hi7nmd7b7mthipkshhjhe6h.apps.googleusercontent.com';
+const _googleAuthorizationScopes = <String>[
+  'https://www.googleapis.com/auth/userinfo.email',
+];
 
 final _googleSignInInitialization = GoogleSignIn.instance.initialize(
   serverClientId: _googleWebClientId,
@@ -48,11 +51,15 @@ class GoogleLoginButton extends HookConsumerWidget {
           );
         } else {
           await _googleSignInInitialization;
-          final googleAccount = await GoogleSignIn.instance.authenticate();
+          final googleAccount = await GoogleSignIn.instance.authenticate(
+            scopeHint: _googleAuthorizationScopes,
+          );
           final googleAuthentication = googleAccount.authentication;
           final idToken = googleAuthentication.idToken;
           final googleAuthorization = await googleAccount.authorizationClient
-              .authorizationForScopes(const <String>[]);
+                  .authorizationForScopes(_googleAuthorizationScopes) ??
+              await googleAccount.authorizationClient
+                  .authorizeScopes(_googleAuthorizationScopes);
 
           if (idToken == null) {
             throw const AuthException('Google did not return an ID token.');

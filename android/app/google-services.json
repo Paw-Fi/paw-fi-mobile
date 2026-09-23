@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "1075784863194-k9aeuiic8dlkjrrk5m3l03n2bj21fc16.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moneko.mobile",
+            "certificate_hash": "2b8fd69a4197036b44dfcf90043eed5a47c3dab2"
+          }
+        },
+        {
+          "client_id": "1075784863194-mhht44jcqbnlmmlnn4r9vek6g5p12o7s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moneko.mobile",
+            "certificate_hash": "911baaa467e92a218b2dda42e56c5a98e62bcd35"
+          }
+        },
+        {
           "client_id": "1075784863194-p530784s5hi7nmd7b7mthipkshhjhe6h.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -29,6 +45,14 @@
             {
               "client_id": "1075784863194-p530784s5hi7nmd7b7mthipkshhjhe6h.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "1075784863194-bge24pslq5ekr1lj52qu947cn5r2g7pe.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.moneko.mobile",
+                "app_store_id": "6753925279"
+              }
             }
           ]
         }
