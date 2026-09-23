@@ -398,9 +398,7 @@ class PocketsHeaderCard extends StatelessWidget {
     final header = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: colorScheme.brightness == Brightness.dark
-            ? Colors.white.withValues(alpha: 0.05)
-            : Colors.black.withValues(alpha: 0.03),
+        color: colorScheme.onSurface.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
           color: colorScheme.outline.withValues(alpha: 0.08),
@@ -465,7 +463,7 @@ class PocketsHeaderCard extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.sheetBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

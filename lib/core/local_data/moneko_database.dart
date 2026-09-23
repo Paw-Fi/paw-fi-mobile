@@ -3322,6 +3322,48 @@ class MonekoDatabase {
     );
   }
 
+  Future<bool> upsertJsonCacheIfMutationMatches({
+    required String namespace,
+    required String cacheKey,
+    required Map<String, dynamic> payload,
+    required DateTime cachedAt,
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required String expectedStatus,
+  }) async {
+    final now = DateTime.now().toUtc();
+    _db.execute(
+      '''
+      INSERT INTO local_json_cache (
+        namespace, cache_key, payload_json, cached_at, updated_at
+      )
+      SELECT ?, ?, ?, ?, ?
+      WHERE EXISTS (
+        SELECT 1
+        FROM local_mutation_outbox
+        WHERE client_mutation_id = ?
+          AND payload_json = ?
+          AND status = ?
+      )
+      ON CONFLICT(namespace, cache_key) DO UPDATE SET
+        payload_json = excluded.payload_json,
+        cached_at = excluded.cached_at,
+        updated_at = excluded.updated_at
+      ''',
+      [
+        namespace,
+        cacheKey,
+        jsonEncode(payload),
+        _instant(cachedAt),
+        _instant(now),
+        clientMutationId,
+        expectedPayloadJson,
+        expectedStatus,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
   Future<void> deleteJsonCacheByPrefix({
     required String namespace,
     required String cacheKeyPrefix,
@@ -3989,6 +4031,21 @@ class MonekoDatabase {
     );
   }
 
+  Future<bool> markMutationSyncingIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+  }) async {
+    return _markMutationStatusIfPayloadMatches(
+      clientMutationId: clientMutationId,
+      expectedPayloadJson: expectedPayloadJson,
+      status: localMutationStatusSyncing,
+      expectedStatuses: const [
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+      ],
+    );
+  }
+
   Future<void> deferMutation(String clientMutationId) async {
     _db.execute(
       '''
@@ -4004,10 +4061,49 @@ class MonekoDatabase {
     );
   }
 
+  Future<bool> deferMutationIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+  }) async {
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?, retry_after = NULL, updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status = ?
+      ''',
+      [
+        localMutationStatusQueued,
+        _instant(DateTime.now().toUtc()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusSyncing,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
   Future<void> markMutationSynced(String clientMutationId) async {
     _markMutationStatus(
       clientMutationId: clientMutationId,
       status: localMutationStatusSynced,
+    );
+  }
+
+  Future<bool> markMutationSyncedIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+  }) async {
+    return _markMutationStatusIfPayloadMatches(
+      clientMutationId: clientMutationId,
+      expectedPayloadJson: expectedPayloadJson,
+      status: localMutationStatusSynced,
+      expectedStatuses: const [
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing,
+      ],
     );
   }
 
@@ -4023,6 +4119,37 @@ class MonekoDatabase {
     );
   }
 
+  Future<bool> markMutationFailedIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required Object error,
+    required DateTime retryAfter,
+  }) async {
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?,
+          attempt_count = attempt_count + 1,
+          last_error = ?,
+          retry_after = ?,
+          updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status = ?
+      ''',
+      [
+        localMutationStatusFailed,
+        error.toString(),
+        _instant(retryAfter),
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusSyncing,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
   Future<void> markMutationCancelled({
     required String clientMutationId,
     required Object error,
@@ -4031,6 +4158,36 @@ class MonekoDatabase {
       clientMutationId: clientMutationId,
       error: error,
     );
+  }
+
+  Future<bool> markMutationCancelledIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required Object error,
+  }) async {
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?,
+          last_error = ?,
+          retry_after = NULL,
+          updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status IN (?, ?, ?)
+      ''',
+      [
+        localMutationStatusCancelled,
+        error.toString(),
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing,
+      ],
+    );
+    return _lastStatementChangedRow();
   }
 
   void _markMutationStatus({
@@ -4045,6 +4202,40 @@ class MonekoDatabase {
       ''',
       [status, _instant(DateTime.now()), clientMutationId],
     );
+  }
+
+  bool _markMutationStatusIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required String status,
+    required List<String> expectedStatuses,
+  }) {
+    final statusPlaceholders = List.filled(
+      expectedStatuses.length,
+      '?',
+    ).join(', ');
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?, updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status IN ($statusPlaceholders)
+      ''',
+      [
+        status,
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        ...expectedStatuses,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
+  bool _lastStatementChangedRow() {
+    final rows = _db.select('SELECT changes() AS changed_rows');
+    return ((rows.first['changed_rows'] as int?) ?? 0) > 0;
   }
 
   void _markMutationFailedRow({
@@ -4774,6 +4965,7 @@ class MonekoDatabase {
         payload_json = excluded.payload_json,
         updated_at = excluded.updated_at,
         status = excluded.status,
+        attempt_count = 0,
         last_error = NULL,
         retry_after = NULL
       ''',

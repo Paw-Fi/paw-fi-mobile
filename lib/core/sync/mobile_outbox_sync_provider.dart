@@ -549,6 +549,36 @@ Future<void> _handleCancelledMobileMutation(
   MonekoDatabase database,
   LocalMutationOutboxData mutation,
 ) async {
+  if (mutation.entityType == 'pockets_month') {
+    final currentMutations = await database.getOutboxMutations();
+    if (!cancelledPocketMutationStillOwnsOutbox(
+      mutation,
+      currentMutations,
+    )) {
+      return;
+    }
+    final payload = _decodePayload(mutation.payloadJson);
+    final userId = payload['userId']?.toString() ?? '';
+    final restoreResult = await restorePocketsRollbackSnapshot(
+      payload,
+      database: database,
+      mutation: mutation,
+    );
+    if (restoreResult == PocketsRollbackRestoreResult.stale) return;
+    if (restoreResult == PocketsRollbackRestoreResult.unavailable &&
+        userId.isNotEmpty) {
+      await clearPocketsCachesForUser(ref, userId: userId);
+    }
+    ref.invalidate(pocketsProvider);
+    ref.invalidate(pocketDetailsProvider);
+    ref.read(pocketsRefreshSignalProvider.notifier).state += 1;
+    ref.read(widgetSyncVersionProvider.notifier).state += 1;
+    ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
+      id: mutation.clientMutationId,
+      feature: 'pockets',
+    );
+    return;
+  }
   if (mutation.entityType != 'wallet') {
     await database.markTransactionMutationExhausted(mutation: mutation);
     ref
@@ -602,6 +632,19 @@ Future<void> _handleCancelledMobileMutation(
     ref,
     _walletIdsForMutation(mutation, payload),
   );
+}
+
+bool cancelledPocketMutationStillOwnsOutbox(
+  LocalMutationOutboxData cancelledMutation,
+  Iterable<LocalMutationOutboxData> currentMutations,
+) {
+  return cancelledMutation.entityType == 'pockets_month' &&
+      currentMutations.any(
+        (current) =>
+            current.clientMutationId == cancelledMutation.clientMutationId &&
+            current.payloadJson == cancelledMutation.payloadJson &&
+            current.status == localMutationStatusCancelled,
+      );
 }
 
 List<ExpenseEntry> _walletTransferOriginalEntries(

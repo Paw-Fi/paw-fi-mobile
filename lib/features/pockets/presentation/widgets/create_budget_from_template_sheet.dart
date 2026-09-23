@@ -486,8 +486,7 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                               name: pocket.name,
                               budgetAmountCents: (pocket.amount * 100).round(),
                               spent: 0,
-                              currency:
-                                  'USD', // Placeholder, sheet uses provider
+                              currency: currencyCode,
                               icon: pocket.iconName,
                               color:
                                   '#${(pocket.color.r * 255).round().toRadixString(16).padLeft(2, '0')}${(pocket.color.g * 255).round().toRadixString(16).padLeft(2, '0')}${(pocket.color.b * 255).round().toRadixString(16).padLeft(2, '0')}',

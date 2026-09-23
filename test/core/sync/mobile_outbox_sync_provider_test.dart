@@ -76,21 +76,63 @@ void main() {
       );
     });
   });
+
+  group('cancelledPocketMutationStillOwnsOutbox', () {
+    test('accepts the same cancelled payload', () {
+      final cancelled = _mutation(
+        id: 1,
+        clientMutationId: 'pockets-month',
+        status: localMutationStatusCancelled,
+        entityType: 'pockets_month',
+        payloadJson: '{"mutationRevision":"1"}',
+      );
+
+      expect(
+        cancelledPocketMutationStillOwnsOutbox(cancelled, [cancelled]),
+        isTrue,
+      );
+    });
+
+    test('rejects a newer replacement payload', () {
+      final cancelled = _mutation(
+        id: 1,
+        clientMutationId: 'pockets-month',
+        status: localMutationStatusCancelled,
+        entityType: 'pockets_month',
+        payloadJson: '{"mutationRevision":"1"}',
+      );
+      final replacement = _mutation(
+        id: 2,
+        clientMutationId: 'pockets-month',
+        status: localMutationStatusQueued,
+        entityType: 'pockets_month',
+        payloadJson: '{"mutationRevision":"2"}',
+      );
+
+      expect(
+        cancelledPocketMutationStillOwnsOutbox(cancelled, [replacement]),
+        isFalse,
+      );
+    });
+  });
 }
 
 LocalMutationOutboxData _mutation({
   required int id,
   required String status,
+  String? clientMutationId,
+  String entityType = 'transaction',
+  String payloadJson = '{}',
   DateTime? retryAfter,
 }) {
   final now = DateTime(2026, 5, 13, 9);
   return LocalMutationOutboxData(
     id: id,
-    clientMutationId: 'mutation-$id',
-    entityType: 'transaction',
+    clientMutationId: clientMutationId ?? 'mutation-$id',
+    entityType: entityType,
     entityId: 'transaction-$id',
     operation: 'create',
-    payloadJson: '{}',
+    payloadJson: payloadJson,
     createdAt: now,
     updatedAt: now,
     attemptCount: 0,

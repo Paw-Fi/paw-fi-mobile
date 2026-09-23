@@ -433,7 +433,9 @@ class MainShell extends HookConsumerWidget {
           context,
           next.feature == 'recurring'
               ? context.l10n.failedToSaveRecurringTransaction
-              : context.l10n.errorLoadingData,
+              : next.feature == 'pockets'
+                  ? context.l10n.failedToUpdateBudget
+                  : context.l10n.errorLoadingData,
         );
         ref.read(appMutationErrorProvider.notifier).state = null;
       });

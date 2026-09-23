@@ -272,7 +272,9 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                           ),
                         ),
                         Text(
-                          '${widget.expenses.length} transactions',
+                          context.l10n.importSeriesTransactionCount(
+                            widget.expenses.length,
+                          ),
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.mutedForeground,
@@ -401,7 +403,13 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                                     _formatLocalizedCurrency(
                                       context,
                                       amountCents / 100.0,
-                                      widget.currency,
+                                      exp['currency']
+                                                  ?.toString()
+                                                  .trim()
+                                                  .isNotEmpty ==
+                                              true
+                                          ? exp['currency'].toString()
+                                          : widget.currency,
                                     ),
                                     style: TextStyle(
                                       fontSize: 14,

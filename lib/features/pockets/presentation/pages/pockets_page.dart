@@ -56,7 +56,10 @@ class PocketsPage extends HookConsumerWidget {
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final households = householdsAsync.valueOrNull ?? const <Household>[];
-    final isBootstrapCurrency = !filterState.hasExplicitCurrency;
+    // The resolved Home currency is authoritative for Pockets, including when
+    // it was restored during app bootstrap. Existing budgets in another
+    // currency must never replace the active Home selection.
+    const isBootstrapCurrency = false;
     // CRITICAL: keep the main pockets page subscribed to the recurring toggle.
     // STRICT REQUIREMENT: every month scope built below must carry this flag
     // so recurring transactions stay included in pocket totals for the viewed
@@ -176,6 +179,10 @@ class PocketsPage extends HookConsumerWidget {
       resolvedSelectedCurrency,
       selectedCurrenciesKey,
       financialMonthStartDay,
+      householdScope.activeAccountType,
+      householdScope.activeAccountHouseholdId,
+      resolvedHouseholdId,
+      includeUpcomingRecurring,
     ]);
 
     // Track the currently visible page during manual swipes so we can start
@@ -738,12 +745,14 @@ class PocketsPage extends HookConsumerWidget {
                 child: !shouldBuildFullView
                     ? _PocketsMonthPlaceholder(
                         key: ValueKey(
-                            'month_placeholder_${month.year}_${month.month}_${householdScope.activeAccountType}'),
+                          'month_placeholder_${month.year}_${month.month}_${scopeParams.hashCode}',
+                        ),
                         colorScheme: colorScheme,
                       )
                     : _PocketsMonthView(
                         key: ValueKey(
-                            'month_view_${month.year}_${month.month}_${householdScope.activeAccountType}'),
+                          'month_view_${month.year}_${month.month}_${scopeParams.hashCode}',
+                        ),
                         scopeParams: scopeParams,
                         colorScheme: colorScheme,
                         isPersonalMode: householdScope.activeAccountType !=
@@ -1012,9 +1021,9 @@ class _PocketsMonthView extends HookConsumerWidget {
           context: context,
           ref: ref,
           scopeParams: scopeParams,
-          currency: pocketsState.currency.trim().isNotEmpty
-              ? pocketsState.currency.trim()
-              : (scopeParams.currency ?? 'USD'),
+          currency: scopeParams.currency?.trim().isNotEmpty == true
+              ? scopeParams.currency!.trim()
+              : pocketsState.currency.trim(),
         );
       });
       return null;
@@ -1043,9 +1052,10 @@ class _PocketsMonthView extends HookConsumerWidget {
                         padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                         child: _CopyBudgetBanner(
                           previousBudget: pocketsState.previousBudget,
-                          currency: pocketsState.currency.trim().isNotEmpty
-                              ? pocketsState.currency.trim()
-                              : (scopeParams.currency ?? 'USD'),
+                          currency:
+                              scopeParams.currency?.trim().isNotEmpty == true
+                                  ? scopeParams.currency!.trim()
+                                  : pocketsState.currency.trim(),
                           onCopy: () async {
                             try {
                               pocketsNotifier.reusePreviousBudget(
@@ -1068,10 +1078,28 @@ class _PocketsMonthView extends HookConsumerWidget {
                           onCopyPockets: () async {
                             if (isCopyingPockets.value) return;
 
+                            final destinationMonth =
+                                scopeParams.periodMonth ?? DateTime.now();
+                            final previousMonth = previousPocketsScopeParams(
+                              scopeParams.copyWith(
+                                periodMonth: destinationMonth,
+                              ),
+                            ).periodMonth!;
+                            final monthFormatter =
+                                MaterialLocalizations.of(context);
+                            final currency =
+                                scopeParams.currency?.trim().toUpperCase() ??
+                                    pocketsState.currency.trim().toUpperCase();
+                            final copyDetails =
+                                '${context.l10n.pocketsCopyDialogDesc}\n\n'
+                                '${monthFormatter.formatMonthYear(previousMonth)} -> '
+                                '${monthFormatter.formatMonthYear(destinationMonth)}'
+                                '${currency.isEmpty ? '' : ' ($currency)'}';
+
                             final result = await MonekoAlertDialog.show(
                               context: context,
                               title: context.l10n.pocketsCopyDialogTitle,
-                              description: context.l10n.pocketsCopyDialogDesc,
+                              description: copyDetails,
                               confirmLabel: context.l10n.pocketsCopyConfirm,
                               cancelLabel: context.l10n.cancel,
                             );
@@ -1081,13 +1109,6 @@ class _PocketsMonthView extends HookConsumerWidget {
 
                             isCopyingPockets.value = true;
                             try {
-                              final now =
-                                  scopeParams.periodMonth ?? DateTime.now();
-                              final previousMonth = previousFinancialCycleStart(
-                                now,
-                                startDay: scopeParams
-                                    .normalizedFinancialMonthStartDay,
-                              );
                               await pocketsNotifier
                                   .copyPocketsFromMonth(previousMonth);
                               if (context.mounted) {
@@ -1127,8 +1148,8 @@ class _PocketsMonthView extends HookConsumerWidget {
                                   useSafeArea: true,
                                   isDismissible: false,
                                   enableDrag: true,
-                                  backgroundColor: Colors
-                                      .transparent, // Sheet handles its own styling
+                                  backgroundColor: colorScheme.surface
+                                      .withValues(alpha: 0.0),
                                   builder: (context) =>
                                       CreateBudgetFromTemplateSheet(
                                     scopeParams: scopeParams,

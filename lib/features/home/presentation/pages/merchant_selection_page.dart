@@ -909,39 +909,22 @@ class _MerchantEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Center(
+    return SizedBox(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 0),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: colorScheme.surfaceBorder,
-                  width: 0.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.storefront_outlined,
-                  size: 32,
-                  color: colorScheme.primary,
-                ),
+            Opacity(
+              opacity: 0.8,
+              child: Image.asset(
+                'lib/assets/mascots/moneko-exploring.png',
+                width: 120,
+                height: 96,
+                fit: BoxFit.contain,
+                excludeFromSemantics: true,
               ),
             ),
-            const SizedBox(height: 20),
             Text(
               context.l10n.searchMerchantIdentity,
               textAlign: TextAlign.center,

@@ -114,9 +114,7 @@ final pocketDetailsProvider =
       params.scopeParams.currency?.trim().isNotEmpty == true
           ? params.scopeParams.currency!.trim()
           : 'USD';
-  final selectedCurrencies = ref.watch(
-    homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
-  );
+  final selectedCurrencies = params.scopeParams.normalizedSelectedCurrencies;
   final shouldConvertCurrencies = (selectedCurrencies?.length ?? 0) > 1;
   final rateTable = ref.watch(currencyRateTableProvider).valueOrNull ??
       const CurrencyRateTable(

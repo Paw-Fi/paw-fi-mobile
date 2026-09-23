@@ -61,7 +61,9 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
     final filterState = ref.watch(homeFilterProvider);
     final currency = ref.watch(selectedHomeCurrencyCodeProvider);
     final selectedCurrencies = filterState.normalizedSelectedCurrencies;
-    final isBootstrapCurrency = !filterState.hasExplicitCurrency;
+    // The resolved Home currency remains authoritative after hydration. Pocket
+    // ring preloads must not fall back to a different historical currency.
+    const isBootstrapCurrency = false;
     final includeRecurring =
         ref.watch(includeUpcomingRecurringInPocketsProvider);
     final accountCreatedAt = previewMode.isActive

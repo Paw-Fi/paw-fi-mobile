@@ -56,11 +56,9 @@ class PocketsGridSection extends HookConsumerWidget {
     final state = ref.watch(pocketsProvider(scopeParams));
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
     final lastShownError = useRef<String?>(null);
-    final effectiveCurrency = state.currency.trim().isNotEmpty
-        ? state.currency.trim()
-        : (scopeParams.currency?.trim().isNotEmpty == true
-            ? scopeParams.currency!.trim()
-            : 'USD');
+    final effectiveCurrency = scopeParams.currency?.trim().isNotEmpty == true
+        ? scopeParams.currency!.trim()
+        : state.currency.trim();
     final isMultiCurrencySelection =
         scopeParams.normalizedSelectedCurrencies != null;
     final includeUpcomingRecurring =
@@ -157,14 +155,24 @@ class PocketsGridSection extends HookConsumerWidget {
       return Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
-          child: Text(
-            state.error!,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              color: colorScheme.destructive,
-              fontWeight: FontWeight.w500,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                state.error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: colorScheme.destructive,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              AdaptiveButton(
+                onPressed: notifier.refresh,
+                label: context.l10n.tryAgain,
+              ),
+            ],
           ),
         ),
       );
@@ -735,14 +743,14 @@ class _RolloverSummaryCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         child: InkWell(
           onTap: () {
             showModalBottomSheet(
               context: context,
               isScrollControlled: true,
               useSafeArea: true,
-              backgroundColor: colorScheme.surface,
+              backgroundColor: colorScheme.sheetBackground,
               builder: (context) => _RolloverSummarySheet(
                 pockets: pockets,
                 currency: currency,
@@ -852,7 +860,7 @@ class _RolloverSummarySheet extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Total',
+                    context.l10n.total,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
