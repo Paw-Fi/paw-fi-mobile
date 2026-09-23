@@ -97,6 +97,12 @@ class RecurringHistoryPage extends HookConsumerWidget {
               confirmationSource: item.confirmationSource,
             ))
         .toList(growable: false);
+    final hasConfirmedFutureOccurrence = fullRangeTimeline.any((item) {
+      final scheduledDate = item.scheduledOccurrenceDate;
+      return item.isConfirmed &&
+          DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day)
+              .isAfter(userToday);
+    });
     final latestServerActionable =
         transaction.serverLatestActionableOccurrenceDate;
     final eligibleOccurrences = latestServerActionable == null
@@ -508,6 +514,16 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                     final daysDifference = occurrenceDateOnly
                                         .difference(userToday)
                                         .inDays;
+                                    final isNextFutureOccurrence =
+                                        isNextFutureRecurringOccurrence(
+                                      transaction: transaction,
+                                      scheduledOccurrenceDate: occurrence,
+                                      userNow: userNow,
+                                    );
+                                    final canPreconfirm = !isConfirmed &&
+                                        !isSkipped &&
+                                        !hasConfirmedFutureOccurrence &&
+                                        isNextFutureOccurrence;
                                     final isOverdue =
                                         daysDifference < 0 && !isConfirmed;
 
@@ -573,7 +589,8 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                               recurringTransaction: transaction,
                                               occurrence: timelineItem!,
                                             )
-                                        : isActionableConfirmation
+                                        : isActionableConfirmation ||
+                                                canPreconfirm
                                             ? () =>
                                                 showConfirmRecurringOccurrenceSheet(
                                                   context: context,
@@ -581,6 +598,8 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                       transaction,
                                                   scheduledOccurrenceDate:
                                                       occurrence,
+                                                  allowNextPreconfirmation:
+                                                      canPreconfirm,
                                                 )
                                             : null;
 
@@ -765,12 +784,17 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                       ],
                                                     ),
                                                     const SizedBox(height: 6),
-                                                    if (isActionableConfirmation &&
+                                                    if ((isActionableConfirmation ||
+                                                            canPreconfirm) &&
                                                         !isConfirmed)
-                                                      Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
+                                                      Wrap(
+                                                        alignment: WrapAlignment
+                                                            .spaceBetween,
+                                                        runAlignment:
+                                                            WrapAlignment
                                                                 .spaceBetween,
+                                                        spacing: 8,
+                                                        runSpacing: 8,
                                                         children: [
                                                           Container(
                                                             padding:
@@ -833,67 +857,109 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                                               ],
                                                             ),
                                                           ),
-                                                          InkWell(
-                                                            onTap: () =>
-                                                                showConfirmRecurringOccurrenceSheet(
-                                                              context: context,
-                                                              recurringTransaction:
-                                                                  transaction,
-                                                              scheduledOccurrenceDate:
-                                                                  occurrence,
-                                                            ),
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        100),
-                                                            child: Container(
-                                                              padding:
-                                                                  const EdgeInsets
-                                                                      .symmetric(
-                                                                horizontal: 12,
-                                                                vertical: 4,
-                                                              ),
-                                                              decoration:
-                                                                  BoxDecoration(
-                                                                color:
-                                                                    colorScheme
-                                                                        .primary,
+                                                          Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              if (isFutureReference)
+                                                                TextButton(
+                                                                  onPressed: userId
+                                                                          .isEmpty
+                                                                      ? null
+                                                                      : skipOccurrence,
+                                                                  style: TextButton
+                                                                      .styleFrom(
+                                                                    minimumSize:
+                                                                        Size.zero,
+                                                                    tapTargetSize:
+                                                                        MaterialTapTargetSize
+                                                                            .shrinkWrap,
+                                                                    padding:
+                                                                        const EdgeInsets
+                                                                            .symmetric(
+                                                                      horizontal:
+                                                                          8,
+                                                                      vertical:
+                                                                          2,
+                                                                    ),
+                                                                    visualDensity:
+                                                                        VisualDensity
+                                                                            .compact,
+                                                                  ),
+                                                                  child: Text(
+                                                                      context
+                                                                          .l10n
+                                                                          .skip),
+                                                                ),
+                                                              InkWell(
+                                                                onTap: () =>
+                                                                    showConfirmRecurringOccurrenceSheet(
+                                                                  context:
+                                                                      context,
+                                                                  recurringTransaction:
+                                                                      transaction,
+                                                                  scheduledOccurrenceDate:
+                                                                      occurrence,
+                                                                  allowNextPreconfirmation:
+                                                                      canPreconfirm,
+                                                                ),
                                                                 borderRadius:
                                                                     BorderRadius
                                                                         .circular(
                                                                             100),
-                                                              ),
-                                                              child: Row(
-                                                                mainAxisSize:
-                                                                    MainAxisSize
-                                                                        .min,
-                                                                children: [
-                                                                  Icon(
-                                                                    Icons
-                                                                        .check_rounded,
-                                                                    size: 12,
+                                                                child:
+                                                                    Container(
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                          .symmetric(
+                                                                    horizontal:
+                                                                        12,
+                                                                    vertical: 4,
+                                                                  ),
+                                                                  decoration:
+                                                                      BoxDecoration(
                                                                     color: colorScheme
-                                                                        .onPrimary,
+                                                                        .primary,
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            100),
                                                                   ),
-                                                                  const SizedBox(
-                                                                      width: 4),
-                                                                  Text(
-                                                                    context.l10n
-                                                                        .confirmPayment,
-                                                                    style:
-                                                                        TextStyle(
-                                                                      color: colorScheme
-                                                                          .onPrimary,
-                                                                      fontSize:
-                                                                          11,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w700,
-                                                                    ),
+                                                                  child: Row(
+                                                                    mainAxisSize:
+                                                                        MainAxisSize
+                                                                            .min,
+                                                                    children: [
+                                                                      Icon(
+                                                                        Icons
+                                                                            .check_rounded,
+                                                                        size:
+                                                                            12,
+                                                                        color: colorScheme
+                                                                            .onPrimary,
+                                                                      ),
+                                                                      const SizedBox(
+                                                                          width:
+                                                                              4),
+                                                                      Text(
+                                                                        context
+                                                                            .l10n
+                                                                            .confirmPayment,
+                                                                        style:
+                                                                            TextStyle(
+                                                                          color:
+                                                                              colorScheme.onPrimary,
+                                                                          fontSize:
+                                                                              11,
+                                                                          fontWeight:
+                                                                              FontWeight.w700,
+                                                                        ),
+                                                                      ),
+                                                                    ],
                                                                   ),
-                                                                ],
+                                                                ),
                                                               ),
-                                                            ),
+                                                            ],
                                                           ),
                                                         ],
                                                       )

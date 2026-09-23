@@ -1782,7 +1782,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         maxHeight: MediaQuery.of(context).size.height * 0.95,
       ),
       decoration: BoxDecoration(
-        color: gradientColors.first,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1792,26 +1792,13 @@ class AddRecurringSheet extends HookConsumerWidget {
           canPop: !isLoading.value,
           child: Stack(
             children: [
-              Positioned.fill(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeOutCubic,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: gradientColors,
-                    ),
-                  ),
-                ),
-              ),
               CustomScrollView(
                 physics: const BouncingScrollPhysics(
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
                 slivers: [
                   SliverAppBar(
-                    expandedHeight: 280,
+                    expandedHeight: kToolbarHeight,
                     pinned: true,
                     stretch: true,
                     backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
@@ -1833,117 +1820,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                         isLoading: isLoading.value,
                       ),
                     ],
-                    flexibleSpace: FlexibleSpaceBar(
-                      stretchModes: const [
-                        StretchMode.zoomBackground,
-                        StretchMode.fadeTitle,
-                      ],
-                      background: RepaintBoundary(
-                        child: SafeArea(
-                          child: GestureDetector(
-                            onTap: handleEditAmount,
-                            behavior: HitTestBehavior.opaque,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const SizedBox(height: 20),
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 300),
-                                  child: Container(
-                                    key: ValueKey(
-                                      '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|$displayCategory',
-                                    ),
-                                    padding: hasResolvableMerchantLogo
-                                        ? EdgeInsets.zero
-                                        : const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: textColor.withValues(alpha: 0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Semantics(
-                                      button: true,
-                                      label: hasResolvableMerchantLogo
-                                          ? context.l10n.merchant
-                                          : context.l10n.category,
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () {
-                                          if (hasResolvableMerchantLogo) {
-                                            handleEditMerchant();
-                                          } else {
-                                            handleEditCategory();
-                                          }
-                                        },
-                                        child: SizedBox(
-                                          width: hasResolvableMerchantLogo
-                                              ? 68
-                                              : 36,
-                                          height: hasResolvableMerchantLogo
-                                              ? 68
-                                              : 36,
-                                          child: ClipOval(
-                                            child: MerchantLogo(
-                                              merchantId: merchantId,
-                                              domain: merchantDomain,
-                                              logoUrl: merchantLogoUrl,
-                                              merchantStructuredName:
-                                                  selectedMerchantStructuredName
-                                                      .value,
-                                              merchantName:
-                                                  merchantController.text,
-                                              fallback: Center(
-                                                child: Icon(
-                                                  getCategoryIcon(
-                                                      displayCategory),
-                                                  size: 36,
-                                                  color: textColor,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      '${isIncomeMode ? '+' : ''}${resolveCurrencySymbol(selectedCurrency.value)}${amountController.text.trim().isEmpty ? '0.00' : amountController.text.trim()}',
-                                      style: TextStyle(
-                                        fontSize: 48,
-                                        fontWeight: FontWeight.w800,
-                                        color: textColor,
-                                        letterSpacing: -1,
-                                        height: 1.1,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.edit_outlined,
-                                      size: 20,
-                                      color: secondaryTextColor,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${formatRecurrenceSelectionLabel(context, frequency: selectedFrequency.value, interval: customInterval.value)}',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: secondaryTextColor,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    flexibleSpace: const SizedBox.shrink(),
                   ),
                   SliverToBoxAdapter(
                     child: Container(

@@ -192,6 +192,64 @@ void main() {
     );
   });
 
+  test('next future occurrence preconfirmation stays local-first', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    requestHandler = (_) => throw const SocketException('offline');
+    final container = _container(database);
+    addTearDown(container.dispose);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final scheduledDate = today.add(const Duration(days: 30));
+    final paidDate = scheduledDate.add(const Duration(days: 10));
+    final recurring = _recurring(householdId: null, date: today).copyWith(
+      serverNextOccurrenceDate: scheduledDate,
+    );
+
+    final command = RecurringOccurrenceConfirmationCommand(
+      userId: 'user_1',
+      recurringTransaction: recurring,
+      scheduledOccurrenceDate: scheduledDate,
+      paidDate: paidDate,
+      amountCents: 10000,
+      accountId: 'wallet_usd',
+      allowNextPreconfirmation: true,
+    );
+    final result = await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(command);
+
+    expect(result.isQueued, isTrue);
+    final localEntry = await database.getTransactionByIdOrClientRecordId(
+      command.optimisticId,
+    );
+    expect(formatDateOnlyYmd(localEntry!.date), formatDateOnlyYmd(paidDate));
+    expect(
+      formatDateOnlyYmd(localEntry.scheduledOccurrenceDate!),
+      formatDateOnlyYmd(scheduledDate),
+    );
+    final laterScheduledDate = scheduledDate.add(const Duration(days: 30));
+    final secondResult = await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(RecurringOccurrenceConfirmationCommand(
+          userId: 'user_1',
+          recurringTransaction: recurring.copyWith(
+            serverNextOccurrenceDate: laterScheduledDate,
+          ),
+          scheduledOccurrenceDate: laterScheduledDate,
+          paidDate: laterScheduledDate,
+          amountCents: 10000,
+          accountId: 'wallet_usd',
+          allowNextPreconfirmation: true,
+        ));
+    expect(secondResult.isQueued, isFalse);
+    await _waitForAsync(() async {
+      final mutations = await database.getOutboxMutations();
+      return mutations.length == 1 &&
+          mutations.single.status == localMutationStatusFailed;
+    });
+  });
+
   test('stale reconfirmation preserves the original queued occurrence',
       () async {
     final database = MonekoDatabase.inMemory();

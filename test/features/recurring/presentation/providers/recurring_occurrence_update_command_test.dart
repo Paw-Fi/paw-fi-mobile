@@ -59,6 +59,25 @@ void main() {
     expect(command.toRequestBody(), isNot(contains('accountId')));
   });
 
+  test('keeps next occurrence preconfirmation as a local guard', () {
+    final command = RecurringOccurrenceConfirmationCommand(
+      userId: 'user-id',
+      recurringTransaction: recurringTransaction.copyWith(
+        serverNextOccurrenceDate: DateTime(2026, 8, 1),
+      ),
+      scheduledOccurrenceDate: DateTime(2026, 8, 1),
+      paidDate: DateTime(2026, 9, 15),
+      amountCents: 10000,
+      accountId: null,
+      allowNextPreconfirmation: true,
+    );
+
+    expect(command.allowNextPreconfirmation, isTrue);
+    expect(
+        command.toRequestBody(), isNot(contains('allowNextPreconfirmation')));
+    expect(command.toRequestBody(), containsPair('paidDate', '2026-09-15'));
+  });
+
   test('builds the one-off override payload without changing confirmation', () {
     final command = RecurringOccurrenceConfirmationCommand(
       userId: 'user-id',

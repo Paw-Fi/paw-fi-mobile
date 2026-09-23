@@ -159,4 +159,51 @@ void main() {
       isFalse,
     );
   });
+
+  test('allows only the server next future occurrence to be preconfirmed', () {
+    final transaction = _transaction(
+      reminderEnabled: true,
+      reminderValue: 3,
+      reminderUnit: 'days',
+    ).copyWith(serverNextOccurrenceDate: scheduledOccurrence);
+
+    expect(
+      canSubmitRecurringOccurrenceConfirmationAt(
+        transaction: transaction,
+        scheduledOccurrenceDate: scheduledOccurrence,
+        paidDate: DateTime(2026, 9, 15),
+        userNow: DateTime(2026, 8, 10, 9),
+        allowNextPreconfirmation: true,
+      ),
+      isTrue,
+    );
+    expect(
+      canSubmitRecurringOccurrenceConfirmationAt(
+        transaction: transaction,
+        scheduledOccurrenceDate: DateTime(2026, 9, 26),
+        paidDate: DateTime(2026, 9, 15),
+        userNow: DateTime(2026, 8, 10, 9),
+        allowNextPreconfirmation: true,
+      ),
+      isFalse,
+    );
+  });
+
+  test('normal confirmation still rejects a future paid date', () {
+    final transaction = _transaction(
+      reminderEnabled: true,
+      reminderValue: 3,
+      reminderUnit: 'days',
+    ).copyWith(serverNextOccurrenceDate: scheduledOccurrence);
+
+    expect(
+      canSubmitRecurringOccurrenceConfirmationAt(
+        transaction: transaction,
+        scheduledOccurrenceDate: scheduledOccurrence,
+        paidDate: DateTime(2026, 9, 15),
+        userNow: DateTime(2026, 8, 23, 9),
+      ),
+      isFalse,
+    );
+  });
 }

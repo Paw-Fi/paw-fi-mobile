@@ -35,6 +35,7 @@ Future<void> showConfirmRecurringOccurrenceSheet({
   required RecurringTransaction recurringTransaction,
   required DateTime scheduledOccurrenceDate,
   RecurringOccurrenceTimelineItem? existingOccurrence,
+  bool allowNextPreconfirmation = false,
 }) {
   final isEditing = existingOccurrence?.isConfirmed == true;
   return MonekoBottomSheet.show<void>(
@@ -46,6 +47,7 @@ Future<void> showConfirmRecurringOccurrenceSheet({
       recurringTransaction: recurringTransaction,
       scheduledOccurrenceDate: scheduledOccurrenceDate,
       existingOccurrence: existingOccurrence,
+      allowNextPreconfirmation: allowNextPreconfirmation,
     ),
   );
 }
@@ -179,11 +181,13 @@ class _ConfirmRecurringOccurrenceForm extends ConsumerStatefulWidget {
     required this.recurringTransaction,
     required this.scheduledOccurrenceDate,
     this.existingOccurrence,
+    this.allowNextPreconfirmation = false,
   });
 
   final RecurringTransaction recurringTransaction;
   final DateTime scheduledOccurrenceDate;
   final RecurringOccurrenceTimelineItem? existingOccurrence;
+  final bool allowNextPreconfirmation;
 
   @override
   ConsumerState<_ConfirmRecurringOccurrenceForm> createState() =>
@@ -232,9 +236,11 @@ class _ConfirmRecurringOccurrenceFormState
       preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
     );
     _paidDate = existing?.paidDate ??
-        (widget.scheduledOccurrenceDate.isAfter(today)
-            ? today
-            : widget.scheduledOccurrenceDate);
+        (widget.allowNextPreconfirmation
+            ? widget.scheduledOccurrenceDate
+            : widget.scheduledOccurrenceDate.isAfter(today)
+                ? today
+                : widget.scheduledOccurrenceDate);
     _accountId = existing?.actualTransaction != null
         ? existing!.actualTransaction!.walletId
         : widget.recurringTransaction.accountId;
@@ -260,18 +266,25 @@ class _ConfirmRecurringOccurrenceFormState
     final today = effectiveToday(
       preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
     );
+    final userNow = effectiveNow(
+      preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
+    );
+    final isNextPreconfirmation = widget.allowNextPreconfirmation &&
+        isNextFutureRecurringOccurrence(
+          transaction: widget.recurringTransaction,
+          scheduledOccurrenceDate: widget.scheduledOccurrenceDate,
+          userNow: userNow,
+        );
     if (!_isAmountLocked && amountCents == null) {
       setState(() => _error = context.l10n.recurringOccurrenceEnterAmount);
       return;
     }
     if (!_isEditing &&
+        !isNextPreconfirmation &&
         !canConfirmOccurrenceAt(
           widget.recurringTransaction,
           widget.scheduledOccurrenceDate,
-          effectiveNow(
-            preferredTimezone:
-                ref.read(analyticsProvider).contact?.preferredTimezone,
-          ),
+          userNow,
         )) {
       setState(() => _error = context.l10n.recurringOccurrenceNotAvailable);
       return;
@@ -309,7 +322,9 @@ class _ConfirmRecurringOccurrenceFormState
         return;
       }
     }
-    if (!_isSettlementLocked && _paidDate.isAfter(today)) {
+    if (!_isSettlementLocked &&
+        !isNextPreconfirmation &&
+        _paidDate.isAfter(today)) {
       setState(
           () => _error = context.l10n.recurringOccurrencePaidDateAfterToday);
       return;
@@ -349,6 +364,7 @@ class _ConfirmRecurringOccurrenceFormState
               merchant: _merchant,
               description: _notesController.text,
               updateFutureAmount: _updateFutureAmount,
+              allowNextPreconfirmation: isNextPreconfirmation,
             ));
     if (!mounted) return;
     if (!result.isQueued) {
@@ -589,12 +605,14 @@ class _ConfirmRecurringOccurrenceFormState
                             final selected = await showTransactionDatePicker(
                               context: context,
                               currentDate: _paidDate,
-                              lastDate: effectiveToday(
-                                preferredTimezone: ref
-                                    .read(analyticsProvider)
-                                    .contact
-                                    ?.preferredTimezone,
-                              ),
+                              lastDate: widget.allowNextPreconfirmation
+                                  ? DateTime(2100, 12, 31)
+                                  : effectiveToday(
+                                      preferredTimezone: ref
+                                          .read(analyticsProvider)
+                                          .contact
+                                          ?.preferredTimezone,
+                                    ),
                             );
                             if (selected != null && mounted) {
                               setState(() => _paidDate = selected);

@@ -395,30 +395,20 @@ class EmptyRecurringState extends StatelessWidget {
         normalizedType == 'expense' || normalizedType == 'expenses';
     final isIncome = normalizedType == 'income' || normalizedType == 'incomes';
 
-    return Center(
+    return SizedBox(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Beautiful animated-like background circle
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: (isExpense ? colorScheme.primary : colorScheme.success)
-                    .withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: (isExpense ? colorScheme.primary : colorScheme.success)
-                      .withValues(alpha: 0.12),
-                  width: 2,
-                ),
-              ),
-              child: Icon(
-                isExpense ? Icons.autorenew_rounded : Icons.trending_up_rounded,
-                size: 44,
-                color: isExpense ? colorScheme.primary : colorScheme.success,
+            const SizedBox(height: 80),
+
+            Opacity(
+              opacity: 0.8,
+              child: Image.asset(
+                'lib/assets/mascots/moneko-planning.png',
+                width: 96,
+                height: 96,
+                fit: BoxFit.contain,
               ),
             ),
 

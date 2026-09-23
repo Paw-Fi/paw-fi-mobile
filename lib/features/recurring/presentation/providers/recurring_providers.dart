@@ -290,6 +290,7 @@ class RecurringOccurrenceConfirmationCommand {
     this.updateFutureAmount = false,
     this.functionName = 'confirm-recurring-occurrence',
     this.allowUnassignedAccount = false,
+    this.allowNextPreconfirmation = false,
     this.category,
     this.currency,
     this.source,
@@ -308,6 +309,7 @@ class RecurringOccurrenceConfirmationCommand {
   final bool updateFutureAmount;
   final String functionName;
   final bool allowUnassignedAccount;
+  final bool allowNextPreconfirmation;
   final String? category;
   final String? currency;
   final String? source;
@@ -1224,6 +1226,7 @@ class RecurringOccurrenceConfirmationController {
       scheduledOccurrenceDate: scheduledDate,
       paidDate: paidDate,
       userNow: userNow,
+      allowNextPreconfirmation: command.allowNextPreconfirmation,
     )) {
       return const RecurringOccurrenceConfirmationResult.failure(
         'This occurrence is not available for confirmation yet.',
@@ -1247,6 +1250,22 @@ class RecurringOccurrenceConfirmationController {
         optimisticId: materializedOccurrences.first.id,
         idempotencyKey: command.idempotencyKey,
       );
+    }
+    if (command.allowNextPreconfirmation) {
+      final otherFutureOccurrences =
+          await database.getTransactionsByScheduledOccurrenceRange(
+        userId: command.userId,
+        householdId: command.recurringTransaction.householdId,
+        parentRecurringId: command.recurringTransaction.id,
+        startDate: DateTime(userNow.year, userNow.month, userNow.day)
+            .add(const Duration(days: 1)),
+        endDate: DateTime(9999, 12, 31),
+      );
+      if (otherFutureOccurrences.isNotEmpty) {
+        return const RecurringOccurrenceConfirmationResult.failure(
+          'Only one future occurrence can be confirmed at a time.',
+        );
+      }
     }
 
     RecurringOccurrenceSplitPlan? splitPlan;

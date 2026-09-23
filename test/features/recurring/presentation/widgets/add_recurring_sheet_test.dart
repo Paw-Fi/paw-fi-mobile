@@ -19,12 +19,14 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/shared/widgets/merchant_logo.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
@@ -1479,5 +1481,81 @@ void main() {
     expect(saveNotifier!.lastUpdateArgs?['reminderValue'], 3);
     expect(saveNotifier!.lastUpdateArgs?['reminderUnit'], 'days');
     await tester.pump(const Duration(seconds: 6));
+  });
+
+  testWidgets(
+      'Displays floating recurring icon badge on top of category/merchant icon',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final prefs = await SharedPreferences.getInstance();
+    final householdRepository = _FakeHouseholdRepository(
+      members: const [],
+      splits: const [],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(() => _MockAuth()),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        householdRepositoryProvider.overrideWithValue(householdRepository),
+        userHouseholdsProvider('user_1').overrideWith(
+          (ref) => UserHouseholdsNotifier(
+            householdRepository,
+            'user_1',
+            ref,
+            initialHouseholds: const [],
+          ),
+        ),
+        ..._defaultWalletOverrides(),
+        householdScopeProvider.overrideWith((ref) {
+          final viewMode = ref.watch(viewModeProvider).mode;
+          final selected = ref.watch(selectedHouseholdProvider);
+          return HouseholdScope(
+            viewMode: viewMode,
+            selected: selected,
+            portfolioHouseholdIds: const {},
+          );
+        }),
+        selectedHouseholdProvider.overrideWith(
+          (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1'),
+        ),
+        viewModeProvider.overrideWith(
+          (ref) => ViewModeNotifier()..setMode(ViewMode.personal),
+        ),
+        homeFilterProvider.overrideWith(
+          (ref) => HomeFilterNotifier()..setSelectedCurrency('USD'),
+        ),
+        userCategoryListsProvider.overrideWith(
+          (ref) async => const UserCategoryLists(
+            expenseCategories: ['food', 'rent'],
+            incomeCategories: ['salary'],
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: AddRecurringSheet(type: 'expense')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+
+    // Verify the recurring badge is positioned at the bottom right corner of the merchant/category icon
+    final logoCenter = tester.getCenter(find.byType(MerchantLogo));
+    final badgeCenter = tester.getCenter(find.byIcon(Icons.repeat_rounded));
+    expect(badgeCenter.dx, greaterThan(logoCenter.dx));
+    expect(badgeCenter.dy, greaterThan(logoCenter.dy));
   });
 }
