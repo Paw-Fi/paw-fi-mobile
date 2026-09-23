@@ -1138,9 +1138,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       final connectionRows = connections is List
           ? connections.whereType<Map>().toList(growable: false)
           : const <Map>[];
-      if (connectionRows.any(
-        (item) => item['errorCode'] == 'ITEM_LOGIN_REQUIRED',
-      )) {
+      if (plaidSyncPayloadRequiresReconnect(response.data)) {
         final parsed = parseSyncedTransactionPayload(response.data);
         return _DirectPlaidFetchResult(
           transactions: const [],
@@ -1177,7 +1175,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     return _DirectPlaidFetchResult(
       transactions: parsed.transactions,
       syncStatus: parsed.syncStatus,
-      requiresReconnect: _payloadRequiresReconnect(response.data),
+      requiresReconnect: plaidSyncPayloadRequiresReconnect(response.data),
     );
   }
 
@@ -1589,7 +1587,17 @@ bool _shouldShowHistoricalSyncStatus(PlaidSyncStatus? syncStatus) {
       syncStatus.historicalUpdateComplete == false;
 }
 
-bool _payloadRequiresReconnect(dynamic payload) {
+const _plaidReconnectErrorCodes = {
+  'ITEM_LOGIN_REQUIRED',
+  'ACCESS_NOT_GRANTED',
+  'ADDITIONAL_CONSENT_REQUIRED',
+  'ITEM_LOCKED',
+  'NO_ACCOUNTS',
+  'USER_SETUP_REQUIRED',
+};
+
+@visibleForTesting
+bool plaidSyncPayloadRequiresReconnect(dynamic payload) {
   if (payload is! Map<String, dynamic>) {
     return false;
   }
@@ -1600,13 +1608,7 @@ bool _payloadRequiresReconnect(dynamic payload) {
   }
 
   for (final item in connections.whereType<Map<String, dynamic>>()) {
-    if (item['errorCode'] == 'ITEM_LOGIN_REQUIRED') {
-      return true;
-    }
-    final error = item['error']?.toString().toLowerCase() ?? '';
-    if (error.contains('login is required') ||
-        error.contains('re-authentication') ||
-        error.contains('reconnected')) {
+    if (_plaidReconnectErrorCodes.contains(item['errorCode'])) {
       return true;
     }
   }

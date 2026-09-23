@@ -4,6 +4,50 @@ import 'package:moneko/core/plaid/widgets/plaid_sync_review_page.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
 void main() {
+  group('plaidSyncPayloadRequiresReconnect', () {
+    for (final errorCode in const [
+      'ITEM_LOGIN_REQUIRED',
+      'ACCESS_NOT_GRANTED',
+      'ADDITIONAL_CONSENT_REQUIRED',
+      'ITEM_LOCKED',
+      'NO_ACCOUNTS',
+      'USER_SETUP_REQUIRED',
+    ]) {
+      test('recognizes $errorCode as a user-action state', () {
+        expect(
+          plaidSyncPayloadRequiresReconnect({
+            'connections': [
+              {'errorCode': errorCode},
+            ],
+          }),
+          isTrue,
+        );
+      });
+    }
+
+    test('does not classify retryable errors as reconnect states', () {
+      expect(
+        plaidSyncPayloadRequiresReconnect({
+          'connections': [
+            {'errorCode': 'SYNC_NETWORK_ERROR'},
+          ],
+        }),
+        isFalse,
+      );
+    });
+
+    test('does not infer reconnect state from English error text', () {
+      expect(
+        plaidSyncPayloadRequiresReconnect({
+          'connections': [
+            {'error': 'Bank re-authentication is required'},
+          ],
+        }),
+        isFalse,
+      );
+    });
+  });
+
   group('plaidClassificationOverrideRpcName', () {
     test('uses the grouped override for classification-review rows', () {
       final transaction = _transaction(

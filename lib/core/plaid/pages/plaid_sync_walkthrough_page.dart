@@ -177,6 +177,7 @@ class _PlaidSyncWalkthroughPageState
     required String countryCode,
     required String userId,
   }) async {
+    final l10n = context.l10n;
     final connectionId = widget.connectionId?.trim();
     final linkTokenResponse = await client.functions.invoke(
       'plaid-create-link-token',
@@ -201,7 +202,7 @@ class _PlaidSyncWalkthroughPageState
     if (linkTokenResponse.status >= 400) {
       throw Exception(_extractFunctionError(
         linkTokenResponse.data,
-        fallback: context.l10n.failedToCreateLinkToken,
+        fallback: l10n.failedToCreateLinkToken,
       ));
     }
 
@@ -217,7 +218,7 @@ class _PlaidSyncWalkthroughPageState
     final updateCompletionNonce =
         (linkData?['updateCompletionNonce'] as String?)?.trim();
     if (linkToken == null || linkToken.isEmpty) {
-      throw Exception(context.l10n.missingPlaidLinkToken);
+      throw Exception(l10n.missingPlaidLinkToken);
     }
 
     final linkResult = await openPlaidLink(linkToken);
@@ -230,7 +231,7 @@ class _PlaidSyncWalkthroughPageState
 
     if (!mounted) return;
     setState(() {
-      _loadingMessage = context.l10n.plaidSyncConnecting;
+      _loadingMessage = l10n.plaidSyncConnecting;
     });
     _startExchangeStatusTimer();
 
@@ -265,7 +266,7 @@ class _PlaidSyncWalkthroughPageState
     } else {
       final publicToken = linkResult.publicToken?.trim();
       if (publicToken == null || publicToken.isEmpty) {
-        throw Exception(context.l10n.missingPlaidPublicToken);
+        throw Exception(l10n.missingPlaidPublicToken);
       }
 
       exchangeResponse = await client.functions.invoke(
@@ -306,13 +307,13 @@ class _PlaidSyncWalkthroughPageState
       }
       throw Exception(_extractFunctionError(
         exchangeResponse.data,
-        fallback: context.l10n.failedToExchangeToken,
+        fallback: l10n.failedToExchangeToken,
       ));
     }
 
     final exchangeData = exchangeResponse.data as Map<String, dynamic>?;
     if (exchangeData == null) {
-      throw Exception(context.l10n.missingBankConnectionData);
+      throw Exception(l10n.missingBankConnectionData);
     }
 
     final session = BankSyncReviewSession.fromResponse(
@@ -320,10 +321,10 @@ class _PlaidSyncWalkthroughPageState
       flowReason: widget.flowReason,
       provider: 'plaid',
       targetHouseholdId: widget.targetHouseholdId,
-      defaultAccountName: context.l10n.bankAccount,
+      defaultAccountName: l10n.bankAccount,
     );
     if (!session.hasAccounts) {
-      throw Exception(context.l10n.noSupportedBankAccountsReturned);
+      throw Exception(l10n.noSupportedBankAccountsReturned);
     }
 
     if (!mounted) return;
