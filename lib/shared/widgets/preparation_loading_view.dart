@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -16,6 +17,8 @@ class PreparationLoadingView extends HookWidget {
     this.initialProgress = 0.15,
     this.progressCap = 0.88,
     this.pulsingIcon,
+    this.iconSize = 180,
+    this.progressRingSize = 180,
   });
 
   final String title;
@@ -26,6 +29,8 @@ class PreparationLoadingView extends HookWidget {
   final double initialProgress;
   final double progressCap;
   final Widget? pulsingIcon;
+  final double iconSize;
+  final double progressRingSize;
 
   @override
   Widget build(BuildContext context) {
@@ -86,14 +91,23 @@ class PreparationLoadingView extends HookWidget {
                   ),
                 );
               },
-              child: pulsingIcon ??
-                  Image.asset(
-                    'lib/assets/gifs/moneko-curious.gif',
-                    key: const ValueKey('preparation_pulsing_icon'),
-                    width: 180,
-                    height: 180,
-                    fit: BoxFit.contain,
-                  ),
+              child: SizedBox(
+                width: progressRingSize,
+                height: progressRingSize,
+                child: PreparationProgressRing(
+                  progress: progressValue,
+                  color: colorScheme.primary,
+                  size: progressRingSize,
+                  child: pulsingIcon ??
+                      Image.asset(
+                        'lib/assets/gifs/moneko-curious.gif',
+                        key: const ValueKey('preparation_pulsing_icon'),
+                        width: iconSize,
+                        height: iconSize,
+                        fit: BoxFit.contain,
+                      ),
+                ),
+              ),
             ),
             const SizedBox(height: 32),
             AnimatedSwitcher(
@@ -127,45 +141,95 @@ class PreparationLoadingView extends HookWidget {
               ),
             ),
             const SizedBox(height: 48),
-            Column(
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: 0.0, end: progressValue),
-                  duration: const Duration(milliseconds: 800),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, _) => ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                      value: value,
-                      minHeight: 5,
-                      backgroundColor: colorScheme.surfaceBorder,
-                      color: colorScheme.primary,
-                    ),
+            if (currentLabel.isNotEmpty)
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: ShimmeringText(
+                  text: currentLabel,
+                  key: ValueKey(currentLabel),
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: colorScheme.mutedForeground,
                   ),
+                  shimmering: true,
                 ),
-                if (currentLabel.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: ShimmeringText(
-                      text: currentLabel,
-                      key: ValueKey(currentLabel),
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      shimmering: true,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+              ),
             const Spacer(flex: 2),
           ],
         ),
       ),
     );
   }
+}
+
+class PreparationProgressRing extends StatelessWidget {
+  const PreparationProgressRing({
+    super.key,
+    required this.progress,
+    required this.color,
+    required this.size,
+    this.child,
+  });
+
+  final double progress;
+  final Color color;
+  final double size;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) => CustomPaint(
+        size: Size.square(size),
+        painter: _PreparationProgressRingPainter(
+          progress: value,
+          color: color,
+        ),
+        child: child == null ? null : Center(child: child),
+      ),
+    );
+  }
+}
+
+class _PreparationProgressRingPainter extends CustomPainter {
+  const _PreparationProgressRingPainter({
+    required this.progress,
+    required this.color,
+  });
+
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2 - 4;
+    final bounds = Rect.fromCircle(center: center, radius: radius);
+    final trackPaint = Paint()
+      ..color = color.withValues(alpha: 0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(bounds, 0, 2 * math.pi, false, trackPaint);
+
+    final activePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+    final sweep = 2 * math.pi * progress;
+    const startAngle = -math.pi / 2;
+    if (sweep > 0) {
+      canvas.drawArc(bounds, startAngle, sweep, false, activePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PreparationProgressRingPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }

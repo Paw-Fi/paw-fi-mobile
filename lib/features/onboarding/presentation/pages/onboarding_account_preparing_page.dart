@@ -36,6 +36,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/animated_pulsing_icon.dart';
+import 'package:moneko/shared/widgets/preparation_loading_view.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'package:moneko/shared/widgets/trial_welcome_dialog.dart';
@@ -1219,7 +1220,8 @@ class _PreparingIllustration extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            _PreparingProgressRing(
+            PreparationProgressRing(
+              key: const ValueKey('onboarding_preparing_progress_ring'),
               progress: progress,
               color: hasError
                   ? colorScheme.destructive
@@ -1245,71 +1247,4 @@ class _PreparingIllustration extends StatelessWidget {
       ),
     );
   }
-}
-
-class _PreparingProgressRing extends StatelessWidget {
-  const _PreparingProgressRing({
-    required this.progress,
-    required this.color,
-    required this.size,
-  });
-
-  final double progress;
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
-      duration: const Duration(milliseconds: 700),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, _) => CustomPaint(
-        size: Size.square(size),
-        painter: _PreparingProgressRingPainter(
-          progress: value,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-class _PreparingProgressRingPainter extends CustomPainter {
-  const _PreparingProgressRingPainter({
-    required this.progress,
-    required this.color,
-  });
-
-  final double progress;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.shortestSide / 2 - 4;
-    final bounds = Rect.fromCircle(center: center, radius: radius);
-    final trackPaint = Paint()
-      ..color = color.withValues(alpha: 0.14)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 7
-      ..strokeCap = StrokeCap.round;
-    const pi = 3.141592653589793;
-    canvas.drawArc(bounds, 0, 2 * pi, false, trackPaint);
-
-    final activePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 7
-      ..strokeCap = StrokeCap.round;
-    final sweep = 2 * pi * progress;
-    const startAngle = -pi / 2;
-    if (sweep > 0) {
-      canvas.drawArc(bounds, startAngle, sweep, false, activePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_PreparingProgressRingPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.color != color;
 }

@@ -64,6 +64,43 @@ class PocketsAiBudgetIntroSheet extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (introState.milestoneText != null &&
+                insight.type != MonthlyInsightType.longevityMilestone) ...[
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.sheetElementBackground,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: colorScheme.surfaceBorder,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome,
+                        size: 14,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        introState.milestoneText!,
+                        style: textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Center(
               child: Image.asset(
                 'lib/assets/gifs/moneko-celebrate.gif',
@@ -101,43 +138,6 @@ class PocketsAiBudgetIntroSheet extends ConsumerWidget {
                 isLoading: introState.isLoading,
               ),
             ),
-            if (introState.milestoneText != null &&
-                insight.type != MonthlyInsightType.longevityMilestone) ...[
-              const SizedBox(height: 12),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.sheetElementBackground,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: colorScheme.surfaceBorder,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.auto_awesome,
-                        size: 14,
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        introState.milestoneText!,
-                        style: textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(height: 20),
             PrimaryAdaptiveButton(
               onPressed: () async {
@@ -193,6 +193,14 @@ class _HeroInsightCard extends StatelessWidget {
           colorScheme.mutedForeground,
         ),
     };
+    final metric = insight.metric;
+    final metricHasLeadingMinus =
+        metric?.startsWith('-') == true || metric?.startsWith('−') == true;
+    final metricHasLeadingPlus = metric?.startsWith('+') == true;
+    final metricValue =
+        metric == null || (!metricHasLeadingMinus && !metricHasLeadingPlus)
+            ? metric
+            : metric.substring(1);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -224,13 +232,26 @@ class _HeroInsightCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (insight.metric != null)
-                Text(
-                  insight.metric!,
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: badgeText,
-                  ),
+              if (metricValue != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (metricHasLeadingMinus || metricHasLeadingPlus)
+                      Icon(
+                        metricHasLeadingMinus
+                            ? Icons.trending_down_rounded
+                            : Icons.trending_up_rounded,
+                        size: 20,
+                        color: badgeText,
+                      ),
+                    Text(
+                      metricValue,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: badgeText,
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
