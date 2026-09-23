@@ -85,3 +85,5 @@ lib/l10n/app_localizations_ur.dart
 coverage/
 .serena/
 .worktrees/
+
+ios/Runner.xcodeproj/project.pbxproj
