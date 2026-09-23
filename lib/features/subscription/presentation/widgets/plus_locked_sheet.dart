@@ -231,20 +231,14 @@ class PlusLockedSheet extends HookConsumerWidget {
             throw Exception(context.l10n.paywallErrorMissingProductMapping);
           }
 
-          await ref.read(iapControllerProvider.notifier).buy(catalog);
+          await ref.read(iapControllerProvider.notifier).buy(
+                catalog,
+                useMonthlyCommitment: selectedOption.isCommitment,
+              );
 
-          final isActivated = await waitForMobileStripeSubscriptionActivation(
-            refreshSubscription: () async {
-              await ref.read(subscriptionManagementProvider.notifier).refresh();
-            },
-            hasActiveSubscription: () {
-              final latestSubscription = ref
-                  .read(subscriptionManagementProvider)
-                  .valueOrNull
-                  ?.subscription;
-              return subscriptionMatchesPlanOption(
-                  latestSubscription, selectedOption);
-            },
+          final isActivated = await waitForIapPurchaseCompletion(
+            productId: catalog.storeProductId,
+            readState: () => ref.read(iapControllerProvider).valueOrNull,
           );
 
           if (!context.mounted) return;
@@ -286,6 +280,10 @@ class PlusLockedSheet extends HookConsumerWidget {
         final raw = error.toString();
         final isCanceled = error is PaymentCanceledException ||
             raw.toLowerCase().contains('cancel');
+        if (error is IapPurchasePendingException) {
+          AppToast.info(context, context.l10n.paywallProcessing);
+          return;
+        }
         if (isCanceled) {
           AppToast.info(context, context.l10n.paymentCanceled);
           return;

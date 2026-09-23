@@ -14,6 +14,45 @@ import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class IapPurchasePendingException implements Exception {
+  const IapPurchasePendingException();
+}
+
+Future<bool> waitForIapPurchaseCompletion({
+  required String productId,
+  required IapState? Function() readState,
+  Future<void> Function(Duration duration)? wait,
+  int maxAttempts = 240,
+  Duration pollInterval = const Duration(milliseconds: 500),
+}) async {
+  for (var attempt = 0; attempt < maxAttempts; attempt += 1) {
+    final state = readState();
+    if (state?.lastCompletedProductId == productId) {
+      return true;
+    }
+    if (state?.lastCanceledProductId == productId) {
+      throw const PaymentCanceledException('Purchase canceled');
+    }
+    final error = state?.lastError?.trim() ?? '';
+    if (error.isNotEmpty) {
+      if (error == 'Purchase is pending App Store approval.') {
+        throw const IapPurchasePendingException();
+      }
+      throw Exception(error);
+    }
+
+    if (attempt < maxAttempts - 1) {
+      if (wait != null) {
+        await wait(pollInterval);
+      } else {
+        await Future<void>.delayed(pollInterval);
+      }
+    }
+  }
+
+  return false;
+}
+
 int? calculatePlanSavingsPercent({
   required num monthlyPrice,
   required num yearlyTotal,

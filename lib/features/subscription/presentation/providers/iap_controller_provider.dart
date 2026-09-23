@@ -1,12 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint;
+    show
+        TargetPlatform,
+        defaultTargetPlatform,
+        kIsWeb,
+        debugPrint,
+        visibleForTesting;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show FunctionException, FunctionResponse;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 
@@ -302,7 +308,7 @@ class IapController extends AsyncNotifier<IapState> {
     print('🎧 Setting up purchase stream listener...');
     _purchaseSubscription =
         InAppPurchasePlatform.instance.purchaseStream.listen(
-      _onPurchaseUpdated,
+      handlePurchaseUpdates,
       onError: (Object error) {
         print('❌ Purchase stream error: $error');
         final current = state.valueOrNull ?? _fallbackState();
@@ -453,7 +459,10 @@ class IapController extends AsyncNotifier<IapState> {
           return;
         }
         if (commitmentPurchase.status == 'pending') {
-          _setState(isProcessing: false, lastError: null);
+          _setState(
+            isProcessing: false,
+            lastError: 'Purchase is pending App Store approval.',
+          );
           return;
         }
         final signedTransaction = commitmentPurchase.signedTransaction;
@@ -619,7 +628,35 @@ class IapController extends AsyncNotifier<IapState> {
     }
   }
 
-  Future<void> _onPurchaseUpdated(List<PurchaseDetails> purchases) async {
+  @visibleForTesting
+  Future<FunctionResponse> invokePurchaseVerification(
+    Map<String, dynamic> body,
+  ) {
+    return supabase.functions.invoke('verify-iap-purchase', body: body);
+  }
+
+  void _recordPurchaseFailureIfRelevant(
+    String productId, {
+    required String message,
+    String? code,
+  }) {
+    final activeProductId = state.valueOrNull?.initiatedProductId;
+    if (activeProductId != productId &&
+        (activeProductId != null || _restoreAttemptCompleter == null)) {
+      print(
+          'Leaving active purchase state unchanged after a background failure');
+      return;
+    }
+    _setState(
+      isProcessing: false,
+      lastError: message,
+      lastErrorCode: code,
+      clearInitiatedProductId: activeProductId == productId,
+    );
+  }
+
+  @visibleForTesting
+  Future<void> handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
     print('🔔 _onPurchaseUpdated called with ${purchases.length} purchase(s)');
     print(
         '🧭 _onPurchaseUpdated at ${DateTime.now().toIso8601String()} processing=${state.valueOrNull?.isProcessing}');
@@ -672,11 +709,9 @@ class IapController extends AsyncNotifier<IapState> {
           }
           sawTerminalPurchaseUpdate = true;
           print('❌ Purchase error: ${purchase.error?.message}');
-          _setState(
-            isProcessing: false,
-            lastError: purchase.error?.message ?? 'Purchase error',
-            lastErrorCode: null,
-            clearInitiatedProductId: true,
+          _recordPurchaseFailureIfRelevant(
+            purchase.productID,
+            message: purchase.error?.message ?? 'Purchase error',
           );
           continue;
         }
@@ -693,11 +728,9 @@ class IapController extends AsyncNotifier<IapState> {
 
           if (catalog == null) {
             print('❌ Unknown product purchased');
-            _setState(
-              isProcessing: false,
-              lastError: 'Unknown product purchased',
-              lastErrorCode: null,
-              clearInitiatedProductId: true,
+            _recordPurchaseFailureIfRelevant(
+              purchase.productID,
+              message: 'Unknown product purchased',
             );
             continue;
           }
@@ -723,7 +756,10 @@ class IapController extends AsyncNotifier<IapState> {
 
           if (platform == null) {
             print('❌ Platform string is null');
-            _setState(isProcessing: false);
+            _recordPurchaseFailureIfRelevant(
+              purchase.productID,
+              message: 'In-app purchases are not supported on this platform',
+            );
             continue;
           }
 
@@ -743,9 +779,8 @@ class IapController extends AsyncNotifier<IapState> {
           final startedAt = DateTime.now();
           final authUser = ref.read(authProvider);
           try {
-            final response = await supabase.functions.invoke(
-              'verify-iap-purchase',
-              body: {
+            final response = await invokePurchaseVerification(
+              {
                 'platform': platform,
                 'storeProductId': catalog.storeProductId,
                 'appAccountToken': authUser.uid,
@@ -775,11 +810,10 @@ class IapController extends AsyncNotifier<IapState> {
               print(
                   '🔍 Extracted error code: ${extractedError.code ?? "none"}');
 
-              _setState(
-                isProcessing: false,
-                lastError: extractedError.message,
-                lastErrorCode: extractedError.code,
-                clearInitiatedProductId: true,
+              _recordPurchaseFailureIfRelevant(
+                purchase.productID,
+                message: extractedError.message,
+                code: extractedError.code,
               );
 
               continue;
@@ -808,12 +842,10 @@ class IapController extends AsyncNotifier<IapState> {
               print(
                 '❌ Backend returned without activating the matching App Store entitlement',
               );
-              _setState(
-                isProcessing: false,
-                lastError:
+              _recordPurchaseFailureIfRelevant(
+                purchase.productID,
+                message:
                     'Purchase was received but subscription access was not activated. Please try Restore Purchases.',
-                lastErrorCode: null,
-                clearInitiatedProductId: true,
               );
               continue;
             }
@@ -826,7 +858,9 @@ class IapController extends AsyncNotifier<IapState> {
             // Restored purchases should NOT trigger navigation because they are either:
             // - Pending purchases from previous sessions being processed
             // - User trying to buy something they already own (iOS auto-restores)
-            if (shouldTriggerNavigation) {
+            final stillUserInitiated =
+                state.valueOrNull?.initiatedProductId == purchase.productID;
+            if (shouldTriggerNavigation && stillUserInitiated) {
               print(
                   '✅ NEW user-initiated purchase completed successfully: ${purchase.productID}');
               _setState(
@@ -836,7 +870,9 @@ class IapController extends AsyncNotifier<IapState> {
                 lastCompletedProductId: purchase.productID,
                 clearInitiatedProductId: true,
               );
-            } else if (isUserInitiated && !isNewPurchase) {
+            } else if (isUserInitiated &&
+                !isNewPurchase &&
+                stillUserInitiated) {
               print(
                   '⚠️ User-initiated but RESTORED purchase (already owned): ${purchase.productID}');
               // User tried to buy something they already own - iOS restored it instead
@@ -851,13 +887,17 @@ class IapController extends AsyncNotifier<IapState> {
             } else {
               print(
                   'ℹ️ Background purchase processed (not user-initiated): ${purchase.productID}');
-              // For non-user-initiated purchases, just clear processing without triggering navigation
-              _setState(
-                isProcessing: false,
-                lastError: null,
-                lastErrorCode: null,
-                clearInitiatedProductId: true,
-              );
+              // Do not clear a different purchase attempt while reconciling a
+              // background transaction. Its completion may arrive next.
+              final activeAttempt = state.valueOrNull?.initiatedProductId;
+              if (activeAttempt == null) {
+                _setState(
+                  isProcessing: false,
+                  lastError: null,
+                  lastErrorCode: null,
+                  clearInitiatedProductId: true,
+                );
+              }
             }
           } catch (error, stackTrace) {
             final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
@@ -879,11 +919,10 @@ class IapController extends AsyncNotifier<IapState> {
 
             print(
                 '🚨 Setting error state: isProcessing=false, lastError=$errorMessage, lastErrorCode=${errorCode ?? "none"}');
-            _setState(
-              isProcessing: false,
-              lastError: errorMessage,
-              lastErrorCode: errorCode,
-              clearInitiatedProductId: true,
+            _recordPurchaseFailureIfRelevant(
+              purchase.productID,
+              message: errorMessage,
+              code: errorCode,
             );
             print('✅ Error state set successfully');
           }
@@ -891,11 +930,9 @@ class IapController extends AsyncNotifier<IapState> {
       } catch (e, stackTrace) {
         print('❌ Purchase verification threw: $e');
         print('🧵 Purchase verification stackTrace: $stackTrace');
-        _setState(
-          isProcessing: false,
-          lastError: e.toString(),
-          lastErrorCode: null,
-          clearInitiatedProductId: true,
+        _recordPurchaseFailureIfRelevant(
+          purchase.productID,
+          message: e.toString(),
         );
       } finally {
         if (purchase.pendingCompletePurchase && entitlementConfirmed) {
