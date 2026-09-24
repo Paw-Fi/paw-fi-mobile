@@ -35,6 +35,9 @@ class DeepLinks {
 
   static const String plaidCallback = '$appScheme://plaid';
 
+  /// Public Moneko Plus pricing page.
+  static const String pricingPage = 'https://moneko.io/pricing';
+
   // ==================== WhatsApp Verification Deep Links ====================
 
   /// WhatsApp verification callback URL
@@ -143,6 +146,17 @@ class DeepLinks {
         isCustomReview ? uri.pathSegments.first : uri.pathSegments[1];
     return isValidImportReviewId(reviewId) &&
         isValidImportReviewSecret(uri.fragment);
+  }
+
+  /// Only this public HTTPS page may be opened directly from a notification.
+  static bool isPricingPage(Uri uri) {
+    return uri.scheme == 'https' &&
+        (uri.host == 'moneko.io' || uri.host == 'www.moneko.io') &&
+        uri.path == '/pricing' &&
+        !uri.hasQuery &&
+        !uri.hasFragment &&
+        uri.userInfo.isEmpty &&
+        (!uri.hasPort || uri.port == 443);
   }
 
   static bool isValidImportReviewId(String value) =>

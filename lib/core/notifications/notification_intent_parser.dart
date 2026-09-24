@@ -6,6 +6,14 @@ import 'package:moneko/core/notifications/notification_intent.dart';
 
 class NotificationIntentParser {
   NotificationIntent? fromUri(Uri uri, {Map<String, dynamic>? raw}) {
+    if (DeepLinks.isPricingPage(uri)) {
+      return NotificationIntent(
+        action: NotificationIntentAction.openExternalPricingPage,
+        args: <String, dynamic>{'external_url': uri.toString()},
+        raw: raw ?? const <String, dynamic>{},
+      );
+    }
+
     if (DeepLinks.isHouseholdInvitation(uri)) {
       final token = _extractInviteToken(uri);
       if (token == null || token.isEmpty) {

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
+import 'package:moneko/core/constants/deep_links.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/navigation_ready_provider.dart';
 import 'package:moneko/core/notifications/notification_dedupe_store.dart';
@@ -27,6 +28,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_page_
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class NotificationDispatcher {
   NotificationDispatcher(
@@ -45,6 +47,8 @@ class NotificationDispatcher {
     void Function(ExpenseEntry expense)? cacheInjectionOverride,
     Future<ExpenseEntry?> Function(String expenseId, String userId)?
         rpcFetchOverride,
+    Future<bool> Function(Uri uri, LaunchMode mode)?
+        externalUrlLauncherOverride,
   })  : _resolver = resolver ?? NotificationIntentResolver(),
         _dedupeStore = dedupeStore ?? NotificationDedupeStore(),
         _pendingStore = pendingStore ?? NotificationPendingStore(),
@@ -55,7 +59,9 @@ class NotificationDispatcher {
         _cacheLookupOverride = cacheLookupOverride,
         _directExpenseFetchOverride = directExpenseFetchOverride,
         _cacheInjectionOverride = cacheInjectionOverride,
-        _rpcFetchOverride = rpcFetchOverride;
+        _rpcFetchOverride = rpcFetchOverride,
+        _externalUrlLauncher = externalUrlLauncherOverride ??
+            ((uri, mode) => launchUrl(uri, mode: mode));
 
   final Ref? _ref;
   final NotificationIntentResolver _resolver;
@@ -72,6 +78,7 @@ class NotificationDispatcher {
   final void Function(ExpenseEntry expense)? _cacheInjectionOverride;
   final Future<ExpenseEntry?> Function(String expenseId, String userId)?
       _rpcFetchOverride;
+  final Future<bool> Function(Uri uri, LaunchMode mode) _externalUrlLauncher;
 
   final Queue<NotificationIntent> _queue = Queue<NotificationIntent>();
   bool _isProcessing = false;
@@ -208,11 +215,29 @@ class NotificationDispatcher {
       case NotificationIntentAction.openInsightsPage:
         await _openInsightsPage(intent);
         return;
+      case NotificationIntentAction.openExternalPricingPage:
+        await _openExternalPricingPage(intent);
+        return;
       case NotificationIntentAction.openHouseholdInviteAcceptance:
         await _openHouseholdInvitation(intent);
         return;
       case NotificationIntentAction.unknown:
         return;
+    }
+  }
+
+  Future<void> _openExternalPricingPage(NotificationIntent intent) async {
+    final uri = Uri.tryParse(intent.externalUrl ?? '');
+    if (uri == null || !DeepLinks.isPricingPage(uri)) {
+      return;
+    }
+
+    final launched = await _externalUrlLauncher(
+      uri,
+      LaunchMode.externalApplication,
+    );
+    if (!launched) {
+      await _externalUrlLauncher(uri, LaunchMode.inAppBrowserView);
     }
   }
 

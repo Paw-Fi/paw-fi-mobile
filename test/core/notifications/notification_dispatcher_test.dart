@@ -4,6 +4,7 @@ import 'package:moneko/core/notifications/notification_dispatcher.dart';
 import 'package:moneko/core/notifications/notification_intent.dart';
 import 'package:moneko/core/notifications/notification_pending_store.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class _FakeDedupeStore extends NotificationDedupeStore {
   _FakeDedupeStore() : super(ttl: const Duration(hours: 24));
@@ -41,6 +42,63 @@ class _FakePendingStore extends NotificationPendingStore {
 }
 
 void main() {
+  test('opens the allowlisted pricing page in the external browser', () async {
+    Uri? launchedUri;
+    LaunchMode? launchMode;
+    final dispatcher = NotificationDispatcher(
+      null,
+      dedupeStore: _FakeDedupeStore(),
+      pendingStore: _FakePendingStore(),
+      readinessOverride: () async => true,
+      userIdOverride: () => null,
+      resolverOverride: (intent) async => intent,
+      externalUrlLauncherOverride: (uri, mode) async {
+        launchedUri = uri;
+        launchMode = mode;
+        return true;
+      },
+    );
+
+    await dispatcher.enqueueIntent(
+      const NotificationIntent(
+        action: NotificationIntentAction.openExternalPricingPage,
+        args: <String, dynamic>{
+          'external_url': 'https://moneko.io/pricing',
+        },
+      ),
+    );
+
+    expect(launchedUri, Uri.parse('https://moneko.io/pricing'));
+    expect(launchMode, LaunchMode.externalApplication);
+  });
+
+  test('does not launch an untrusted external URL', () async {
+    var launchCalls = 0;
+    final dispatcher = NotificationDispatcher(
+      null,
+      dedupeStore: _FakeDedupeStore(),
+      pendingStore: _FakePendingStore(),
+      readinessOverride: () async => true,
+      userIdOverride: () => null,
+      resolverOverride: (intent) async => intent,
+      externalUrlLauncherOverride: (uri, mode) async {
+        launchCalls += 1;
+        return true;
+      },
+    );
+
+    await dispatcher.enqueueIntent(
+      const NotificationIntent(
+        action: NotificationIntentAction.openExternalPricingPage,
+        args: <String, dynamic>{
+          'external_url': 'https://example.com/pricing',
+        },
+      ),
+    );
+
+    expect(launchCalls, 0);
+  });
+
   test('queues until navigation is ready', () async {
     final executed = <String>[];
     var isReady = false;

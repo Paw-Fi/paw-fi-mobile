@@ -173,6 +173,18 @@ void main() {
       expect(intent.action, NotificationIntentAction.openExpenseSheet);
       expect(intent.expenseId, 'exp-wallet-1');
     });
+
+    test('maps capture Plus notification payload to pricing intent', () {
+      final intent = parser.fromData(<String, dynamic>{
+        'event_type': 'capture_plus_required',
+        'notification_id': 'n-plus-1',
+        'deep_link': 'https://moneko.io/pricing',
+      });
+
+      expect(intent.action, NotificationIntentAction.openExternalPricingPage);
+      expect(intent.externalUrl, 'https://moneko.io/pricing');
+      expect(intent.notificationId, 'n-plus-1');
+    });
   });
 
   group('deep link parsing', () {
@@ -245,6 +257,20 @@ void main() {
           parser.fromUri(Uri.parse('moneko://household/hh-1/settings?tab=2'));
       expect(intent?.action, NotificationIntentAction.openHouseholdInvites);
       expect(intent?.householdId, 'hh-1');
+    });
+
+    test('maps the Moneko pricing URL to an external pricing intent', () {
+      final intent = parser.fromUri(Uri.parse('https://moneko.io/pricing'));
+
+      expect(intent?.action, NotificationIntentAction.openExternalPricingPage);
+      expect(intent?.externalUrl, 'https://moneko.io/pricing');
+      expect(intent?.requiresAuth, isFalse);
+    });
+
+    test('rejects arbitrary external URLs', () {
+      final intent = parser.fromUri(Uri.parse('https://example.com/pricing'));
+
+      expect(intent, isNull);
     });
   });
 }

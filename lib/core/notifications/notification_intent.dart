@@ -9,6 +9,7 @@ enum NotificationIntentAction {
   openLogExpenseQuickEntry,
   openPocketsPage,
   openInsightsPage,
+  openExternalPricingPage,
   openHouseholdInviteAcceptance,
   unknown,
 }
@@ -37,6 +38,7 @@ class NotificationIntent {
   String? get recurringType => args['recurring_type'] as String?;
   String? get inviteToken => args['invite_token'] as String?;
   String? get toastMessage => args['toast_message'] as String?;
+  String? get externalUrl => args['external_url'] as String?;
 
   String? get dedupeId {
     if (notificationId != null && notificationId!.isNotEmpty) {
@@ -50,7 +52,8 @@ class NotificationIntent {
   }
 
   bool get requiresAuth =>
-      action != NotificationIntentAction.openHouseholdInviteAcceptance;
+      action != NotificationIntentAction.openHouseholdInviteAcceptance &&
+      action != NotificationIntentAction.openExternalPricingPage;
 
   NotificationIntent copyWith({
     NotificationIntentAction? action,
