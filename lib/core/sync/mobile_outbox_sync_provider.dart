@@ -367,6 +367,13 @@ Future<void> _dispatchMobileMutation(
           .map((entry) =>
               ExpenseEntry.fromJson(Map<String, dynamic>.from(entry)))
           .toList(growable: false);
+      if (!batchTransactionResponseMatchesRequest(
+        payload['transactionIds'],
+        entries.map((entry) => entry.id),
+      )) {
+        throw StateError(
+            'Batch transaction update sync returned incomplete rows');
+      }
       await database.markOptimisticTransactionBatchUpdateSynced(
         entries: entries,
         clientMutationId: mutation.clientMutationId,
@@ -645,6 +652,26 @@ bool cancelledPocketMutationStillOwnsOutbox(
             current.payloadJson == cancelledMutation.payloadJson &&
             current.status == localMutationStatusCancelled,
       );
+}
+
+bool batchTransactionResponseMatchesRequest(
+  Object? requestedIds,
+  Iterable<String> returnedIds,
+) {
+  if (requestedIds is! List) return false;
+  final requested = requestedIds
+      .map((id) => id?.toString().trim() ?? '')
+      .where((id) => id.isNotEmpty)
+      .toList(growable: false);
+  final returned = returnedIds
+      .map((id) => id.trim())
+      .where((id) => id.isNotEmpty)
+      .toList(growable: false);
+  return requested.length == requestedIds.length &&
+      requested.length == requested.toSet().length &&
+      returned.length == returned.toSet().length &&
+      requested.toSet().containsAll(returned) &&
+      returned.toSet().containsAll(requested);
 }
 
 List<ExpenseEntry> _walletTransferOriginalEntries(

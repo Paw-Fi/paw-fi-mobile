@@ -24,6 +24,7 @@ const String localRecurringOccurrenceConfirmationMutationOperation =
 
 bool _isTransactionUpdateOperation(String operation) =>
     operation == 'update_transaction' ||
+    operation == 'batch_update_transaction' ||
     operation == 'update_recurring_occurrence' ||
     operation == 'skip_recurring_occurrence';
 
@@ -1307,6 +1308,29 @@ class MonekoDatabase {
       }
 
       if (_isTransactionUpdateOperation(mutation.operation)) {
+        if (mutation.operation == 'batch_update_transaction') {
+          final originals = _originalEntriesFromMutationPayload(mutation);
+          for (final original in originals) {
+            if (!_transactionMutationStillOwnsEntry(
+              original.id,
+              mutation.clientMutationId,
+            )) {
+              continue;
+            }
+            final currentKey = _summaryKeyForTransactionId(original.id);
+            if (currentKey != null) touched.add(currentKey);
+            touched.add(_SummaryKey.fromEntry(original));
+            _upsertTransaction(
+              original,
+              syncStatus: localSyncStatusSynced,
+              preserveLocalPending: false,
+            );
+          }
+          for (final key in touched) {
+            _rebuildSummary(key);
+          }
+          return;
+        }
         final originalEntry = _originalEntryFromMutationPayload(mutation);
         if (originalEntry != null) {
           if (_transactionMutationStillOwnsEntry(

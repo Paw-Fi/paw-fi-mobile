@@ -40,6 +40,19 @@ void main() {
     expect(scope.effectiveCurrencies, ['EUR', 'USD']);
   });
 
+  test('bulk merchant updates only accept canonical transaction ids', () {
+    expect(
+      isServerBackedMerchantBulkEntryId(
+        '4d055fac-88b0-4750-b606-92f37c008975',
+      ),
+      isTrue,
+    );
+    expect(
+      isServerBackedMerchantBulkEntryId('optimistic-expense-123'),
+      isFalse,
+    );
+  });
+
   testWidgets('focuses search only after the page transition completes',
       (tester) async {
     await tester.pumpWidget(

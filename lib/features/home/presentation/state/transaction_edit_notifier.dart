@@ -884,6 +884,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     required String? householdId,
     required List<String>? currencies,
     required Map<String, String> descriptorsById,
+    String? optimisticMerchantDomain,
   }) async {
     if (entries.isEmpty) return true;
     final mutationMetadata = buildTransactionMutationMetadataForRecord(
@@ -891,7 +892,11 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       operation: 'batch_update_transaction',
     );
     final updatedEntries = entries
-        .map((entry) => _applyUpdates(entry, updates))
+        .map((entry) => _applyUpdates(
+              entry,
+              updates,
+              optimisticMerchantDomain: optimisticMerchantDomain,
+            ))
         .toList(growable: false);
     try {
       final database = await ref.read(localDatabaseProvider.future);

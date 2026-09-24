@@ -115,6 +115,28 @@ void main() {
       );
     });
   });
+
+  group('batchTransactionResponseMatchesRequest', () {
+    test('accepts every requested transaction exactly once', () {
+      expect(
+        batchTransactionResponseMatchesRequest(
+          ['expense-1', 'expense-2'],
+          ['expense-2', 'expense-1'],
+        ),
+        isTrue,
+      );
+    });
+
+    test('rejects a partial backend response', () {
+      expect(
+        batchTransactionResponseMatchesRequest(
+          ['expense-1', 'expense-2'],
+          ['expense-1'],
+        ),
+        isFalse,
+      );
+    });
+  });
 }
 
 LocalMutationOutboxData _mutation({

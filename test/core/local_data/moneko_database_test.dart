@@ -1497,6 +1497,55 @@ void main() {
       expect(summary?.expenseCents, 1850);
     });
 
+    test('terminal batch update restores every still-owned transaction',
+        () async {
+      final first = _entry(
+        id: '4d055fac-88b0-4750-b606-92f37c008975',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      final second = _entry(
+        id: '5d055fac-88b0-4750-b606-92f37c008976',
+        userId: 'user_1',
+        amountCents: 1800,
+      );
+      await database.upsertTransactions([first, second]);
+      await database.writeOptimisticTransactionBatchUpdate(
+        originalEntries: [first, second],
+        updatedEntries: [
+          first.copyWith(merchant: 'Tesco'),
+          second.copyWith(merchant: 'Tesco'),
+        ],
+        clientMutationId: 'mobile:merchant_batch_1',
+        payload: const {
+          'transactionIds': [
+            '4d055fac-88b0-4750-b606-92f37c008975',
+            '5d055fac-88b0-4750-b606-92f37c008976',
+          ],
+          'updates': {'merchant': 'Tesco'},
+        },
+      );
+
+      final mutation = (await database.getOutboxMutations()).single;
+      await database.markMutationCancelled(
+        clientMutationId: mutation.clientMutationId,
+        error: 'terminal rejection',
+      );
+      await database.markTransactionMutationExhausted(mutation: mutation);
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      expect({
+        for (final row in rows) row.id: row.merchant
+      }, {
+        first.id: first.merchant,
+        second.id: second.merchant,
+      });
+    });
+
     test('terminal unconfirm restores actual and recurring template', () async {
       final actual = _entry(
         id: 'occurrence_actual',

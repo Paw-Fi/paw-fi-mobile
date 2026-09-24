@@ -16,6 +16,14 @@ import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
+final _merchantBulkUuidPattern = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+  caseSensitive: false,
+);
+
+bool isServerBackedMerchantBulkEntryId(String id) =>
+    _merchantBulkUuidPattern.hasMatch(id.trim());
+
 class MerchantBulkScope {
   const MerchantBulkScope({
     required this.userId,
@@ -183,6 +191,7 @@ class _MerchantBulkUpdatePageState
                 householdId: widget.scope.householdId,
                 currencies: widget.scope.effectiveCurrencies,
                 descriptorsById: descriptors,
+                optimisticMerchantDomain: widget.selection.merchantDomain,
               );
       if (!success) {
         if (mounted) setState(() => _isSaving = false);
@@ -240,13 +249,15 @@ class _MerchantBulkUpdatePageState
         ref.watch(recurringTransactionsProvider(widget.scope.householdId));
     final entries = feedState.items
         .where((entry) => entry.id != widget.excludedTransactionId)
+        .where((entry) => isServerBackedMerchantBulkEntryId(entry.id))
         .where((entry) => entry.parentRecurringId == null && !entry.isRecurring)
         .followedBy(
           (recurringState.data.valueOrNull ?? const <RecurringTransaction>[])
               .where((transaction) {
             final currencies = widget.scope.effectiveCurrencies;
-            return currencies == null ||
-                currencies.contains(transaction.currency.toUpperCase());
+            return isServerBackedMerchantBulkEntryId(transaction.id) &&
+                (currencies == null ||
+                    currencies.contains(transaction.currency.toUpperCase()));
           }).map(_entryFromRecurringTransaction),
         )
         .toList(growable: false);
