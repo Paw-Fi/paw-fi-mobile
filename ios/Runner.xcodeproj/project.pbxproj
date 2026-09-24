@@ -1150,12 +1150,12 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = MonekoShareExtension/MonekoShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 241;
+				CURRENT_PROJECT_VERSION = 242;
 				CUSTOM_GROUP_ID = group.moneko.mobile;
 				DEVELOPMENT_TEAM = GW28HYRJ9H;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				FLUTTER_BUILD_NAME = 4.0.0;
-				FLUTTER_BUILD_NUMBER = 241;
+				FLUTTER_BUILD_NAME = 4.0.1;
+				FLUTTER_BUILD_NUMBER = 242;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MonekoShareExtension/Info.plist;
@@ -1166,7 +1166,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.0.0;
+				MARKETING_VERSION = 4.0.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				PRODUCT_BUNDLE_IDENTIFIER = com.moneko.mobile.MonekoShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1191,12 +1191,12 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = MonekoShareExtension/MonekoShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 241;
+				CURRENT_PROJECT_VERSION = 242;
 				CUSTOM_GROUP_ID = group.moneko.mobile;
 				DEVELOPMENT_TEAM = GW28HYRJ9H;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				FLUTTER_BUILD_NAME = 4.0.0;
-				FLUTTER_BUILD_NUMBER = 241;
+				FLUTTER_BUILD_NAME = 4.0.1;
+				FLUTTER_BUILD_NUMBER = 242;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MonekoShareExtension/Info.plist;
@@ -1207,7 +1207,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.0.0;
+				MARKETING_VERSION = 4.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.moneko.mobile.MonekoShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1229,12 +1229,12 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = MonekoShareExtension/MonekoShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 241;
+				CURRENT_PROJECT_VERSION = 242;
 				CUSTOM_GROUP_ID = group.moneko.mobile;
 				DEVELOPMENT_TEAM = GW28HYRJ9H;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				FLUTTER_BUILD_NAME = 4.0.0;
-				FLUTTER_BUILD_NUMBER = 241;
+				FLUTTER_BUILD_NAME = 4.0.1;
+				FLUTTER_BUILD_NUMBER = 242;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MonekoShareExtension/Info.plist;
@@ -1245,7 +1245,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.0.0;
+				MARKETING_VERSION = 4.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.moneko.mobile.MonekoShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

@@ -47,6 +47,7 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/navigation_ready_provider.dart';
+import 'package:moneko/core/navigation/route_aware_native_tab_bar.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
 import 'package:moneko/core/sync/mobile_delta_sync_provider.dart';
 import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
@@ -381,7 +382,6 @@ class MainShell extends HookConsumerWidget {
     final visitedTabs = useState<Set<int>>(<int>{currentIndex});
     final colorScheme = Theme.of(context).colorScheme;
     final appBrightness = Theme.of(context).brightness;
-    final isTopRoute = ModalRoute.of(context)?.isCurrent ?? true;
     final useNativeIosTabBar = PlatformInfo.isIOS26OrHigher();
     final previewState = ref.watch(previewModeProvider);
     final hasNetworkAccess =
@@ -998,56 +998,62 @@ class MainShell extends HookConsumerWidget {
               left: 0,
               right: 0,
               bottom: 0,
-              child: MonekoTextScale(
-                mode: MonekoTextScaling.compact,
-                child: MediaQuery(
-                  // IOS26NativeTabBar otherwise reads the device brightness
-                  // instead of the app-selected ThemeMode.
-                  data: MediaQuery.of(context).copyWith(
-                    platformBrightness: appBrightness,
-                  ),
-                  child: IOS26NativeTabBar(
-                    // Keep the platform-view identity stable. Recreating this
-                    // native view during rebuilds can trigger a duplicate-view
-                    // platform exception on iOS.
-                    key: const ValueKey('ios26-native-tab-bar'),
-                    destinations: [
-                      AdaptiveNavigationDestination(
-                        icon: 'house.fill',
-                        label: context.l10n.home,
-                      ),
-                      AdaptiveNavigationDestination(
-                        icon: 'repeat',
-                        label: context.l10n.recurring,
-                        badgeCount: hasUnconfirmedRecurringOccurrences
-                            ? unconfirmedRecurringCount
-                            : null,
-                      ),
-                      AdaptiveNavigationDestination(
-                        icon: 'chart.pie',
-                        label: context.l10n.budget,
-                      ),
-                      AdaptiveNavigationDestination(
-                        icon: 'creditcard',
-                        label: context.l10n.wallet,
-                      ),
-                      AdaptiveNavigationDestination(
-                        icon: 'square.grid.2x2',
-                        label: context.l10n.browse,
-                      ),
-                    ],
-                    selectedIndex: currentIndex,
-                    onTap: (index) {
-                      if (index == currentIndex) return;
-                      ref.read(mainShellTabIndexProvider.notifier).state =
-                          index;
-                    },
-                    minimizeBehavior: TabBarMinimizeBehavior.never,
-                    // Keep the UiKitView mounted. Toggling showNativeView would
-                    // dispose and recreate the same native view during route or
-                    // modal transitions, which can trigger recreating_view.
-                    showNativeView: true,
-                    hidden: !isTopRoute,
+              // Keep the platform view's state, but remove its native layer
+              // from painting and hit testing while a modal covers this route.
+              // IOS26NativeTabBar.hidden only hides its UIKit content; its
+              // Flutter platform-view layer can still cover a bottom sheet.
+              child: RouteAwareNativeTabBar(
+                builder: (isTopRoute) => MonekoTextScale(
+                  mode: MonekoTextScaling.compact,
+                  child: MediaQuery(
+                    // IOS26NativeTabBar otherwise reads the device brightness
+                    // instead of the app-selected ThemeMode.
+                    data: MediaQuery.of(context).copyWith(
+                      platformBrightness: appBrightness,
+                    ),
+                    child: IOS26NativeTabBar(
+                      // Keep the platform-view identity stable. Recreating this
+                      // native view during rebuilds can trigger a duplicate-view
+                      // platform exception on iOS.
+                      key: const ValueKey('ios26-native-tab-bar'),
+                      destinations: [
+                        AdaptiveNavigationDestination(
+                          icon: 'house.fill',
+                          label: context.l10n.home,
+                        ),
+                        AdaptiveNavigationDestination(
+                          icon: 'repeat',
+                          label: context.l10n.recurring,
+                          badgeCount: hasUnconfirmedRecurringOccurrences
+                              ? unconfirmedRecurringCount
+                              : null,
+                        ),
+                        AdaptiveNavigationDestination(
+                          icon: 'chart.pie',
+                          label: context.l10n.budget,
+                        ),
+                        AdaptiveNavigationDestination(
+                          icon: 'creditcard',
+                          label: context.l10n.wallet,
+                        ),
+                        AdaptiveNavigationDestination(
+                          icon: 'square.grid.2x2',
+                          label: context.l10n.browse,
+                        ),
+                      ],
+                      selectedIndex: currentIndex,
+                      onTap: (index) {
+                        if (index == currentIndex) return;
+                        ref.read(mainShellTabIndexProvider.notifier).state =
+                            index;
+                      },
+                      minimizeBehavior: TabBarMinimizeBehavior.never,
+                      // Keep the UiKitView mounted. Toggling showNativeView would
+                      // dispose and recreate the same native view during route or
+                      // modal transitions, which can trigger recreating_view.
+                      showNativeView: true,
+                      hidden: !isTopRoute,
+                    ),
                   ),
                 ),
               ),
