@@ -3457,5 +3457,8 @@
   "noMatchingTransactionsForMerchant": "이 통화에는 다시 지정할 수 있는 일치하는 거래가 없어요.",
   "applyMerchantToOtherTransactions": "이 가맹점을 다른 거래에도 지정할까요?",
   "chooseTransactionsForMerchant": "이 공간에서 이 가맹점을 지정할 다른 거래를 선택하세요.",
-  "loadingSavedSplit": "저장된 분할 내역 불러오는 중"
+  "loadingSavedSplit": "저장된 분할 내역 불러오는 중",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp을 일시적으로 사용할 수 없습니다",
+  "whatsappUnavailableUseTelegram": "WhatsApp을 일시적으로 사용할 수 없습니다. 대신 Telegram을 사용해 Moneko와 연결해 주세요.",
+  "useTelegram": "Telegram 사용하기"
 }

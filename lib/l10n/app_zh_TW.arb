@@ -3588,5 +3588,8 @@
   "noMatchingTransactionsForMerchant": "此幣別下沒有可重新指派的相符交易。",
   "applyMerchantToOtherTransactions": "將此商家設定至其他交易？",
   "chooseTransactionsForMerchant": "選擇此空間中的其他交易，並將它們關聯至此商家。",
-  "loadingSavedSplit": "正在載入已儲存的分攤"
+  "loadingSavedSplit": "正在載入已儲存的分攤",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp 暫時無法使用",
+  "whatsappUnavailableUseTelegram": "WhatsApp 暫時無法使用。請改用 Telegram 連接 Moneko。",
+  "useTelegram": "使用 Telegram"
 }

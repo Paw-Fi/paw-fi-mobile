@@ -3643,5 +3643,8 @@
   "noMatchingTransactionsForMerchant": "Không có giao dịch phù hợp trong loại tiền này để gán lại.",
   "applyMerchantToOtherTransactions": "Gán cửa hàng này cho các giao dịch khác?",
   "chooseTransactionsForMerchant": "Chọn các giao dịch khác trong không gian này để gán cửa hàng này.",
-  "loadingSavedSplit": "Đang tải phần chia đã lưu"
+  "loadingSavedSplit": "Đang tải phần chia đã lưu",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp tạm thời không khả dụng",
+  "whatsappUnavailableUseTelegram": "WhatsApp tạm thời không khả dụng. Vui lòng dùng Telegram để kết nối với Moneko.",
+  "useTelegram": "Dùng Telegram"
 }

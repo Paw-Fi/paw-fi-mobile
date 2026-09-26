@@ -3640,5 +3640,8 @@
   "noMatchingTransactionsForMerchant": "此币种下没有可重新分配的匹配交易。",
   "applyMerchantToOtherTransactions": "将此商家设置到其他交易？",
   "chooseTransactionsForMerchant": "选择此空间中的其他交易，并将它们关联到此商家。",
-  "loadingSavedSplit": "正在加载已保存的分摊"
+  "loadingSavedSplit": "正在加载已保存的分摊",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp 暂时无法使用",
+  "whatsappUnavailableUseTelegram": "WhatsApp 暂时无法使用。请改用 Telegram 连接 Moneko。",
+  "useTelegram": "使用 Telegram"
 }

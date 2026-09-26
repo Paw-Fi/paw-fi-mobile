@@ -3644,5 +3644,8 @@
   "noMatchingTransactionsForMerchant": "Aucune transaction correspondante dans cette devise ne peut être réaffectée.",
   "applyMerchantToOtherTransactions": "Associer ce commerçant à d'autres transactions ?",
   "chooseTransactionsForMerchant": "Choisissez d'autres transactions dans cet espace à associer à ce commerçant.",
-  "loadingSavedSplit": "Chargement du partage enregistré"
+  "loadingSavedSplit": "Chargement du partage enregistré",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp est temporairement indisponible",
+  "whatsappUnavailableUseTelegram": "WhatsApp est temporairement indisponible. Utilisez plutôt Telegram pour vous connecter à Moneko.",
+  "useTelegram": "Utiliser Telegram"
 }

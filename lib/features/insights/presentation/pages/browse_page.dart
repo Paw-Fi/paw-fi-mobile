@@ -26,9 +26,7 @@ import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
 import 'package:moneko/features/profile/presentation/widgets/category_customization_sheet.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
-import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_modal.dart';
-import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
@@ -40,6 +38,7 @@ import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/messaging_app_logo.dart';
+import 'package:moneko/shared/widgets/whatsapp_unavailable_modal.dart';
 import 'monthly_report_page.dart';
 
 class BrowsePage extends ConsumerStatefulWidget {
@@ -196,19 +195,10 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
   }
 
   Future<void> _openWhatsApp() async {
-    final isBound = ref.read(whatsAppBindingProvider).valueOrNull ?? false;
-    if (isBound) {
-      await _launchUrl(
-        Uri.parse('https://wa.link/zxwtld'),
-        errorMessage: context.l10n.couldNotLaunchWhatsApp,
-      );
-      return;
+    final useTelegram = await showWhatsAppUnavailableModal(context);
+    if (useTelegram && mounted) {
+      await _openTelegram();
     }
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => const WhatsAppTutorialModal(),
-    );
-    if (result == true) ref.invalidate(whatsAppBindingProvider);
   }
 
   Future<void> _changeHoldQuickAction() async {

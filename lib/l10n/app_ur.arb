@@ -3590,5 +3590,8 @@
   "noMatchingTransactionsForMerchant": "اس کرنسی میں دوبارہ تفویض کرنے کے لیے کوئی مماثل ٹرانزیکشن موجود نہیں ہے۔",
   "applyMerchantToOtherTransactions": "اس مرچنٹ کو دیگر ٹرانزیکشنز کے لیے بھی تفویض کریں؟",
   "chooseTransactionsForMerchant": "اس اسپیس میں وہ دیگر ٹرانزیکشنز منتخب کریں جنہیں اس مرچنٹ کے ساتھ منسلک کرنا ہے۔",
-  "loadingSavedSplit": "محفوظ شدہ تقسیم لوڈ ہو رہی ہے"
+  "loadingSavedSplit": "محفوظ شدہ تقسیم لوڈ ہو رہی ہے",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp عارضی طور پر دستیاب نہیں ہے",
+  "whatsappUnavailableUseTelegram": "WhatsApp عارضی طور پر دستیاب نہیں ہے۔ Moneko سے منسلک ہونے کے لیے فی الحال Telegram استعمال کریں۔",
+  "useTelegram": "Telegram استعمال کریں"
 }

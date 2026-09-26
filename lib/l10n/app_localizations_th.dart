@@ -10353,4 +10353,13 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get loadingSavedSplit => 'กำลังโหลดการแบ่งที่บันทึกไว้';
+
+  @override
+  String get whatsappIsTemporarilyUnavailable => 'WhatsApp ไม่พร้อมใช้งานชั่วคราว';
+
+  @override
+  String get whatsappUnavailableUseTelegram => 'WhatsApp ไม่พร้อมใช้งานชั่วคราว ในระหว่างนี้ โปรดใช้ Telegram เพื่อเชื่อมต่อกับ Moneko';
+
+  @override
+  String get useTelegram => 'ใช้ Telegram';
 }

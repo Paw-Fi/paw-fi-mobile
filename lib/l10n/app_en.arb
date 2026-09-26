@@ -3689,5 +3689,8 @@
   "noMatchingTransactionsForMerchant": "No existing transactions in this currency scope match to be reassigned.",
   "applyMerchantToOtherTransactions": "Apply merchant to other transactions?",
   "chooseTransactionsForMerchant": "Choose other transactions in this space to update with this merchant.",
-  "loadingSavedSplit": "Loading saved split"
+  "loadingSavedSplit": "Loading saved split",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp is temporarily unavailable",
+  "whatsappUnavailableUseTelegram": "WhatsApp is temporarily unavailable. Please use Telegram instead to connect with Moneko.",
+  "useTelegram": "Use Telegram"
 }

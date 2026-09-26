@@ -3591,5 +3591,8 @@
   "noMatchingTransactionsForMerchant": "Er zijn in deze valuta geen overeenkomende transacties om opnieuw toe te wijzen.",
   "applyMerchantToOtherTransactions": "Deze verkoper ook aan andere transacties toewijzen?",
   "chooseTransactionsForMerchant": "Kies andere transacties in deze ruimte die je aan deze verkoper wilt koppelen.",
-  "loadingSavedSplit": "Opgeslagen verdeling laden"
+  "loadingSavedSplit": "Opgeslagen verdeling laden",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp is tijdelijk niet beschikbaar",
+  "whatsappUnavailableUseTelegram": "WhatsApp is tijdelijk niet beschikbaar. Gebruik in de tussentijd Telegram om verbinding te maken met Moneko.",
+  "useTelegram": "Telegram gebruiken"
 }

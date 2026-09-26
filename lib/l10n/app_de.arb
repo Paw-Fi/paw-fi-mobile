@@ -3644,5 +3644,8 @@
   "noMatchingTransactionsForMerchant": "In dieser Währung gibt es keine passenden Transaktionen, die neu zugeordnet werden können.",
   "applyMerchantToOtherTransactions": "Händler auch anderen Transaktionen zuweisen?",
   "chooseTransactionsForMerchant": "Wähle weitere Transaktionen in diesem Bereich aus, denen dieser Händler zugewiesen werden soll.",
-  "loadingSavedSplit": "Gespeicherte Aufteilung wird geladen"
+  "loadingSavedSplit": "Gespeicherte Aufteilung wird geladen",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp ist vorübergehend nicht verfügbar",
+  "whatsappUnavailableUseTelegram": "WhatsApp ist vorübergehend nicht verfügbar. Bitte nutze stattdessen Telegram, um dich mit Moneko zu verbinden.",
+  "useTelegram": "Telegram verwenden"
 }

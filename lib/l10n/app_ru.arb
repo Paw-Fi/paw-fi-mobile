@@ -3594,5 +3594,8 @@
   "noMatchingTransactionsForMerchant": "В этой валюте нет подходящих транзакций, которые можно переназначить.",
   "applyMerchantToOtherTransactions": "Назначить этого продавца другим транзакциям?",
   "chooseTransactionsForMerchant": "Выберите другие транзакции в этом пространстве, которым нужно назначить этого продавца.",
-  "loadingSavedSplit": "Загрузка сохраненного разделения"
+  "loadingSavedSplit": "Загрузка сохраненного разделения",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp временно недоступен",
+  "whatsappUnavailableUseTelegram": "WhatsApp временно недоступен. Пока вы можете подключиться к Moneko через Telegram.",
+  "useTelegram": "Использовать Telegram"
 }

@@ -3661,5 +3661,8 @@
   "noMatchingTransactionsForMerchant": "ไม่มีธุรกรรมที่ตรงกันในสกุลเงินนี้ให้กำหนดร้านค้าใหม่",
   "applyMerchantToOtherTransactions": "กำหนดร้านค้านี้ให้กับธุรกรรมอื่นด้วยหรือไม่?",
   "chooseTransactionsForMerchant": "เลือกธุรกรรมอื่นในพื้นที่นี้ที่ต้องการกำหนดร้านค้านี้ให้",
-  "loadingSavedSplit": "กำลังโหลดการแบ่งที่บันทึกไว้"
+  "loadingSavedSplit": "กำลังโหลดการแบ่งที่บันทึกไว้",
+  "whatsappIsTemporarilyUnavailable": "WhatsApp ไม่พร้อมใช้งานชั่วคราว",
+  "whatsappUnavailableUseTelegram": "WhatsApp ไม่พร้อมใช้งานชั่วคราว ในระหว่างนี้ โปรดใช้ Telegram เพื่อเชื่อมต่อกับ Moneko",
+  "useTelegram": "ใช้ Telegram"
 }

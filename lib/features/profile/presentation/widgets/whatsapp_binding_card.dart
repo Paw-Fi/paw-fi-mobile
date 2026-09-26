@@ -4,54 +4,19 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/profile_helpers.dart';
-import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/whatsapp_unavailable_modal.dart';
 
 Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
   final colorScheme = Theme.of(context).colorScheme;
   final whatsappBinding = ref.watch(whatsAppBindingProvider);
-
-  Future<void> handleBindWhatsApp() async {
-    // This wa link doesnt contains a "start" welcome message
-    final Uri url = Uri.parse('https://wa.link/zxwtld');
-    try {
-      // Prefer external browser/WhatsApp if available
-      bool launched = await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched) {
-        // Some Android emulators/devices may not have a browser handler.
-        // Fall back to an in-app webview so the flow still works.
-        launched = await launchUrl(url, mode: LaunchMode.inAppBrowserView);
-      }
-      if (!launched) {
-        // Final fallback
-        launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
-      }
-      if (launched && context.mounted) {
-        Navigator.of(context).pop(true); // Return true to refresh status
-      } else if (!launched && context.mounted) {
-        AppToast.error(
-          context,
-          'Unable to open WhatsApp link. Please install a browser or WhatsApp.',
-        );
-      }
-    } catch (_) {
-      if (context.mounted) {
-        AppToast.error(context, 'Could not launch WhatsApp link.');
-      }
-    }
-  }
 
   return whatsappBinding.when(
     data: (isBound) {
       if (isBound) {
         // Success state - show connected
         return InkWell(
-          onTap: () => handleBindWhatsApp(),
+          onTap: () => showWhatsAppUnavailableModal(context),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: BoxDecoration(
@@ -104,15 +69,7 @@ Widget buildWhatsAppBindingCard(BuildContext context, WidgetRef ref) {
 
       // CTA state - not bound yet
       return GestureDetector(
-        onTap: () async {
-          final result = await showDialog<bool>(
-            context: context,
-            builder: (context) => const WhatsAppTutorialModal(),
-          );
-          if (result == true) {
-            ref.invalidate(whatsAppBindingProvider);
-          }
-        },
+        onTap: () => showWhatsAppUnavailableModal(context),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -32,7 +31,6 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
-import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_modal.dart';
 import 'package:moneko/features/profile/presentation/widgets/support_contact_options_sheet.dart';
@@ -61,6 +59,7 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_settings_tile.dart';
 import 'package:moneko/shared/widgets/messaging_app_logo.dart';
+import 'package:moneko/shared/widgets/whatsapp_unavailable_modal.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -123,86 +122,6 @@ String _themeModeLabel(BuildContext context, ThemeMode mode) {
     ThemeMode.light => context.l10n.lightMode,
     ThemeMode.dark => context.l10n.darkMode,
   };
-}
-
-const Set<String> _restrictedRegionCountryCodes = {
-  'ID', // Indonesia
-  'CU', // Cuba
-  'IR', // Iran
-  'KP', // North Korea
-  'SY', // Syria
-};
-
-Map<String, String> _restrictedRegionCountryNames(BuildContext context) {
-  return {
-    'ID': context.l10n.indonesia,
-    'CU': context.l10n.cuba,
-    'IR': context.l10n.iran,
-    'KP': context.l10n.northKorea,
-    'SY': context.l10n.syria,
-  };
-}
-
-bool _isDeviceInRestrictedRegion({String? countryCode}) {
-  final code = countryCode ?? _resolveDeviceCountryCode();
-  if (code == null) {
-    return false;
-  }
-  return _restrictedRegionCountryCodes.contains(code);
-}
-
-String? _restrictedRegionDisplayName(
-    String? countryCode, BuildContext context) {
-  if (countryCode == null || countryCode.isEmpty) return null;
-  return _restrictedRegionCountryNames(context)[countryCode] ?? countryCode;
-}
-
-String? _resolveDeviceCountryCode() {
-  try {
-    final primary = ui.PlatformDispatcher.instance.locale;
-    final code = primary.countryCode;
-    if (code != null && code.isNotEmpty) {
-      return code.toUpperCase();
-    }
-    for (final locale in ui.PlatformDispatcher.instance.locales) {
-      final localeCode = locale.countryCode;
-      if (localeCode != null && localeCode.isNotEmpty) {
-        return localeCode.toUpperCase();
-      }
-    }
-  } catch (_) {
-    // Ignore and fall back to Platform.localeName
-  }
-
-  try {
-    final segments = Platform.localeName.split('_');
-    if (segments.length > 1) {
-      final inferred = segments.last.trim();
-      if (inferred.isNotEmpty) {
-        return inferred.toUpperCase();
-      }
-    }
-  } catch (_) {
-    // Ignore failures and return null.
-  }
-
-  return null;
-}
-
-Future<bool> _showWhatsAppRestrictedRegionDialog({
-  required BuildContext context,
-  required String countryName,
-}) async {
-  final result = await MonekoAlertDialog.show(
-    context: context,
-    title: context.l10n.whatsAppAccessLimitedTitle,
-    description: context.l10n.whatsAppAccessLimitedDescription(
-      countryName,
-    ),
-    confirmLabel: context.l10n.acknowledge,
-    cancelLabel: context.l10n.continueAnyway,
-  );
-  return result?.confirmed ?? false;
 }
 
 String _membershipTileValue(
@@ -270,12 +189,6 @@ class SettingsPage extends HookConsumerWidget {
     final isAccountDeletionInProgress = useState(false);
     final isDataResetInProgress = useState(false);
     final isAppLockSetupInProgress = useState(false);
-    final hasAcknowledgedRestrictedRegion = useState(false);
-    final deviceCountryCode = _resolveDeviceCountryCode();
-    final isDeviceInRestrictedRegion =
-        _isDeviceInRestrictedRegion(countryCode: deviceCountryCode);
-    final restrictedCountryName =
-        _restrictedRegionDisplayName(deviceCountryCode, context);
     final nameReloadKey = useState(0);
     final deviceTimezoneFuture = useFuture(
       useMemoized(resolveCanonicalDeviceTimezone),
@@ -557,19 +470,6 @@ class SettingsPage extends HookConsumerWidget {
       (option) => option.value == timezoneValue,
       orElse: () => timezoneOptions.first,
     );
-
-    Future<bool> guardRestrictedRegion() async {
-      if (!isDeviceInRestrictedRegion) return true;
-      if (hasAcknowledgedRestrictedRegion.value) return true;
-      final acknowledged = await _showWhatsAppRestrictedRegionDialog(
-        context: context,
-        countryName: restrictedCountryName ?? context.l10n.yourCountry,
-      );
-      if (acknowledged) {
-        hasAcknowledgedRestrictedRegion.value = true;
-      }
-      return !acknowledged;
-    }
 
     Future<void> handleTimezoneChange(String timezone) async {
       final previous = selectedTimezone.value;
@@ -1618,36 +1518,35 @@ class SettingsPage extends HookConsumerWidget {
                           : context.l10n.tapToSet,
                       isLocked: !canUsePlusFeatures,
                       onTap: () async {
+                        final tileContext = context;
+                        final useTelegram =
+                            await showWhatsAppUnavailableModal(tileContext);
+                        if (!useTelegram || !tileContext.mounted) return;
+
                         if (!canUsePlusFeatures) {
-                          PlusLockedSheet.show(
-                            context,
+                          await PlusLockedSheet.show(
+                            tileContext,
                             highlightedFeature: PlusFeature.messagingAppCapture,
                           );
                           return;
                         }
-                        final tileContext = context;
-                        final canProceed = await guardRestrictedRegion();
-                        if (!canProceed) {
-                          return;
-                        }
-                        if (!tileContext.mounted) {
-                          return;
-                        }
+
                         final isBound =
-                            ref.read(whatsAppBindingProvider).valueOrNull ??
+                            ref.read(telegramBindingProvider).valueOrNull ??
                                 false;
                         if (isBound) {
                           await launchIntegrationUrl(
-                            Uri.parse('https://wa.link/zxwtld'),
-                            errorMessage: context.l10n.couldNotLaunchWhatsApp,
+                            Uri.parse('https://t.me/moneko_ai_bot'),
+                            errorMessage:
+                                tileContext.l10n.couldNotLaunchTelegram,
                           );
                         } else {
                           final result = await showDialog<bool>(
                             context: tileContext,
-                            builder: (context) => const WhatsAppTutorialModal(),
+                            builder: (context) => const TelegramTutorialModal(),
                           );
                           if (result == true) {
-                            ref.invalidate(whatsAppBindingProvider);
+                            ref.invalidate(telegramBindingProvider);
                           }
                         }
                       },
