@@ -279,6 +279,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
                 'userId': user.uid,
                 'expenseId': expenseId,
                 'updates': {'category': requestedCategory},
+                if (extraBody?['confirmCategoryPreference'] == true)
+                  'confirmCategoryPreference': true,
                 'clientTimezoneOffsetMinutes':
                     DateTime.now().timeZoneOffset.inMinutes,
               },

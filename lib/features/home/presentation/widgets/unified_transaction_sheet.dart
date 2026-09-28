@@ -3735,6 +3735,7 @@ class _UnifiedTransactionSheetV2State
         'amount': expense.amount,
         'category':
             expense.category.isNotEmpty ? expense.category : 'uncategorized',
+        'categoryAlreadyResolved': true,
         'currency': expense.currency,
         'date': expense.date.toIso8601String(),
         'clientCreatedAt': optimisticEntry.createdAt.toIso8601String(),
@@ -4953,6 +4954,11 @@ class _UnifiedTransactionSheetV2State
             nextCategoryForRemap != originalCategoryForRemap &&
             originalCategoryForRemap != 'other' &&
             originalCategoryForRemap != 'uncategorized';
+
+        if (updates.containsKey('category') &&
+            nextCategoryForRemap != originalCategoryForRemap) {
+          extraBody = {...?extraBody, 'confirmCategoryPreference': true};
+        }
 
         final updatedAmount = updates.containsKey('amount_cents')
             ? ((updates['amount_cents'] as int) / 100.0)

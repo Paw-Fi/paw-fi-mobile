@@ -45,7 +45,6 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/utils/smart_transaction_input.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
@@ -81,8 +80,6 @@ const double _recordCancelDragThreshold = 90;
 const int _minimumHoldRecordingMs = 1000;
 const double _silentRecordingPeakDb = -160.0;
 const double _minimumVoicePeakDb = -55.0;
-const String _smartInputMemoryKeyPrefix = 'smart_input_analysis_memory_v1';
-const int _smartInputMemoryLimit = 25;
 const String _pendingAiInputDirectoryName = 'pending_ai_inputs';
 const Duration _kAiRequestTimeout = Duration(minutes: 1);
 
@@ -232,108 +229,6 @@ Map<String, dynamic>? _asStringDynamicMap(Object? value) {
     );
   }
   return null;
-}
-
-String _smartInputMemoryKey({
-  required String userId,
-  required String? householdId,
-  required String? currency,
-  required String languageTag,
-}) {
-  final scope = [
-    userId.trim(),
-    householdId?.trim() ?? '',
-    currency?.trim().toUpperCase() ?? '',
-    languageTag.trim().toLowerCase(),
-  ].join('|');
-  final digest = sha256.convert(utf8.encode(scope)).toString();
-  return '${_smartInputMemoryKeyPrefix}_$digest';
-}
-
-List<SmartInputAnalysisMemory> _readSmartInputMemories(
-  SharedPreferences prefs,
-  String key,
-) {
-  final encoded = prefs.getStringList(key) ?? const <String>[];
-  final memories = <SmartInputAnalysisMemory>[];
-  for (final item in encoded) {
-    try {
-      final decoded = jsonDecode(item);
-      final memory = SmartInputAnalysisMemory.fromJson(decoded);
-      if (memory != null) {
-        memories.add(memory);
-      }
-    } catch (_) {}
-  }
-  return memories;
-}
-
-Map<String, dynamic>? _tryBuildSmartInputMemoryResponse({
-  required SharedPreferences prefs,
-  required String userId,
-  required String? householdId,
-  required String? currency,
-  required String languageTag,
-  required String inputText,
-  required String defaultDateYmd,
-}) {
-  final key = _smartInputMemoryKey(
-    userId: userId,
-    householdId: householdId,
-    currency: currency,
-    languageTag: languageTag,
-  );
-  for (final memory in _readSmartInputMemories(prefs, key)) {
-    final response = memory.tryBuildResponseFor(
-      inputText: inputText,
-      defaultDateYmd: defaultDateYmd,
-    );
-    if (response != null) {
-      return response;
-    }
-  }
-  return null;
-}
-
-Future<void> _rememberSmartInputAnalysis({
-  required SharedPreferences prefs,
-  required String userId,
-  required String? householdId,
-  required String? currency,
-  required String languageTag,
-  required String inputText,
-  required String defaultDateYmd,
-  required Map<String, dynamic> responseData,
-}) async {
-  final memory = SmartInputAnalysisMemory.fromAnalysisResponse(
-    inputText: inputText,
-    responseData: responseData,
-    defaultDateYmd: defaultDateYmd,
-  );
-  if (memory == null) return;
-
-  final key = _smartInputMemoryKey(
-    userId: userId,
-    householdId: householdId,
-    currency: currency,
-    languageTag: languageTag,
-  );
-  final previous = _readSmartInputMemories(prefs, key);
-  final updated = <SmartInputAnalysisMemory>[
-    memory,
-    ...previous.where(
-      (candidate) =>
-          candidate.measurement.orderedSignature !=
-              memory.measurement.orderedSignature ||
-          candidate.measurement.unorderedSignature !=
-              memory.measurement.unorderedSignature,
-    ),
-  ].take(_smartInputMemoryLimit).toList(growable: false);
-
-  await prefs.setStringList(
-    key,
-    updated.map((entry) => jsonEncode(entry.toJson())).toList(growable: false),
-  );
 }
 
 List<Map<String, dynamic>> _asMapList(Object? value) {
@@ -540,34 +435,6 @@ String _resolveOptimisticAiCategory({
   }
 
   return builtinCategory ?? fallback;
-}
-
-Future<Map<String, String>> _loadLocalCategoryRemaps(
-  ProviderContainer container, {
-  required String userId,
-  required String transactionType,
-}) async {
-  if (userId.trim().isEmpty) return const <String, String>{};
-  try {
-    final database = await container.read(localDatabaseProvider.future);
-    return database.getCategoryRemaps(
-      userId: userId,
-      transactionType: transactionType,
-    );
-  } catch (error) {
-    _debugPrint('⚠️ Local category remaps unavailable: $error');
-    return const <String, String>{};
-  }
-}
-
-String _applyLocalCategoryRemap({
-  required String category,
-  required Map<String, String> remaps,
-}) {
-  if (remaps.isEmpty) return category;
-  final direct = category.trim().toLowerCase();
-  final normalized = normalizeCategory(category);
-  return remaps[direct] ?? remaps[normalized] ?? category;
 }
 
 Future<_AutoSplitContext?> _loadAutoSplitContext(
@@ -1101,6 +968,7 @@ Future<void> _persistAiTransactions(
     final commonRequestBody = <String, dynamic>{
       'amount': tx.amount,
       'category': tx.category,
+      'categoryAlreadyResolved': true,
       'currency': tx.currency,
       'date': formatDateOnlyYmd(tx.date),
       if (resolvedAccountIdForTransaction != null &&
@@ -2309,7 +2177,6 @@ Future<void> _processExpense(
   final hasImageInput = imagePath != null && imagePath.isNotEmpty;
   final hasAudioInput = audioBytes != null && audioBytes.isNotEmpty;
   final hasTextInput = text != null && text.trim().isNotEmpty;
-  final trimmedText = text?.trim();
   final isPdfUpload = attachments?.any((a) =>
           a['contentType']?.toString().contains('pdf') == true ||
           a['filename']?.toString().toLowerCase().endsWith('.pdf') == true) ??
@@ -2340,27 +2207,10 @@ Future<void> _processExpense(
     );
   }
 
-  final canUseSmartInputMemory = !preview.isActive &&
-      hasTextInput &&
-      trimmedText != null &&
-      !hasAttachments &&
-      !hasImageInput &&
-      !hasAudioInput;
-  var usedSmartInputMemory = false;
-  if (canUseSmartInputMemory) {
-    responseData = _tryBuildSmartInputMemoryResponse(
-      prefs: ref.read(sharedPreferencesProvider),
-      userId: effectiveUserId,
-      householdId: householdId,
-      currency: effectiveCurrency,
-      languageTag: languageTag,
-      inputText: trimmedText,
-      defaultDateYmd: defaultDateYmd,
-    );
-    usedSmartInputMemory = responseData != null;
-  }
-
-  final shouldShowProcessingDialog = !usedSmartInputMemory;
+  // A cached final category has no mapping revision. Always analyze against
+  // current user preferences rather than replaying a stale final category.
+  final shouldShowProcessingDialog =
+      hasTextInput || hasImageInput || hasAudioInput || hasAttachments;
   final shouldStream = shouldShowProcessingDialog &&
       (hasAttachments || hasImageInput || hasAudioInput || hasTextInput);
   final useEnhancedDialog = shouldShowProcessingDialog &&
@@ -2550,21 +2400,6 @@ Future<void> _processExpense(
       }
     }
 
-    if (!usedSmartInputMemory &&
-        canUseSmartInputMemory &&
-        responseData != null) {
-      unawaited(_rememberSmartInputAnalysis(
-        prefs: ref.read(sharedPreferencesProvider),
-        userId: effectiveUserId,
-        householdId: householdId,
-        currency: effectiveCurrency,
-        languageTag: languageTag,
-        inputText: trimmedText,
-        defaultDateYmd: defaultDateYmd,
-        responseData: responseData,
-      ));
-    }
-
     if (!context.mounted) {
       processingOverlay?.dismiss();
       return;
@@ -2627,16 +2462,6 @@ Future<void> _processExpense(
             return null;
           }
 
-          final expenseCategoryRemaps = await _loadLocalCategoryRemaps(
-            providerContainer,
-            userId: user.uid,
-            transactionType: 'expense',
-          );
-          final incomeCategoryRemaps = await _loadLocalCategoryRemaps(
-            providerContainer,
-            userId: user.uid,
-            transactionType: 'income',
-          );
           final optimisticAutoSplitContext =
               householdId != null && householdId.isNotEmpty && !isPortfolio
                   ? await _loadAutoSplitContext(
@@ -2683,16 +2508,11 @@ Future<void> _processExpense(
                   rawDescription: item['description'],
                   isIncome: isIncome,
                 );
-                final category = _applyLocalCategoryRemap(
-                  category: resolvedCategory,
-                  remaps:
-                      isIncome ? incomeCategoryRemaps : expenseCategoryRemaps,
-                );
                 final transaction = ParsedExpense(
                   isIncome: isIncome,
                   amount: amount,
                   // Normalize income categories to at least 'income' umbrella if model returns a granular one
-                  category: category,
+                  category: resolvedCategory,
                   currency: currency,
                   currencySymbol: item['currencySymbol'] as String? ?? '\$',
                   date: accountingDate,
