@@ -24,6 +24,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'GT': 'GTQ',
     'DO': 'DOP',
     'DZ': 'DZD',
+    'AM': 'AMD',
     'AR': 'ARS',
     'JM': 'JMD',
     'PE': 'PEN',

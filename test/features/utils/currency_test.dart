@@ -20,6 +20,7 @@ void main() {
       expect(resolveCurrencySymbol('MDL'), 'L');
       expect(resolveCurrencySymbol('MUR'), 'Rs');
       expect(resolveCurrencySymbol('MAD'), 'د.م.');
+      expect(resolveCurrencySymbol('AMD'), '֏');
     });
 
     test('handles null and empty codes', () {
@@ -61,6 +62,8 @@ void main() {
       expect(canonicalizeCurrencyCode('د.م.'), 'MAD');
       expect(canonicalizeCurrencyCode('DH'), 'MAD');
       expect(canonicalizeCurrencyCode('Moroccan Dirham'), 'MAD');
+      expect(canonicalizeCurrencyCode('֏'), 'AMD');
+      expect(canonicalizeCurrencyCode('Armenian Dram'), 'AMD');
     });
 
     test('extracts canonical currency codes from free-form text', () {
@@ -68,6 +71,7 @@ void main() {
       expect(extractCanonicalCurrencyCode('Amount: 20.00 USD'), 'USD');
       expect(extractCanonicalCurrencyCode('Total paid €12.50'), 'EUR');
       expect(extractCanonicalCurrencyCode('Settlement in HK\$ 99.00'), 'HKD');
+      expect(extractCanonicalCurrencyCode('Total paid ֏12,500'), 'AMD');
     });
   });
 
@@ -86,6 +90,7 @@ void main() {
       expect(isSupportedCurrencyCode('MDL'), true);
       expect(isSupportedCurrencyCode('MUR'), true);
       expect(isSupportedCurrencyCode('MAD'), true);
+      expect(isSupportedCurrencyCode('AMD'), true);
     });
 
     test('rejects unsupported currencies', () {
@@ -154,6 +159,7 @@ void main() {
       expect(options.containsKey('MDL'), true);
       expect(options.containsKey('MUR'), true);
       expect(options.containsKey('MAD'), true);
+      expect(options.containsKey('AMD'), true);
     });
 
     test('contains correct symbol mappings', () {
@@ -173,6 +179,7 @@ void main() {
       expect(options['MDL'], 'L');
       expect(options['MUR'], 'Rs');
       expect(options['MAD'], 'د.م.');
+      expect(options['AMD'], '֏');
     });
   });
 

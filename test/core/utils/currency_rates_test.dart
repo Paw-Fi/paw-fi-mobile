@@ -6,6 +6,7 @@ void main() {
     test('bundled fallback includes Moldovan and Mauritian rates', () {
       expect(CurrencyRates.rates['MDL'], greaterThan(0));
       expect(CurrencyRates.rates['MUR'], greaterThan(0));
+      expect(CurrencyRates.rates['AMD'], 368.228568);
     });
 
     test('converts between currencies using live USD-based rates', () {

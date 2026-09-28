@@ -8,6 +8,7 @@ const int pocketBudgetAllocationPrecisionStepCents = 10;
 const Map<String, double> pocketCurrencyBudgetBaselines = {
   // Keep in sync with currencyOptions in features/utils/currency.dart.
   'AED': 35000,
+  'AMD': 3500000,
   'ARS': 10000000,
   'AUD': 10000,
   'BDT': 500000,

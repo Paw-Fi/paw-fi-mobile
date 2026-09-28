@@ -6,6 +6,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 
 const Map<String, String> currencyOptions = {
   'AED': 'د.إ',
+  'AMD': '֏',
   'ARS': 'ARS\$',
   'AUD': 'A\$',
   'BDT': '৳',
@@ -142,6 +143,7 @@ Map<String, String> _buildCurrencyAliases() {
     'DH': 'MAD',
     'DHS': 'MAD',
     'MOROCCAN DIRHAM': 'MAD',
+    'ARMENIAN DRAM': 'AMD',
   });
 
   return aliases;

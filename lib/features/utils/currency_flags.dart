@@ -50,6 +50,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'PEN': 'peru',
     'TRY': 'turkey',
     'AED': 'uae',
+    'AMD': 'armenia',
     'SAR': 'saudi_arabia',
     'EGP': 'egypt',
     'ETB': 'ethiopia',

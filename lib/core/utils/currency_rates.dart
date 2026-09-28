@@ -76,6 +76,7 @@ class CurrencyRates {
   static const Map<String, double> rates = {
     'USD': 1.0,
     'AED': 3.6725,
+    'AMD': 368.228568,
     'ARS': 1395.1909,
     'AUD': 1.391429,
     'BDT': 122.744284,

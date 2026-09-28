@@ -17,6 +17,7 @@ const Map<String, String> currencyDisplayNames = {
   'ZAR': 'South African Rand',
   'IDR': 'Indonesian Rupiah',
   'AED': 'United Arab Emirates Dirham',
+  'AMD': 'Armenian Dram',
   'SAR': 'Saudi Riyal',
   'TRY': 'Turkish Lira',
   'RUB': 'Russian Ruble',
