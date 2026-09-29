@@ -95,6 +95,12 @@ class Auth extends _$Auth {
         );
       }
 
+      if (event == AuthChangeEvent.signedOut && previousUserId.isNotEmpty) {
+        await ref
+            .read(deviceRegistrationServiceProvider)
+            .handleSessionEnded(userId: previousUserId);
+      }
+
       // On sign in, migrate guest data and sync Web3 profile (wallet address/name)
       if (event == AuthChangeEvent.signedIn && session != null) {
         try {

@@ -137,7 +137,9 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
 
     final deviceService = _MockDeviceRegistrationService();
-    when(() => deviceService.initialize()).thenAnswer((_) async {});
+    when(() => deviceService.initialize()).thenAnswer(
+      (_) async => DeviceRegistrationResult.registered,
+    );
     when(() => deviceService.unregisterDevice()).thenAnswer((_) async {});
 
     await _pumpOnboarding(
@@ -163,7 +165,9 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
 
     final deviceService = _MockDeviceRegistrationService();
-    when(() => deviceService.initialize()).thenAnswer((_) async {});
+    when(() => deviceService.initialize()).thenAnswer(
+      (_) async => DeviceRegistrationResult.registered,
+    );
     when(() => deviceService.unregisterDevice()).thenAnswer((_) async {});
 
     await _pumpOnboarding(
@@ -184,7 +188,9 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
 
     final deviceService = _MockDeviceRegistrationService();
-    when(() => deviceService.initialize()).thenAnswer((_) async {});
+    when(() => deviceService.initialize()).thenAnswer(
+      (_) async => DeviceRegistrationResult.registered,
+    );
     when(() => deviceService.unregisterDevice()).thenAnswer((_) async {});
 
     await _pumpOnboarding(
@@ -238,7 +244,9 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
 
     final deviceService = _MockDeviceRegistrationService();
-    when(() => deviceService.initialize()).thenAnswer((_) async {});
+    when(() => deviceService.initialize()).thenAnswer(
+      (_) async => DeviceRegistrationResult.registered,
+    );
     when(() => deviceService.unregisterDevice()).thenAnswer((_) async {});
 
     final previousOnError = FlutterError.onError;

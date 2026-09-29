@@ -36,6 +36,7 @@ import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_m
 import 'package:moneko/features/profile/presentation/widgets/support_contact_options_sheet.dart';
 // import 'package:moneko/features/subscription/data/models/subscription_details.dart'; // Removed unused import
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -226,18 +227,32 @@ class SettingsPage extends HookConsumerWidget {
             AppToast.info(context, context.l10n.enableNotificationsInSettings);
           }
         } else if (status.isGranted) {
-          try {
-            await ref.read(deviceRegistrationServiceProvider).initialize();
-          } catch (e) {
-            debugPrint('Error initializing notifications: $e');
+          final result = await ref
+              .read(deviceRegistrationServiceProvider)
+              .repairDeviceRegistration();
+          if (!context.mounted) return;
+          if (result == DeviceRegistrationResult.registered) {
+            AppToast.success(
+              context,
+              context.l10n.notificationsRefreshedSuccessfully,
+            );
+          } else {
+            AppToast.error(context, context.l10n.failedToUpdateAppSetting);
           }
         } else {
           final newStatus = await Permission.notification.request();
           if (newStatus.isGranted) {
-            try {
-              await ref.read(deviceRegistrationServiceProvider).initialize();
-            } catch (e) {
-              debugPrint('Error initializing notifications: $e');
+            final result = await ref
+                .read(deviceRegistrationServiceProvider)
+                .repairDeviceRegistration();
+            if (!context.mounted) return;
+            if (result == DeviceRegistrationResult.registered) {
+              AppToast.success(
+                context,
+                context.l10n.notificationsRefreshedSuccessfully,
+              );
+            } else {
+              AppToast.error(context, context.l10n.failedToUpdateAppSetting);
             }
           }
         }
@@ -248,26 +263,38 @@ class SettingsPage extends HookConsumerWidget {
 
     Future<void> handleManualNotificationFix() async {
       try {
-        try {
-          await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
-        } catch (e) {
-          debugPrint('Error during manual notification unregister: $e');
+        final result = await ref
+            .read(deviceRegistrationServiceProvider)
+            .repairDeviceRegistration();
+        if (!context.mounted) return;
+
+        if (result == DeviceRegistrationResult.permissionDenied) {
+          await AppSettings.openAppSettings(
+            type: AppSettingsType.notification,
+            asAnotherTask: true,
+          );
+          if (context.mounted) {
+            AppToast.info(
+              context,
+              context.l10n.enableNotificationsInSettings,
+            );
+          }
+          return;
         }
 
-        try {
-          await ref.read(deviceRegistrationServiceProvider).initialize();
-        } catch (e) {
-          debugPrint('Error re-initializing notifications manually: $e');
-        }
-
-        if (context.mounted) {
+        if (result == DeviceRegistrationResult.registered) {
           AppToast.success(
             context,
             context.l10n.notificationsRefreshedSuccessfully,
           );
+        } else {
+          AppToast.error(context, context.l10n.failedToUpdateAppSetting);
         }
       } catch (e) {
         debugPrint('Error handling manual notification fix: $e');
+        if (context.mounted) {
+          AppToast.error(context, context.l10n.failedToUpdateAppSetting);
+        }
       }
     }
 
@@ -602,10 +629,6 @@ class SettingsPage extends HookConsumerWidget {
           }
           return;
         }
-
-        try {
-          await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
-        } catch (_) {}
 
         try {
           await ref.read(selectedHouseholdProvider.notifier).clearSelection();
@@ -1872,12 +1895,6 @@ class SettingsPage extends HookConsumerWidget {
                         );
 
                         try {
-                          try {
-                            await ref
-                                .read(deviceRegistrationServiceProvider)
-                                .unregisterDevice();
-                          } catch (_) {}
-
                           debugPrint(
                             '🧹 Clearing all user-specific Riverpod state before logout',
                           );

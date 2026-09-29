@@ -590,6 +590,10 @@ class MainShell extends HookConsumerWidget {
             return;
           }
 
+          unawaited(
+            ref.read(deviceRegistrationServiceProvider).initialize(),
+          );
+
           isSyncing.value = true;
           syncKey.value = UniqueKey();
 

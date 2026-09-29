@@ -59,16 +59,150 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
+enum DeviceRegistrationResult {
+  registered,
+  alreadyRegistered,
+  deferredUntilPrompted,
+  permissionDenied,
+  tokenUnavailable,
+  backendRejected,
+  unauthenticated,
+  failed,
+}
+
+abstract interface class DeviceRegistrationGateway {
+  String? get currentUserId;
+  bool get hasActiveSession;
+  bool get isIOS;
+  bool get isAndroid;
+  Stream<String> get onTokenRefresh;
+
+  Future<void> requestAndroidNotificationPermission();
+  Future<NotificationSettings> requestMessagingPermission();
+  Future<void> configureForegroundPresentation();
+  Future<String?> getApnsToken();
+  Future<String?> getToken();
+  Future<void> deleteToken();
+  Future<bool> registerDevice(String pushToken);
+  Future<bool> unregisterDevice(String pushToken);
+}
+
+class FirebaseDeviceRegistrationGateway implements DeviceRegistrationGateway {
+  FirebaseDeviceRegistrationGateway(this._supabase, this._messaging);
+
+  final SupabaseClient _supabase;
+  final FirebaseMessaging _messaging;
+
+  @override
+  String? get currentUserId => _supabase.auth.currentUser?.id;
+
+  @override
+  bool get hasActiveSession => _supabase.auth.currentSession != null;
+
+  @override
+  bool get isIOS => Platform.isIOS;
+
+  @override
+  bool get isAndroid => Platform.isAndroid;
+
+  @override
+  Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;
+
+  @override
+  Future<void> requestAndroidNotificationPermission() async {
+    await Permission.notification.request().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => PermissionStatus.denied,
+        );
+  }
+
+  @override
+  Future<NotificationSettings> requestMessagingPermission() {
+    return _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+  }
+
+  @override
+  Future<void> configureForegroundPresentation() {
+    return _messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  }
+
+  @override
+  Future<String?> getApnsToken() => _messaging.getAPNSToken();
+
+  @override
+  Future<String?> getToken() => _messaging.getToken();
+
+  @override
+  Future<void> deleteToken() => _messaging.deleteToken();
+
+  @override
+  Future<bool> registerDevice(String pushToken) async {
+    try {
+      final response = await _supabase.functions.invoke(
+        'households-register-device',
+        body: {
+          'platform': isIOS ? 'ios' : 'android',
+          'push_token': pushToken,
+          'device_model': isIOS ? 'iOS Device' : 'Android Device',
+          'os_version': Platform.operatingSystemVersion,
+        },
+      );
+      return response.status == 200;
+    } on FunctionException catch (error) {
+      return error.status == 409;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> unregisterDevice(String pushToken) async {
+    try {
+      final response = await _supabase.functions.invoke(
+        'households-register-device',
+        body: {
+          'platform': isIOS ? 'ios' : 'android',
+          'push_token': pushToken,
+          'delete_device': true,
+        },
+      );
+      return response.status == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
 /// Service for managing push notification device registration
 class DeviceRegistrationService {
   final Ref _ref;
-  final SupabaseClient _supabase;
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  final DeviceRegistrationGateway _gateway;
+  final Duration _apnsTokenWaitTimeout;
+  final Duration _interactionHandlersTimeout;
   final NotificationIntentParser _intentParser = NotificationIntentParser();
+  late final Future<void> Function() _interactionHandlersInitializer;
   bool _initialized = false;
+  String? _initializedUserId;
   bool _interactionHandlersInitialized = false;
   bool _tokenRefreshListenerInitialized = false;
+  Future<DeviceRegistrationResult>? _initializationFuture;
+  String? _initializationUserId;
+  bool _initializationBypassesPromptGate = false;
+  int _lifecycleGeneration = 0;
+  bool _acceptTokenRefreshes = false;
+  Future<void> _tokenRefreshQueue = Future.value();
+  Future<void>? _sessionCleanupFuture;
 
   static const String _androidChannelId = 'high_importance_channel';
   static const String _androidChannelName = 'High Importance Notifications';
@@ -83,86 +217,153 @@ class DeviceRegistrationService {
 
   DeviceRegistrationService(
     this._ref,
-    this._supabase,
+    SupabaseClient supabase,
     this._messaging,
-    this._localNotifications,
-  );
+    this._localNotifications, {
+    DeviceRegistrationGateway? gateway,
+    Future<void> Function()? interactionHandlersInitializer,
+    Duration apnsTokenWaitTimeout = const Duration(seconds: 10),
+    Duration interactionHandlersTimeout = const Duration(seconds: 5),
+  })  : _gateway =
+            gateway ?? FirebaseDeviceRegistrationGateway(supabase, _messaging),
+        _apnsTokenWaitTimeout = apnsTokenWaitTimeout,
+        _interactionHandlersTimeout = interactionHandlersTimeout {
+    _interactionHandlersInitializer =
+        interactionHandlersInitializer ?? _ensureInteractionHandlersInitialized;
+  }
 
   /// Initialize push notifications
-  Future<void> initialize() async {
-    if (_initialized) {
-      _debugPrint('🔔 Device registration service already initialized');
-      return;
+  Future<DeviceRegistrationResult> initialize({
+    bool force = false,
+    bool bypassPromptGate = false,
+  }) {
+    final sessionCleanup = _sessionCleanupFuture;
+    if (sessionCleanup != null) {
+      return sessionCleanup.then(
+        (_) => initialize(
+          force: force,
+          bypassPromptGate: bypassPromptGate,
+        ),
+      );
     }
-    _debugPrint('🔔 Initializing device registration service...');
 
-    try {
-      // Avoid prompting users multiple times: Only allow permission prompts
-      // after the onboarding flow explicitly sets a per-user flag.
-      try {
-        final userId = _supabase.auth.currentUser?.id;
-        if (userId != null && userId.isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
-          final prompted =
-              prefs.getBool('notifications_prompted:$userId') ?? false;
-          if (!prompted) {
-            _debugPrint(
-                '⏭️ Skipping notification permission prompt until onboarding page triggers it');
-            return;
-          }
+    final currentUserId = _gateway.currentUserId;
+    if (_initialized &&
+        _initializedUserId == currentUserId &&
+        currentUserId != null &&
+        !force) {
+      _debugPrint('🔔 Device registration service already initialized');
+      return Future.value(DeviceRegistrationResult.alreadyRegistered);
+    }
+
+    final inFlight = _initializationFuture;
+    if (inFlight != null) {
+      final canShareAttempt = _initializationUserId == currentUserId &&
+          (!bypassPromptGate || _initializationBypassesPromptGate);
+      if (canShareAttempt) return inFlight;
+
+      return inFlight.then((_) {
+        if (_gateway.currentUserId != currentUserId) {
+          return DeviceRegistrationResult.unauthenticated;
         }
-      } catch (e) {
-        _debugPrint('⚠️ Failed to check notifications_prompted flag');
+        return initialize(
+          force: force,
+          bypassPromptGate: bypassPromptGate,
+        );
+      });
+    }
+
+    final generation = _lifecycleGeneration;
+    late final Future<DeviceRegistrationResult> future;
+    future = _initialize(
+      expectedUserId: currentUserId,
+      generation: generation,
+      bypassPromptGate: bypassPromptGate,
+    ).whenComplete(() {
+      if (identical(_initializationFuture, future)) {
+        _initializationFuture = null;
+        _initializationUserId = null;
+        _initializationBypassesPromptGate = false;
+      }
+    });
+    _initializationFuture = future;
+    _initializationUserId = currentUserId;
+    _initializationBypassesPromptGate = bypassPromptGate;
+    return future;
+  }
+
+  Future<DeviceRegistrationResult> _initialize({
+    required String? expectedUserId,
+    required int generation,
+    required bool bypassPromptGate,
+  }) async {
+    _debugPrint('🔔 Initializing device registration service...');
+    try {
+      final userId = expectedUserId;
+      if (userId == null || userId.isEmpty || !_gateway.hasActiveSession) {
+        return DeviceRegistrationResult.unauthenticated;
       }
 
-      // Wrap entire initialization in a timeout to prevent hanging
-      await _performInitialization().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
+      if (!bypassPromptGate) {
+        final prefs = await SharedPreferences.getInstance();
+        final prompted =
+            prefs.getBool('notifications_prompted:$userId') ?? false;
+        if (!prompted) {
           _debugPrint(
-              '⚠️ Device registration initialization timed out after 10s');
-          throw TimeoutException('Device registration timed out');
-        },
+              '⏭️ Skipping notification permission prompt until onboarding page triggers it');
+          return DeviceRegistrationResult.deferredUntilPrompted;
+        }
+      }
+      if (!_isCurrentAttempt(userId, generation)) {
+        return DeviceRegistrationResult.unauthenticated;
+      }
+
+      final result = await _performInitialization(
+        expectedUserId: userId,
+        generation: generation,
       );
-    } catch (e) {
+      if (!_isCurrentAttempt(userId, generation)) {
+        return DeviceRegistrationResult.unauthenticated;
+      }
+      _initialized = result == DeviceRegistrationResult.registered;
+      _initializedUserId = _initialized ? userId : null;
+      return result;
+    } catch (_) {
       _debugPrint('❌ Device registration initialization failed');
       _initialized = false;
-      return;
+      _initializedUserId = null;
+      return DeviceRegistrationResult.failed;
     }
   }
 
+  bool _isCurrentAttempt(String userId, int generation) {
+    return generation == _lifecycleGeneration &&
+        _gateway.hasActiveSession &&
+        _gateway.currentUserId == userId;
+  }
+
   /// Perform the actual initialization (extracted for timeout handling)
-  Future<void> _performInitialization() async {
-    await _ensureInteractionHandlersInitialized();
+  Future<DeviceRegistrationResult> _performInitialization({
+    required String expectedUserId,
+    required int generation,
+  }) async {
+    await _interactionHandlersInitializer()
+        .timeout(_interactionHandlersTimeout);
+    if (!_isCurrentAttempt(expectedUserId, generation)) {
+      return DeviceRegistrationResult.unauthenticated;
+    }
 
     // Android 13+: request notifications permission via permission_handler
-    if (Platform.isAndroid) {
+    if (_gateway.isAndroid) {
       try {
-        final status = await Permission.notification.request().timeout(
-          const Duration(seconds: 5),
-          onTimeout: () {
-            _debugPrint('⚠️ Android notification permission request timed out');
-            return PermissionStatus.denied;
-          },
-        );
-        if (status.isDenied) {
-          _debugPrint(
-              '⚠️ Notification permission denied on Android (continuing to obtain FCM token)');
-        }
-      } catch (e) {
+        await _gateway.requestAndroidNotificationPermission();
+      } catch (_) {
         _debugPrint('⚠️ Android notification permission request failed');
       }
     }
 
     // Request permission (iOS) and general settings
-    final settings = await _messaging
-        .requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    )
-        .timeout(
+    final settings = await _gateway.requestMessagingPermission().timeout(
       const Duration(seconds: 5),
       onTimeout: () {
         _debugPrint('⚠️ FCM permission request timed out');
@@ -183,14 +384,15 @@ class DeviceRegistrationService {
         );
       },
     );
+    if (!_isCurrentAttempt(expectedUserId, generation)) {
+      return DeviceRegistrationResult.unauthenticated;
+    }
 
     // iOS/macOS: ensure foreground notifications can be shown while app is open
-    if (Platform.isIOS) {
-      await _messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+    if (_gateway.isIOS) {
+      await _gateway.configureForegroundPresentation().timeout(
+            const Duration(seconds: 5),
+          );
     }
 
     final authorized =
@@ -199,77 +401,76 @@ class DeviceRegistrationService {
 
     if (authorized) {
       _debugPrint('✅ Push notification permission granted');
+      if (!_isCurrentAttempt(expectedUserId, generation)) {
+        return DeviceRegistrationResult.unauthenticated;
+      }
+      _acceptTokenRefreshes = true;
 
       // Listen for token refresh first so we don't miss an early emission
       if (!_tokenRefreshListenerInitialized) {
-        _messaging.onTokenRefresh.listen((newToken) {
+        _gateway.onTokenRefresh.listen((newToken) {
           _debugPrint('🔄 FCM Token refreshed');
-          registerDevice(newToken);
+          _enqueueTokenRefresh(newToken);
         });
         _tokenRefreshListenerInitialized = true;
       }
 
       // iOS: wait briefly for APNs token to be assigned before requesting FCM token
-      if (Platform.isIOS) {
-        final apns = await _waitForApnsToken(timeoutMs: 10000);
+      if (_gateway.isIOS) {
+        final apns = await _waitForApnsToken();
         _debugPrint(
             '🍎 APNs Token ${apns != null ? "obtained" : "unavailable"}');
+        if (apns == null) {
+          return DeviceRegistrationResult.tokenUnavailable;
+        }
       }
 
       // Get and register FCM token (gracefully handle APNs-not-ready scenarios)
+      String? token;
       try {
-        String? token = await _messaging.getToken().timeout(
+        token = await _gateway.getToken().timeout(
           const Duration(seconds: 5),
           onTimeout: () {
             _debugPrint('⚠️ FCM getToken timed out');
             return null;
           },
         );
-        if (token == null && Platform.isIOS) {
-          // Retry once after APNs likely ready
-          token = await _messaging.getToken().timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              _debugPrint('⚠️ FCM getToken retry timed out');
-              return null;
-            },
-          );
-        }
-
-        if (token != null) {
-          _debugPrint('📱 FCM Token obtained');
-          await registerDevice(token);
-        } else {
-          _debugPrint('⚠️ FCM token is null; waiting for onTokenRefresh');
-        }
-      } catch (e) {
+      } catch (_) {
         _debugPrint('⚠️ getToken failed');
-        // Rely on onTokenRefresh later
+        return DeviceRegistrationResult.tokenUnavailable;
       }
 
-      _initialized = true;
+      if (token == null || token.isEmpty) {
+        _debugPrint('⚠️ FCM token is null; waiting for onTokenRefresh');
+        return DeviceRegistrationResult.tokenUnavailable;
+      }
+      _debugPrint('📱 FCM Token obtained');
+      return registerDevice(
+        token,
+        expectedUserId: expectedUserId,
+        generation: generation,
+      );
     } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
       _debugPrint('❌ Push notification permission denied');
-      _initialized = false;
+      return DeviceRegistrationResult.permissionDenied;
     } else {
       _debugPrint('⚠️ Push notification permission not determined');
-      _initialized = false;
+      return DeviceRegistrationResult.permissionDenied;
     }
   }
 
   /// Wait for APNs token to be set (iOS only). Returns null if not ready in time.
-  Future<String?> _waitForApnsToken({int timeoutMs = 10000}) async {
-    if (!Platform.isIOS) return null;
-    final start = DateTime.now().millisecondsSinceEpoch;
-    String? apns;
-    while (DateTime.now().millisecondsSinceEpoch - start < timeoutMs) {
+  Future<String?> _waitForApnsToken() async {
+    if (!_gateway.isIOS) return null;
+    final stopwatch = Stopwatch()..start();
+    while (true) {
       try {
-        apns = await _messaging.getAPNSToken();
+        final apns = await _gateway.getApnsToken();
+        if (apns != null && apns.isNotEmpty) return apns;
       } catch (_) {}
-      if (apns != null && apns.isNotEmpty) return apns;
+      if (stopwatch.elapsed >= _apnsTokenWaitTimeout) return null;
       await Future.delayed(const Duration(milliseconds: 300));
     }
-    return apns;
   }
 
   Future<void> _ensureInteractionHandlersInitialized() async {
@@ -377,71 +578,107 @@ class DeviceRegistrationService {
   }
 
   /// Register device with backend
-  Future<void> registerDevice(String pushToken) async {
+  Future<DeviceRegistrationResult> registerDevice(
+    String pushToken, {
+    String? expectedUserId,
+    int? generation,
+  }) async {
     try {
-      // Skip frequent re-registration: compare with last cached token and time
-      final userId = _supabase.auth.currentUser?.id;
-      final prefs = await SharedPreferences.getInstance();
-      final cachePrefix = 'device_reg:${userId ?? "anon"}:';
-      final lastToken = prefs.getString('${cachePrefix}token');
-      final lastAtIso = prefs.getString('${cachePrefix}registered_at');
-      final now = DateTime.now();
-      DateTime? lastAt =
-          lastAtIso != null ? DateTime.tryParse(lastAtIso) : null;
+      final userId = expectedUserId ?? _gateway.currentUserId;
+      final attemptGeneration = generation ?? _lifecycleGeneration;
+      if (userId == null ||
+          userId.isEmpty ||
+          !_isCurrentAttempt(userId, attemptGeneration)) {
+        return DeviceRegistrationResult.unauthenticated;
+      }
 
-      // Re-register only if token changed or older than 24h
-      if (lastToken == pushToken &&
-          lastAt != null &&
-          now.difference(lastAt) < const Duration(hours: 24)) {
-        _debugPrint(
-            '⏭️ Skipping device registration (cached, <24h, token unchanged)');
-        return;
+      final prefs = await SharedPreferences.getInstance();
+      final cachePrefix = 'device_reg:$userId:';
+      final previousToken = prefs.getString('${cachePrefix}token');
+      final now = DateTime.now();
+      if (!_isCurrentAttempt(userId, attemptGeneration)) {
+        return DeviceRegistrationResult.unauthenticated;
       }
 
       _debugPrint('📤 Registering device with backend...');
-
-      final response = await _supabase.functions.invoke(
-        'households-register-device',
-        body: {
-          'platform': Platform.isIOS ? 'ios' : 'android',
-          'push_token': pushToken,
-          'device_model': await _getDeviceModel(),
-          'os_version': Platform.operatingSystemVersion,
-        },
-      );
-
-      if (response.status == 200) {
-        _debugPrint('✅ Device registered successfully');
-        await prefs.setString('${cachePrefix}token', pushToken);
-        await prefs.setString(
-            '${cachePrefix}registered_at', now.toIso8601String());
-      } else {
+      final registered = await _gateway.registerDevice(pushToken);
+      if (!registered) {
         _debugPrint('❌ Device registration failed');
+        return DeviceRegistrationResult.backendRejected;
       }
-    } catch (e) {
-      // Treat 409 "Device already registered" as a non-fatal, idempotent success
-      if (e is FunctionException && e.status == 409) {
-        _debugPrint(
-            'ℹ️ Device already registered on backend (409), treating as success');
+      if (!_isCurrentAttempt(userId, attemptGeneration)) {
+        return DeviceRegistrationResult.unauthenticated;
+      }
 
-        try {
-          final userId = _supabase.auth.currentUser?.id;
-          final prefs = await SharedPreferences.getInstance();
-          final cachePrefix = 'device_reg:${userId ?? "anon"}:';
-          final now = DateTime.now();
-
-          await prefs.setString('${cachePrefix}token', pushToken);
-          await prefs.setString(
-              '${cachePrefix}registered_at', now.toIso8601String());
-        } catch (_) {
-          // Ignore cache errors here; registration is already valid on backend
+      _debugPrint('✅ Device registered successfully');
+      if (previousToken != null &&
+          previousToken.isNotEmpty &&
+          previousToken != pushToken) {
+        await _gateway.unregisterDevice(previousToken);
+        if (!_isCurrentAttempt(userId, attemptGeneration)) {
+          return DeviceRegistrationResult.unauthenticated;
         }
-
-        return;
       }
-
+      await prefs.setString('${cachePrefix}token', pushToken);
+      if (!_isCurrentAttempt(userId, attemptGeneration)) {
+        await _clearRegistrationCacheForUser(prefs, userId);
+        return DeviceRegistrationResult.unauthenticated;
+      }
+      await prefs.setString(
+          '${cachePrefix}registered_at', now.toIso8601String());
+      if (!_isCurrentAttempt(userId, attemptGeneration)) {
+        await _clearRegistrationCacheForUser(prefs, userId);
+        return DeviceRegistrationResult.unauthenticated;
+      }
+      return DeviceRegistrationResult.registered;
+    } catch (_) {
       _debugPrint('❌ Error registering device');
+      return DeviceRegistrationResult.failed;
     }
+  }
+
+  void _enqueueTokenRefresh(String pushToken) {
+    if (!_acceptTokenRefreshes) return;
+    final userId = _gateway.currentUserId;
+    final generation = _lifecycleGeneration;
+    if (userId == null || !_isCurrentAttempt(userId, generation)) return;
+
+    _tokenRefreshQueue = _tokenRefreshQueue
+        .then(
+          (_) => _registerRefreshedToken(
+            pushToken,
+            expectedUserId: userId,
+            generation: generation,
+          ),
+        )
+        .catchError((_) {});
+  }
+
+  Future<void> _registerRefreshedToken(
+    String pushToken, {
+    required String expectedUserId,
+    required int generation,
+  }) async {
+    final pendingInitialization = _initializationFuture;
+    if (pendingInitialization != null) {
+      await pendingInitialization;
+    }
+    if (!_isCurrentAttempt(expectedUserId, generation)) return;
+
+    final result = await registerDevice(
+      pushToken,
+      expectedUserId: expectedUserId,
+      generation: generation,
+    );
+    if (result == DeviceRegistrationResult.registered &&
+        _isCurrentAttempt(expectedUserId, generation)) {
+      _initialized = true;
+      _initializedUserId = expectedUserId;
+    }
+  }
+
+  Future<DeviceRegistrationResult> repairDeviceRegistration() {
+    return initialize(force: true, bypassPromptGate: true);
   }
 
   /// Handle foreground messages (app is open)
@@ -573,7 +810,7 @@ class DeviceRegistrationService {
   /// Check if device is registered with backend (checks cache and token existence)
   Future<bool> isRegistered() async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = _gateway.currentUserId;
       if (userId == null) return false;
 
       final prefs = await SharedPreferences.getInstance();
@@ -601,54 +838,67 @@ class DeviceRegistrationService {
     }
   }
 
-  /// Get device model
-  Future<String> _getDeviceModel() async {
-    if (Platform.isIOS) {
-      return 'iOS Device'; // You can use device_info_plus for actual model
-    } else if (Platform.isAndroid) {
-      return 'Android Device'; // You can use device_info_plus for actual model
-    }
-    return 'Unknown';
+  /// Unregister device (call on logout)
+  Future<void> unregisterDevice() {
+    final userId = _gateway.currentUserId;
+    final pendingInitialization = _invalidateLifecycle();
+    return _enqueueSessionCleanup(
+      () => _unregisterDevice(
+        userId: userId,
+        pendingInitialization: pendingInitialization,
+      ),
+    );
   }
 
-  /// Unregister device (call on logout)
-  Future<void> unregisterDevice() async {
+  Future<void> _unregisterDevice({
+    required String? userId,
+    required Future<DeviceRegistrationResult>? pendingInitialization,
+  }) async {
+    if (pendingInitialization != null) {
+      try {
+        await pendingInitialization;
+      } catch (_) {}
+    }
+    await _tokenRefreshQueue;
+
+    final prefs = await SharedPreferences.getInstance();
+    final cachePrefix = 'device_reg:${userId ?? "anon"}:';
+    if (userId != null && _hasDifferentActiveUser(userId)) {
+      await _clearRegistrationCacheForUser(prefs, userId);
+      return;
+    }
+
     try {
-      // If there's no session, just clear local cache and exit silently
-      if (_supabase.auth.currentSession == null) {
+      if (!_gateway.hasActiveSession) {
         _debugPrint(
             '⚠️ No active session during unregister; skipping backend call');
       }
-      // Get user ID before it's cleared by logout
-      final userId = _supabase.auth.currentUser?.id;
-      final prefs = await SharedPreferences.getInstance();
-      final cachePrefix = 'device_reg:${userId ?? "anon"}:';
 
       // Try to get token from cache first (more reliable than FCM during logout)
       String? token = prefs.getString('${cachePrefix}token');
 
       // Fallback to FCM token if cache is empty
       if (token == null || token.isEmpty) {
-        token = await _messaging.getToken();
+        try {
+          token = await _gateway.getToken();
+        } catch (_) {
+          _debugPrint('⚠️ Failed to read FCM token during unregister');
+        }
       }
 
       if (token != null && token.isNotEmpty) {
         _debugPrint('🗑️ Deleting device from backend...');
 
         // Call Edge Function to DELETE device row (not just mark inactive)
-        if (_supabase.auth.currentSession != null) {
-          final response = await _supabase.functions.invoke(
-            'households-register-device',
-            body: {
-              'platform': Platform.isIOS ? 'ios' : 'android',
-              'push_token': token,
-              'delete_device': true,
-            },
-          );
-
-          if (response.status == 200) {
-            _debugPrint('✅ Device deleted from backend successfully');
-          } else {
+        if (_gateway.hasActiveSession) {
+          try {
+            final deleted = await _gateway.unregisterDevice(token);
+            if (deleted) {
+              _debugPrint('✅ Device deleted from backend successfully');
+            } else {
+              _debugPrint('⚠️ Device deletion failed');
+            }
+          } catch (_) {
             _debugPrint('⚠️ Device deletion failed');
           }
         } else {
@@ -657,56 +907,125 @@ class DeviceRegistrationService {
       } else {
         _debugPrint('⚠️ No push token found to delete');
       }
-
-      // Always clear local cache, even if backend deletion fails
+    } catch (_) {
+      _debugPrint('❌ Error unregistering device');
+    } finally {
       try {
-        // Remove cached entries for current (or anon) prefix
-        await prefs.remove('${cachePrefix}token');
-        await prefs.remove('${cachePrefix}registered_at');
-
-        // Additionally, purge ALL device_reg caches to avoid cross-account residue
-        final keys = prefs.getKeys();
-        for (final k in keys.where((k) => k.startsWith('device_reg:'))) {
-          await prefs.remove(k);
+        if (userId == null) {
+          await prefs.remove('${cachePrefix}token');
+          await prefs.remove('${cachePrefix}registered_at');
+        } else {
+          await _clearRegistrationCacheForUser(prefs, userId);
         }
-        _debugPrint('✅ Local device cache cleared (all prefixes)');
-      } catch (e) {
+      } catch (_) {
         _debugPrint('⚠️ Failed to clear local device cache');
       }
 
-      // Force FCM to drop the current token so next login fetches a fresh one
-      try {
-        await _messaging.deleteToken();
-        _debugPrint('🗑️ FCM token deleted locally');
-      } catch (e) {
-        _debugPrint('⚠️ Failed to delete FCM token locally');
-      }
-
-      // Ensure service can re-initialize cleanly on next login
-      _initialized = false;
-    } catch (e) {
-      if (e is FunctionException && e.status == 401) {
-        _debugPrint(
-            '⚠️ Unregister skipped: session unauthorized (likely logged out)');
-      } else {
-        _debugPrint('❌ Error unregistering device');
-      }
-
-      // Still try to clear cache even if deletion failed
-      try {
-        final userId = _supabase.auth.currentUser?.id;
-        final prefs = await SharedPreferences.getInstance();
-        final cachePrefix = 'device_reg:${userId ?? "anon"}:';
-        await prefs.remove('${cachePrefix}token');
-        await prefs.remove('${cachePrefix}registered_at');
-        final keys = prefs.getKeys();
-        for (final k in keys.where((k) => k.startsWith('device_reg:'))) {
-          await prefs.remove(k);
+      if (userId == null || !_hasDifferentActiveUser(userId)) {
+        try {
+          await _gateway.deleteToken();
+          _debugPrint('🗑️ FCM token deleted locally');
+        } catch (_) {
+          _debugPrint('⚠️ Failed to delete FCM token locally');
         }
-      } catch (_) {
-        // Ignore cache clearing errors
+
+        await clearAllNotifications();
+
+        _initialized = false;
+        _initializedUserId = null;
+        _initializationFuture = null;
       }
     }
+  }
+
+  Future<void> handleSessionEnded({required String userId}) {
+    final pendingInitialization =
+        _hasDifferentActiveUser(userId) ? null : _invalidateLifecycle();
+    return _enqueueSessionCleanup(
+      () => _handleSessionEnded(
+        userId: userId,
+        pendingInitialization: pendingInitialization,
+      ),
+    );
+  }
+
+  Future<void> _handleSessionEnded({
+    required String userId,
+    required Future<DeviceRegistrationResult>? pendingInitialization,
+  }) async {
+    if (_hasDifferentActiveUser(userId)) {
+      final prefs = await SharedPreferences.getInstance();
+      await _clearRegistrationCacheForUser(prefs, userId);
+      return;
+    }
+
+    if (pendingInitialization != null) {
+      try {
+        await pendingInitialization;
+      } catch (_) {}
+    }
+    await _tokenRefreshQueue;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _clearRegistrationCacheForUser(prefs, userId);
+    } catch (_) {
+      _debugPrint('⚠️ Failed to clear device cache after session ended');
+    }
+
+    if (_hasDifferentActiveUser(userId)) return;
+
+    try {
+      await _gateway.deleteToken();
+    } catch (_) {
+      _debugPrint('⚠️ Failed to delete FCM token after session ended');
+    }
+
+    await clearAllNotifications();
+
+    _initialized = false;
+    _initializedUserId = null;
+    _initializationFuture = null;
+  }
+
+  Future<void> _enqueueSessionCleanup(Future<void> Function() action) {
+    final previousCleanup = _sessionCleanupFuture ?? Future<void>.value();
+    final ready = previousCleanup.then<void>(
+      (_) {},
+      onError: (_, __) {},
+    );
+    late final Future<void> cleanup;
+    cleanup = ready.then((_) => action()).whenComplete(() {
+      if (identical(_sessionCleanupFuture, cleanup)) {
+        _sessionCleanupFuture = null;
+      }
+    });
+    _sessionCleanupFuture = cleanup;
+    return cleanup;
+  }
+
+  Future<DeviceRegistrationResult>? _invalidateLifecycle() {
+    _lifecycleGeneration += 1;
+    _initialized = false;
+    _initializedUserId = null;
+    _acceptTokenRefreshes = false;
+    return _initializationFuture;
+  }
+
+  bool _hasDifferentActiveUser(String endedUserId) {
+    final activeUserId = _gateway.currentUserId;
+    return _gateway.hasActiveSession &&
+        activeUserId != null &&
+        activeUserId.isNotEmpty &&
+        activeUserId != endedUserId;
+  }
+
+  Future<void> _clearRegistrationCacheForUser(
+    SharedPreferences prefs,
+    String userId,
+  ) async {
+    await prefs.remove('device_reg:$userId:token');
+    await prefs.remove('device_reg:$userId:registered_at');
   }
 
   Future<void> clearAllNotifications() async {
