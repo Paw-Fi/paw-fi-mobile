@@ -10,6 +10,8 @@ void main() {
   WalletEntity wallet({
     required String id,
     required int opening,
+    int? current,
+    bool hasProviderBalance = false,
     bool isDefault = false,
     bool isSystem = false,
     bool excludeFromAnalytics = false,
@@ -26,7 +28,8 @@ void main() {
       isDefault: isDefault,
       isSystem: isSystem,
       isArchived: false,
-      currentBalanceCents: opening,
+      currentBalanceCents: current ?? opening,
+      hasProviderBalance: hasProviderBalance,
       excludeFromAnalytics: excludeFromAnalytics,
     );
   }
@@ -95,6 +98,161 @@ void main() {
     expect(snapshot.totalSpentCents, 2000);
     expect(snapshot.walletBalances['w1'], 13000);
     expect(snapshot.netWorthCents, 13000);
+  });
+
+  test('current snapshot preserves an authoritative provider zero', () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [
+        wallet(
+          id: 'paypal',
+          opening: 0,
+          current: 0,
+          hasProviderBalance: true,
+        ),
+      ],
+      transactions: [
+        tx(
+          id: 'income',
+          date: DateTime(2026, 9, 1),
+          cents: 8988000,
+          type: 'income',
+          walletId: 'paypal',
+        ),
+        tx(
+          id: 'expense',
+          date: DateTime(2026, 9, 2),
+          cents: 2018876,
+          type: 'expense',
+          walletId: 'paypal',
+        ),
+      ],
+      endExclusive: DateTime(2026, 10, 1),
+      useAuthoritativeCurrentBalances: true,
+    );
+
+    expect(snapshot.walletBalances['paypal'], 0);
+  });
+
+  test('PayPal ledger fallback adds income and subtracts expenses', () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [wallet(id: 'paypal', opening: 0)],
+      transactions: [
+        tx(
+          id: 'income',
+          date: DateTime(2026, 9, 1),
+          cents: 8988000,
+          type: 'income',
+          walletId: 'paypal',
+        ),
+        tx(
+          id: 'expense',
+          date: DateTime(2026, 9, 2),
+          cents: 2018876,
+          type: 'expense',
+          walletId: 'paypal',
+        ),
+      ],
+      endExclusive: DateTime(2026, 10, 1),
+    );
+
+    expect(snapshot.walletBalances['paypal'], 6969124);
+    expect(snapshot.walletBalances['paypal'], isNot(-6969124));
+  });
+
+  test('current provider balance applies an optimistic create once', () {
+    final optimistic = tx(
+      id: 'optimistic_create',
+      date: DateTime(2026, 9, 3),
+      cents: 1500,
+      type: 'expense',
+      walletId: 'paypal',
+    );
+    final snapshot = buildWalletSnapshot(
+      wallets: [
+        wallet(
+          id: 'paypal',
+          opening: 0,
+          current: 0,
+          hasProviderBalance: true,
+        ),
+      ],
+      transactions: [optimistic],
+      endExclusive: DateTime(2026, 10, 1),
+      useAuthoritativeCurrentBalances: true,
+      authoritativeBalancePendingTransactions: [optimistic],
+    );
+
+    expect(snapshot.walletBalances['paypal'], -1500);
+  });
+
+  test('current snapshot preserves signed provider balances exactly once', () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [
+        wallet(
+          id: 'positive',
+          opening: 1000,
+          current: 2500,
+          hasProviderBalance: true,
+        ),
+        wallet(
+          id: 'credit',
+          opening: 0,
+          current: -4200,
+          hasProviderBalance: true,
+        ),
+      ],
+      transactions: const [],
+      endExclusive: DateTime(2026, 10, 1),
+      useAuthoritativeCurrentBalances: true,
+    );
+
+    expect(snapshot.walletBalances['positive'], 2500);
+    expect(snapshot.walletBalances['credit'], -4200);
+    expect(snapshot.netWorthCents, -1700);
+  });
+
+  test('absent provider balance keeps manual ledger reconstruction', () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [wallet(id: 'manual', opening: 10000, current: 90000)],
+      transactions: [
+        tx(
+          id: 'expense',
+          date: DateTime(2026, 9, 2),
+          cents: 2500,
+          type: 'expense',
+          walletId: 'manual',
+        ),
+      ],
+      endExclusive: DateTime(2026, 10, 1),
+      useAuthoritativeCurrentBalances: true,
+    );
+
+    expect(snapshot.walletBalances['manual'], 7500);
+  });
+
+  test('historical snapshot never reuses a current provider balance', () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [
+        wallet(
+          id: 'paypal',
+          opening: 10000,
+          current: 0,
+          hasProviderBalance: true,
+        ),
+      ],
+      transactions: [
+        tx(
+          id: 'historical-expense',
+          date: DateTime(2026, 8, 2),
+          cents: 2500,
+          type: 'expense',
+          walletId: 'paypal',
+        ),
+      ],
+      endExclusive: DateTime(2026, 9, 1),
+    );
+
+    expect(snapshot.walletBalances['paypal'], 7500);
   });
 
   test(

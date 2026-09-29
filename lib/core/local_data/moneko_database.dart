@@ -2210,6 +2210,23 @@ class MonekoDatabase {
               AND entity_id = local_transactions.id
               AND status IN (?, ?, ?)
           )
+          OR EXISTS (
+            SELECT 1
+            FROM local_mutation_outbox
+            JOIN json_each(
+              CASE
+                WHEN json_valid(local_mutation_outbox.payload_json)
+                  THEN local_mutation_outbox.payload_json
+                ELSE '{}'
+              END,
+              '\$.transactionIds'
+            ) AS batch_member
+              ON batch_member.value = local_transactions.id
+            WHERE entity_type = 'transaction'
+              AND operation = 'batch_update_transaction'
+              AND client_mutation_id = local_transactions.client_mutation_id
+              AND status IN (?, ?, ?)
+          )
         )
       ORDER BY date DESC, created_at DESC
       LIMIT ?
@@ -2218,6 +2235,9 @@ class MonekoDatabase {
         scope,
         localSyncStatusFailed,
         localSyncStatusLocal,
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
         localMutationStatusQueued,
         localMutationStatusSyncing,
         localMutationStatusFailed,
@@ -5327,6 +5347,23 @@ _LocalFeedFilter _localFeedFilter(
           AND entity_id = local_transactions.id
           AND status IN (?, ?, ?)
       )
+      OR EXISTS (
+        SELECT 1
+        FROM local_mutation_outbox
+        JOIN json_each(
+          CASE
+            WHEN json_valid(local_mutation_outbox.payload_json)
+              THEN local_mutation_outbox.payload_json
+            ELSE '{}'
+          END,
+          '\$.transactionIds'
+        ) AS batch_member
+          ON batch_member.value = local_transactions.id
+        WHERE entity_type = 'transaction'
+          AND operation = 'batch_update_transaction'
+          AND client_mutation_id = local_transactions.client_mutation_id
+          AND status IN (?, ?, ?)
+      )
       OR (
         id LIKE 'transfer:%'
         AND EXISTS (
@@ -5343,6 +5380,9 @@ _LocalFeedFilter _localFeedFilter(
   final args = <Object?>[
     localScopeKey(userId: query.userId, householdId: query.householdId),
     localSyncStatusLocal,
+    localMutationStatusQueued,
+    localMutationStatusSyncing,
+    localMutationStatusFailed,
     localMutationStatusQueued,
     localMutationStatusSyncing,
     localMutationStatusFailed,

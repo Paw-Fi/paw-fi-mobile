@@ -17,6 +17,7 @@ void main() {
       isSystem: false,
       isArchived: false,
       currentBalanceCents: 1000,
+      hasProviderBalance: true,
       excludeFromAnalytics: true,
     );
 
@@ -27,6 +28,8 @@ void main() {
     expect(parsed.logoUrl, 'https://example.com/wallet.jpg');
     expect(json['exclude_from_analytics'], isTrue);
     expect(parsed.excludeFromAnalytics, isTrue);
+    expect(json['has_provider_balance'], isTrue);
+    expect(parsed.hasProviderBalance, isTrue);
   });
 
   test('WalletEntity defaults analytics exclusion to false', () {
@@ -37,6 +40,7 @@ void main() {
     });
 
     expect(wallet.excludeFromAnalytics, isFalse);
+    expect(wallet.hasProviderBalance, isFalse);
   });
 
   test('WalletEntity copyWith can replace logoUrl', () {

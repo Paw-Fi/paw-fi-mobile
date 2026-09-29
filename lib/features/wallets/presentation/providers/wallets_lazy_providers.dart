@@ -151,12 +151,26 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       query,
       endInclusive: endInclusive,
     );
+    final pendingTransactions = await _loadPendingLocalWalletTransactions(
+      ref,
+      query,
+      endInclusive: endInclusive,
+      inMemoryOptimisticTransactions: const <ExpenseEntry>[],
+    );
     final availableMonths = buildWalletAvailableMonths(
       now: now,
       transactions: recurringAwareData.transactions,
       financialMonthStartDay: query.financialMonthStartDay,
     );
     final netWorthSeries = availableMonths.reversed.map((monthStart) {
+      final isCurrentCycle = normalizeWalletMonthStart(
+            monthStart,
+            financialMonthStartDay: query.financialMonthStartDay,
+          ) ==
+          financialCycleStartForDate(
+            now,
+            startDay: query.financialMonthStartDay,
+          );
       final snapshot = buildWalletSnapshot(
         wallets: recurringAwareData.wallets,
         transactions: recurringAwareData.transactions,
@@ -167,6 +181,8 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
         ),
         targetCurrency: query.selectedCurrency,
         rates: rates,
+        useAuthoritativeCurrentBalances: isCurrentCycle,
+        authoritativeBalancePendingTransactions: pendingTransactions,
       );
       return WalletNetWorthPoint(
         monthStart: monthStart,
@@ -195,6 +211,12 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       query.scope,
       endInclusive: endExclusive.subtract(const Duration(days: 1)),
     );
+    final pendingTransactions = await _loadPendingLocalWalletTransactions(
+      ref,
+      query.scope,
+      endInclusive: endExclusive.subtract(const Duration(days: 1)),
+      inMemoryOptimisticTransactions: const <ExpenseEntry>[],
+    );
     final snapshot = buildWalletSnapshot(
       wallets: recurringAwareData.wallets,
       transactions: recurringAwareData.transactions,
@@ -203,6 +225,15 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       periodEndExclusive: endExclusive,
       targetCurrency: query.scope.selectedCurrency,
       rates: rates,
+      useAuthoritativeCurrentBalances: normalizeWalletMonthStart(
+            query.monthStart,
+            financialMonthStartDay: query.scope.financialMonthStartDay,
+          ) ==
+          financialCycleStartForDate(
+            now,
+            startDay: query.scope.financialMonthStartDay,
+          ),
+      authoritativeBalancePendingTransactions: pendingTransactions,
     );
 
     return WalletsMonthSnapshot(
@@ -399,6 +430,8 @@ class WalletsPageStateNotifier
   static const _appendMonthBatchSize = 3;
 
   WalletsDataService get _service => ref.read(walletsDataServiceProvider);
+  bool get _serviceIncludesDatabasePending =>
+      _service is SupabaseWalletsDataService;
   bool get _isOffline =>
       ref.read(networkReachabilityProvider).valueOrNull == false;
 
@@ -440,8 +473,12 @@ class WalletsPageStateNotifier
           'visibleMonths': sessionState.visibleMonths.length,
           'snapshotCount': sessionState.cachedSnapshotsByMonth.length,
         });
-        final overlaidState =
-            await _overlayPendingLocalWalletPageState(sessionState);
+        final overlaidState = await _overlayPendingLocalWalletPageState(
+          sessionState,
+          inMemoryOptimisticTransactions:
+              _serviceIncludesDatabasePending ? const <ExpenseEntry>[] : null,
+          includeDatabasePending: !_serviceIncludesDatabasePending,
+        );
         if (!_isOffline && shouldScheduleBackgroundRefresh) {
           _scheduleBackgroundRefresh();
         }
@@ -540,8 +577,12 @@ class WalletsPageStateNotifier
     }
 
     final previousBase = basePrevious ?? previous;
-    final optimisticPrevious =
-        await _overlayPendingLocalWalletPageState(previousBase);
+    final optimisticPrevious = await _overlayPendingLocalWalletPageState(
+      previousBase,
+      inMemoryOptimisticTransactions:
+          _serviceIncludesDatabasePending ? const <ExpenseEntry>[] : null,
+      includeDatabasePending: !_serviceIncludesDatabasePending,
+    );
     state = AsyncData(optimisticPrevious.copyWith(isRefreshing: true));
 
     final trace = _createWalletsTrace(
@@ -591,8 +632,12 @@ class WalletsPageStateNotifier
         lastResolvedSelectedMonthStart: selectedMonth,
         isRefreshing: false,
       );
-      final overlaidRefreshedState =
-          await _overlayPendingLocalWalletPageState(refreshedState);
+      final overlaidRefreshedState = await _overlayPendingLocalWalletPageState(
+        refreshedState,
+        inMemoryOptimisticTransactions:
+            _serviceIncludesDatabasePending ? const <ExpenseEntry>[] : null,
+        includeDatabasePending: !_serviceIncludesDatabasePending,
+      );
       state = AsyncData(overlaidRefreshedState);
       _storePageState(refreshedState);
       trace.mark('refresh-success', {
@@ -732,6 +777,9 @@ class WalletsPageStateNotifier
     );
     final overlaidInitialState = await _overlayPendingLocalWalletPageState(
       initialState,
+      inMemoryOptimisticTransactions:
+          _serviceIncludesDatabasePending ? const <ExpenseEntry>[] : null,
+      includeDatabasePending: !_serviceIncludesDatabasePending,
     );
     _storePageState(initialState);
     trace.mark('initial-state-ready', {'snapshotCount': 1});
@@ -964,7 +1012,10 @@ class WalletsPageStateNotifier
             if (disposed) return;
             final overlaidState = await _overlayPendingLocalWalletPageState(
               baseState,
-              inMemoryOptimisticTransactions: next,
+              inMemoryOptimisticTransactions: _serviceIncludesDatabasePending
+                  ? const <ExpenseEntry>[]
+                  : next,
+              includeDatabasePending: !_serviceIncludesDatabasePending,
             );
             if (disposed ||
                 walletsPageStateCacheKey(_query) != expectedCacheKey) {
@@ -1640,6 +1691,12 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
     final walletId = _resolvePendingWalletBalanceId(tx, walletBalances);
     final isExcludedFromAnalytics = walletId != null &&
         (walletsById[walletId]?.excludeFromAnalytics ?? false);
+    final hasAuthoritativeProviderBalance = walletId != null &&
+        (walletsById[walletId]?.hasProviderBalance ?? false);
+    final isOptimisticCreate = tx.id.trim().startsWith('optimistic_');
+    if (hasAuthoritativeProviderBalance && !isOptimisticCreate) {
+      continue;
+    }
     if (walletId != null) {
       walletBalances[walletId] =
           (walletBalances[walletId] ?? 0) + localDeltaCents;

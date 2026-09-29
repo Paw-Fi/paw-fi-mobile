@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/models/bank_account.dart';
 import 'package:moneko/features/home/presentation/models/bank_connection.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
@@ -119,6 +120,11 @@ class WalletDetailsPage extends HookConsumerWidget {
     final linkedBankAccountId = latestWallet.linkedBankAccountId?.trim();
     final hasLinkedBankAccount =
         linkedBankAccountId != null && linkedBankAccountId.isNotEmpty;
+    final bankDataState = resolveWalletBankDataState(
+      hasLinkedBankAccount: hasLinkedBankAccount,
+      bankAccountsAsync: bankAccountsAsync,
+      bankConnectionsAsync: bankConnectionsAsync,
+    );
     final linkedBankAccount = hasLinkedBankAccount
         ? _findLinkedBankAccount(
             bankAccountsAsync.valueOrNull ?? const <BankAccount>[],
@@ -149,19 +155,20 @@ class WalletDetailsPage extends HookConsumerWidget {
     final nowUtc = DateTime.now().toUtc();
     final latestSuccessfulSyncAt =
         _latestSuccessfulSyncAt(walletPlaidConnections);
-    final bankSyncStatusLabel = !hasLinkedBankAccount
-        ? null
-        : bankAccountsAsync.isLoading && !bankAccountsAsync.hasValue
-            ? context.l10n.checkingBankSync
-            : _bankSyncStatusLabel(
-                context: context,
-                nowUtc: nowUtc,
-                bankConnectionsAsync: bankConnectionsAsync,
-                hasScopedPlaidConnections: hasPlaidConnections,
-                hasPendingRemoval: hasPendingPlaidRemoval,
-                actionConnections: scopedPlaidActionConnections,
-                latestSuccessfulSyncAt: latestSuccessfulSyncAt,
-              );
+    final bankSyncStatusLabel = switch (bankDataState) {
+      WalletBankDataState.notLinked => null,
+      WalletBankDataState.loading => context.l10n.checkingBankSync,
+      WalletBankDataState.unavailable => context.l10n.bankSyncStatusUnavailable,
+      WalletBankDataState.ready => _bankSyncStatusLabel(
+          context: context,
+          nowUtc: nowUtc,
+          bankConnectionsAsync: bankConnectionsAsync,
+          hasScopedPlaidConnections: hasPlaidConnections,
+          hasPendingRemoval: hasPendingPlaidRemoval,
+          actionConnections: scopedPlaidActionConnections,
+          latestSuccessfulSyncAt: latestSuccessfulSyncAt,
+        ),
+    };
     final currencyScopedAccounts = ref
             .watch(walletsByCurrencyProvider(WalletsCurrencyQuery(
               householdId: effectiveHouseholdId,
@@ -172,6 +179,17 @@ class WalletDetailsPage extends HookConsumerWidget {
     final currentMonthStart = financialCycleStartForDate(
       userNow,
       startDay: financialMonthStartDay,
+    );
+    final nativeWalletScopeQuery = WalletsScopeQuery(
+      userId: currentUserId,
+      householdId: effectiveHouseholdId,
+      selectedCurrency: walletCurrencyCode,
+      selectedCurrencies: <String>[walletCurrencyCode],
+      currentMonthStart: currentMonthStart,
+      financialMonthStartDay: financialMonthStartDay,
+    );
+    final currentWalletPageState = ref.watch(
+      walletsPageStateProvider(nativeWalletScopeQuery),
     );
     final walletFeedQuery = TransactionsFeedQuery(
       userId: currentUserId,
@@ -375,7 +393,8 @@ class WalletDetailsPage extends HookConsumerWidget {
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-    final currentBalanceCents = walletBalanceActualTransactions == null
+    final reconstructedCurrentBalanceCents = walletBalanceActualTransactions ==
+            null
         ? latestWallet.currentBalanceCents
         : buildWalletSnapshot(
               wallets: <WalletEntity>[latestWallet],
@@ -390,6 +409,16 @@ class WalletDetailsPage extends HookConsumerWidget {
               ),
             ).walletBalances[latestWallet.id] ??
             latestWallet.currentBalanceCents;
+    final currentBalanceCents = latestWallet.hasProviderBalance
+        ? currentWalletPageState
+                .valueOrNull
+                ?.cachedSnapshotsByMonth[normalizeWalletMonthStart(
+              currentMonthStart,
+              financialMonthStartDay: financialMonthStartDay,
+            )]
+                ?.walletBalances[latestWallet.id] ??
+            latestWallet.currentBalanceCents
+        : reconstructedCurrentBalanceCents;
     // CRITICAL: the "this month" stat cards must include the same projected
     // recurring rows shown in the transaction list and wallet balance logic.
     // STRICT REQUIREMENT: do not switch these totals back to the raw monthFeed
@@ -434,6 +463,15 @@ class WalletDetailsPage extends HookConsumerWidget {
     }
 
     Future<void> onReviewBankAction() async {
+      if (bankDataState != WalletBankDataState.ready) {
+        AppToast.info(
+          context,
+          bankDataState == WalletBankDataState.unavailable
+              ? context.l10n.bankSyncStatusUnavailable
+              : context.l10n.checkingBankConnectionStatusTryAgain,
+        );
+        return;
+      }
       final selectedConnection = await _selectPlaidActionConnection(
         context,
         scopedPlaidActionConnections,
@@ -458,10 +496,12 @@ class WalletDetailsPage extends HookConsumerWidget {
     }
 
     Future<void> onManualBankSync() async {
-      if (bankConnectionsAsync.isLoading && !bankConnectionsAsync.hasValue) {
+      if (bankDataState != WalletBankDataState.ready) {
         AppToast.info(
           context,
-          context.l10n.checkingBankConnectionStatusTryAgain,
+          bankDataState == WalletBankDataState.unavailable
+              ? context.l10n.bankSyncStatusUnavailable
+              : context.l10n.checkingBankConnectionStatusTryAgain,
         );
         return;
       }
@@ -914,7 +954,8 @@ class WalletDetailsPage extends HookConsumerWidget {
               : Icons.delete_outline_rounded,
           value: 'delete',
         ),
-      if (scopedPlaidActionConnections.isNotEmpty)
+      if (bankDataState == WalletBankDataState.ready &&
+          scopedPlaidActionConnections.isNotEmpty)
         AdaptivePopupMenuItem<String>(
           label: scopedPlaidActionConnections.every(
             (connection) => connection.hasNewAccountsAvailable,
@@ -926,7 +967,8 @@ class WalletDetailsPage extends HookConsumerWidget {
               : Icons.refresh_rounded,
           value: 'review_bank',
         ),
-      if (bankSyncStatusLabel != null)
+      if (bankDataState == WalletBankDataState.ready &&
+          bankSyncStatusLabel != null)
         AdaptivePopupMenuItem<String>(
           label: context.l10n.syncBank,
           icon: PlatformInfo.isIOS26OrHigher()
@@ -1106,7 +1148,9 @@ class WalletDetailsPage extends HookConsumerWidget {
                             if (hasBankSync)
                               _WalletBankSyncStatusPill(
                                 label: bankSyncStatusLabel,
-                                onSync: isManualSyncingState.value
+                                onSync: isManualSyncingState.value ||
+                                        bankDataState !=
+                                            WalletBankDataState.ready
                                     ? null
                                     : onManualBankSync,
                                 isSyncing: isManualSyncingState.value,
@@ -1440,6 +1484,7 @@ WalletEntity _copyAccount(
     isSystem: source.isSystem,
     isArchived: source.isArchived,
     currentBalanceCents: currentBalanceCents ?? source.currentBalanceCents,
+    hasProviderBalance: source.hasProviderBalance,
     linkedBankAccountId: source.linkedBankAccountId,
     excludeFromAnalytics: excludeFromAnalytics ?? source.excludeFromAnalytics,
   );
@@ -1715,6 +1760,23 @@ String? _bankSyncStatusLabel({
     return context.l10n.bankConnectedInitialSyncPending;
   }
   return _formatLastSyncLabel(context, nowUtc, latestSuccessfulSyncAt);
+}
+
+enum WalletBankDataState { notLinked, loading, unavailable, ready }
+
+WalletBankDataState resolveWalletBankDataState({
+  required bool hasLinkedBankAccount,
+  required AsyncValue<List<BankAccount>> bankAccountsAsync,
+  required AsyncValue<List<BankConnection>> bankConnectionsAsync,
+}) {
+  if (!hasLinkedBankAccount) return WalletBankDataState.notLinked;
+  if (!bankAccountsAsync.hasValue || !bankConnectionsAsync.hasValue) {
+    if (bankAccountsAsync.hasError || bankConnectionsAsync.hasError) {
+      return WalletBankDataState.unavailable;
+    }
+    return WalletBankDataState.loading;
+  }
+  return WalletBankDataState.ready;
 }
 
 String _bankConnectionDisplayName(

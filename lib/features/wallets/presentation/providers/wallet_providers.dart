@@ -322,7 +322,8 @@ bool _walletOverrideMatchesServer(
       optimistic.isDefault == server.isDefault &&
       optimistic.excludeFromAnalytics == server.excludeFromAnalytics &&
       optimistic.isArchived == server.isArchived &&
-      optimistic.currentBalanceCents == server.currentBalanceCents;
+      optimistic.currentBalanceCents == server.currentBalanceCents &&
+      optimistic.hasProviderBalance == server.hasProviderBalance;
 }
 
 bool _walletMatchesSelectedCurrencies(

@@ -209,7 +209,7 @@ void main() {
 
   test('wallet page state cache uses analytics-exclusion-aware version', () {
     expect(walletsPageStateCacheKey(buildScope()),
-        startsWith('wallets:page-state:v6:'));
+        startsWith('wallets:page-state:v7:'));
   });
 
   test('analytics exclusion change clears persisted wallet page state',
@@ -697,6 +697,108 @@ void main() {
     expect(finalState.displayedSnapshot?.netWorthCents, 8500);
     expect(finalState.displayedSnapshot?.spentTotalCents, 1500);
     expect(finalState.displayedSnapshot?.walletBalances['w1'], 8500);
+  });
+
+  test(
+      'provider balance ignores whole-row update overlay but includes pending create once',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final service = _StaleRefreshWalletsDataService();
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      walletsDataServiceProvider.overrideWithValue(service),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      householdScopeProvider.overrideWithValue(
+        const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: <String>{},
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final scope = buildScope();
+    container.read(walletsListSessionCacheProvider.notifier).state = {
+      walletsListCacheKey(
+        userId: scope.userId,
+        householdId: scope.householdId,
+        selectedCurrency: scope.selectedCurrency,
+        selectedCurrencies: scope.selectedCurrencies,
+        currentMonthStart: scope.currentMonthStart,
+      ): const [
+        WalletEntity(
+          id: 'w1',
+          userId: 'user-1',
+          householdId: null,
+          name: 'PayPal',
+          icon: 'wallet',
+          color: '#6B7280',
+          currency: 'USD',
+          openingBalanceCents: 0,
+          goalAmountCents: null,
+          isDefault: false,
+          isSystem: false,
+          isArchived: false,
+          currentBalanceCents: 10000,
+          hasProviderBalance: true,
+        ),
+      ],
+    };
+
+    final original = ExpenseEntry(
+      id: 'server-transaction',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 12),
+      amountCents: 1500,
+      currency: 'USD',
+      category: 'food',
+      createdAt: DateTime.utc(2026, 4, 12, 10),
+      type: 'expense',
+      walletId: 'w1',
+      merchant: 'Original',
+    );
+    await database.upsertTransactions([original]);
+    await database.writeOptimisticTransactionUpdate(
+      originalEntry: original,
+      updatedEntry: original.copyWith(merchant: 'Updated'),
+      clientMutationId: 'merchant-update',
+      payload: const {
+        'expenseId': 'server-transaction',
+        'updates': {'merchant': 'Updated'},
+      },
+    );
+
+    final provider = walletsPageStateProvider(scope);
+    var state = await container.read(provider.future);
+    expect(state.displayedSnapshot?.walletBalances['w1'], 10000);
+    expect(state.displayedSnapshot?.spentTotalCents, 0);
+
+    await database.writeOptimisticTransaction(
+      entry: ExpenseEntry(
+        id: 'optimistic_create',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 13),
+        amountCents: 1500,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 13, 10),
+        type: 'expense',
+        walletId: 'w1',
+      ),
+      clientMutationId: 'pending-create',
+      operation: 'create',
+      payload: const {'id': 'optimistic_create'},
+    );
+    container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    container.invalidate(provider);
+    state = await container.read(provider.future);
+
+    expect(state.displayedSnapshot?.walletBalances['w1'], 8500);
+    expect(state.displayedSnapshot?.spentTotalCents, 1500);
   });
 
   test(

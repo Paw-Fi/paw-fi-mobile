@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -1544,6 +1545,183 @@ void main() {
         first.id: first.merchant,
         second.id: second.merchant,
       });
+    });
+
+    test('queued batch update members remain visible in local feeds', () async {
+      final first = _entry(
+        id: '4d055fac-88b0-4750-b606-92f37c008975',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      final second = _entry(
+        id: '5d055fac-88b0-4750-b606-92f37c008976',
+        userId: 'user_1',
+        amountCents: 1800,
+      );
+      await database.upsertTransactions([first, second]);
+      await database.writeOptimisticTransactionBatchUpdate(
+        originalEntries: [first, second],
+        updatedEntries: [
+          first.copyWith(merchant: 'Tesco'),
+          second.copyWith(merchant: 'Tesco'),
+        ],
+        clientMutationId: 'mobile:merchant_batch_visible',
+        payload: {
+          'transactionIds': [first.id, second.id],
+          'updates': const {'merchant': 'Tesco'},
+        },
+      );
+
+      final recent = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      final feed = await database.getTransactionsFeedItems(
+        const LocalTransactionsFeedQuery(
+          userId: 'user_1',
+          householdId: null,
+          currency: 'EUR',
+          pageSize: 20,
+        ),
+      );
+
+      expect(recent.map((entry) => entry.id).toSet(), {first.id, second.id});
+      expect(feed.map((entry) => entry.id).toSet(), {first.id, second.id});
+      expect(recent.every((entry) => entry.merchant == 'Tesco'), isTrue);
+    });
+
+    test('queued batch update does not expose an unlisted local row', () async {
+      final included = _entry(
+        id: '4d055fac-88b0-4750-b606-92f37c008975',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      final unlisted = _entry(
+        id: '5d055fac-88b0-4750-b606-92f37c008976',
+        userId: 'user_1',
+        amountCents: 1800,
+      );
+      await database.upsertTransactions([included, unlisted]);
+      await database.writeOptimisticTransactionBatchUpdate(
+        originalEntries: [included, unlisted],
+        updatedEntries: [
+          included.copyWith(merchant: 'Tesco'),
+          unlisted.copyWith(merchant: 'Tesco'),
+        ],
+        clientMutationId: 'mobile:merchant_batch_membership',
+        payload: {
+          'transactionIds': [included.id],
+          'updates': const {'merchant': 'Tesco'},
+        },
+      );
+
+      final recent = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+
+      expect(recent.map((entry) => entry.id), [included.id]);
+    });
+
+    test('queued batch update members remain visible after restart', () async {
+      final directory = Directory.systemTemp.createTempSync(
+        'moneko_batch_visibility_',
+      );
+      final path = '${directory.path}/moneko.sqlite';
+      MonekoDatabase? diskDatabase;
+      try {
+        diskDatabase = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path),
+        );
+        final first = _entry(
+          id: '4d055fac-88b0-4750-b606-92f37c008975',
+          userId: 'user_1',
+          amountCents: 1200,
+        );
+        final second = _entry(
+          id: '5d055fac-88b0-4750-b606-92f37c008976',
+          userId: 'user_1',
+          amountCents: 1800,
+        );
+        await diskDatabase.upsertTransactions([first, second]);
+        await diskDatabase.writeOptimisticTransactionBatchUpdate(
+          originalEntries: [first, second],
+          updatedEntries: [
+            first.copyWith(merchant: 'Tesco'),
+            second.copyWith(merchant: 'Tesco'),
+          ],
+          clientMutationId: 'mobile:merchant_batch_restart',
+          payload: {
+            'transactionIds': [first.id, second.id],
+            'updates': const {'merchant': 'Tesco'},
+          },
+        );
+        await diskDatabase.close();
+        diskDatabase = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path),
+        );
+
+        final rows = await diskDatabase.getRecentTransactions(
+          userId: 'user_1',
+          householdId: null,
+          limit: 20,
+        );
+
+        expect(rows.map((entry) => entry.id).toSet(), {first.id, second.id});
+        expect(rows.every((entry) => entry.merchant == 'Tesco'), isTrue);
+      } finally {
+        await diskDatabase?.close();
+        directory.deleteSync(recursive: true);
+      }
+    });
+
+    test('older batch rollback cannot overwrite a newer individual edit',
+        () async {
+      final original = _entry(
+        id: '4d055fac-88b0-4750-b606-92f37c008975',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      await database.upsertTransactions([original]);
+      final batchUpdated = original.copyWith(merchant: 'Tesco');
+      await database.writeOptimisticTransactionBatchUpdate(
+        originalEntries: [original],
+        updatedEntries: [batchUpdated],
+        clientMutationId: 'mobile:merchant_batch_old',
+        payload: {
+          'transactionIds': [original.id],
+          'updates': const {'merchant': 'Tesco'},
+        },
+      );
+      final individuallyUpdated = batchUpdated.copyWith(merchant: 'Oura');
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: batchUpdated,
+        updatedEntry: individuallyUpdated,
+        clientMutationId: 'mobile:merchant_update_new',
+        payload: {
+          'expenseId': original.id,
+          'updates': const {'merchant': 'Oura'},
+        },
+      );
+
+      final oldBatch = (await database.getOutboxMutations()).firstWhere(
+        (mutation) => mutation.clientMutationId == 'mobile:merchant_batch_old',
+      );
+      await database.markMutationCancelled(
+        clientMutationId: oldBatch.clientMutationId,
+        error: 'older terminal rejection',
+      );
+      await database.markTransactionMutationExhausted(mutation: oldBatch);
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      expect(rows.single.merchant, 'Oura');
+      expect(rows.single.clientMutationId, 'mobile:merchant_update_new');
     });
 
     test('terminal unconfirm restores actual and recurring template', () async {

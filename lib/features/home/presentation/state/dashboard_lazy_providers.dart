@@ -797,6 +797,10 @@ bool _shouldReconcileDashboardTransactions(
     return true;
   }
 
+  if (!existingIsOptimistic) {
+    return false;
+  }
+
   return !key.startsWith('content:');
 }
 

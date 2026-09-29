@@ -13,6 +13,7 @@ class WalletEntity {
   final bool isSystem;
   final bool isArchived;
   final int currentBalanceCents;
+  final bool hasProviderBalance;
   final String? linkedBankAccountId;
   final bool excludeFromAnalytics;
 
@@ -31,6 +32,7 @@ class WalletEntity {
     required this.isSystem,
     required this.isArchived,
     required this.currentBalanceCents,
+    this.hasProviderBalance = false,
     this.linkedBankAccountId,
     this.excludeFromAnalytics = false,
   });
@@ -53,6 +55,7 @@ class WalletEntity {
       isArchived: json['is_archived'] == true,
       currentBalanceCents:
           (json['current_balance_cents'] as num?)?.round() ?? 0,
+      hasProviderBalance: json['has_provider_balance'] == true,
       linkedBankAccountId: _nullableTrimmedString(
         json['linked_bank_account_id'],
       ),
@@ -76,6 +79,7 @@ class WalletEntity {
       'is_system': isSystem,
       'is_archived': isArchived,
       'current_balance_cents': currentBalanceCents,
+      'has_provider_balance': hasProviderBalance,
       'linked_bank_account_id': linkedBankAccountId,
       'exclude_from_analytics': excludeFromAnalytics,
     };
@@ -97,6 +101,7 @@ class WalletEntity {
     bool? isSystem,
     bool? isArchived,
     int? currentBalanceCents,
+    bool? hasProviderBalance,
     String? linkedBankAccountId,
     bool? excludeFromAnalytics,
   }) {
@@ -115,6 +120,7 @@ class WalletEntity {
       isSystem: isSystem ?? this.isSystem,
       isArchived: isArchived ?? this.isArchived,
       currentBalanceCents: currentBalanceCents ?? this.currentBalanceCents,
+      hasProviderBalance: hasProviderBalance ?? this.hasProviderBalance,
       linkedBankAccountId: linkedBankAccountId ?? this.linkedBankAccountId,
       excludeFromAnalytics: excludeFromAnalytics ?? this.excludeFromAnalytics,
     );

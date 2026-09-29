@@ -92,6 +92,8 @@ WalletSnapshot buildWalletSnapshot({
   DateTime? periodEndExclusive,
   String? targetCurrency,
   CurrencyRateTable? rates,
+  bool useAuthoritativeCurrentBalances = false,
+  List<ExpenseEntry> authoritativeBalancePendingTransactions = const [],
 }) {
   final normalizedTargetCurrency = targetCurrency?.trim().toUpperCase();
   final rateTable = rates;
@@ -184,6 +186,34 @@ WalletSnapshot buildWalletSnapshot({
     final current = walletBalances[resolvedWalletId] ?? 0;
     walletBalances[resolvedWalletId] =
         isIncome ? current + amountCents : current - amountCents;
+  }
+
+  if (useAuthoritativeCurrentBalances) {
+    for (final wallet in wallets) {
+      if (!wallet.hasProviderBalance) continue;
+      walletBalances[wallet.id] = convertCents(
+        wallet.currentBalanceCents,
+        wallet.currency,
+      );
+    }
+    for (final transaction in authoritativeBalancePendingTransactions) {
+      if (!transaction.id.trim().startsWith('optimistic_')) continue;
+      final walletId = resolveTransactionWalletId(
+        transaction: transaction,
+        wallets: wallets,
+      );
+      final wallet = walletsById[walletId];
+      if (walletId == null || wallet?.hasProviderBalance != true) continue;
+      final amountCents = convertCents(
+        transaction.amountCents.abs(),
+        transaction.currency ?? wallet?.currency,
+      );
+      final current = walletBalances[walletId] ?? 0;
+      final isIncome =
+          (transaction.type ?? 'expense').toLowerCase() == 'income';
+      walletBalances[walletId] =
+          isIncome ? current + amountCents : current - amountCents;
+    }
   }
 
   var netWorthCents = 0;

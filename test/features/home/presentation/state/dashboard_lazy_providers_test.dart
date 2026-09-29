@@ -1170,4 +1170,35 @@ void main() {
 
     expect(merged.map((entry) => entry.id), ['server_1', 'server_2']);
   });
+
+  test(
+      'mergeDashboardTransactionsWithLocalOverlay keeps canonical batch rows sharing a mutation id',
+      () {
+    final date = DateTime(2026, 4, 3);
+    final query = buildQuery().copyWith(selectedCurrencies: const ['USD']);
+    final first = _entry(
+      'server_1',
+      date,
+      userId: 'user-1',
+      amountCents: 1299,
+      rawText: 'coffee',
+      clientMutationId: 'mobile:merchant_batch_1',
+    );
+    final second = _entry(
+      'server_2',
+      date,
+      userId: 'user-1',
+      amountCents: 1899,
+      rawText: 'groceries',
+      clientMutationId: 'mobile:merchant_batch_1',
+    );
+
+    final merged = mergeDashboardTransactionsWithLocalOverlay(
+      base: [second],
+      localOverlay: [first],
+      query: query,
+    );
+
+    expect(merged.map((entry) => entry.id), ['server_1', 'server_2']);
+  });
 }
