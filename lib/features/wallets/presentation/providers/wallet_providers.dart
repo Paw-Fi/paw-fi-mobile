@@ -796,6 +796,10 @@ class WalletActions {
           optimisticId: optimisticId,
           account: reconciledWallet,
         );
+        // The Shortcuts catalog reads a separate unfiltered wallet provider.
+        // Refresh it when the canonical ID replaces the optimistic wallet.
+        ref.invalidate(
+            shortcutDestinationWalletsByHouseholdIdProvider(householdId));
         if (!matchesOptimisticWallet) {
           _invalidateAll();
         }

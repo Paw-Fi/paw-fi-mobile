@@ -3572,6 +3572,11 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         self.handleAppendWalletCaptureDebugEntry(call: call, result: result)
       case SiriShortcutChannel.syncPendingWalletCaptures:
         self.handleSyncPendingWalletCaptures(result: result)
+      case "refreshDestinationCatalog":
+        if #available(iOS 17.0, *) {
+          MonekoAppShortcutsProvider.updateAppShortcutParameters()
+        }
+        result(nil)
       case "setWalletCaptureConfig":
         self.handleSetWalletCaptureConfig(call: call, result: result)
       case "getWalletCaptureConfig":

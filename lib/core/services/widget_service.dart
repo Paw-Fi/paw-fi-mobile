@@ -1,10 +1,13 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 
 class WidgetService {
   static const String _appGroupId = 'group.moneko.mobile';
+  static const MethodChannel _shortcutChannel =
+      MethodChannel('moneko/siri_shortcut_auth');
   static const String _androidWidgetName = 'MonekoWidgetProvider';
   static const String _iOSWidgetName = 'MonekoWidget';
   static const String _iOSTopCategoriesWidgetName = 'MonekoTopCategoriesWidget';
@@ -164,7 +167,9 @@ class WidgetService {
         'shortcut_destination_catalog_user_id',
         userId,
       );
-      // No need to update widget, just saving data for the intent to read
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        await _shortcutChannel.invokeMethod<void>('refreshDestinationCatalog');
+      }
     } catch (e) {
       debugPrint('Error saving config options: $e');
     }
