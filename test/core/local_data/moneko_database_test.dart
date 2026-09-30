@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 String _settlementSnapshotToken(String character) =>
@@ -1591,6 +1593,57 @@ void main() {
       expect(recent.every((entry) => entry.merchant == 'Tesco'), isTrue);
     });
 
+    test('pending create provenance comes from active outbox operations',
+        () async {
+      final create = _entry(
+        id: 'client-record-income-1',
+        userId: 'user_1',
+        amountCents: 2500,
+      );
+      final update = _entry(
+        id: '4d055fac-88b0-4750-b606-92f37c008975',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      await database.upsertTransactions([update]);
+      await database.writeOptimisticTransaction(
+        entry: create,
+        clientMutationId: 'mobile:create-income',
+        operation: 'create',
+        payload: const {'id': 'client-record-income-1'},
+      );
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: update,
+        updatedEntry: update.copyWith(merchant: 'Oura'),
+        clientMutationId: 'mobile:update-merchant',
+        payload: const {'expenseId': 'update-row'},
+      );
+
+      expect(
+        await database.getActiveTransactionCreateMutationIds(),
+        {'mobile:create-income'},
+      );
+      await database.markMutationSyncing('mobile:create-income');
+      expect(
+        await database.getActiveTransactionCreateMutationIds(),
+        {'mobile:create-income'},
+      );
+      await database.markMutationFailed(
+        clientMutationId: 'mobile:create-income',
+        error: 'offline',
+        retryAfter: DateTime.now().add(const Duration(minutes: 1)),
+      );
+      expect(
+        await database.getActiveTransactionCreateMutationIds(),
+        {'mobile:create-income'},
+      );
+      await database.markMutationCancelled(
+        clientMutationId: 'mobile:create-income',
+        error: 'terminal rejection',
+      );
+      expect(await database.getActiveTransactionCreateMutationIds(), isEmpty);
+    });
+
     test('queued batch update does not expose an unlisted local row', () async {
       final included = _entry(
         id: '4d055fac-88b0-4750-b606-92f37c008975',
@@ -1658,6 +1711,11 @@ void main() {
             'updates': const {'merchant': 'Tesco'},
           },
         );
+        await diskDatabase.markMutationFailed(
+          clientMutationId: 'mobile:merchant_batch_restart',
+          error: 'offline',
+          retryAfter: DateTime.now().add(const Duration(minutes: 1)),
+        );
         await diskDatabase.close();
         diskDatabase = MonekoDatabase.fromExistingDatabaseForTesting(
           sqlite.sqlite3.open(path),
@@ -1668,9 +1726,100 @@ void main() {
           householdId: null,
           limit: 20,
         );
+        final feed = await diskDatabase.getTransactionsFeedItems(
+          const LocalTransactionsFeedQuery(
+            userId: 'user_1',
+            householdId: null,
+            currency: 'EUR',
+            pageSize: 20,
+          ),
+        );
+        final dashboardRows = mergeDashboardTransactionsWithLocalOverlay(
+          base: const <ExpenseEntry>[],
+          localOverlay: rows,
+          query: const DashboardScopeQuery(
+            userId: 'user_1',
+            householdId: null,
+            selectedCurrency: 'EUR',
+            selectedCurrencies: <String>['EUR'],
+            startDate: null,
+            endDate: null,
+          ),
+        );
 
         expect(rows.map((entry) => entry.id).toSet(), {first.id, second.id});
+        expect(feed.map((entry) => entry.id).toSet(), {first.id, second.id});
+        expect(
+          dashboardRows.map((entry) => entry.id).toSet(),
+          {first.id, second.id},
+        );
         expect(rows.every((entry) => entry.merchant == 'Tesco'), isTrue);
+
+        await diskDatabase.markOptimisticTransactionBatchUpdateSynced(
+          entries: [
+            first.copyWith(
+              merchant: 'Tesco',
+              clientMutationId: 'mobile:merchant_batch_restart',
+            ),
+            second.copyWith(
+              merchant: 'Tesco',
+              clientMutationId: 'mobile:merchant_batch_restart',
+            ),
+          ],
+          clientMutationId: 'mobile:merchant_batch_restart',
+        );
+        await diskDatabase.close();
+        diskDatabase = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path),
+        );
+
+        final reconciled = await diskDatabase.getRecentTransactions(
+          userId: 'user_1',
+          householdId: null,
+          limit: 20,
+        );
+        final reconciledFeed = await diskDatabase.getTransactionsFeedItems(
+          const LocalTransactionsFeedQuery(
+            userId: 'user_1',
+            householdId: null,
+            currency: 'EUR',
+            pageSize: 20,
+          ),
+        );
+        final reconciledDashboard = mergeDashboardTransactionsWithLocalOverlay(
+          base: const <ExpenseEntry>[],
+          localOverlay: reconciled,
+          query: const DashboardScopeQuery(
+            userId: 'user_1',
+            householdId: null,
+            selectedCurrency: 'EUR',
+            selectedCurrencies: <String>['EUR'],
+            startDate: null,
+            endDate: null,
+          ),
+        );
+        expect(
+          reconciledDashboard.map((entry) => entry.id).toSet(),
+          {first.id, second.id},
+        );
+        expect(
+          reconciledFeed.map((entry) => entry.id).toSet(),
+          {first.id, second.id},
+        );
+        expect(
+          reconciledFeed.every((entry) => entry.merchant == 'Tesco'),
+          isTrue,
+        );
+        expect(
+          (await diskDatabase.getOutboxMutations())
+              .singleWhere(
+                (mutation) =>
+                    mutation.clientMutationId ==
+                    'mobile:merchant_batch_restart',
+              )
+              .status,
+          localMutationStatusSynced,
+        );
       } finally {
         await diskDatabase?.close();
         directory.deleteSync(recursive: true);

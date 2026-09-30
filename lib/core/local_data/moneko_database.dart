@@ -2643,6 +2643,29 @@ class MonekoDatabase {
         .toSet();
   }
 
+  Future<Set<String>> getActiveTransactionCreateMutationIds() async {
+    final rows = _db.select(
+      '''
+      SELECT client_mutation_id
+      FROM local_mutation_outbox
+      WHERE entity_type = 'transaction'
+        AND operation IN ('create', ?)
+        AND status IN (?, ?, ?)
+      ''',
+      [
+        localRecurringOccurrenceConfirmationMutationOperation,
+        localMutationStatusQueued,
+        localMutationStatusSyncing,
+        localMutationStatusFailed,
+      ],
+    );
+    return rows
+        .map((row) => row['client_mutation_id']?.toString().trim())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
   Future<bool> hasPendingTransactionUpdatesOrDeletes() async {
     final row = _db.select(
       '''
