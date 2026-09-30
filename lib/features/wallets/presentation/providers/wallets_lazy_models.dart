@@ -138,6 +138,7 @@ class WalletsMonthSnapshot {
     required this.spentTotalCents,
     required this.netWorthCents,
     required this.walletBalances,
+    this.appliedPendingTransactionKeys = const <String>{},
   });
 
   final DateTime monthStart;
@@ -146,6 +147,7 @@ class WalletsMonthSnapshot {
   final int spentTotalCents;
   final int netWorthCents;
   final Map<String, int> walletBalances;
+  final Set<String> appliedPendingTransactionKeys;
 
   factory WalletsMonthSnapshot.fromJson(Map<String, dynamic> json) {
     final balancesJson = (json['wallet_balances'] as List<dynamic>? ?? const [])
@@ -162,6 +164,12 @@ class WalletsMonthSnapshot {
       walletBalances: <String, int>{
         for (final row in balancesJson) row.walletId: row.balanceCents,
       },
+      appliedPendingTransactionKeys:
+          (json['applied_pending_transaction_keys'] as List<dynamic>? ??
+                  const <dynamic>[])
+              .map((value) => value.toString())
+              .where((value) => value.isNotEmpty)
+              .toSet(),
     );
   }
 
@@ -179,6 +187,8 @@ class WalletsMonthSnapshot {
             'balance_cents': entry.value,
           }
       ],
+      'applied_pending_transaction_keys':
+          appliedPendingTransactionKeys.toList(growable: false)..sort(),
     };
   }
 }
@@ -187,15 +197,23 @@ class WalletNetWorthPoint {
   const WalletNetWorthPoint({
     required this.monthStart,
     required this.netWorthCents,
+    this.appliedPendingTransactionKeys = const <String>{},
   });
 
   final DateTime monthStart;
   final int netWorthCents;
+  final Set<String> appliedPendingTransactionKeys;
 
   factory WalletNetWorthPoint.fromJson(Map<String, dynamic> json) {
     return WalletNetWorthPoint(
       monthStart: _toMonthDate(json['month_start']),
       netWorthCents: _toInt(json['net_worth_cents']),
+      appliedPendingTransactionKeys:
+          (json['applied_pending_transaction_keys'] as List<dynamic>? ??
+                  const <dynamic>[])
+              .map((value) => value.toString())
+              .where((value) => value.isNotEmpty)
+              .toSet(),
     );
   }
 
@@ -203,6 +221,8 @@ class WalletNetWorthPoint {
     return {
       'month_start': _formatDate(monthStart),
       'net_worth_cents': netWorthCents,
+      'applied_pending_transaction_keys':
+          appliedPendingTransactionKeys.toList(growable: false)..sort(),
     };
   }
 }

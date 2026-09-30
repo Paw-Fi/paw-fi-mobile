@@ -65,4 +65,29 @@ void main() {
     expect(updated.logoUrl, 'https://example.com/logo.jpg');
     expect(excluded.excludeFromAnalytics, isTrue);
   });
+
+  test('WalletEntity copyWith preserves provider authority and bank linkage',
+      () {
+    const wallet = WalletEntity(
+      id: 'wallet-1',
+      userId: 'user-1',
+      householdId: null,
+      name: 'PayPal',
+      icon: 'wallet',
+      color: '#6B7280',
+      openingBalanceCents: 0,
+      goalAmountCents: null,
+      isDefault: false,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 0,
+      hasProviderBalance: true,
+      linkedBankAccountId: 'bank-account-1',
+    );
+
+    final renamed = wallet.copyWith(name: 'PayPal balance');
+
+    expect(renamed.hasProviderBalance, isTrue);
+    expect(renamed.linkedBankAccountId, 'bank-account-1');
+  });
 }

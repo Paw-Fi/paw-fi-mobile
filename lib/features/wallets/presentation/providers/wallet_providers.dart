@@ -323,7 +323,8 @@ bool _walletOverrideMatchesServer(
       optimistic.excludeFromAnalytics == server.excludeFromAnalytics &&
       optimistic.isArchived == server.isArchived &&
       optimistic.currentBalanceCents == server.currentBalanceCents &&
-      optimistic.hasProviderBalance == server.hasProviderBalance;
+      optimistic.hasProviderBalance == server.hasProviderBalance &&
+      optimistic.linkedBankAccountId == server.linkedBankAccountId;
 }
 
 bool _walletMatchesSelectedCurrencies(
@@ -853,22 +854,17 @@ class WalletActions {
               nextOpeningBalanceCents: openingBalanceCents,
               currentBalanceCents: existingWallet.currentBalanceCents,
             );
-      setOptimisticWallet(WalletEntity(
-        id: existingWallet.id,
-        userId: existingWallet.userId,
-        householdId: existingWallet.householdId,
+      setOptimisticWallet(existingWallet.copyWith(
         name: name ?? existingWallet.name,
         icon: icon ?? existingWallet.icon,
         color: color ?? existingWallet.color,
-        logoUrl: includeLogoUrl ? logoUrl : existingWallet.logoUrl,
-        currency: existingWallet.currency,
+        logoUrl: includeLogoUrl ? logoUrl : null,
+        clearLogoUrl: includeLogoUrl && logoUrl == null,
         openingBalanceCents: nextOpeningBalanceCents,
         goalAmountCents: includeGoalAmount
             ? goalAmountCents
             : (goalAmountCents ?? existingWallet.goalAmountCents),
         isDefault: isDefault ?? existingWallet.isDefault,
-        isSystem: existingWallet.isSystem,
-        isArchived: existingWallet.isArchived,
         currentBalanceCents: nextCurrentBalanceCents,
         excludeFromAnalytics:
             excludeFromAnalytics ?? existingWallet.excludeFromAnalytics,
@@ -1452,21 +1448,8 @@ class WalletActions {
       return wallet.id == walletId;
     }).firstOrNull;
     if (existingWallet != null) {
-      setOptimisticWallet(WalletEntity(
-        id: existingWallet.id,
-        userId: existingWallet.userId,
-        householdId: existingWallet.householdId,
-        name: existingWallet.name,
-        icon: existingWallet.icon,
-        color: existingWallet.color,
-        currency: existingWallet.currency,
-        openingBalanceCents: existingWallet.openingBalanceCents,
-        goalAmountCents: existingWallet.goalAmountCents,
-        isDefault: existingWallet.isDefault,
-        isSystem: existingWallet.isSystem,
-        isArchived: existingWallet.isArchived,
+      setOptimisticWallet(existingWallet.copyWith(
         currentBalanceCents: targetBalanceCents,
-        excludeFromAnalytics: existingWallet.excludeFromAnalytics,
       ));
     }
     debugPrint(

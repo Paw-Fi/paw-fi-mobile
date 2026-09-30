@@ -185,6 +185,34 @@ void main() {
     expect(snapshot.walletBalances['paypal'], -1500);
   });
 
+  test(
+      'current provider balance applies a provenance-approved non-prefixed create',
+      () {
+    final pendingIncome = tx(
+      id: 'client-record-income-1',
+      date: DateTime(2026, 9, 3),
+      cents: 2500,
+      type: 'income',
+      walletId: 'paypal',
+    );
+    final snapshot = buildWalletSnapshot(
+      wallets: [
+        wallet(
+          id: 'paypal',
+          opening: 0,
+          current: 0,
+          hasProviderBalance: true,
+        ),
+      ],
+      transactions: [pendingIncome],
+      endExclusive: DateTime(2026, 10, 1),
+      useAuthoritativeCurrentBalances: true,
+      authoritativeBalancePendingTransactions: [pendingIncome],
+    );
+
+    expect(snapshot.walletBalances['paypal'], 2500);
+  });
+
   test('current snapshot preserves signed provider balances exactly once', () {
     final snapshot = buildWalletSnapshot(
       wallets: [

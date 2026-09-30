@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -31,6 +34,16 @@ class _RecordingTransactionsFeedService extends EmptyTransactionsFeedService {
     refreshCalls += 1;
     lastRefreshQuery = query;
   }
+}
+
+class _StaticTransactionsFeedService extends EmptyTransactionsFeedService {
+  const _StaticTransactionsFeedService(this.entries);
+
+  final List<ExpenseEntry> entries;
+
+  @override
+  Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async =>
+      entries;
 }
 
 class _FakeWalletsDataService implements WalletsDataService {
@@ -195,9 +208,108 @@ class _FakeWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
   }
 }
 
+WalletsPageState _cachedWalletState({
+  required DateTime monthStart,
+  required int balanceCents,
+  required int spentCents,
+  Set<String> appliedKeys = const <String>{},
+}) {
+  return WalletsPageState(
+    history: WalletsHistorySummary(
+      availableMonths: [monthStart],
+      netWorthSeries: [
+        WalletNetWorthPoint(
+          monthStart: monthStart,
+          netWorthCents: balanceCents,
+          appliedPendingTransactionKeys: appliedKeys,
+        ),
+      ],
+    ),
+    visibleMonths: [monthStart],
+    selectedMonthStart: monthStart,
+    cachedSnapshotsByMonth: {
+      monthStart: WalletsMonthSnapshot(
+        monthStart: monthStart,
+        monthEndExclusive: DateTime(monthStart.year, monthStart.month + 1, 1),
+        incomeTotalCents: 0,
+        spentTotalCents: spentCents,
+        netWorthCents: balanceCents,
+        walletBalances: {'w1': balanceCents},
+        appliedPendingTransactionKeys: appliedKeys,
+      ),
+    },
+    loadingMonths: const <DateTime>{},
+    monthErrorsByMonth: const <DateTime, Object>{},
+    lastResolvedSelectedMonthStart: monthStart,
+  );
+}
+
+ProviderContainer _offlineWalletContainer(
+  MonekoDatabase database,
+  WalletsScopeQuery scope, {
+  WalletsPageState? sessionState,
+}) {
+  final container = ProviderContainer(overrides: [
+    appPreferredTimezoneProvider.overrideWith((ref) => null),
+    walletAuthHeadersProvider
+        .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+    networkReachabilityProvider.overrideWith((ref) => Stream.value(false)),
+    localDatabaseProvider.overrideWith((ref) async => database),
+    householdScopeProvider.overrideWithValue(
+      const HouseholdScope(
+        viewMode: ViewMode.personal,
+        selected: SelectedHouseholdState(),
+        portfolioHouseholdIds: <String>{},
+      ),
+    ),
+  ]);
+  container.read(walletsListSessionCacheProvider.notifier).state = {
+    walletsListCacheKey(
+      userId: scope.userId,
+      householdId: scope.householdId,
+      selectedCurrency: scope.selectedCurrency,
+      selectedCurrencies: scope.selectedCurrencies,
+      currentMonthStart: scope.currentMonthStart,
+    ): const [
+      WalletEntity(
+        id: 'w1',
+        userId: 'user-1',
+        householdId: null,
+        name: 'PayPal',
+        icon: 'wallet',
+        color: '#6B7280',
+        currency: 'USD',
+        openingBalanceCents: 10000,
+        goalAmountCents: null,
+        isDefault: false,
+        isSystem: false,
+        isArchived: false,
+        currentBalanceCents: 10000,
+        hasProviderBalance: true,
+      ),
+    ],
+  };
+  if (sessionState != null) {
+    container.read(walletsPageStateSessionCacheProvider.notifier).state = {
+      walletsPageStateCacheKey(scope): sessionState,
+    };
+  }
+  return container;
+}
+
 void main() {
-  setUpAll(() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
     registerFallbackValue(<String, dynamic>{});
+    try {
+      await Supabase.initialize(
+        url: 'http://localhost',
+        anonKey: 'test-anon-key',
+      );
+    } catch (_) {
+      // The singleton may already be initialized by another test file.
+    }
   });
 
   WalletsScopeQuery buildScope() => WalletsScopeQuery(
@@ -207,9 +319,114 @@ void main() {
         currentMonthStart: DateTime(2026, 4, 1),
       );
 
+  test('empty pending overlay does not wait for exchange rates', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final gate = Completer<CurrencyRateTable>();
+    var ratesRequested = false;
+    final service = _FakeWalletsDataService();
+    final container = ProviderContainer(overrides: [
+      localDatabaseProvider.overrideWith((ref) async => database),
+      currencyRateTableProvider.overrideWith((ref) {
+        ratesRequested = true;
+        return gate.future;
+      }),
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      walletsDataServiceProvider.overrideWithValue(service),
+      householdScopeProvider.overrideWithValue(const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: <String>{})),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(localDatabaseProvider.future);
+    final pending =
+        container.read(walletsPageStateProvider(buildScope()).future);
+    await pumpEventQueue(times: 8);
+    gate.complete(
+        const CurrencyRateTable(baseCurrency: 'USD', rates: {'USD': 1}));
+    await pending;
+    expect(ratesRequested, isFalse);
+  });
+
   test('wallet page state cache uses analytics-exclusion-aware version', () {
     expect(walletsPageStateCacheKey(buildScope()),
-        startsWith('wallets:page-state:v7:'));
+        startsWith('wallets:page-state:v8:'));
+  });
+
+  test('wallet page cache preserves applied pending transaction keys', () {
+    final monthStart = DateTime(2026, 4, 1);
+    final restored = WalletsPageState.fromCacheJson(
+      WalletsPageState(
+        history: WalletsHistorySummary(
+          availableMonths: [monthStart],
+          netWorthSeries: [
+            WalletNetWorthPoint(
+              monthStart: monthStart,
+              netWorthCents: 8500,
+              appliedPendingTransactionKeys: const {
+                'optimistic_create|mutation-create',
+              },
+            ),
+          ],
+        ),
+        visibleMonths: [monthStart],
+        selectedMonthStart: monthStart,
+        cachedSnapshotsByMonth: {
+          monthStart: WalletsMonthSnapshot(
+            monthStart: monthStart,
+            monthEndExclusive: DateTime(2026, 5, 1),
+            incomeTotalCents: 0,
+            spentTotalCents: 1500,
+            netWorthCents: 8500,
+            walletBalances: const {'w1': 8500},
+            appliedPendingTransactionKeys: const {
+              'optimistic_create|mutation-create',
+            },
+          ),
+        },
+        loadingMonths: const <DateTime>{},
+        monthErrorsByMonth: const <DateTime, Object>{},
+        lastResolvedSelectedMonthStart: monthStart,
+      ).toCacheJson(),
+    );
+
+    expect(
+      restored.displayedSnapshot?.appliedPendingTransactionKeys,
+      {'optimistic_create|mutation-create'},
+    );
+    expect(
+      restored.history.netWorthSeries.single.appliedPendingTransactionKeys,
+      {'optimistic_create|mutation-create'},
+    );
+  });
+
+  test('v8 wallet cache does not read a pre-contract v7 snapshot', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final currentKey = walletsPageStateCacheKey(scope);
+    final legacyKey = currentKey.replaceFirst(
+      'wallets:page-state:v8:',
+      'wallets:page-state:v7:',
+    );
+    await database.upsertJsonCache(
+      namespace: 'wallets_page_state',
+      cacheKey: legacyKey,
+      payload: const <String, dynamic>{'legacy': true},
+    );
+    final container = ProviderContainer(overrides: [
+      localDatabaseProvider.overrideWith((ref) async => database),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(localDatabaseProvider.future);
+    final readCacheProvider = FutureProvider<WalletsPageState?>(
+      (ref) => readLocalWalletsPageState(ref, scope),
+    );
+
+    expect(await container.read(readCacheProvider.future), isNull);
   });
 
   test('analytics exclusion change clears persisted wallet page state',
@@ -553,6 +770,71 @@ void main() {
     expect(legacyLoader.lastSnapshotQuery, query);
   });
 
+  test('local history leaves pending key unapplied without wallet metadata',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final pending = ExpenseEntry(
+      id: 'client-record-income-1',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 12),
+      amountCents: 50,
+      currency: 'USD',
+      category: 'income',
+      createdAt: DateTime.utc(2026, 4, 12, 10),
+      type: 'income',
+      walletId: 'wallet-1',
+      clientMutationId: 'mutation-create',
+    );
+    await database.writeOptimisticTransaction(
+      entry: pending,
+      clientMutationId: 'mutation-create',
+      operation: 'create',
+      payload: const {'id': 'client-record-income-1'},
+    );
+    final scope = buildScope();
+    final loadHistoryProvider = FutureProvider<WalletsHistorySummary>(
+      (ref) => LocalWalletsLegacyDataLoader(ref).fetchHistory(scope),
+    );
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider.overrideWith((ref) => null),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      transactionsFeedServiceProvider.overrideWithValue(
+        _StaticTransactionsFeedService([pending]),
+      ),
+      currencyRateTableProvider.overrideWith(
+        (ref) async => const CurrencyRateTable(
+          baseCurrency: 'USD',
+          rates: {'USD': 1},
+        ),
+      ),
+      householdScopeProvider.overrideWithValue(
+        const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: <String>{},
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(localDatabaseProvider.future);
+
+    final history = await container.read(loadHistoryProvider.future);
+
+    expect(history.netWorthSeries.last.netWorthCents, 0);
+    expect(
+      history.netWorthSeries.last.appliedPendingTransactionKeys,
+      isNot(contains('client-record-income-1|mutation-create')),
+    );
+
+    final pageState =
+        await container.read(walletsPageStateProvider(scope).future);
+    expect(pageState.history.netWorthSeries.last.netWorthCents, 0);
+    expect(pageState.displayedSnapshot?.incomeTotalCents, 50);
+    expect(pageState.displayedSnapshot?.netWorthCents, 0);
+  });
+
   test(
       'walletsPageStateProvider bootstraps current month and defers older months',
       () async {
@@ -801,6 +1083,667 @@ void main() {
     expect(state.displayedSnapshot?.spentTotalCents, 1500);
   });
 
+  test('production service overlays a pending create added after its snapshot',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final legacyLoader = _FakeWalletsLegacyDataLoader(
+      historyResult: WalletsHistorySummary(
+        availableMonths: [DateTime(2026, 4, 1)],
+        netWorthSeries: [
+          WalletNetWorthPoint(
+            monthStart: DateTime(2026, 4, 1),
+            netWorthCents: 200,
+          ),
+        ],
+      ),
+      snapshotResult: WalletsMonthSnapshot(
+        monthStart: DateTime(2026, 4, 1),
+        monthEndExclusive: DateTime(2026, 5, 1),
+        incomeTotalCents: 300,
+        spentTotalCents: 100,
+        netWorthCents: 200,
+        walletBalances: const {'w1': 200},
+      ),
+    );
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      walletsLegacyDataLoaderProvider.overrideWithValue(legacyLoader),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      householdScopeProvider.overrideWithValue(
+        const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: <String>{},
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    final scope = buildScope();
+    container.read(walletsListSessionCacheProvider.notifier).state = {
+      walletsListCacheKey(
+        userId: scope.userId,
+        householdId: scope.householdId,
+        selectedCurrency: scope.selectedCurrency,
+        selectedCurrencies: scope.selectedCurrencies,
+        currentMonthStart: scope.currentMonthStart,
+      ): const [
+        WalletEntity(
+          id: 'w1',
+          userId: 'user-1',
+          householdId: null,
+          name: 'PayPal',
+          icon: 'wallet',
+          color: '#6B7280',
+          currency: 'USD',
+          openingBalanceCents: 200,
+          goalAmountCents: null,
+          isDefault: false,
+          isSystem: false,
+          isArchived: false,
+          currentBalanceCents: 200,
+        ),
+      ],
+    };
+    final provider = walletsPageStateProvider(scope);
+    final subscription = container.listen(provider, (_, __) {});
+    addTearDown(subscription.close);
+    expect(
+      (await container.read(provider.future)).displayedSnapshot?.netWorthCents,
+      200,
+    );
+
+    final pending = ExpenseEntry(
+      id: 'client-record-income-1',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 12),
+      amountCents: 50,
+      currency: 'USD',
+      category: 'food',
+      createdAt: DateTime.utc(2026, 4, 12, 10),
+      type: 'income',
+      walletId: 'w1',
+      clientMutationId: 'mutation-create',
+    );
+    await database.writeOptimisticTransaction(
+      entry: pending,
+      clientMutationId: 'mutation-create',
+      operation: 'create',
+      payload: const {'id': 'client-record-income-1'},
+    );
+    await database.writeOptimisticTransaction(
+      entry: ExpenseEntry(
+        id: 'client-record-eur-1',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 12),
+        amountCents: 900,
+        currency: 'EUR',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 12, 11),
+        type: 'expense',
+        walletId: 'w1',
+        clientMutationId: 'mutation-eur-create',
+      ),
+      clientMutationId: 'mutation-eur-create',
+      operation: 'create',
+      payload: const {'id': 'client-record-eur-1'},
+    );
+    await database.writeOptimisticTransaction(
+      entry: ExpenseEntry(
+        id: 'client-record-household-1',
+        userId: 'user-1',
+        householdId: 'household-1',
+        date: DateTime(2026, 4, 12),
+        amountCents: 800,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 12, 12),
+        type: 'expense',
+        walletId: 'w1',
+        clientMutationId: 'mutation-household-create',
+      ),
+      clientMutationId: 'mutation-household-create',
+      operation: 'create',
+      payload: const {'id': 'client-record-household-1'},
+    );
+    container
+        .read(analyticsProvider.notifier)
+        .addOptimisticTransaction(pending);
+    await pumpEventQueue(times: 4);
+
+    final state = container.read(provider).requireValue;
+    expect(state.history.netWorthSeries.last.netWorthCents, 250);
+    expect(state.displayedSnapshot?.netWorthCents, 250);
+    expect(state.displayedSnapshot?.walletBalances['w1'], 250);
+  });
+
+  test('merchant metadata update contributes zero to cached wallet history',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final monthStart = DateTime(2026, 4, 1);
+    await database.upsertJsonCache(
+      namespace: 'wallets_page_state',
+      cacheKey: walletsPageStateCacheKey(scope),
+      payload: _cachedWalletState(
+        monthStart: monthStart,
+        balanceCents: 8500,
+        spentCents: 1500,
+      ).toCacheJson(),
+    );
+    final original = ExpenseEntry(
+      id: '4d055fac-88b0-4750-b606-92f37c008975',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 12),
+      amountCents: 1500,
+      currency: 'USD',
+      category: 'food',
+      createdAt: DateTime.utc(2026, 4, 12, 10),
+      type: 'expense',
+      walletId: 'w1',
+      merchant: 'Old',
+    );
+    await database.upsertTransactions([original]);
+    await database.writeOptimisticTransactionUpdate(
+      originalEntry: original,
+      updatedEntry: original.copyWith(merchant: 'Oura'),
+      clientMutationId: 'mutation-merchant',
+      payload: {
+        'expenseId': original.id,
+        'updates': const {'merchant': 'Oura'},
+      },
+    );
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      networkReachabilityProvider.overrideWith((ref) => Stream.value(false)),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      householdScopeProvider.overrideWithValue(
+        const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: <String>{},
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    container.read(walletsListSessionCacheProvider.notifier).state = {
+      walletsListCacheKey(
+        userId: scope.userId,
+        householdId: scope.householdId,
+        selectedCurrency: scope.selectedCurrency,
+        selectedCurrencies: scope.selectedCurrencies,
+        currentMonthStart: scope.currentMonthStart,
+      ): const [
+        WalletEntity(
+          id: 'w1',
+          userId: 'user-1',
+          householdId: null,
+          name: 'PayPal',
+          icon: 'wallet',
+          color: '#6B7280',
+          currency: 'USD',
+          openingBalanceCents: 10000,
+          goalAmountCents: null,
+          isDefault: false,
+          isSystem: false,
+          isArchived: false,
+          currentBalanceCents: 10000,
+          hasProviderBalance: true,
+        ),
+      ],
+    };
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+
+    final state = await container.read(walletsPageStateProvider(scope).future);
+
+    expect(state.history.netWorthSeries.single.netWorthCents, 8500);
+    expect(state.displayedSnapshot?.walletBalances['w1'], 8500);
+    expect(state.displayedSnapshot?.netWorthCents, 8500);
+    expect(state.displayedSnapshot?.spentTotalCents, 1500);
+  });
+
+  test('terminal rollback reverses an applied cached create offline', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final monthStart = DateTime(2026, 4, 1);
+    await database.upsertJsonCache(
+      namespace: 'wallets_page_state',
+      cacheKey: walletsPageStateCacheKey(scope),
+      payload: _cachedWalletState(
+        monthStart: monthStart,
+        balanceCents: 8500,
+        spentCents: 1500,
+        appliedKeys: const {'optimistic_create|mutation-create'},
+      ).toCacheJson(),
+    );
+    await database.writeOptimisticTransaction(
+      entry: ExpenseEntry(
+        id: 'optimistic_create',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 12),
+        amountCents: 1500,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 12, 10),
+        type: 'expense',
+        walletId: 'w1',
+        clientMutationId: 'mutation-create',
+      ),
+      clientMutationId: 'mutation-create',
+      operation: 'create',
+      payload: const {'id': 'optimistic_create'},
+    );
+    await database.rollbackOptimisticTransaction(
+      optimisticId: 'optimistic_create',
+      clientMutationId: 'mutation-create',
+      error: 'terminal',
+    );
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      networkReachabilityProvider.overrideWith((ref) => Stream.value(false)),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      householdScopeProvider.overrideWithValue(
+        const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: <String>{},
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    container.read(walletsListSessionCacheProvider.notifier).state = {
+      walletsListCacheKey(
+        userId: scope.userId,
+        householdId: scope.householdId,
+        selectedCurrency: scope.selectedCurrency,
+        selectedCurrencies: scope.selectedCurrencies,
+        currentMonthStart: scope.currentMonthStart,
+      ): const [
+        WalletEntity(
+          id: 'w1',
+          userId: 'user-1',
+          householdId: null,
+          name: 'PayPal',
+          icon: 'wallet',
+          color: '#6B7280',
+          currency: 'USD',
+          openingBalanceCents: 10000,
+          goalAmountCents: null,
+          isDefault: false,
+          isSystem: false,
+          isArchived: false,
+          currentBalanceCents: 10000,
+          hasProviderBalance: true,
+        ),
+      ],
+    };
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+
+    final state = await container.read(walletsPageStateProvider(scope).future);
+
+    expect(state.history.netWorthSeries.single.netWorthCents, 10000);
+    expect(state.displayedSnapshot?.walletBalances['w1'], 10000);
+    expect(state.displayedSnapshot?.netWorthCents, 10000);
+    expect(state.displayedSnapshot?.spentTotalCents, 0);
+  });
+
+  for (final scenario in [
+    'two merchant edits',
+    'batch then individual',
+    'amount edit chain'
+  ]) {
+    test('$scenario projects one financial difference offline', () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final scope = buildScope();
+      final monthStart = DateTime(2026, 4, 1);
+      final initial = _cachedWalletState(
+        monthStart: monthStart,
+        balanceCents: 8500,
+        spentCents: 1500,
+      );
+      await database.upsertJsonCache(
+        namespace: 'wallets_page_state',
+        cacheKey: walletsPageStateCacheKey(scope),
+        payload: initial.toCacheJson(),
+      );
+      final original = ExpenseEntry(
+        id: '4d055fac-88b0-4750-b606-92f37c008975',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 12),
+        amountCents: 1500,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 12, 10),
+        type: 'expense',
+        walletId: 'w1',
+        merchant: 'Old',
+      );
+      await database.upsertTransactions([original]);
+      final first = original.copyWith(merchant: 'First');
+      if (scenario == 'batch then individual') {
+        await database.writeOptimisticTransactionBatchUpdate(
+          originalEntries: [original],
+          updatedEntries: [first],
+          clientMutationId: 'mutation-batch',
+          payload: {
+            'transactionIds': [original.id],
+            'updates': {'merchant': 'First'},
+          },
+        );
+      } else {
+        await database.writeOptimisticTransactionUpdate(
+          originalEntry: original,
+          updatedEntry: first,
+          clientMutationId: 'mutation-first',
+          payload: {'expenseId': original.id},
+        );
+      }
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: first.copyWith(
+          clientMutationId: scenario == 'batch then individual'
+              ? 'mutation-batch'
+              : 'mutation-first',
+        ),
+        updatedEntry: first.copyWith(
+          merchant: 'Final',
+          amountCents: scenario == 'amount edit chain' ? 1700 : 1500,
+        ),
+        clientMutationId: 'mutation-second',
+        payload: {'expenseId': original.id},
+      );
+      final container = _offlineWalletContainer(database, scope);
+      addTearDown(container.dispose);
+      await container.read(localDatabaseProvider.future);
+      await container.read(networkReachabilityProvider.future);
+
+      final state =
+          await container.read(walletsPageStateProvider(scope).future);
+      final expected = scenario == 'amount edit chain' ? 8300 : 8500;
+      expect(state.history.netWorthSeries.single.netWorthCents, expected);
+      expect(state.displayedSnapshot?.walletBalances['w1'], expected);
+      expect(state.displayedSnapshot?.netWorthCents, expected);
+      expect(state.displayedSnapshot?.spentTotalCents,
+          scenario == 'amount edit chain' ? 1700 : 1500);
+    });
+  }
+
+  test('delete-only outbox effects update cached history without pending rows',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final original = ExpenseEntry(
+      id: '4d055fac-88b0-4750-b606-92f37c008975',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 12),
+      amountCents: 1500,
+      currency: 'USD',
+      category: 'food',
+      createdAt: DateTime.utc(2026, 4, 12, 10),
+      type: 'expense',
+      walletId: 'w1',
+    );
+    await database.upsertTransactions([original]);
+    await database.writeOptimisticTransactionDelete(
+      entries: [original],
+      clientMutationId: 'mutation-delete',
+      payload: {'expenseId': original.id},
+    );
+    final container = _offlineWalletContainer(database, scope,
+        sessionState: _cachedWalletState(
+            monthStart: DateTime(2026, 4, 1),
+            balanceCents: 8500,
+            spentCents: 1500));
+    addTearDown(container.dispose);
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+    final state = await container.read(walletsPageStateProvider(scope).future);
+    expect(state.history.netWorthSeries.single.netWorthCents, 10000);
+    expect(state.displayedSnapshot?.walletBalances['w1'], 10000);
+    expect(state.displayedSnapshot?.spentTotalCents, 0);
+  });
+
+  test('cached first amount edit only applies the later difference', () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final original = ExpenseEntry(
+      id: '4d055fac-88b0-4750-b606-92f37c008975',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 12),
+      amountCents: 1500,
+      currency: 'USD',
+      category: 'food',
+      createdAt: DateTime.utc(2026, 4, 12, 10),
+      type: 'expense',
+      walletId: 'w1',
+    );
+    final first = original.copyWith(amountCents: 1700);
+    await database.upsertTransactions([original]);
+    await database.writeOptimisticTransactionUpdate(
+      originalEntry: original,
+      updatedEntry: first,
+      clientMutationId: 'mutation-first',
+      payload: {'expenseId': original.id},
+    );
+    final includedKey =
+        '${original.id}|mutation-first|2026-04-12|1700|expense|USD|w1|food';
+    await database.upsertJsonCache(
+      namespace: 'wallets_page_state',
+      cacheKey: walletsPageStateCacheKey(scope),
+      payload: _cachedWalletState(
+        monthStart: DateTime(2026, 4, 1),
+        balanceCents: 8300,
+        spentCents: 1700,
+        appliedKeys: {includedKey},
+      ).toCacheJson(),
+    );
+    await database.writeOptimisticTransactionUpdate(
+      originalEntry: first.copyWith(clientMutationId: 'mutation-first'),
+      updatedEntry: first.copyWith(amountCents: 1800),
+      clientMutationId: 'mutation-second',
+      payload: {'expenseId': original.id},
+    );
+    final container = _offlineWalletContainer(database, scope);
+    addTearDown(container.dispose);
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+
+    final state = await container.read(walletsPageStateProvider(scope).future);
+    expect(state.history.netWorthSeries.single.netWorthCents, 8200);
+    expect(state.displayedSnapshot?.netWorthCents, 8200);
+    expect(state.displayedSnapshot?.walletBalances['w1'], 8200);
+    expect(state.displayedSnapshot?.spentTotalCents, 1800);
+  });
+
+  test('terminal rollback rebuilds session and mounted wallet state offline',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final cached = _cachedWalletState(
+      monthStart: DateTime(2026, 4, 1),
+      balanceCents: 8500,
+      spentCents: 1500,
+      appliedKeys: const {'optimistic_create|mutation-create'},
+    );
+    await database.writeOptimisticTransaction(
+      entry: ExpenseEntry(
+        id: 'optimistic_create',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 12),
+        amountCents: 1500,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 12, 10),
+        type: 'expense',
+        walletId: 'w1',
+        clientMutationId: 'mutation-create',
+      ),
+      clientMutationId: 'mutation-create',
+      operation: 'create',
+      payload: const {'id': 'optimistic_create'},
+    );
+    final container =
+        _offlineWalletContainer(database, scope, sessionState: cached);
+    addTearDown(container.dispose);
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+    final provider = walletsPageStateProvider(scope);
+    final subscription = container.listen(provider, (_, __) {});
+    addTearDown(subscription.close);
+    expect(
+        (await container.read(provider.future))
+            .displayedSnapshot
+            ?.netWorthCents,
+        8500);
+
+    await database.rollbackOptimisticTransaction(
+      optimisticId: 'optimistic_create',
+      clientMutationId: 'mutation-create',
+      error: 'terminal',
+    );
+    await container.read(provider.notifier).refresh();
+    final mounted = container.read(provider).requireValue;
+    expect(mounted.history.netWorthSeries.single.netWorthCents, 10000);
+    expect(mounted.displayedSnapshot?.walletBalances['w1'], 10000);
+    expect(mounted.displayedSnapshot?.spentTotalCents, 0);
+
+    final restored =
+        _offlineWalletContainer(database, scope, sessionState: cached);
+    addTearDown(restored.dispose);
+    await restored.read(localDatabaseProvider.future);
+    await restored.read(networkReachabilityProvider.future);
+    final restarted =
+        await restored.read(walletsPageStateProvider(scope).future);
+    expect(restarted.history.netWorthSeries.single.netWorthCents, 10000);
+    expect(restarted.displayedSnapshot?.walletBalances['w1'], 10000);
+    expect(restarted.displayedSnapshot?.spentTotalCents, 0);
+  });
+
+  test('persisted snapshot does not apply the same pending create twice',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final monthStart = DateTime(2026, 4, 1);
+    final cachedState = WalletsPageState(
+      history: WalletsHistorySummary(
+        availableMonths: [monthStart],
+        netWorthSeries: [
+          WalletNetWorthPoint(
+            monthStart: monthStart,
+            netWorthCents: 8500,
+            appliedPendingTransactionKeys: const {
+              'optimistic_create|mutation-create',
+            },
+          ),
+        ],
+      ),
+      visibleMonths: [monthStart],
+      selectedMonthStart: monthStart,
+      cachedSnapshotsByMonth: {
+        monthStart: WalletsMonthSnapshot(
+          monthStart: monthStart,
+          monthEndExclusive: DateTime(2026, 5, 1),
+          incomeTotalCents: 0,
+          spentTotalCents: 1500,
+          netWorthCents: 8500,
+          walletBalances: const {'w1': 8500},
+          appliedPendingTransactionKeys: const {
+            'optimistic_create|mutation-create',
+          },
+        ),
+      },
+      loadingMonths: const <DateTime>{},
+      monthErrorsByMonth: const <DateTime, Object>{},
+      lastResolvedSelectedMonthStart: monthStart,
+    );
+    await database.upsertJsonCache(
+      namespace: 'wallets_page_state',
+      cacheKey: walletsPageStateCacheKey(scope),
+      payload: cachedState.toCacheJson(),
+    );
+    await database.writeOptimisticTransaction(
+      entry: ExpenseEntry(
+        id: 'optimistic_create',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 12),
+        amountCents: 1500,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 12, 10),
+        type: 'expense',
+        walletId: 'w1',
+        clientMutationId: 'mutation-create',
+      ),
+      clientMutationId: 'mutation-create',
+      operation: 'create',
+      payload: const {'id': 'optimistic_create'},
+    );
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      networkReachabilityProvider.overrideWith((ref) => Stream.value(false)),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      householdScopeProvider.overrideWithValue(
+        const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: <String>{},
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    container.read(walletsListSessionCacheProvider.notifier).state = {
+      walletsListCacheKey(
+        userId: scope.userId,
+        householdId: scope.householdId,
+        selectedCurrency: scope.selectedCurrency,
+        selectedCurrencies: scope.selectedCurrencies,
+        currentMonthStart: scope.currentMonthStart,
+      ): const [
+        WalletEntity(
+          id: 'w1',
+          userId: 'user-1',
+          householdId: null,
+          name: 'PayPal',
+          icon: 'wallet',
+          color: '#6B7280',
+          currency: 'USD',
+          openingBalanceCents: 10000,
+          goalAmountCents: null,
+          isDefault: false,
+          isSystem: false,
+          isArchived: false,
+          currentBalanceCents: 10000,
+          hasProviderBalance: true,
+        ),
+      ],
+    };
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+
+    final state = await container.read(walletsPageStateProvider(scope).future);
+
+    expect(state.displayedSnapshot?.walletBalances['w1'], 8500);
+    expect(state.history.netWorthSeries.single.netWorthCents, 8500);
+    expect(state.displayedSnapshot?.netWorthCents, 8500);
+    expect(state.displayedSnapshot?.spentTotalCents, 1500);
+  });
+
   test(
       'pending local transaction updates excluded wallet balance without changing aggregates',
       () async {
@@ -905,7 +1848,7 @@ void main() {
   });
 
   test(
-      'walletsPageStateProvider overlays in-memory optimistic transaction before local database write',
+      'walletsPageStateProvider reacts to provider state after durable local write',
       () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
@@ -926,7 +1869,33 @@ void main() {
     ]);
     addTearDown(container.dispose);
 
-    final provider = walletsPageStateProvider(buildScope());
+    final scope = buildScope();
+    container.read(walletsListSessionCacheProvider.notifier).state = {
+      walletsListCacheKey(
+        userId: scope.userId,
+        householdId: scope.householdId,
+        selectedCurrency: scope.selectedCurrency,
+        selectedCurrencies: scope.selectedCurrencies,
+        currentMonthStart: scope.currentMonthStart,
+      ): const [
+        WalletEntity(
+          id: 'w1',
+          userId: 'user-1',
+          householdId: null,
+          name: 'Spending',
+          icon: 'wallet',
+          color: '#6B7280',
+          currency: 'USD',
+          openingBalanceCents: 200,
+          goalAmountCents: null,
+          isDefault: true,
+          isSystem: true,
+          isArchived: false,
+          currentBalanceCents: 200,
+        ),
+      ],
+    };
+    final provider = walletsPageStateProvider(scope);
     final subscription = container.listen(provider, (_, __) {});
     addTearDown(subscription.close);
 

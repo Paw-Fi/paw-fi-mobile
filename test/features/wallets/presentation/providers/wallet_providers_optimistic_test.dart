@@ -21,6 +21,8 @@ WalletEntity _wallet(
   String id, {
   String name = 'Spending',
   String currency = 'USD',
+  bool hasProviderBalance = false,
+  String? linkedBankAccountId,
 }) {
   return WalletEntity(
     id: id,
@@ -36,6 +38,8 @@ WalletEntity _wallet(
     isSystem: false,
     isArchived: false,
     currentBalanceCents: 0,
+    hasProviderBalance: hasProviderBalance,
+    linkedBankAccountId: linkedBankAccountId,
   );
 }
 
@@ -179,6 +183,53 @@ void main() {
     expect(
       container.read(effectiveScopeWalletsProvider).map((wallet) => wallet.id),
       ['wallet-usd'],
+    );
+  });
+
+  test('wallet reconciliation clears a confirmed edit with bank metadata', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final confirmed = _wallet(
+      'wallet-1',
+      name: 'Renamed',
+      hasProviderBalance: true,
+      linkedBankAccountId: 'bank-account-1',
+    );
+    container.read(optimisticScopedAccountsOverridesProvider.notifier).state = {
+      confirmed.id: confirmed,
+    };
+
+    container
+        .read(walletActionsProvider)
+        .reconcileOptimisticAccountWithServer(confirmed);
+
+    expect(container.read(optimisticScopedAccountsOverridesProvider), isEmpty);
+  });
+
+  test('wallet reconciliation retains override for stale bank metadata', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final optimistic = _wallet(
+      'wallet-1',
+      name: 'Renamed',
+      hasProviderBalance: true,
+      linkedBankAccountId: 'bank-account-1',
+    );
+    container.read(optimisticScopedAccountsOverridesProvider.notifier).state = {
+      optimistic.id: optimistic,
+    };
+
+    container.read(walletActionsProvider).reconcileOptimisticAccountWithServer(
+          _wallet(
+            'wallet-1',
+            name: 'Renamed',
+            hasProviderBalance: true,
+          ),
+        );
+
+    expect(
+      container.read(optimisticScopedAccountsOverridesProvider),
+      contains(optimistic.id),
     );
   });
 }

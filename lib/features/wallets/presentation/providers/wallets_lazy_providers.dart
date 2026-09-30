@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
@@ -157,6 +158,15 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       endInclusive: endInclusive,
       inMemoryOptimisticTransactions: const <ExpenseEntry>[],
     );
+    final pendingCreateMutationIds =
+        await _loadActiveWalletTransactionCreateMutationIds(ref);
+    final pendingCreates = pendingTransactions
+        .where(
+          (transaction) => pendingCreateMutationIds.contains(
+            transaction.clientMutationId?.trim(),
+          ),
+        )
+        .toList(growable: false);
     final availableMonths = buildWalletAvailableMonths(
       now: now,
       transactions: recurringAwareData.transactions,
@@ -182,11 +192,26 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
         targetCurrency: query.selectedCurrency,
         rates: rates,
         useAuthoritativeCurrentBalances: isCurrentCycle,
-        authoritativeBalancePendingTransactions: pendingTransactions,
+        authoritativeBalancePendingTransactions: pendingCreates,
       );
       return WalletNetWorthPoint(
         monthStart: monthStart,
         netWorthCents: snapshot.netWorthCents,
+        appliedPendingTransactionKeys: {
+          for (final transaction in pendingTransactions)
+            if (transaction.date.isBefore(
+                  _walletSnapshotEndExclusive(
+                    monthStart: monthStart,
+                    now: now,
+                    financialMonthStartDay: query.financialMonthStartDay,
+                  ),
+                ) &&
+                _walletSnapshotIncludesTransactionBalance(
+                  transaction,
+                  recurringAwareData.wallets,
+                ))
+              _walletPendingTransactionKey(transaction),
+        },
       );
     }).toList(growable: false);
 
@@ -217,6 +242,15 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       endInclusive: endExclusive.subtract(const Duration(days: 1)),
       inMemoryOptimisticTransactions: const <ExpenseEntry>[],
     );
+    final pendingCreateMutationIds =
+        await _loadActiveWalletTransactionCreateMutationIds(ref);
+    final pendingCreates = pendingTransactions
+        .where(
+          (transaction) => pendingCreateMutationIds.contains(
+            transaction.clientMutationId?.trim(),
+          ),
+        )
+        .toList(growable: false);
     final snapshot = buildWalletSnapshot(
       wallets: recurringAwareData.wallets,
       transactions: recurringAwareData.transactions,
@@ -233,7 +267,7 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
             now,
             startDay: query.scope.financialMonthStartDay,
           ),
-      authoritativeBalancePendingTransactions: pendingTransactions,
+      authoritativeBalancePendingTransactions: pendingCreates,
     );
 
     return WalletsMonthSnapshot(
@@ -243,6 +277,11 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
       spentTotalCents: snapshot.totalSpentCents,
       netWorthCents: snapshot.netWorthCents,
       walletBalances: snapshot.walletBalances,
+      appliedPendingTransactionKeys: {
+        for (final transaction in pendingTransactions)
+          if (transaction.date.isBefore(endExclusive))
+            _walletPendingTransactionKey(transaction),
+      },
     );
   }
 }
@@ -296,34 +335,16 @@ final walletsDataServiceProvider = Provider<WalletsDataService>((ref) {
   return SupabaseWalletsDataService(ref);
 });
 
-final _walletsInMemoryOptimisticTransactionsProvider =
+final _walletsOptimisticTransactionsRevisionProvider =
     Provider.family<List<ExpenseEntry>, WalletsScopeQuery>((ref, query) {
   final householdId = query.householdId?.trim();
-  final optimisticTransactions = householdId == null || householdId.isEmpty
-      ? ref.watch(
-          analyticsProvider.select(
-            (data) => data.expenses
-                .where(_isWalletInMemoryOptimisticTransaction)
-                .toList(growable: false),
-          ),
-        )
+  return householdId == null || householdId.isEmpty
+      ? ref.watch(analyticsProvider.select((data) => data.expenses))
       : ref.watch(
           householdOptimisticExpensesProvider.select(
-            (state) => (state[householdId] ?? const <ExpenseEntry>[])
-                .where(_isWalletInMemoryOptimisticTransaction)
-                .toList(growable: false),
+            (state) => state[householdId] ?? const <ExpenseEntry>[],
           ),
         );
-  if (optimisticTransactions.isEmpty) {
-    return const <ExpenseEntry>[];
-  }
-
-  return filterWalletTransactions(
-    allExpenses: optimisticTransactions,
-    scope: ref.watch(householdScopeProvider),
-    selectedCurrency: query.selectedCurrency,
-    selectedCurrencies: query.normalizedSelectedCurrencies,
-  );
 });
 
 final _walletsTransactionCacheInvalidationProvider = Provider<void>((ref) {
@@ -430,8 +451,6 @@ class WalletsPageStateNotifier
   static const _appendMonthBatchSize = 3;
 
   WalletsDataService get _service => ref.read(walletsDataServiceProvider);
-  bool get _serviceIncludesDatabasePending =>
-      _service is SupabaseWalletsDataService;
   bool get _isOffline =>
       ref.read(networkReachabilityProvider).valueOrNull == false;
 
@@ -469,15 +488,16 @@ class WalletsPageStateNotifier
       if (sessionState != null &&
           (sessionGeneration == cacheGeneration ||
               (sessionGeneration == null && cacheGeneration.isInitial))) {
+        if (await _walletCacheNeedsLocalRebuild(ref, sessionState)) {
+          trace.mark('session-cache-rebuild-required');
+          return _loadInitialState(trace: trace);
+        }
         trace.mark('session-cache-hit', {
           'visibleMonths': sessionState.visibleMonths.length,
           'snapshotCount': sessionState.cachedSnapshotsByMonth.length,
         });
         final overlaidState = await _overlayPendingLocalWalletPageState(
           sessionState,
-          inMemoryOptimisticTransactions:
-              _serviceIncludesDatabasePending ? const <ExpenseEntry>[] : null,
-          includeDatabasePending: !_serviceIncludesDatabasePending,
         );
         if (!_isOffline && shouldScheduleBackgroundRefresh) {
           _scheduleBackgroundRefresh();
@@ -494,6 +514,10 @@ class WalletsPageStateNotifier
         bypassPersistedCache: bypassPersistedCache,
       );
       if (cachedState != null) {
+        if (await _walletCacheNeedsLocalRebuild(ref, cachedState)) {
+          trace.mark('cache-rebuild-required');
+          return _loadInitialState(trace: trace);
+        }
         trace.mark('cache-hit', {
           'visibleMonths': cachedState.visibleMonths.length,
           'snapshotCount': cachedState.cachedSnapshotsByMonth.length,
@@ -509,7 +533,7 @@ class WalletsPageStateNotifier
 
       if (_isOffline) {
         trace.mark('offline-cache-miss');
-        return _overlayPendingLocalWalletPageState(_emptyPageState());
+        return _loadInitialState(trace: trace);
       }
 
       trace.mark('cache-miss');
@@ -520,6 +544,9 @@ class WalletsPageStateNotifier
         bypassPersistedCache: bypassPersistedCache,
       );
       if (cachedState != null) {
+        if (await _walletCacheNeedsLocalRebuild(ref, cachedState)) {
+          return _loadInitialState(trace: trace);
+        }
         return _overlayPendingLocalWalletPageState(cachedState);
       }
       rethrow;
@@ -537,14 +564,20 @@ class WalletsPageStateNotifier
     final bypassPersistedCache =
         ref.read(walletsPageStatePersistedCacheBypassProvider) > 0;
     if (_isOffline) {
-      if (previous != null) {
-        state = AsyncData(previous.copyWith(isRefreshing: false));
+      final cached = basePrevious ??
+          await _readPersistedCachedPageState(
+            bypassPersistedCache: bypassPersistedCache,
+          );
+      if (cached != null && await _walletCacheNeedsLocalRebuild(ref, cached)) {
+        final trace = _createWalletsTrace(ref, label: 'WalletsPageRollback');
+        state = AsyncData(await _loadInitialState(trace: trace));
+      } else if (cached != null) {
+        state = AsyncData(await _overlayPendingLocalWalletPageState(
+          cached,
+        ));
       } else {
         state = AsyncData(await _overlayPendingLocalWalletPageState(
-          await _readPersistedCachedPageState(
-                bypassPersistedCache: bypassPersistedCache,
-              ) ??
-              _emptyPageState(),
+          _emptyPageState(),
         ));
       }
       return;
@@ -566,6 +599,12 @@ class WalletsPageStateNotifier
         bypassPersistedCache: bypassPersistedCache,
       );
       if (cachedState != null) {
+        if (await _walletCacheNeedsLocalRebuild(ref, cachedState)) {
+          state = AsyncData(await _loadInitialState(
+            trace: _createWalletsTrace(ref, label: 'WalletsPageRollback'),
+          ));
+          return;
+        }
         state = AsyncData(
           await _overlayPendingLocalWalletPageState(cachedState),
         );
@@ -577,11 +616,14 @@ class WalletsPageStateNotifier
     }
 
     final previousBase = basePrevious ?? previous;
+    if (await _walletCacheNeedsLocalRebuild(ref, previousBase)) {
+      state = AsyncData(await _loadInitialState(
+        trace: _createWalletsTrace(ref, label: 'WalletsPageRollback'),
+      ));
+      return;
+    }
     final optimisticPrevious = await _overlayPendingLocalWalletPageState(
       previousBase,
-      inMemoryOptimisticTransactions:
-          _serviceIncludesDatabasePending ? const <ExpenseEntry>[] : null,
-      includeDatabasePending: !_serviceIncludesDatabasePending,
     );
     state = AsyncData(optimisticPrevious.copyWith(isRefreshing: true));
 
@@ -634,9 +676,6 @@ class WalletsPageStateNotifier
       );
       final overlaidRefreshedState = await _overlayPendingLocalWalletPageState(
         refreshedState,
-        inMemoryOptimisticTransactions:
-            _serviceIncludesDatabasePending ? const <ExpenseEntry>[] : null,
-        includeDatabasePending: !_serviceIncludesDatabasePending,
       );
       state = AsyncData(overlaidRefreshedState);
       _storePageState(refreshedState);
@@ -777,9 +816,6 @@ class WalletsPageStateNotifier
     );
     final overlaidInitialState = await _overlayPendingLocalWalletPageState(
       initialState,
-      inMemoryOptimisticTransactions:
-          _serviceIncludesDatabasePending ? const <ExpenseEntry>[] : null,
-      includeDatabasePending: !_serviceIncludesDatabasePending,
     );
     _storePageState(initialState);
     trace.mark('initial-state-ready', {'snapshotCount': 1});
@@ -1000,7 +1036,7 @@ class WalletsPageStateNotifier
     var disposed = false;
     ref.onDispose(() => disposed = true);
     ref.listen<List<ExpenseEntry>>(
-      _walletsInMemoryOptimisticTransactionsProvider(arg),
+      _walletsOptimisticTransactionsRevisionProvider(arg),
       (previous, next) {
         final expectedCacheKey = walletsPageStateCacheKey(arg);
         final expectedGeneration = _readWalletsPageStateCacheGeneration(ref);
@@ -1010,13 +1046,18 @@ class WalletsPageStateNotifier
         unawaited(() async {
           try {
             if (disposed) return;
-            final overlaidState = await _overlayPendingLocalWalletPageState(
-              baseState,
-              inMemoryOptimisticTransactions: _serviceIncludesDatabasePending
-                  ? const <ExpenseEntry>[]
-                  : next,
-              includeDatabasePending: !_serviceIncludesDatabasePending,
-            );
+            final overlaidState =
+                await _walletCacheNeedsLocalRebuild(ref, baseState)
+                    ? await _loadInitialState(
+                        trace: _createWalletsTrace(
+                          ref,
+                          label: 'WalletsPageRollback',
+                        ),
+                      )
+                    : await _overlayPendingLocalWalletPageState(
+                        baseState,
+                        inMemoryOptimisticTransactions: const <ExpenseEntry>[],
+                      );
             if (disposed ||
                 walletsPageStateCacheKey(_query) != expectedCacheKey) {
               return;
@@ -1275,6 +1316,16 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
   trace.mark('legacy-actual-transactions-loaded', {
     'count': actualTransactions.length,
   });
+  final isOffline = ref.read(networkReachabilityProvider).valueOrNull == false;
+  if (wallets.isEmpty || isOffline) {
+    trace.mark('legacy-recurring-skipped', const {
+      'reason': 'no-wallets-or-offline',
+    });
+    return _WalletRecurringAwareData(
+      wallets: wallets,
+      transactions: actualTransactions,
+    );
+  }
   final recurringTransactions = await _fetchScopedRecurringTransactions(
     ref,
     query,
@@ -1329,7 +1380,8 @@ Future<List<WalletEntity>> _fetchScopedWallets(
     Ref ref, WalletsScopeQuery query) async {
   final householdId = query.householdId;
   final authHeaders = ref.read(walletAuthHeadersProvider);
-  if (authHeaders == null) {
+  final isOffline = ref.read(networkReachabilityProvider).valueOrNull == false;
+  if (authHeaders == null || isOffline) {
     final userId = query.userId;
     if (userId.isEmpty) {
       return const <WalletEntity>[];
@@ -1526,9 +1578,10 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
     return const <ExpenseEntry>[];
   }
 
+  // SQLite/outbox ownership is the accounting authority. The provider listener
+  // only triggers this read after producers complete their durable local write.
   final List<ExpenseEntry> inMemoryOptimistic =
-      inMemoryOptimisticTransactions ??
-          ref.read(_walletsInMemoryOptimisticTransactionsProvider(query));
+      inMemoryOptimisticTransactions ?? const <ExpenseEntry>[];
 
   if (!includeDatabasePending) return inMemoryOptimistic;
 
@@ -1570,8 +1623,16 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
   }
 }
 
-bool _isWalletInMemoryOptimisticTransaction(ExpenseEntry transaction) {
-  return transaction.id.trim().startsWith('optimistic_');
+Future<Set<String>> _loadActiveWalletTransactionCreateMutationIds(
+  Ref ref,
+) async {
+  try {
+    final database = ref.read(localDatabaseProvider).valueOrNull;
+    if (database == null) return const <String>{};
+    return database.getActiveTransactionCreateMutationIds();
+  } catch (_) {
+    return const <String>{};
+  }
 }
 
 List<ExpenseEntry> _mergeWalletLocalOverlayTransactions(
@@ -1590,6 +1651,201 @@ List<ExpenseEntry> _mergeWalletLocalOverlayTransactions(
   return byId.values.toList(growable: false);
 }
 
+class _WalletPendingMutationEffect {
+  const _WalletPendingMutationEffect({
+    required this.key,
+    required this.original,
+    required this.current,
+    required this.isCreate,
+    this.includedPredecessors = const {},
+  });
+
+  final String key;
+  final ExpenseEntry? original;
+  final ExpenseEntry? current;
+  final bool isCreate;
+  final Map<String, ExpenseEntry> includedPredecessors;
+}
+
+class _WalletSnapshotContribution {
+  const _WalletSnapshotContribution({
+    this.incomeCents = 0,
+    this.spentCents = 0,
+    this.netWorthCents = 0,
+    this.walletBalanceDeltas = const <String, int>{},
+  });
+
+  final int incomeCents;
+  final int spentCents;
+  final int netWorthCents;
+  final Map<String, int> walletBalanceDeltas;
+}
+
+Future<List<_WalletPendingMutationEffect>> _loadWalletPendingMutationEffects(
+  Ref ref,
+  WalletsScopeQuery query, {
+  required List<ExpenseEntry> currentTransactions,
+}) async {
+  try {
+    final database = ref.read(localDatabaseProvider).valueOrNull;
+    if (database == null) return const <_WalletPendingMutationEffect>[];
+    final mutations = await database.getOutboxMutations();
+    final activeMutations = mutations.where(
+      (mutation) =>
+          mutation.entityType == 'transaction' &&
+          const {
+            localMutationStatusQueued,
+            localMutationStatusSyncing,
+            localMutationStatusFailed,
+          }.contains(mutation.status),
+    );
+    final currentByMutation = <String, List<ExpenseEntry>>{};
+    for (final transaction in currentTransactions) {
+      final mutationId = transaction.clientMutationId?.trim();
+      if (mutationId == null || mutationId.isEmpty) continue;
+      currentByMutation.putIfAbsent(mutationId, () => []).add(transaction);
+    }
+    final scope = ref.read(householdScopeProvider);
+    bool isInQuery(ExpenseEntry entry) => filterWalletTransactions(
+          allExpenses: [entry],
+          scope: scope,
+          selectedCurrency: query.selectedCurrency,
+          selectedCurrencies: query.normalizedSelectedCurrencies,
+        ).isNotEmpty;
+
+    // One transaction may have several queued edits. Its first original is
+    // the state in the cached snapshot; only the latest owner supplies the
+    // current row (or an explicit delete). A superseded edit has no owned row.
+    final effectsById = <String, _WalletPendingMutationEffect>{};
+    for (final mutation in activeMutations) {
+      final payload = jsonDecode(mutation.payloadJson);
+      final payloadMap = payload is Map
+          ? Map<String, dynamic>.from(payload)
+          : const <String, dynamic>{};
+      final originals = <String, ExpenseEntry>{};
+      final originalEntry = payloadMap['originalEntry'];
+      if (originalEntry is Map) {
+        final parsed = ExpenseEntry.fromJson(
+          Map<String, dynamic>.from(originalEntry),
+        );
+        originals[parsed.id] = parsed;
+      }
+      final originalEntries = payloadMap['originalEntries'];
+      if (originalEntries is List) {
+        for (final value in originalEntries.whereType<Map>()) {
+          final parsed = ExpenseEntry.fromJson(
+            Map<String, dynamic>.from(value),
+          );
+          originals[parsed.id] = parsed;
+        }
+      }
+      final currents = currentByMutation[mutation.clientMutationId] ??
+          const <ExpenseEntry>[];
+      final currentById = <String, ExpenseEntry>{
+        for (final current in currents) current.id: current,
+      };
+      final isCreate = mutation.operation == 'create' ||
+          mutation.operation ==
+              localRecurringOccurrenceConfirmationMutationOperation;
+      final isDelete = mutation.operation == 'delete_transaction' ||
+          mutation.operation == 'delete_recurring_template' ||
+          mutation.operation == 'unconfirm_recurring_occurrence';
+      final affectedIds = <String>{
+        ...originals.keys,
+        ...currentById.keys,
+      };
+      for (final id in affectedIds) {
+        final earlier = effectsById[id];
+        final original = earlier == null ? originals[id] : earlier.original;
+        final current = isDelete ? null : currentById[id];
+        final keyEntry = current ?? originals[id] ?? earlier?.current;
+        if (keyEntry == null) continue;
+        final ownedEntry = keyEntry.copyWith(
+          clientMutationId: mutation.clientMutationId,
+        );
+        effectsById[id] = _WalletPendingMutationEffect(
+          key: _walletPendingTransactionKey(ownedEntry),
+          original: original,
+          current: current,
+          isCreate: earlier?.isCreate ?? isCreate,
+          includedPredecessors: {
+            ...?earlier?.includedPredecessors,
+            if (earlier != null && originals[id] != null)
+              _walletPendingTransactionKey(originals[id]!.copyWith(
+                clientMutationId: earlier.key.split('|')[1],
+              )): originals[id]!,
+          },
+        );
+      }
+    }
+    return [
+      for (final effect in effectsById.values)
+        if (effect.original != null && isInQuery(effect.original!) ||
+            effect.current != null && isInQuery(effect.current!))
+          _WalletPendingMutationEffect(
+            key: effect.key,
+            original: effect.original != null && isInQuery(effect.original!)
+                ? effect.original
+                : null,
+            current: effect.current != null && isInQuery(effect.current!)
+                ? effect.current
+                : null,
+            isCreate: effect.isCreate,
+            includedPredecessors: {
+              for (final entry in effect.includedPredecessors.entries)
+                if (isInQuery(entry.value)) entry.key: entry.value,
+            },
+          ),
+    ];
+  } catch (_) {
+    return const <_WalletPendingMutationEffect>[];
+  }
+}
+
+ExpenseEntry? _walletEffectBaseline(
+  _WalletPendingMutationEffect effect,
+  Set<String> appliedKeys,
+) {
+  for (final predecessor
+      in effect.includedPredecessors.entries.toList().reversed) {
+    if (_walletAppliedKeysContainEffect(appliedKeys, predecessor.key)) {
+      return predecessor.value;
+    }
+  }
+  return effect.original;
+}
+
+Future<bool> _walletCacheNeedsLocalRebuild(
+  Ref ref,
+  WalletsPageState state,
+) async {
+  final appliedKeys = <String>{
+    for (final point in state.history.netWorthSeries)
+      ...point.appliedPendingTransactionKeys,
+    for (final snapshot in state.cachedSnapshotsByMonth.values)
+      ...snapshot.appliedPendingTransactionKeys,
+  };
+  if (appliedKeys.isEmpty) return false;
+  try {
+    final database = ref.read(localDatabaseProvider).valueOrNull;
+    if (database == null) return false;
+    final cancelledMutationIds = (await database.getOutboxMutations())
+        .where(
+          (mutation) =>
+              mutation.status == localMutationStatusCancelled &&
+              mutation.entityType == 'transaction',
+        )
+        .map((mutation) => mutation.clientMutationId)
+        .toSet();
+    return appliedKeys.any((key) {
+      final parts = key.split('|');
+      return parts.length > 1 && cancelledMutationIds.contains(parts[1]);
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
   Ref ref,
   WalletsScopeQuery query,
@@ -1605,9 +1861,23 @@ Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
     inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
     includeDatabasePending: includeDatabasePending,
   );
-  if (pendingTransactions.isEmpty) {
-    return history;
-  }
+  final mutationEffects = await _loadWalletPendingMutationEffects(
+    ref,
+    query,
+    currentTransactions: pendingTransactions,
+  );
+  // Delete effects can exist without a current pending row. Inspect the
+  // outbox first, but do not block a complete cached history on unused FX.
+  final hasUnappliedEffects = history.netWorthSeries.any(
+    (point) => mutationEffects.any(
+      (effect) => !_walletAppliedKeysContainEffect(
+        point.appliedPendingTransactionKeys,
+        effect.key,
+      ),
+    ),
+  );
+  if (!hasUnappliedEffects) return history;
+
   final rates = await _walletCurrencyRates(ref);
   final wallets = _cachedScopedWalletsForConversion(ref, query);
   final walletsById = <String, WalletEntity>{
@@ -1622,21 +1892,46 @@ Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
         now: now,
         financialMonthStartDay: query.financialMonthStartDay,
       );
-      final localDeltaCents = pendingTransactions.fold<int>(0, (sum, tx) {
-        if (!tx.date.isBefore(endExclusive)) return sum;
-        return sum +
-            _walletTransactionNetDeltaCents(
-              tx,
-              wallets: wallets,
-              walletsById: walletsById,
-              targetCurrency: query.selectedCurrency,
-              rates: rates,
-            );
+      final unappliedEffects = mutationEffects.where(
+        (effect) => !_walletAppliedKeysContainEffect(
+          point.appliedPendingTransactionKeys,
+          effect.key,
+        ),
+      );
+      final localDeltaCents = unappliedEffects.fold<int>(0, (sum, effect) {
+        final baseline = _walletEffectBaseline(
+          effect,
+          point.appliedPendingTransactionKeys,
+        );
+        final currentDelta = effect.current == null ||
+                !effect.current!.date.isBefore(endExclusive)
+            ? 0
+            : _walletTransactionNetDeltaCents(
+                effect.current!,
+                wallets: wallets,
+                walletsById: walletsById,
+                targetCurrency: query.selectedCurrency,
+                rates: rates,
+              );
+        final originalDelta =
+            baseline == null || !baseline.date.isBefore(endExclusive)
+                ? 0
+                : _walletTransactionNetDeltaCents(
+                    baseline,
+                    wallets: wallets,
+                    walletsById: walletsById,
+                    targetCurrency: query.selectedCurrency,
+                    rates: rates,
+                  );
+        return sum + currentDelta - originalDelta;
       });
-      if (localDeltaCents == 0) return point;
       return WalletNetWorthPoint(
         monthStart: point.monthStart,
         netWorthCents: point.netWorthCents + localDeltaCents,
+        appliedPendingTransactionKeys: {
+          ...point.appliedPendingTransactionKeys,
+          for (final effect in unappliedEffects) effect.key,
+        },
       );
     }).toList(growable: false),
   );
@@ -1649,14 +1944,27 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
   List<ExpenseEntry>? inMemoryOptimisticTransactions,
   bool includeDatabasePending = true,
 }) async {
-  final pendingTransactions = await _loadPendingLocalWalletTransactions(
+  final loadedPendingTransactions = await _loadPendingLocalWalletTransactions(
     ref,
     query.scope,
     endInclusive: snapshot.monthEndExclusive.subtract(const Duration(days: 1)),
     inMemoryOptimisticTransactions: inMemoryOptimisticTransactions,
     includeDatabasePending: includeDatabasePending,
   );
-  if (pendingTransactions.isEmpty) {
+  final mutationEffects = await _loadWalletPendingMutationEffects(
+    ref,
+    query.scope,
+    currentTransactions: loadedPendingTransactions,
+  );
+  final pendingEffects = mutationEffects
+      .where(
+        (effect) => !_walletAppliedKeysContainEffect(
+          snapshot.appliedPendingTransactionKeys,
+          effect.key,
+        ),
+      )
+      .toList(growable: false);
+  if (pendingEffects.isEmpty) {
     return snapshot;
   }
 
@@ -1671,48 +1979,58 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
   };
   final periodStart = snapshot.monthStart;
   final periodEndExclusive = snapshot.monthEndExclusive;
+  final now = _walletProjectionNow(ref);
+  final isCurrentCycle = normalizeWalletMonthStart(
+        snapshot.monthStart,
+        financialMonthStartDay: query.scope.financialMonthStartDay,
+      ) ==
+      financialCycleStartForDate(
+        now,
+        startDay: query.scope.financialMonthStartDay,
+      );
 
-  for (final tx in pendingTransactions) {
-    if (!tx.date.isBefore(snapshot.monthEndExclusive)) continue;
-
-    final amountCents = _convertWalletAmountCents(
-      amountCents: tx.amountCents.abs(),
-      fromCurrency: _walletTransactionSourceCurrency(
-        tx,
-        wallets: wallets,
-        walletsById: walletsById,
-      ),
+  for (final effect in pendingEffects) {
+    final baseline = _walletEffectBaseline(
+      effect,
+      snapshot.appliedPendingTransactionKeys,
+    );
+    final currentContribution = _walletSnapshotContributionForEntry(
+      effect.current,
+      isCreate: effect.isCreate,
+      isCurrentCycle: isCurrentCycle,
+      periodStart: periodStart,
+      periodEndExclusive: periodEndExclusive,
+      walletBalances: walletBalances,
+      wallets: wallets,
+      walletsById: walletsById,
       targetCurrency: query.scope.selectedCurrency,
       rates: rates,
     );
-    final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
-    final localDeltaCents = isIncome ? amountCents : -amountCents;
-
-    final walletId = _resolvePendingWalletBalanceId(tx, walletBalances);
-    final isExcludedFromAnalytics = walletId != null &&
-        (walletsById[walletId]?.excludeFromAnalytics ?? false);
-    final hasAuthoritativeProviderBalance = walletId != null &&
-        (walletsById[walletId]?.hasProviderBalance ?? false);
-    final isOptimisticCreate = tx.id.trim().startsWith('optimistic_');
-    if (hasAuthoritativeProviderBalance && !isOptimisticCreate) {
-      continue;
-    }
-    if (walletId != null) {
-      walletBalances[walletId] =
-          (walletBalances[walletId] ?? 0) + localDeltaCents;
-      if (!isExcludedFromAnalytics) {
-        netWorthCents += localDeltaCents;
-      }
-    }
-
-    if (!isExcludedFromAnalytics &&
-        !tx.date.isBefore(periodStart) &&
-        tx.date.isBefore(periodEndExclusive)) {
-      if (isIncome) {
-        incomeTotalCents += amountCents;
-      } else {
-        spentTotalCents += amountCents;
-      }
+    final originalContribution = _walletSnapshotContributionForEntry(
+      baseline,
+      isCreate: effect.isCreate && baseline != effect.original,
+      isCurrentCycle: isCurrentCycle,
+      periodStart: periodStart,
+      periodEndExclusive: periodEndExclusive,
+      walletBalances: walletBalances,
+      wallets: wallets,
+      walletsById: walletsById,
+      targetCurrency: query.scope.selectedCurrency,
+      rates: rates,
+    );
+    incomeTotalCents +=
+        currentContribution.incomeCents - originalContribution.incomeCents;
+    spentTotalCents +=
+        currentContribution.spentCents - originalContribution.spentCents;
+    netWorthCents +=
+        currentContribution.netWorthCents - originalContribution.netWorthCents;
+    for (final walletId in <String>{
+      ...currentContribution.walletBalanceDeltas.keys,
+      ...originalContribution.walletBalanceDeltas.keys,
+    }) {
+      walletBalances[walletId] = (walletBalances[walletId] ?? 0) +
+          (currentContribution.walletBalanceDeltas[walletId] ?? 0) -
+          (originalContribution.walletBalanceDeltas[walletId] ?? 0);
     }
   }
 
@@ -1723,7 +2041,96 @@ Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
     spentTotalCents: spentTotalCents,
     netWorthCents: netWorthCents,
     walletBalances: walletBalances,
+    appliedPendingTransactionKeys: {
+      ...snapshot.appliedPendingTransactionKeys,
+      for (final effect in pendingEffects) effect.key,
+    },
   );
+}
+
+String _walletPendingTransactionKey(ExpenseEntry transaction) =>
+    '${transaction.id}|${transaction.clientMutationId ?? ''}|'
+    '${transaction.date.toIso8601String().substring(0, 10)}|'
+    '${transaction.amountCents}|${transaction.type ?? 'expense'}|'
+    '${transaction.currency ?? ''}|${transaction.walletId ?? ''}|'
+    '${transaction.category ?? ''}';
+
+bool _walletAppliedKeysContainEffect(Set<String> appliedKeys, String key) {
+  if (appliedKeys.contains(key)) return true;
+  final parts = key.split('|');
+  if (parts.length < 2) return false;
+  return appliedKeys.contains('${parts[0]}|${parts[1]}');
+}
+
+_WalletSnapshotContribution _walletSnapshotContributionForEntry(
+  ExpenseEntry? transaction, {
+  required bool isCreate,
+  required bool isCurrentCycle,
+  required DateTime periodStart,
+  required DateTime periodEndExclusive,
+  required Map<String, int> walletBalances,
+  required List<WalletEntity> wallets,
+  required Map<String, WalletEntity> walletsById,
+  required String targetCurrency,
+  required CurrencyRateTable rates,
+}) {
+  if (transaction == null ||
+      !transaction.analyticsIsFinal ||
+      !transaction.date.isBefore(periodEndExclusive)) {
+    return const _WalletSnapshotContribution();
+  }
+  final walletId = _resolvePendingWalletBalanceId(transaction, walletBalances);
+  final wallet = walletId == null ? null : walletsById[walletId];
+  if (walletId == null || wallet == null) {
+    return const _WalletSnapshotContribution();
+  }
+  final amountCents = _convertWalletAmountCents(
+    amountCents: transaction.amountCents.abs(),
+    fromCurrency: _walletTransactionSourceCurrency(
+      transaction,
+      wallets: wallets,
+      walletsById: walletsById,
+    ),
+    targetCurrency: targetCurrency,
+    rates: rates,
+  );
+  final isIncome = (transaction.type ?? 'expense').toLowerCase() == 'income';
+  final balanceDeltaCents = isIncome ? amountCents : -amountCents;
+  final canAdjustBalance =
+      !isCurrentCycle || !wallet.hasProviderBalance || isCreate;
+  final isExcludedFromAnalytics = wallet.excludeFromAnalytics;
+  var incomeCents = 0;
+  var spentCents = 0;
+  final category = transaction.category?.trim().toLowerCase();
+  final isInPeriod = !transaction.date.isBefore(periodStart) &&
+      transaction.date.isBefore(periodEndExclusive);
+  if (!isExcludedFromAnalytics && isInPeriod && category != 'transfers') {
+    if (transaction.countsTowardIncome) {
+      incomeCents = amountCents;
+    } else if (transaction.effectiveSpendingMultiplier != 0) {
+      spentCents = amountCents * transaction.effectiveSpendingMultiplier;
+    }
+  }
+  return _WalletSnapshotContribution(
+    incomeCents: incomeCents,
+    spentCents: spentCents,
+    netWorthCents:
+        canAdjustBalance && !isExcludedFromAnalytics ? balanceDeltaCents : 0,
+    walletBalanceDeltas: canAdjustBalance
+        ? <String, int>{walletId: balanceDeltaCents}
+        : const <String, int>{},
+  );
+}
+
+bool _walletSnapshotIncludesTransactionBalance(
+  ExpenseEntry transaction,
+  List<WalletEntity> wallets,
+) {
+  final walletId = resolveTransactionWalletId(
+    transaction: transaction,
+    wallets: wallets,
+  );
+  return walletId != null && wallets.any((wallet) => wallet.id == walletId);
 }
 
 int _walletTransactionNetDeltaCents(

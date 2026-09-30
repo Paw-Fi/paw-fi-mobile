@@ -197,7 +197,6 @@ WalletSnapshot buildWalletSnapshot({
       );
     }
     for (final transaction in authoritativeBalancePendingTransactions) {
-      if (!transaction.id.trim().startsWith('optimistic_')) continue;
       final walletId = resolveTransactionWalletId(
         transaction: transaction,
         wallets: wallets,

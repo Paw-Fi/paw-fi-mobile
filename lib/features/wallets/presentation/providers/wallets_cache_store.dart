@@ -37,7 +37,7 @@ String walletsListCacheKey({
 }
 
 String walletsPageStateCacheKey(WalletsScopeQuery query) {
-  return 'wallets:page-state:v7:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:fmsd${query.financialMonthStartDay}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
+  return 'wallets:page-state:v8:${query.userId}:${query.householdId ?? 'personal'}:${query.selectedCurrency}:${_cacheDate(query.currentMonthStart)}:fmsd${query.financialMonthStartDay}:${_currencySelectionCacheSegment(query.normalizedSelectedCurrencies)}';
 }
 
 List<WalletEntity>? readPersistedWalletsList(
@@ -228,7 +228,7 @@ Future<void> clearAllWalletsCachesForUser(
 
   try {
     final database = await ref.read(localDatabaseProvider.future);
-    for (final version in const ['v4', 'v6', 'v7']) {
+    for (final version in const ['v4', 'v6', 'v7', 'v8']) {
       await database.deleteJsonCacheByPrefix(
         namespace: _walletsPageStateJsonCacheNamespace,
         cacheKeyPrefix: 'wallets:page-state:$version:$userId:',
@@ -268,7 +268,7 @@ Future<void> clearWalletAnalyticsPageStateCachesForUser(
     final database = await ref.read(localDatabaseProvider.future);
     await database.deleteJsonCacheByPrefix(
       namespace: _walletsPageStateJsonCacheNamespace,
-      cacheKeyPrefix: 'wallets:page-state:v7:$userId:',
+      cacheKeyPrefix: 'wallets:page-state:v8:$userId:',
     );
   } catch (_) {}
 
