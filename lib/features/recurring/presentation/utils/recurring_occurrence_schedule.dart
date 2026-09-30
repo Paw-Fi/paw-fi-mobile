@@ -92,6 +92,7 @@ bool canConfirmOccurrenceAt(
   DateTime scheduledOccurrenceDate,
   DateTime userNow,
 ) {
+  if (!transaction.isManuallyConfirmable) return false;
   final userWallNow = DateTime(
     userNow.year,
     userNow.month,
@@ -142,6 +143,7 @@ bool canSubmitRecurringOccurrenceConfirmationAt({
   required DateTime userNow,
   bool allowNextPreconfirmation = false,
 }) {
+  if (!transaction.isManuallyConfirmable) return false;
   final userToday = DateTime(userNow.year, userNow.month, userNow.day);
   final normalizedPaidDate =
       DateTime(paidDate.year, paidDate.month, paidDate.day);

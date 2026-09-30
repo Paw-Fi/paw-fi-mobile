@@ -50,6 +50,8 @@ class RecurringTransaction {
   final String? splitGroupId;
   final String? accountId;
   final String? bankAccountId;
+  final bool providerRecurring;
+  bool get isManuallyConfirmable => recurrenceRule != null;
   final RecurrenceRule? recurrenceRule; // Nullable - for parsing safety
   final String type; // 'income' or 'expense'
   final List<Attachment> attachments;
@@ -83,6 +85,7 @@ class RecurringTransaction {
     this.splitGroupId,
     this.accountId,
     this.bankAccountId,
+    this.providerRecurring = false,
     this.recurrenceRule, // Not required anymore
     required this.type,
     required this.attachments,
@@ -190,6 +193,8 @@ class RecurringTransaction {
       bankAccountId: json['bankAccountId'] as String? ??
           json['bank_account_id'] as String? ??
           providerFields?['bank_account_id'] as String?,
+      providerRecurring: json['provider_recurring'] == true ||
+          providerFields?['source'] == 'plaid_recurring_template',
       recurrenceRule: parsedRecurrenceRule,
       type: inferredType,
       attachments: _parseAttachments(json['attachments']),
@@ -289,6 +294,7 @@ class RecurringTransaction {
       'splitGroupId': splitGroupId,
       'accountId': accountId,
       'bankAccountId': bankAccountId,
+      'provider_recurring': providerRecurring,
       if (recurrenceRule != null)
         'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
       'type': type,
@@ -330,6 +336,7 @@ class RecurringTransaction {
     String? splitGroupId,
     String? accountId,
     String? bankAccountId,
+    bool? providerRecurring,
     RecurrenceRule? recurrenceRule,
     String? type,
     List<Attachment>? attachments,
@@ -366,6 +373,7 @@ class RecurringTransaction {
       splitGroupId: splitGroupId ?? this.splitGroupId,
       accountId: accountId ?? this.accountId,
       bankAccountId: bankAccountId ?? this.bankAccountId,
+      providerRecurring: providerRecurring ?? this.providerRecurring,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       type: type ?? this.type,
       attachments: attachments ?? this.attachments,

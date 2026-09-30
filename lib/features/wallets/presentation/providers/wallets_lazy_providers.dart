@@ -100,8 +100,10 @@ final walletsScopeQueryProvider = Provider<WalletsScopeQuery>((ref) {
     householdId: _resolveWalletsScopeHouseholdId(householdScope),
     selectedCurrency: selectedCurrencyCode,
     selectedCurrencies: selectedCurrencies,
-    currentMonthStart:
-        DateTime(effectiveNowForUser.year, effectiveNowForUser.month),
+    currentMonthStart: financialCycleStartForDate(
+      effectiveNowForUser,
+      startDay: financialMonthStartDay,
+    ),
     financialMonthStartDay: financialMonthStartDay,
   );
 });

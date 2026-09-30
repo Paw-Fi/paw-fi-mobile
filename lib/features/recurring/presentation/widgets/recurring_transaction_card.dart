@@ -116,7 +116,8 @@ class RecurringTransactionCard extends StatelessWidget {
     final currencySymbol = resolveCurrencySymbol(transaction.currency);
     final amountText = '$sign$currencySymbol$localizedNumber';
 
-    final canConfirm = latestActionableOccurrenceDate != null;
+    final canConfirm = transaction.isManuallyConfirmable &&
+        latestActionableOccurrenceDate != null;
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
     final details = Column(

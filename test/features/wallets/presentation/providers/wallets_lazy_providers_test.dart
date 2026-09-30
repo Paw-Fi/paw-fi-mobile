@@ -7,10 +7,13 @@ import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
+import 'package:moneko/core/utils/financial_period.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -318,6 +321,29 @@ void main() {
         selectedCurrency: 'USD',
         currentMonthStart: DateTime(2026, 4, 1),
       );
+
+  test(
+      'overview current cycle key matches wallet details for custom start days',
+      () {
+    final now = effectiveNow(preferredTimezone: 'UTC');
+    for (final startDay in [1, 2, 25, 31]) {
+      final container = ProviderContainer(overrides: [
+        appPreferredTimezoneProvider.overrideWith((ref) => 'UTC'),
+        financialMonthStartDayProvider.overrideWithValue(startDay),
+        householdScopeProvider.overrideWithValue(const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: {},
+        )),
+      ]);
+      addTearDown(container.dispose);
+      final overview = container.read(walletsScopeQueryProvider);
+      final detailsCycle = financialCycleStartForDate(now, startDay: startDay);
+      expect(overview.currentMonthStart, detailsCycle,
+          reason:
+              'Overview must not default to a previous cycle for start day $startDay');
+    }
+  });
 
   test('empty pending overlay does not wait for exchange rates', () async {
     final database = MonekoDatabase.inMemory();

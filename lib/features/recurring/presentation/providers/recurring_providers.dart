@@ -99,6 +99,7 @@ RecurringTransaction recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
     householdId: entry.householdId,
     splitGroupId: entry.splitGroupId,
     accountId: entry.walletId,
+    providerRecurring: entry.providerRecurring,
     recurrenceRule: _recurrenceRuleFromExpenseEntry(entry),
     type: entry.type ?? 'expense',
     attachments: const [],
@@ -152,6 +153,7 @@ ExpenseEntry _expenseEntryFromRecurringTransaction(
     analyticsSpendingMultiplier: transaction.analyticsSpendingMultiplier,
     analyticsCountsTowardIncome: transaction.analyticsCountsTowardIncome,
     isRecurring: true,
+    providerRecurring: transaction.providerRecurring,
     recurrenceRuleJson: transaction.recurrenceRule?.toJson(),
   );
 }
@@ -1190,6 +1192,11 @@ class RecurringOccurrenceConfirmationController {
   Future<RecurringOccurrenceConfirmationResult> _confirm(
     RecurringOccurrenceConfirmationCommand command,
   ) async {
+    if (!command.recurringTransaction.isManuallyConfirmable) {
+      return const RecurringOccurrenceConfirmationResult.failure(
+        'This occurrence is not available for confirmation yet.',
+      );
+    }
     if (_ref.read(previewModeProvider).isActive) {
       _showPreviewToast();
       return const RecurringOccurrenceConfirmationResult.failure(
@@ -3527,7 +3534,10 @@ class RecurringTransactionSaveNotifier
         householdId: householdId,
         payerUserId: payerUserId,
         accountId: accountId,
-      ).copyWith(id: expenseId);
+      ).copyWith(
+        id: expenseId,
+        providerRecurring: originalExpense?.providerRecurring ?? false,
+      );
       lazyOptimisticHandle =
           ref.read(recurringSeriesOptimisticProvider.notifier).upsert(
                 mutationId: mutationMetadata.clientMutationId,
@@ -3839,7 +3849,10 @@ class RecurringTransactionSaveNotifier
         householdId: householdId,
         payerUserId: payerUserId,
         accountId: accountId,
-      ).copyWith(id: expenseId);
+      ).copyWith(
+        id: expenseId,
+        providerRecurring: originalIncome?.providerRecurring ?? false,
+      );
       mutationMetadata = buildTransactionMutationMetadataForRecord(
         clientRecordId: expenseId,
         operation: 'update_recurring_income',

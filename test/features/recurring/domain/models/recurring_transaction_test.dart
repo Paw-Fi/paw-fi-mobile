@@ -3,6 +3,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 
 void main() {
+  test('bank-template provenance survives serialization and copies', () {
+    final transaction = RecurringTransaction.fromJson({
+      'id': 'telus-template',
+      'date': '2026-09-24',
+      'category': 'Phone Bill',
+      'merchant': 'Telus Pre-auth',
+      'amount_cents': 11760,
+      'currency': 'CAD',
+      'provider': null,
+      'provider_fields': {'source': 'plaid_recurring_template'},
+      'created_at': '2026-09-24T00:00:00Z',
+      'recurrence_rule': {
+        'frequency': 'monthly',
+        'anchor_date': '2026-09-24',
+        'projection_enabled': false,
+      },
+    });
+    expect(transaction.providerRecurring, isTrue);
+    expect(transaction.isManuallyConfirmable, isTrue);
+    expect(transaction.copyWith(amount: 120).providerRecurring, isTrue);
+    expect(
+        RecurringTransaction.fromJson(transaction.toJson()).providerRecurring,
+        isTrue);
+    expect(
+        RecurringTransaction.fromJson({
+          ...transaction.toJson(),
+          'provider_recurring': false,
+        }).isManuallyConfirmable,
+        isTrue);
+  });
+
   group('RecurringTransaction - Model Creation', () {
     test('creates expense correctly', () {
       final now = DateTime.now();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -54,21 +55,53 @@ bool _mobileOutboxDrainRequested = false;
 Future<int>? _mobileOutboxDrainInFlight;
 
 final mobileOutboxDrainerProvider = Provider<MobileOutboxDrainer>(
-  (ref) => MobileOutboxDrainer(
-    () => ref.read(mobileOutboxSyncCoordinatorProvider.future),
-  ),
+  (ref) {
+    ref.watch(authProvider.select((auth) => auth.uid));
+    final drainer = MobileOutboxDrainer(
+      () => ref.read(mobileOutboxSyncCoordinatorProvider.future),
+    );
+    ref.onDispose(drainer.dispose);
+    return drainer;
+  },
 );
 
 class MobileOutboxDrainer {
-  const MobileOutboxDrainer(this._readCoordinator);
+  MobileOutboxDrainer(this._readCoordinator, {DateTime Function()? now})
+      : _now = now ?? DateTime.now;
 
   final Future<SyncCoordinator> Function() _readCoordinator;
+  final DateTime Function() _now;
+  Timer? _retryTimer;
+  bool _disposed = false;
 
-  Future<int> drain({int maxMutations = 20}) {
-    return _drainMobileOutboxWithReader(
+  Future<int> drain({int maxMutations = 20}) async {
+    if (_disposed) return 0;
+    _retryTimer?.cancel();
+    final result = await _drainMobileOutboxWithReader(
       _readCoordinator,
       maxMutations: maxMutations,
     );
+    if (_disposed) return result;
+    final coordinator = await _readCoordinator();
+    final mutations = await coordinator.database.getOutboxMutations();
+    if (_disposed) return result;
+    _retryTimer?.cancel();
+    final delay = resolveNextMobileOutboxRetryDelay(mutations, now: _now());
+    if (delay != null) {
+      // A deferred dependency can leave a queued row immediately eligible.
+      // Keep its retries bounded instead of spinning a zero-delay timer.
+      _retryTimer =
+          Timer(delay > Duration.zero ? delay : const Duration(seconds: 1), () {
+        unawaited(
+            drain(maxMutations: maxMutations).catchError((Object _) => 0));
+      });
+    }
+    return result;
+  }
+
+  void dispose() {
+    _disposed = true;
+    _retryTimer?.cancel();
   }
 }
 
@@ -78,12 +111,16 @@ Duration? resolveNextMobileOutboxRetryDelay(
 }) {
   DateTime? nextRetryAt;
   for (final mutation in mutations) {
-    if (mutation.status != localMutationStatusQueued &&
-        mutation.status != localMutationStatusFailed) {
+    final DateTime? retryAfter;
+    if (mutation.status == localMutationStatusSyncing) {
+      retryAfter = mutation.updatedAt.add(localMutationSyncLease);
+    } else if (mutation.status == localMutationStatusQueued ||
+        mutation.status == localMutationStatusFailed) {
+      retryAfter = mutation.retryAfter;
+    } else {
       continue;
     }
 
-    final retryAfter = mutation.retryAfter;
     if (retryAfter == null || !retryAfter.isAfter(now)) {
       return Duration.zero;
     }
@@ -144,10 +181,9 @@ Future<int> _drainMobileOutboxWithContainer(
   ProviderContainer container, {
   required int maxMutations,
 }) {
-  return _drainMobileOutboxWithReader(
-    () => container.read(mobileOutboxSyncCoordinatorProvider.future),
-    maxMutations: maxMutations,
-  );
+  return container.read(mobileOutboxDrainerProvider).drain(
+        maxMutations: maxMutations,
+      );
 }
 
 Future<int> _drainMobileOutboxWithReader(
@@ -160,7 +196,7 @@ Future<int> _drainMobileOutboxWithReader(
   final run = () async {
     try {
       final coordinator = await readCoordinator();
-      return coordinator.drainOutbox(maxMutations: maxMutations);
+      return await coordinator.drainOutbox(maxMutations: maxMutations);
     } finally {
       _mobileOutboxDrainInFlight = null;
     }
@@ -845,19 +881,37 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
     throw ArgumentError('Missing mutation payload for $functionName');
   }
 
-  final response = await supabase.functions.invoke(functionName, body: body);
-  final responseBody = _mapValue(response.data);
+  final isRecurringOccurrenceMutation = switch (functionName) {
+    'confirm-recurring-occurrence' ||
+    'save-recurring-occurrence-override' ||
+    'skip-recurring-occurrence' ||
+    'update-recurring-occurrence' ||
+    'unconfirm-recurring-occurrence' =>
+      true,
+    _ => false,
+  };
+  Map<String, dynamic>? responseBody;
+  try {
+    final response = await supabase.functions.invoke(functionName, body: body);
+    responseBody = _mapValue(response.data);
+  } on FunctionException catch (error) {
+    // The SDK throws for non-2xx responses before the domain code is checked.
+    // Preserve retry semantics for auth, throttling, transport and server errors.
+    final details = _mapValue(error.details);
+    final code = details?['code']?.toString() ?? '';
+    if (!isRecurringOccurrenceMutation ||
+        (error.status != 400 && error.status != 403) ||
+        !_isTerminalRecurringOccurrenceCode(code)) {
+      rethrow;
+    }
+    throw NonRetryableLocalMutationException(
+      details?['error']?.toString() ?? '$functionName failed',
+    );
+  }
   if (responseBody == null || responseBody['success'] != true) {
     final code = responseBody?['code']?.toString() ?? '';
-    final isRecurringOccurrenceMutation = switch (functionName) {
-      'skip-recurring-occurrence' ||
-      'update-recurring-occurrence' ||
-      'unconfirm-recurring-occurrence' =>
-        true,
-      _ => false,
-    };
     if (isRecurringOccurrenceMutation &&
-        (code.startsWith('OCCURRENCE_') || code == 'VALIDATION_ERROR')) {
+        _isTerminalRecurringOccurrenceCode(code)) {
       throw NonRetryableLocalMutationException(
         responseBody?['error']?.toString() ?? '$functionName failed',
       );
@@ -869,27 +923,20 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
   return responseBody;
 }
 
+bool _isTerminalRecurringOccurrenceCode(String code) =>
+    code == 'VALIDATION_ERROR' ||
+    (code.startsWith('OCCURRENCE_') && code != 'OCCURRENCE_FAILED');
+
 Future<Map<String, dynamic>> _invokeRecurringOccurrenceConfirmation(
     Map<String, dynamic>? body,
     {String? functionName}) async {
   if (body == null || body.isEmpty) {
     throw ArgumentError('Missing recurring occurrence confirmation payload');
   }
-  final response = await supabase.functions.invoke(
+  return _invokeMutationFunction(
     functionName ?? 'confirm-recurring-occurrence',
-    body: body,
+    body,
   );
-  final responseBody = _mapValue(response.data);
-  if (responseBody == null || responseBody['success'] != true) {
-    final code = responseBody?['code']?.toString() ?? '';
-    final message = responseBody?['error']?.toString() ??
-        'Recurring occurrence confirmation failed';
-    if (code.startsWith('OCCURRENCE_') || code == 'VALIDATION_ERROR') {
-      throw NonRetryableLocalMutationException(message);
-    }
-    throw Exception(message);
-  }
-  return responseBody;
 }
 
 Future<Map<String, dynamic>?> _requestBodyWithQueuedReceipt(

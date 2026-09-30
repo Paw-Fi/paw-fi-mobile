@@ -275,6 +275,10 @@ class _ConfirmRecurringOccurrenceFormState
           scheduledOccurrenceDate: widget.scheduledOccurrenceDate,
           userNow: userNow,
         );
+    if (!_isEditing && !widget.recurringTransaction.isManuallyConfirmable) {
+      setState(() => _error = context.l10n.recurringOccurrenceNotAvailable);
+      return;
+    }
     if (!_isAmountLocked && amountCents == null) {
       setState(() => _error = context.l10n.recurringOccurrenceEnterAmount);
       return;

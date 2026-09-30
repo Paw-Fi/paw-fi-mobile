@@ -339,6 +339,7 @@ class RecurringReadRepository {
       householdId: entry.householdId,
       splitGroupId: entry.splitGroupId,
       accountId: entry.walletId,
+      providerRecurring: entry.providerRecurring,
       recurrenceRule: rawRule == null ? null : RecurrenceRule.fromJson(rawRule),
       type: entry.type ?? 'expense',
       attachments: const [],

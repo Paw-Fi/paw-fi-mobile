@@ -10,6 +10,9 @@ import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/utils/currency_rate_provider.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
@@ -23,7 +26,14 @@ import 'package:moneko/features/recurring/domain/models/recurring_read_models.da
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 
 void main() {
   late Future<http.Response> Function(http.Request request) requestHandler;
@@ -142,6 +152,34 @@ void main() {
       (await database.getOutboxMutations()).single.status,
       localMutationStatusFailed,
     );
+  });
+
+  test('bank-generated occurrence can queue a manual confirmation offline',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final container = _container(database);
+    addTearDown(container.dispose);
+    requestHandler = (_) => throw const SocketException('offline');
+    final recurring = RecurringTransaction.fromJson({
+      ..._recurring(householdId: null).toJson(),
+      'provider': null,
+      'provider_fields': {'source': 'plaid_recurring_template'},
+    });
+    final result = await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(RecurringOccurrenceConfirmationCommand(
+          userId: 'user_1',
+          recurringTransaction: recurring,
+          scheduledOccurrenceDate: recurring.date,
+          paidDate: recurring.date,
+          amountCents: 11760,
+          accountId: 'wallet_usd',
+        ));
+    expect(result.isQueued, isTrue);
+    await container.read(mobileOutboxDrainerProvider).drain();
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusFailed);
   });
 
   test('confirmed local occurrence cannot queue a second confirmation',
@@ -540,15 +578,17 @@ void main() {
     requestHandler = (_) => throw const SocketException('offline');
     final container = _container(database);
     addTearDown(container.dispose);
+    final now = effectiveNow(preferredTimezone: null);
+    final currentMonth = DateTime(now.year, now.month, 1);
     final recurring = _recurring(
       householdId: 'household_1',
-      date: DateTime(2026, 8, 1),
+      date: currentMonth,
     );
     final actual = _entry(recurring).copyWith(
       id: 'actual-occurrence-1',
       isRecurring: false,
       parentRecurringId: recurring.id,
-      scheduledOccurrenceDate: DateTime(2026, 8, 1),
+      scheduledOccurrenceDate: currentMonth,
       amountCents: 8000,
     );
 
@@ -559,13 +599,13 @@ void main() {
           recurringTransaction: recurring,
           occurrence: RecurringOccurrenceTimelineItem(
             occurrenceId: 'occurrence-1',
-            scheduledOccurrenceDate: DateTime(2026, 8, 1),
+            scheduledOccurrenceDate: currentMonth,
             status: 'confirmed',
             actualTransaction: actual,
             amountCents: 8000,
             currency: 'USD',
           ),
-          paidDate: DateTime(2026, 8, 1),
+          paidDate: currentMonth,
           amountCents: 9000,
           accountId: 'wallet_usd',
         ));
@@ -580,7 +620,7 @@ void main() {
       [
         RecurringSeriesSummary(
           transaction: recurring,
-          nextOccurrenceDate: DateTime(2026, 9, 1),
+          nextOccurrenceDate: DateTime(now.year, now.month + 1, 1),
           latestActionableOccurrenceDate: null,
           currentMonthConfirmedAmountDeltaCents: -2000,
         ),
@@ -599,53 +639,638 @@ void main() {
     );
   });
 
-  test('terminal occurrence update rolls back instead of remaining queued',
+  test('HTTP terminal confirmation rolls back once across database restart',
       () async {
-    final database = MonekoDatabase.inMemory();
-    addTearDown(database.close);
-    requestHandler = (request) async => _terminalResponse(request);
-    final container = _container(database);
-    addTearDown(container.dispose);
-    final recurring = _recurring(householdId: 'household_1');
-    final actual = _entry(recurring).copyWith(
-      id: 'actual-occurrence-1',
-      isRecurring: false,
-      parentRecurringId: recurring.id,
-      scheduledOccurrenceDate: DateTime(2026, 2, 1),
-      amountCents: 8000,
+    final directory =
+        await Directory.systemTemp.createTemp('recurring-restart-');
+    final path = '${directory.path}/local.sqlite';
+    var database = MonekoDatabase.fromExistingDatabaseForTesting(
+      sqlite.sqlite3.open(path),
     );
-    await database.upsertTransactions([actual]);
-
-    final result = await container
-        .read(recurringOccurrenceUpdateProvider)
-        .update(RecurringOccurrenceUpdateCommand(
-          userId: 'user_1',
-          recurringTransaction: recurring,
-          occurrence: RecurringOccurrenceTimelineItem(
-            occurrenceId: 'occurrence-1',
-            scheduledOccurrenceDate: DateTime(2026, 2, 1),
-            status: 'confirmed',
-            actualTransaction: actual,
-            amountCents: 8000,
-            currency: 'USD',
-          ),
-          paidDate: DateTime(2026, 2, 2),
-          amountCents: 9000,
-          accountId: 'wallet_usd',
-        ));
-
-    expect(result.isQueued, isTrue);
-    await _waitForAsync(() async {
-      final mutation = (await database.getOutboxMutations()).single;
-      return mutation.status == localMutationStatusCancelled;
+    var container = _container(database);
+    addTearDown(() async {
+      container.dispose();
+      await database.close();
+      await directory.delete(recursive: true);
     });
-
-    final restored =
-        await database.getTransactionByIdOrClientRecordId(actual.id);
-    expect(restored?.amountCents, 8000);
+    var requests = 0;
+    requestHandler = (request) async {
+      requests += 1;
+      return http.Response(
+        jsonEncode({
+          'success': false,
+          'code': 'OCCURRENCE_NOT_MANUALLY_CONFIRMABLE',
+          'error': 'OCCURRENCE_NOT_MANUALLY_CONFIRMABLE',
+        }),
+        400,
+        headers: {'content-type': 'application/json'},
+      );
+    };
+    final recurring = _recurring(householdId: null);
+    final command = RecurringOccurrenceConfirmationCommand(
+      userId: 'user_1',
+      recurringTransaction: recurring,
+      scheduledOccurrenceDate: recurring.date,
+      paidDate: recurring.date,
+      amountCents: 11760,
+      accountId: 'wallet_usd',
+    );
+    final result = await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(command);
+    expect(result.isQueued, isTrue);
+    await container.read(mobileOutboxDrainerProvider).drain();
     expect((await database.getOutboxMutations()).single.status,
         localMutationStatusCancelled);
+    expect(
+        await database.getTransactionByIdOrClientRecordId(command.optimisticId),
+        isNull);
+    expect(container.read(appMutationErrorProvider)?.feature, 'recurring');
+
+    container.dispose();
+    await database.close();
+    database = MonekoDatabase.fromExistingDatabaseForTesting(
+      sqlite.sqlite3.open(path),
+    );
+    container = _container(database);
+    await container.read(mobileOutboxDrainerProvider).drain();
+    expect(requests, 1);
+    expect(container.read(appMutationErrorProvider), isNull);
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusCancelled);
+    expect(
+        await database.getTransactionByIdOrClientRecordId(command.optimisticId),
+        isNull);
   });
+
+  for (final providerBacked in [false, true]) {
+    test(
+        'recurring wallet accounting providerBacked=$providerBacked survives reconciliation and restart',
+        () async {
+      final directory =
+          await Directory.systemTemp.createTemp('recurring-wallet-');
+      final path = '${directory.path}/local.sqlite';
+      var database = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path));
+      var container = _container(database, personalWalletTest: true);
+      addTearDown(() async {
+        container.dispose();
+        await database.close();
+        await directory.delete(recursive: true);
+      });
+      final now = effectiveNow(preferredTimezone: null);
+      final date = DateTime(now.year, now.month, 1);
+      final recurring = _recurring(householdId: null, date: date).copyWith(
+          currency: 'CAD', accountId: 'wallet_cad', providerRecurring: true);
+      final command = RecurringOccurrenceConfirmationCommand(
+          userId: 'user_1',
+          recurringTransaction: recurring,
+          scheduledOccurrenceDate: date,
+          paidDate: date,
+          amountCents: 11760,
+          accountId: 'wallet_cad');
+      final query = WalletsScopeQuery(
+          userId: 'user_1',
+          householdId: null,
+          selectedCurrency: 'CAD',
+          selectedCurrencies: const ['CAD'],
+          currentMonthStart: date);
+      final wallet = WalletEntity(
+          id: 'wallet_cad',
+          userId: 'user_1',
+          householdId: null,
+          name: 'Card',
+          icon: 'wallet',
+          color: '#6B7280',
+          currency: 'CAD',
+          openingBalanceCents: 20000,
+          currentBalanceCents: providerBacked ? 0 : 20000,
+          goalAmountCents: null,
+          isDefault: false,
+          isSystem: false,
+          isArchived: false,
+          hasProviderBalance: providerBacked,
+          linkedBankAccountId: providerBacked ? 'bank-cad' : null);
+      final cacheKey = walletsListCacheKey(
+          userId: query.userId,
+          householdId: null,
+          selectedCurrency: 'CAD',
+          selectedCurrencies: const ['CAD'],
+          currentMonthStart: date);
+      Future<void> expectBalances(int balance, int spent) async {
+        await container.read(networkReachabilityProvider.future);
+        container.read(walletsListSessionCacheProvider.notifier).state = {
+          cacheKey: [wallet]
+        };
+        await _waitForAsync(() async {
+          final state =
+              await container.read(walletsPageStateProvider(query).future);
+          final snapshot = state.cachedSnapshotsByMonth[date];
+          return snapshot?.walletBalances[wallet.id] == balance &&
+              snapshot?.spentTotalCents == spent;
+        });
+        final state =
+            await container.read(walletsPageStateProvider(query).future);
+        final snapshot = state.cachedSnapshotsByMonth[date]!;
+        final entries =
+            await database.getTransactionsByScheduledOccurrenceRange(
+                userId: 'user_1',
+                householdId: null,
+                parentRecurringId: recurring.id,
+                startDate: date,
+                endDate: date);
+        // These are the production sources used by the overview/stack and detail.
+        final detailBalance = providerBacked
+            ? snapshot.walletBalances[wallet.id]
+            : buildWalletSnapshot(
+                    wallets: [wallet],
+                    transactions: entries,
+                    endExclusive: DateTime(now.year, now.month, now.day + 1))
+                .walletBalances[wallet.id];
+        expect(detailBalance, balance);
+      }
+
+      requestHandler = (_) => throw const SocketException('offline');
+      await expectBalances(providerBacked ? 0 : 20000, 0);
+      expect(
+          (await container
+                  .read(recurringOccurrenceConfirmationProvider)
+                  .confirm(command))
+              .isQueued,
+          isTrue);
+      await container.read(mobileOutboxDrainerProvider).drain();
+      await expectBalances(providerBacked ? -11760 : 8240, 11760);
+      container.dispose();
+      await database.close();
+      database = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path));
+      container = _container(database, personalWalletTest: true);
+      await expectBalances(providerBacked ? -11760 : 8240, 11760);
+      final local = await database
+          .getTransactionByIdOrClientRecordId(command.optimisticId);
+      requestHandler = (request) async => http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'transaction':
+                  local!.copyWith(id: 'canonical-wallet-actual').toJson()
+            }
+          }),
+          200,
+          headers: {'content-type': 'application/json'});
+      await database.markMutationFailed(
+          clientMutationId: command.idempotencyKey,
+          error: 'retry now',
+          retryAfter: DateTime.now().subtract(const Duration(seconds: 1)));
+      await container.read(mobileOutboxDrainerProvider).drain();
+      await expectBalances(providerBacked ? 0 : 8240, 11760);
+      container.dispose();
+      await database.close();
+      database = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path));
+      container = _container(database, personalWalletTest: true);
+      await expectBalances(providerBacked ? 0 : 8240, 11760);
+      final result = await container
+          .read(recurringOccurrenceConfirmationProvider)
+          .confirm(command);
+      expect(result.optimisticId, 'canonical-wallet-actual');
+      await container.read(mobileOutboxDrainerProvider).drain();
+      expect((await database.getOutboxMutations()).single.status,
+          localMutationStatusSynced);
+    });
+  }
+
+  for (final status in [0, 400, 401, 403, 429, 503]) {
+    test(
+        'HTTP $status retryable confirmation survives restart and reconciles only once',
+        () async {
+      final directory =
+          await Directory.systemTemp.createTemp('recurring-retry-');
+      final path = '${directory.path}/local.sqlite';
+      var database = MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite.sqlite3.open(path),
+      );
+      var container = _container(database);
+      addTearDown(() async {
+        container.dispose();
+        await database.close();
+        await directory.delete(recursive: true);
+      });
+      final recurring = _recurring(householdId: null);
+      final command = RecurringOccurrenceConfirmationCommand(
+        userId: 'user_1',
+        recurringTransaction: recurring,
+        scheduledOccurrenceDate: recurring.date,
+        paidDate: recurring.date,
+        amountCents: 11760,
+        accountId: 'wallet_usd',
+      );
+      // Even a domain-looking body cannot make a gateway/server failure terminal.
+      requestHandler = (request) async {
+        if (status == 0) throw const SocketException('offline');
+        return http.Response(
+          jsonEncode({
+            'success': false,
+            'code': status == 400 || status == 403
+                ? 'UNKNOWN_ERROR'
+                : 'OCCURRENCE_FAILED',
+          }),
+          status,
+          headers: {'content-type': 'application/json'},
+        );
+      };
+      await container
+          .read(recurringOccurrenceConfirmationProvider)
+          .confirm(command);
+      await container.read(mobileOutboxDrainerProvider).drain();
+      expect((await database.getOutboxMutations()).single.status,
+          localMutationStatusFailed);
+      expect(container.read(appMutationErrorProvider), isNull);
+      expect(
+          (await database
+                  .getTransactionByIdOrClientRecordId(command.optimisticId))
+              ?.recurringConfirmedAt,
+          isNotNull);
+
+      container.dispose();
+      await database.close();
+      database = MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite.sqlite3.open(path),
+      );
+      container = _container(database);
+      final restored = await database
+          .getTransactionByIdOrClientRecordId(command.optimisticId);
+      expect(restored?.recurringConfirmedAt, isNotNull);
+      var successes = 0;
+      requestHandler = (request) async {
+        successes += 1;
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'transaction': restored!.copyWith(id: 'canonical-actual').toJson()
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      };
+      await database.markMutationFailed(
+        clientMutationId: command.idempotencyKey,
+        error: 'retry now',
+        retryAfter: DateTime.now().subtract(const Duration(seconds: 1)),
+      );
+      await container.read(mobileOutboxDrainerProvider).drain();
+      expect((await database.getOutboxMutations()).single.status,
+          localMutationStatusSynced);
+      container.dispose();
+      await database.close();
+      database = MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite.sqlite3.open(path),
+      );
+      container = _container(database);
+      final reconfirmation = await container
+          .read(recurringOccurrenceConfirmationProvider)
+          .confirm(command);
+      expect(reconfirmation.optimisticId, 'canonical-actual');
+      await container.read(mobileOutboxDrainerProvider).drain();
+      final actuals = await database.getTransactionsByScheduledOccurrenceRange(
+        userId: 'user_1',
+        householdId: null,
+        parentRecurringId: recurring.id,
+        startDate: recurring.date,
+        endDate: recurring.date,
+      );
+      expect(actuals.single.id, 'canonical-actual');
+      expect(actuals.single.recurringConfirmedAt, isNotNull);
+      expect(successes, 1);
+      expect(container.read(appMutationErrorProvider), isNull);
+    });
+  }
+
+  for (final crashStage in ['queued', 'syncing', 'reconciled']) {
+    test('SQLite reopen recovers confirmation interrupted at $crashStage',
+        () async {
+      final directory =
+          await Directory.systemTemp.createTemp('recurring-kill-');
+      final path = '${directory.path}/local.sqlite';
+      var database = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path));
+      var container = _container(database);
+      addTearDown(() async {
+        container.dispose();
+        await database.close();
+        await directory.delete(recursive: true);
+      });
+      final recurring = _recurring(householdId: null);
+      final command = RecurringOccurrenceConfirmationCommand(
+        userId: 'user_1',
+        recurringTransaction: recurring,
+        scheduledOccurrenceDate: recurring.date,
+        paidDate: recurring.date.subtract(const Duration(days: 1)),
+        amountCents: 11760,
+        accountId: 'wallet_usd',
+      );
+      final local = _entry(recurring).copyWith(
+        id: command.optimisticId,
+        isRecurring: false,
+        date: command.paidDate,
+        amountCents: command.amountCents,
+        parentRecurringId: recurring.id,
+        scheduledOccurrenceDate: command.scheduledOccurrenceDate,
+        recurringConfirmedAt: DateTime.now(),
+        recurringConfirmationSource: 'user',
+        clientRecordId: command.optimisticId,
+        clientMutationId: command.idempotencyKey,
+      );
+      // Stop at the same durable boundary the controller commits before HTTP.
+      await database.writeOptimisticTransaction(
+        entry: local,
+        clientMutationId: command.idempotencyKey,
+        operation: localRecurringOccurrenceConfirmationMutationOperation,
+        payload: {
+          'idempotencyKey': command.idempotencyKey,
+          'clientMutationId': command.idempotencyKey,
+          'requestBody': command.toRequestBody(),
+        },
+      );
+      if (crashStage != 'queued') {
+        await database.markMutationSyncing(command.idempotencyKey);
+      }
+      if (crashStage == 'reconciled') {
+        await database.replaceOptimisticTransaction(
+          optimisticId: command.optimisticId,
+          savedEntry: local.copyWith(id: 'canonical-kill-actual'),
+          clientMutationId: command.idempotencyKey,
+        );
+        // The coordinator's later mark-synced call has not happened.
+      }
+      container.dispose();
+      await database.close();
+      database = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path));
+      container = _container(database);
+      var requests = 0;
+      requestHandler = (_) async {
+        requests += 1;
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'transaction':
+                  local.copyWith(id: 'canonical-kill-actual').toJson()
+            }
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      };
+      if (crashStage == 'syncing') {
+        final mutation = (await database.getOutboxMutations()).single;
+        final beforeExpiry = mutation.updatedAt.add(const Duration(minutes: 9));
+        expect(await database.nextRetryableMutation(beforeExpiry), isNull);
+        expect(resolveNextMobileOutboxRetryDelay([mutation], now: beforeExpiry),
+            const Duration(minutes: 1));
+        expect(
+            await database.nextRetryableMutation(
+                mutation.updatedAt.add(localMutationSyncLease)),
+            isNotNull);
+      }
+      await container.read(mobileOutboxDrainerProvider).drain();
+      expect(requests, crashStage == 'reconciled' ? 0 : 1);
+      expect((await database.getOutboxMutations()).single.status,
+          localMutationStatusSynced);
+      final actuals = await database.getTransactionsByScheduledOccurrenceRange(
+        userId: command.userId,
+        householdId: null,
+        parentRecurringId: recurring.id,
+        startDate: command.scheduledOccurrenceDate,
+        endDate: command.scheduledOccurrenceDate,
+      );
+      expect(actuals.single.id, 'canonical-kill-actual');
+      expect(actuals.single.date, command.paidDate);
+      expect(actuals.single.recurringConfirmedAt, isNotNull);
+      expect(container.read(appMutationErrorProvider), isNull);
+    });
+  }
+
+  test('lost server response replays the same confirmation after SQLite reopen',
+      () async {
+    final directory =
+        await Directory.systemTemp.createTemp('recurring-timeout-');
+    final path = '${directory.path}/local.sqlite';
+    var database = MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite.sqlite3.open(path));
+    var container = _container(database);
+    addTearDown(() async {
+      container.dispose();
+      await database.close();
+      await directory.delete(recursive: true);
+    });
+    final recurring = _recurring(householdId: null);
+    final command = RecurringOccurrenceConfirmationCommand(
+      userId: 'user_1',
+      recurringTransaction: recurring,
+      scheduledOccurrenceDate: recurring.date,
+      paidDate: recurring.date,
+      amountCents: 11760,
+      accountId: 'wallet_usd',
+    );
+    String? firstBody;
+    http.Response? committedResponse;
+    var requests = 0;
+    requestHandler = (request) async {
+      requests += 1;
+      firstBody = request.body;
+      final local = await database
+          .getTransactionByIdOrClientRecordId(command.optimisticId);
+      committedResponse = http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'transaction':
+                  local!.copyWith(id: 'canonical-timeout-actual').toJson()
+            }
+          }),
+          200,
+          headers: {'content-type': 'application/json'});
+      throw const SocketException('response lost after server commit');
+    };
+    await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(command);
+    await container.read(mobileOutboxDrainerProvider).drain();
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusFailed);
+    container.dispose();
+    await database.close();
+    database = MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite.sqlite3.open(path));
+    container = _container(database);
+    requestHandler = (request) async {
+      requests += 1;
+      expect(jsonDecode(request.body), jsonDecode(firstBody!));
+      return committedResponse!;
+    };
+    await database.deferMutation(command.idempotencyKey);
+    await container.read(mobileOutboxDrainerProvider).drain();
+    container.dispose();
+    await database.close();
+    database = MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite.sqlite3.open(path));
+    container = _container(database);
+    await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(command);
+    await container.read(mobileOutboxDrainerProvider).drain();
+    expect(requests, 2);
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusSynced);
+    expect(
+        (await database
+                .getTransactionByIdOrClientRecordId(command.optimisticId))
+            ?.id,
+        'canonical-timeout-actual');
+    expect(container.read(appMutationErrorProvider), isNull);
+  });
+
+  test('legacy generic failure survives ten retries and SQLite reopens',
+      () async {
+    final directory =
+        await Directory.systemTemp.createTemp('recurring-outage-');
+    final path = '${directory.path}/local.sqlite';
+    var database = MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite.sqlite3.open(path));
+    var container = _container(database);
+    addTearDown(() async {
+      container.dispose();
+      await database.close();
+      await directory.delete(recursive: true);
+    });
+    final recurring = _recurring(householdId: null);
+    final command = RecurringOccurrenceConfirmationCommand(
+      userId: 'user_1',
+      recurringTransaction: recurring,
+      scheduledOccurrenceDate: recurring.date,
+      paidDate: recurring.date.subtract(const Duration(days: 1)),
+      amountCents: 11760,
+      accountId: 'wallet_usd',
+    );
+    requestHandler = (_) async => http.Response(
+          jsonEncode({'success': false, 'code': 'OCCURRENCE_FAILED'}),
+          400,
+          headers: {'content-type': 'application/json'},
+        );
+    await container
+        .read(recurringOccurrenceConfirmationProvider)
+        .confirm(command);
+    for (var attempt = 1; attempt <= 10; attempt++) {
+      await container.read(mobileOutboxDrainerProvider).drain();
+      final mutation = (await database.getOutboxMutations()).single;
+      expect(mutation.status, localMutationStatusFailed);
+      expect(mutation.attemptCount, attempt);
+      expect(container.read(appMutationErrorProvider), isNull);
+      container.dispose();
+      await database.close();
+      database = MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open(path));
+      container = _container(database);
+      final restored = await database
+          .getTransactionByIdOrClientRecordId(command.optimisticId);
+      expect(
+          restored?.scheduledOccurrenceDate, command.scheduledOccurrenceDate);
+      expect(restored?.date, command.paidDate);
+      await database.deferMutation(command.idempotencyKey);
+    }
+    final restored =
+        await database.getTransactionByIdOrClientRecordId(command.optimisticId);
+    var requests = 0;
+    requestHandler = (_) async {
+      requests += 1;
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'transaction':
+                restored!.copyWith(id: 'canonical-outage-actual').toJson(),
+          }
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    };
+    await container.read(mobileOutboxDrainerProvider).drain();
+    container.dispose();
+    await database.close();
+    database = MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite.sqlite3.open(path));
+    container = _container(database);
+    await container.read(mobileOutboxDrainerProvider).drain();
+    expect(requests, 1);
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusSynced);
+    expect(
+        (await database
+                .getTransactionByIdOrClientRecordId(command.optimisticId))
+            ?.id,
+        'canonical-outage-actual');
+    expect(container.read(appMutationErrorProvider), isNull);
+  });
+
+  for (final status in [200, 403]) {
+    test(
+        'HTTP $status terminal occurrence update rolls back instead of remaining queued',
+        () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      requestHandler = (request) async => http.Response(
+            _terminalResponse(request).body,
+            status,
+            headers: {'content-type': 'application/json'},
+          );
+      final container = _container(database);
+      addTearDown(container.dispose);
+      final recurring = _recurring(householdId: 'household_1');
+      final actual = _entry(recurring).copyWith(
+        id: 'actual-occurrence-1',
+        isRecurring: false,
+        parentRecurringId: recurring.id,
+        scheduledOccurrenceDate: DateTime(2026, 2, 1),
+        amountCents: 8000,
+      );
+      await database.upsertTransactions([actual]);
+
+      final result = await container
+          .read(recurringOccurrenceUpdateProvider)
+          .update(RecurringOccurrenceUpdateCommand(
+            userId: 'user_1',
+            recurringTransaction: recurring,
+            occurrence: RecurringOccurrenceTimelineItem(
+              occurrenceId: 'occurrence-1',
+              scheduledOccurrenceDate: DateTime(2026, 2, 1),
+              status: 'confirmed',
+              actualTransaction: actual,
+              amountCents: 8000,
+              currency: 'USD',
+            ),
+            paidDate: DateTime(2026, 2, 2),
+            amountCents: 9000,
+            accountId: 'wallet_usd',
+          ));
+
+      expect(result.isQueued, isTrue);
+      await _waitForAsync(() async {
+        final mutation = (await database.getOutboxMutations()).single;
+        return mutation.status == localMutationStatusCancelled;
+      });
+
+      final restored =
+          await database.getTransactionByIdOrClientRecordId(actual.id);
+      expect(restored?.amountCents, 8000);
+      expect((await database.getOutboxMutations()).single.status,
+          localMutationStatusCancelled);
+    });
+  }
 
   test('retryable recurring split failure remains queued and visible',
       () async {
@@ -1160,19 +1785,43 @@ void main() {
   });
 }
 
-ProviderContainer _container(MonekoDatabase database) {
+ProviderContainer _container(MonekoDatabase database,
+    {bool personalWalletTest = false}) {
   return ProviderContainer(
     overrides: [
       localDatabaseProvider.overrideWith((ref) async => database),
       householdScopeProvider.overrideWithValue(
-        const HouseholdScope(
-          viewMode: ViewMode.household,
-          selected: SelectedHouseholdState(householdId: 'household_1'),
-          portfolioHouseholdIds: {},
+        HouseholdScope(
+          viewMode: personalWalletTest ? ViewMode.personal : ViewMode.household,
+          selected: SelectedHouseholdState(
+              householdId: personalWalletTest ? null : 'household_1'),
+          portfolioHouseholdIds: const {},
         ),
       ),
+      if (personalWalletTest) ...[
+        networkReachabilityProvider.overrideWith((ref) => Stream.value(false)),
+        currencyRateTableProvider.overrideWith((ref) async => CurrencyRateTable(
+            baseCurrency: 'CAD',
+            rates: const {'CAD': 1},
+            fetchedAt: DateTime.now())),
+        transactionsFeedServiceProvider
+            .overrideWithValue(_RecurringDatabaseFeed(database)),
+      ],
     ],
   );
+}
+
+class _RecurringDatabaseFeed extends EmptyTransactionsFeedService {
+  const _RecurringDatabaseFeed(this.database);
+  final MonekoDatabase database;
+  @override
+  Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) =>
+      database.getTransactionsByScheduledOccurrenceRange(
+          userId: query.userId,
+          householdId: query.householdId,
+          parentRecurringId: 'recurring_1',
+          startDate: DateTime(2000),
+          endDate: DateTime(9999));
 }
 
 List<MemberSplit> _amountSplits() => [

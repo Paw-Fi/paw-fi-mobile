@@ -58,79 +58,86 @@ RecurringOccurrenceSummary _occurrence({
 }
 
 void main() {
-  testWidgets(
-      'keeps the immediate next row upcoming and excludes skipped cycles from paid',
-      (tester) async {
-    tester.view.physicalSize = const Size(430, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  for (final providerGenerated in [false, true]) {
+    testWidgets(
+        'history providerGenerated=$providerGenerated preserves history and confirmation eligibility',
+        (tester) async {
+      tester.view.physicalSize = const Size(430, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final nextOccurrence = today.add(const Duration(days: 30));
-    final historyState = RecurringOccurrenceHistoryState(
-      items: [
-        _occurrence(
-          id: 'skipped-1',
-          date: today.subtract(const Duration(days: 30)),
-          status: 'skipped',
-        ),
-        _occurrence(
-          id: 'confirmed-1',
-          date: today.subtract(const Duration(days: 60)),
-          status: 'confirmed',
-        ),
-      ],
-      hasMore: false,
-      nextCursor: null,
-    );
-    final transaction = RecurringTransaction(
-      id: 'recurring-1',
-      userId: 'user-1',
-      date: today.subtract(const Duration(days: 60)),
-      category: 'housing',
-      description: 'Rent',
-      amount: 100,
-      currency: 'USD',
-      ownerType: 'me',
-      privacyScope: 'full',
-      recurrenceRule: RecurrenceRule(
-        frequency: 'monthly',
-        anchorDate: today.subtract(const Duration(days: 60)),
-        projectionEnabled: false,
-      ),
-      type: 'expense',
-      attachments: const [],
-      createdAt: today.subtract(const Duration(days: 90)),
-      serverNextOccurrenceDate: nextOccurrence,
-      serverLatestActionableOccurrenceDate: nextOccurrence,
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authProvider.overrideWith(_TestAuth.new),
-          analyticsProvider.overrideWith(_TestAnalyticsNotifier.new),
-          recurringOccurrenceHistoryProvider.overrideWith(
-            () => _TestHistoryNotifier(historyState),
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final nextOccurrence = today.add(const Duration(days: 30));
+      final historyState = RecurringOccurrenceHistoryState(
+        items: [
+          _occurrence(
+            id: 'skipped-1',
+            date: today.subtract(const Duration(days: 30)),
+            status: 'skipped',
+          ),
+          _occurrence(
+            id: 'confirmed-1',
+            date: today.subtract(const Duration(days: 60)),
+            status: 'confirmed',
           ),
         ],
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: RecurringHistoryPage(transaction: transaction),
+        hasMore: false,
+        nextCursor: null,
+      );
+      final transaction = RecurringTransaction(
+        id: 'recurring-1',
+        userId: 'user-1',
+        date: today.subtract(const Duration(days: 60)),
+        category: 'housing',
+        description: 'Rent',
+        amount: 100,
+        currency: 'USD',
+        ownerType: 'me',
+        privacyScope: 'full',
+        recurrenceRule: RecurrenceRule(
+          frequency: 'monthly',
+          anchorDate: today.subtract(const Duration(days: 60)),
+          projectionEnabled: false,
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+        type: 'expense',
+        attachments: const [],
+        createdAt: today.subtract(const Duration(days: 90)),
+        serverNextOccurrenceDate: nextOccurrence,
+        serverLatestActionableOccurrenceDate: nextOccurrence,
+      );
 
-    expect(find.text('Paid (1)'), findsOneWidget);
-    expect(find.text('Pending (1)'), findsOneWidget);
-    expect(find.text('Confirm'), findsOneWidget);
-    expect(find.text('Skip'), findsOneWidget);
-  });
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(_TestAuth.new),
+            analyticsProvider.overrideWith(_TestAnalyticsNotifier.new),
+            recurringOccurrenceHistoryProvider.overrideWith(
+              () => _TestHistoryNotifier(historyState),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: RecurringHistoryPage(
+                transaction: RecurringTransaction.fromJson({
+              ...transaction.toJson(),
+              if (providerGenerated)
+                'provider_fields': {'source': 'plaid_recurring_template'},
+            })),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Paid (1)'), findsOneWidget);
+      expect(find.text('Pending (1)'), findsOneWidget);
+      expect(find.text('Confirm'), findsOneWidget);
+      expect(find.text('Skip'), findsOneWidget);
+    });
+  }
 
   testWidgets('shows Ended instead of a stale next due date', (tester) async {
     tester.view.physicalSize = const Size(430, 1000);

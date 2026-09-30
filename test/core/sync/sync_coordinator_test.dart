@@ -397,6 +397,54 @@ void main() {
     );
   });
 
+  for (final operation in [
+    localRecurringOccurrenceConfirmationMutationOperation,
+    'update_recurring_occurrence',
+    'unconfirm_recurring_occurrence',
+    'skip_recurring_occurrence',
+  ]) {
+    test('$operation survives retry exhaustion but cancels terminal rejection',
+        () async {
+      var now = DateTime.now().toUtc();
+      await database.enqueueMutation(
+        clientMutationId: 'durable-occurrence',
+        entityType: 'transaction',
+        entityId: 'occurrence-actual',
+        operation: operation,
+        payload: const {
+          'requestBody': {'recurringId': 'series'}
+        },
+      );
+      var terminal = false;
+      var cancellations = 0;
+      final coordinator = SyncCoordinator(
+        database: database,
+        now: () => now,
+        dispatchMutation: (_) async {
+          if (terminal) {
+            throw const NonRetryableLocalMutationException(
+                'OCCURRENCE_CONFLICT');
+          }
+          throw StateError('temporary outage');
+        },
+        onMutationCancelled: (_, __) async => cancellations += 1,
+      );
+      for (var attempt = 1; attempt <= 10; attempt++) {
+        await coordinator.drainOutbox();
+        final mutation = (await database.getOutboxMutations()).single;
+        expect(mutation.status, localMutationStatusFailed);
+        expect(mutation.attemptCount, attempt);
+        expect(cancellations, 0);
+        now = now.add(const Duration(minutes: 6));
+      }
+      terminal = true;
+      await coordinator.drainOutbox();
+      expect((await database.getOutboxMutations()).single.status,
+          localMutationStatusCancelled);
+      expect(cancellations, 1);
+    });
+  }
+
   test('cancels non-retryable occurrence failures without retrying', () async {
     final now = DateTime.utc(2026, 4, 8, 12);
     final entry = ExpenseEntry(

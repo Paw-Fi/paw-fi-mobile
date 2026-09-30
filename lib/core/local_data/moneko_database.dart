@@ -32,7 +32,7 @@ bool _isTransactionDeleteOperation(String operation) =>
     operation == 'unconfirm_recurring_occurrence';
 
 const int _localDatabaseSchemaVersion = 12;
-const Duration _localMutationSyncLease = Duration(minutes: 10);
+const Duration localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
   required String userId,
@@ -4075,7 +4075,7 @@ class MonekoDatabase {
 
   void _requeueExpiredSyncingMutations(DateTime now) {
     final effectiveNow = now.toUtc();
-    final leaseCutoff = effectiveNow.subtract(_localMutationSyncLease);
+    final leaseCutoff = effectiveNow.subtract(localMutationSyncLease);
     _db.execute(
       '''
       UPDATE local_mutation_outbox

@@ -75,6 +75,7 @@ class SyncCoordinator {
         final nextAttempt = mutation.attemptCount + 1;
         if (error is NonRetryableLocalMutationException ||
             (!isDurableHouseholdSettlementMutation(mutation) &&
+                !_isDurableRecurringOccurrenceMutation(mutation) &&
                 nextAttempt >= maxAttempts)) {
           final didCancel =
               await database.markMutationCancelledIfPayloadMatches(
@@ -98,6 +99,17 @@ class SyncCoordinator {
 
     return syncedCount;
   }
+
+  static bool _isDurableRecurringOccurrenceMutation(
+    LocalMutationOutboxData mutation,
+  ) =>
+      mutation.entityType == 'transaction' &&
+      const {
+        localRecurringOccurrenceConfirmationMutationOperation,
+        'update_recurring_occurrence',
+        'unconfirm_recurring_occurrence',
+        'skip_recurring_occurrence',
+      }.contains(mutation.operation);
 
   static Duration retryDelayForAttempt(int attempt) {
     final safeAttempt = math.max(1, attempt);

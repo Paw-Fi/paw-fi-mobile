@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/recurring/data/recurring_read_repository.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_read_models.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 void main() {
   late MonekoDatabase database;
@@ -53,6 +56,54 @@ void main() {
     expect(fetched.hasMore, isTrue);
     expect(cached?.items.single.transaction.attachments, isEmpty);
     expect(cached?.nextCursor?.id, _seriesId);
+    expect(remote.calls, ['recurring-read:listSeries']);
+  });
+
+  test('bank-template eligibility survives on-disk summary cache restart',
+      () async {
+    final directory = await Directory.systemTemp.createTemp('recurring-cache-');
+    final path = '${directory.path}/local.sqlite';
+    var persisted = MonekoDatabase.fromExistingDatabaseForTesting(
+      sqlite.sqlite3.open(path),
+    );
+    addTearDown(() async {
+      await persisted.close();
+      await directory.delete(recursive: true);
+    });
+    remote.responses['recurring-read:listSeries'] = {
+      'success': true,
+      'data': {
+        'items': [
+          {..._seriesSummaryJson, 'provider_recurring': true}
+        ],
+        'has_more': false,
+        'next_cursor': null,
+      },
+    };
+    const scope = RecurringReadScope(
+        userId: _userId, householdId: null, currencies: ['USD']);
+    final first = RecurringReadRepository(database: persisted, remote: remote);
+    expect(
+        (await first.fetchSeriesPage(scope: scope))
+            .items
+            .single
+            .transaction
+            .providerRecurring,
+        isTrue);
+    await persisted.close();
+    persisted = MonekoDatabase.fromExistingDatabaseForTesting(
+      sqlite.sqlite3.open(path),
+    );
+    remote.responses.clear();
+    final restarted =
+        RecurringReadRepository(database: persisted, remote: remote);
+    expect(
+        (await restarted.readCachedSeriesPage(scope: scope))
+            ?.items
+            .single
+            .transaction
+            .providerRecurring,
+        isTrue);
     expect(remote.calls, ['recurring-read:listSeries']);
   });
 
