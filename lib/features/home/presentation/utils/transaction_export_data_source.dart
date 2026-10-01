@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -12,7 +14,7 @@ class TransactionExportDataSource {
   static const _maxPages = 200;
   static const _queryTimeout = Duration(seconds: 20);
   static const _selectFields =
-      'id,contact_id,user_id,household_id,date,amount_cents,currency,category,raw_text,merchant,merchant_id,merchant_structured_name,merchants(domain, logo_identifier),breakdown,receipt_image_url,created_at,updated_at,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,type,is_recurring,account_id,bank_account_id,provider_pending,provider_recurring,analytics_class,analytics_is_final,analytics_spending_multiplier,analytics_counts_toward_income';
+      'id,contact_id,user_id,household_id,date,amount_cents,currency,category,raw_text,merchant,merchant_id,merchant_structured_name,merchants(domain, logo_identifier),breakdown,receipt_image_url,created_at,updated_at,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,type,is_recurring,account_id,bank_account_id,provider,provider_transaction_id,provider_pending,analytics_class,analytics_is_final,analytics_spending_multiplier,analytics_counts_toward_income';
 
   final SupabaseClient _client;
 
@@ -52,15 +54,81 @@ class TransactionExportDataSource {
       );
 
       if (batch.length < _pageSize) {
-        return rows
+        final includedRows = rows
             .where((row) => !excludedExpenseIds.contains(row['id']))
-            .map(ExpenseEntry.fromJson)
             .toList(growable: false);
+        final recurringKeys = await _fetchProviderRecurringKeys(includedRows);
+        return includedRows.map((row) {
+          final providerTransactionId =
+              row['provider_transaction_id'] as String?;
+          return ExpenseEntry.fromJson({
+            ...row,
+            'provider_recurring': row['provider'] == 'plaid' &&
+                providerTransactionId != null &&
+                recurringKeys.contains(
+                    _providerRecurringKey(row, providerTransactionId)),
+          });
+        }).toList(growable: false);
       }
       offset += _pageSize;
     }
 
     throw StateError('Transaction export exceeded its pagination limit');
+  }
+
+  // provider_recurring is computed by the transaction-page/delta RPCs, not
+  // stored on expenses. Mirror their exact owner/Space/bank/transaction match.
+  Future<Set<String>> _fetchProviderRecurringKeys(
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final bankIds = rows
+        .where((row) =>
+            row['provider'] == 'plaid' &&
+            (row['provider_transaction_id'] as String?)?.trim().isNotEmpty ==
+                true)
+        .map((row) => row['bank_account_id'] as String?)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final keys = <String>{};
+    for (var start = 0; start < bankIds.length; start += 100) {
+      final end = (start + 100).clamp(0, bankIds.length);
+      var complete = false;
+      for (var page = 0; page < _maxPages; page++) {
+        final templates = await _client
+            .from('expenses')
+            .select('id,user_id,household_id,provider_fields')
+            .eq('is_recurring', true)
+            .isFilter('deleted_at', null)
+            .eq('provider_fields->>source', 'plaid_recurring_template')
+            .inFilter('provider_fields->>bank_account_id',
+                bankIds.sublist(start, end))
+            .order('id')
+            .range(page * _pageSize, (page + 1) * _pageSize - 1)
+            .timeout(_queryTimeout);
+        for (final template in templates) {
+          final fields = template['provider_fields'] as Map<String, dynamic>?;
+          final transactionIds = fields?['transaction_ids'];
+          if (template['user_id'] == null || transactionIds is! List) continue;
+          for (final transactionId in transactionIds.whereType<String>()) {
+            keys.add(_providerRecurringKey({
+              ...template,
+              'bank_account_id': fields?['bank_account_id'],
+            }, transactionId));
+          }
+        }
+        if (templates.length < _pageSize) {
+          complete = true;
+          break;
+        }
+      }
+      if (!complete) {
+        throw StateError(
+            'Recurring export metadata exceeded its pagination limit');
+      }
+    }
+    return keys;
   }
 
   /// Resolve labels after local edits are merged, so a pending wallet change
@@ -210,6 +278,14 @@ class TransactionExportDataSource {
     return (response as List).cast<Map<String, dynamic>>();
   }
 }
+
+String _providerRecurringKey(Map<String, dynamic> row, String transactionId) =>
+    jsonEncode([
+      row['user_id'],
+      row['household_id'],
+      row['bank_account_id'],
+      transactionId
+    ]);
 
 bool _isCanonicalId(String id) => RegExp(
       r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',

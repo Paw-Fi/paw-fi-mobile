@@ -13,14 +13,35 @@ void main() {
   test('reads current financial classification and actual recurring fields',
       () async {
     final client = _client((request) async {
+      if (request.url.queryParameters['is_recurring'] == 'eq.true') {
+        expect(request.url.queryParameters['deleted_at'], 'is.null');
+        expect(request.url.queryParameters['provider_fields->>source'],
+            'eq.plaid_recurring_template');
+        expect(request.url.queryParameters['provider_fields->>bank_account_id'],
+            contains('bank-1'));
+        return _response(request, [
+          _bankTemplate('template', ['bank-refund'])
+        ]);
+      }
       final fields = request.url.queryParameters['select']!.split(',');
+      // Simulate the real schema: a derived RPC field cannot be selected from
+      // the underlying expenses table. The original broken query fails here.
+      if (fields.contains('provider_recurring')) {
+        return http.Response(
+          '{"message":"column expenses.provider_recurring does not exist","code":"42703"}',
+          400,
+          headers: {'content-type': 'application/json'},
+          request: request,
+        );
+      }
       expect(
           fields,
           containsAll([
             'account_id',
             'bank_account_id',
             'provider_pending',
-            'provider_recurring',
+            'provider',
+            'provider_transaction_id',
             'analytics_class',
             'analytics_is_final',
             'analytics_spending_multiplier',
@@ -35,7 +56,8 @@ void main() {
           'account_id': _walletId,
           'bank_account_id': 'bank-1',
           'provider_pending': false,
-          'provider_recurring': true,
+          'provider': 'plaid',
+          'provider_transaction_id': 'bank-refund',
           'analytics_class': 'refund_or_reversal',
           'analytics_is_final': true,
           'analytics_spending_multiplier': -1,
@@ -50,6 +72,71 @@ void main() {
     expect(rows.single.countsTowardIncome, isFalse);
     expect(rows.single.providerRecurring, isTrue);
     expect(rows.single.scheduledOccurrenceDate, DateTime(2026, 7, 10));
+  });
+
+  test('bank recurrence requires matching owner, Space, bank and provider ID',
+      () async {
+    final client = _client((request) async {
+      if (request.url.queryParameters['is_recurring'] == 'eq.true') {
+        return _response(request, [
+          _bankTemplate('template', ['bank-refund']),
+        ]);
+      }
+      final matching = {
+        ..._expenseRow('matching'),
+        'provider': 'plaid',
+        'bank_account_id': 'bank-1',
+        'provider_transaction_id': 'bank-refund',
+      };
+      return _response(request, [
+        matching,
+        {...matching, 'id': 'other-user', 'user_id': 'user-2'},
+        {...matching, 'id': 'personal', 'household_id': null},
+        {...matching, 'id': 'other-bank', 'bank_account_id': 'bank-2'},
+        {
+          ...matching,
+          'id': 'other-payment',
+          'provider_transaction_id': 'other'
+        },
+        {...matching, 'id': 'other-provider', 'provider': 'other'},
+        {...matching, 'id': 'no-provider-id', 'provider_transaction_id': null},
+      ]);
+    });
+    final rows = await _fetch(client);
+    expect(rows.where((row) => row.providerRecurring).map((row) => row.id),
+        ['matching']);
+  });
+
+  test('paginates bank recurring metadata and propagates incomplete reads',
+      () async {
+    var failSecondPage = false;
+    final client = _client((request) async {
+      if (request.url.queryParameters['is_recurring'] == 'eq.true') {
+        if (request.url.queryParameters['offset'] == '0') {
+          return _response(request,
+              List.generate(1000, (i) => _bankTemplate('template-$i', [])));
+        }
+        expect(request.url.queryParameters['offset'], '1000');
+        if (failSecondPage) {
+          return http.Response('{"message":"read failed","code":"XX000"}', 500,
+              headers: {'content-type': 'application/json'}, request: request);
+        }
+        return _response(request, [
+          _bankTemplate('last', ['bank-refund'])
+        ]);
+      }
+      return _response(request, [
+        {
+          ..._expenseRow('matching'),
+          'provider': 'plaid',
+          'bank_account_id': 'bank-1',
+          'provider_transaction_id': 'bank-refund',
+        }
+      ]);
+    });
+    expect((await _fetch(client)).single.providerRecurring, isTrue);
+    failSecondPage = true;
+    await expectLater(_fetch(client), throwsA(isA<PostgrestException>()));
   });
 
   test('paginates beyond one API page and fails if a later page fails',
@@ -424,6 +511,17 @@ Map<String, dynamic> _expenseRow(String id) => {
       'type': 'expense',
       'is_recurring': false,
       'account_id': null,
+    };
+
+Map<String, dynamic> _bankTemplate(String id, List<String> transactionIds) => {
+      'id': id,
+      'user_id': 'user-1',
+      'household_id': 'household-1',
+      'provider_fields': {
+        'source': 'plaid_recurring_template',
+        'bank_account_id': 'bank-1',
+        'transaction_ids': transactionIds,
+      },
     };
 
 const _walletId = '00000000-0000-0000-0000-000000000001';
