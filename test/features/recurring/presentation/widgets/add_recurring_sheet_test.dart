@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -483,6 +484,122 @@ void main() {
       );
     } catch (_) {}
   });
+
+  for (final type in ['expense', 'income']) {
+    for (final isEditing in [false, true]) {
+      testWidgets(
+          '${isEditing ? 'Edit' : 'Add'} $type accepts and reopens a ten-year end date',
+          (tester) async {
+        tester.view.physicalSize = const Size(1000, 2600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final prefs = await SharedPreferences.getInstance();
+        final repository = _FakeHouseholdRepository(
+          members: const [],
+          splits: const [],
+        );
+        final targetDate = DateTime(2036, 1, 1);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authProvider.overrideWith(() => _MockAuth()),
+              sharedPreferencesProvider.overrideWithValue(prefs),
+              householdRepositoryProvider.overrideWithValue(repository),
+              userHouseholdsProvider('user_1').overrideWith(
+                (ref) => UserHouseholdsNotifier(
+                  repository,
+                  'user_1',
+                  ref,
+                  initialHouseholds: const [],
+                ),
+              ),
+              ..._defaultWalletOverrides(),
+              householdScopeProvider.overrideWith((ref) => HouseholdScope(
+                    viewMode: ViewMode.personal,
+                    selected: ref.watch(selectedHouseholdProvider),
+                    portfolioHouseholdIds: const {},
+                  )),
+              selectedHouseholdProvider.overrideWith(
+                (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1'),
+              ),
+              homeFilterProvider.overrideWith(
+                (ref) => HomeFilterNotifier()..setSelectedCurrency('USD'),
+              ),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Scaffold(
+                body: AddRecurringSheet(
+                  type: type,
+                  existingTransaction: isEditing
+                      ? _recurringExpense(
+                          id: 'ten-year-policy',
+                          recurrenceRule: RecurrenceRule(
+                            frequency: 'monthly',
+                            anchorDate: DateTime(2026, 1, 1),
+                            endDate: targetDate,
+                          ),
+                        ).copyWith(type: type)
+                      : null,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        if (!isEditing) {
+          final toggle = find.descendant(
+            of: find.ancestor(
+              of: find.text('Set end date'),
+              matching: find.byType(Row),
+            ),
+            matching: find.byType(AdaptiveSwitch),
+          );
+          await tester.ensureVisible(toggle);
+          await tester.tap(toggle);
+          await tester.pumpAndSettle();
+        }
+
+        final endDateRow = find.text('End Date');
+        await tester.ensureVisible(endDateRow);
+        await tester.tap(endDateRow);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final picker =
+            tester.widget<DatePickerDialog>(find.byType(DatePickerDialog));
+        expect(picker.lastDate, DateTime(2100, 12, 31));
+        expect(picker.lastDate.isBefore(targetDate), isFalse);
+        if (isEditing) {
+          expect(picker.initialDate, targetDate);
+          expect(picker.firstDate, DateTime(2026, 1, 1));
+        }
+
+        await tester.tap(find.byIcon(Icons.edit_outlined));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField), '01/01/2036');
+        await tester.tap(find.text('OK'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DatePickerDialog), findsNothing);
+
+        await tester.ensureVisible(endDateRow);
+        await tester.tap(endDateRow);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DatePickerDialog>(find.byType(DatePickerDialog))
+              .initialDate,
+          targetDate,
+        );
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 
   testWidgets(
       'Add mode only offers wallets matching the primary transaction currency',

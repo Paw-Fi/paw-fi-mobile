@@ -2087,7 +2087,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                             startDate.value
                                                 .add(const Duration(days: 365)),
                                         firstDate: startDate.value,
-                                        lastDate: DateTime(2030),
+                                        lastDate: DateTime(2100, 12, 31),
                                       );
                                       if (result != null) {
                                         endDate.value = DateTime(
