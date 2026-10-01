@@ -1,9 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _RefreshAuth extends Auth {
+  @override
+  AppUser build() => const AppUser(uid: 'user-1', email: 'test@example.com');
+}
 
 class _StaticScopedWalletsNotifier extends ScopedWalletsNotifier {
   _StaticScopedWalletsNotifier(this.wallets);
@@ -44,6 +54,49 @@ WalletEntity _wallet(
 }
 
 void main() {
+  test('wallet list refresh persists after consuming its cache bypass',
+      () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final scope = WalletsScopeQuery(
+      userId: 'user-1',
+      householdId: null,
+      selectedCurrency: 'USD',
+      currentMonthStart: DateTime(2026, 7),
+    );
+    final wallets = [_wallet('wallet-1')];
+    final cacheKey = walletsListCacheKey(
+      userId: scope.userId,
+      householdId: scope.householdId,
+      selectedCurrency: scope.selectedCurrency,
+      selectedCurrencies: scope.normalizedSelectedCurrencies,
+      currentMonthStart: scope.currentMonthStart,
+    );
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_RefreshAuth.new),
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      walletScopeHouseholdIdProvider.overrideWithValue(null),
+      walletsScopeQueryProvider.overrideWithValue(scope),
+      walletsByHouseholdIdProvider
+          .overrideWith((ref, householdId) async => wallets),
+    ]);
+    addTearDown(container.dispose);
+    container.read(walletsListSessionCacheProvider.notifier).state = {
+      cacheKey: wallets,
+    };
+    container.read(walletsPersistedCacheBypassCountProvider.notifier).state = 1;
+    await container.read(scopedWalletsProvider.future);
+
+    await container.read(scopedWalletsProvider.notifier).refreshFromNetwork();
+
+    expect(container.read(walletsPersistedCacheBypassCountProvider), 0);
+    expect(prefs.getString(cacheKey), isNotNull);
+    expect(container.read(scopedWalletsProvider).requireValue, wallets);
+  });
+
   test('effectiveScopeWalletsProvider overlays and appends optimistic wallets',
       () async {
     final container = ProviderContainer(

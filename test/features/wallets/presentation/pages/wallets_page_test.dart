@@ -8,9 +8,11 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -23,6 +25,8 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_auth_heade
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
@@ -304,6 +308,151 @@ void main() {
 
     expect(find.text('Spending'), findsWidgets);
     expect(find.text('Total Net Worth'), findsWidgets);
+  });
+
+  testWidgets('wallet stack updates both cards after a local transfer',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final month = DateTime(2026, 10, 1);
+    final scope = WalletsScopeQuery(
+      userId: 'u1',
+      householdId: null,
+      selectedCurrency: 'USD',
+      currentMonthStart: month,
+    );
+    const wallets = [
+      WalletEntity(
+        id: 'a1',
+        userId: 'u1',
+        householdId: null,
+        name: 'Spending',
+        icon: 'wallet',
+        color: '#6B7280',
+        openingBalanceCents: 10000,
+        goalAmountCents: null,
+        isDefault: true,
+        isSystem: true,
+        isArchived: false,
+        currentBalanceCents: 10000,
+      ),
+      WalletEntity(
+        id: 'a2',
+        userId: 'u1',
+        householdId: null,
+        name: 'Reserve',
+        icon: 'wallet',
+        color: '#6B7280',
+        openingBalanceCents: 3000,
+        goalAmountCents: null,
+        isDefault: false,
+        isSystem: false,
+        isArchived: false,
+        currentBalanceCents: 3000,
+      ),
+    ];
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_FakeAuthNotifier.new),
+      authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+      bankConnectionsProvider.overrideWith((ref) async => const []),
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      mainShellTabIndexProvider.overrideWith((ref) => 0),
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      networkReachabilityProvider.overrideWith((ref) => Stream.value(false)),
+      dashboardRefreshSignalProvider.overrideWith((ref) => 1),
+      walletsScopeQueryProvider.overrideWithValue(scope),
+      scopedWalletsProvider
+          .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
+      walletsDataServiceProvider.overrideWithValue(_FakeWalletsDataService()),
+      householdScopeProvider.overrideWithValue(const HouseholdScope(
+        viewMode: ViewMode.personal,
+        selected: SelectedHouseholdState(),
+        portfolioHouseholdIds: <String>{},
+      )),
+      viewModeProvider
+          .overrideWith((ref) => ViewModeNotifier()..setPersonalMode()),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+    container.read(walletsListSessionCacheProvider.notifier).state = {
+      walletsListCacheKey(
+          userId: 'u1',
+          householdId: null,
+          selectedCurrency: 'USD',
+          currentMonthStart: month): wallets,
+    };
+    container.read(walletsPageStateSessionCacheProvider.notifier).state = {
+      walletsPageStateCacheKey(scope): WalletsPageState(
+        history: WalletsHistorySummary(availableMonths: [
+          month
+        ], netWorthSeries: [
+          WalletNetWorthPoint(monthStart: month, netWorthCents: 13000),
+        ]),
+        visibleMonths: [month],
+        selectedMonthStart: month,
+        cachedSnapshotsByMonth: {
+          month: WalletsMonthSnapshot(
+            monthStart: month,
+            monthEndExclusive: DateTime(2026, 11, 1),
+            incomeTotalCents: 0,
+            spentTotalCents: 0,
+            netWorthCents: 13000,
+            walletBalances: const {'a1': 10000, 'a2': 3000},
+          )
+        },
+        loadingMonths: const {},
+        monthErrorsByMonth: const {},
+        lastResolvedSelectedMonthStart: month,
+      ),
+    };
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(home: AccountsPage()),
+    ));
+    await tester.pumpAndSettle();
+    int balance(String id) => tester
+        .widget<WalletStackCard>(find.byWidgetPredicate(
+          (widget) => widget is WalletStackCard && widget.wallet.id == id,
+        ))
+        .displayBalanceCents;
+    expect(balance('a1'), 10000);
+    expect(balance('a2'), 3000);
+
+    for (var index = 0; index < 2; index++) {
+      final entries = buildWalletTransferFeedEntries(
+        transferJson: {
+          'id': 'optimistic-transfer-$index',
+          'from_account_id': 'a1',
+          'to_account_id': 'a2',
+          'amount_cents': 1500,
+          'currency': 'USD',
+          'date': '2026-10-01'
+        },
+        fallbackUserId: 'u1',
+        fromWallet: wallets[0],
+        toWallet: wallets[1],
+      );
+      await database.writeOptimisticWalletTransfer(
+        entries: entries,
+        clientMutationId: 'transfer-$index',
+        entityId: 'optimistic-transfer-$index',
+        payload: const {'functionName': 'create-wallet-transfer'},
+      );
+      await tester.pumpAndSettle();
+      expect(balance('a1'), 10000 - (index + 1) * 1500);
+      expect(balance('a2'), 3000 + (index + 1) * 1500);
+    }
+    expect(
+        container
+            .read(walletsPageStateProvider(scope))
+            .requireValue
+            .displayedSnapshot
+            ?.netWorthCents,
+        13000);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

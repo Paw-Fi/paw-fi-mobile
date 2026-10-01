@@ -461,14 +461,19 @@ class WalletsPageStateNotifier
     _query = arg;
     _ensureLifecycleTracking();
     ref.watch(_walletsTransactionCacheInvalidationProvider);
-    _listenToInMemoryOptimisticTransactions(arg);
+    _listenToLocalTransactions(arg);
     _scheduleLocalDatabaseReadyRefresh();
     final cacheGeneration = _WalletsPageStateCacheGeneration(
       wallets: ref.watch(walletsRefreshSignalProvider),
       recurringMutations: ref.watch(walletsRecurringMutationSignalProvider),
     );
+    // A new bypass requests a rebuild; clearing it after a successful read
+    // must leave this ref usable for persistence and month prefetching.
+    ref.listen<int>(walletsPageStatePersistedCacheBypassProvider, (_, next) {
+      if (next > 0) ref.invalidateSelf();
+    });
     final bypassPersistedCache =
-        ref.watch(walletsPageStatePersistedCacheBypassProvider) > 0 ||
+        ref.read(walletsPageStatePersistedCacheBypassProvider) > 0 ||
             !cacheGeneration.isInitial;
     final shouldScheduleBackgroundRefresh =
         ref.read(dashboardRefreshSignalProvider) == 0 &&
@@ -1034,51 +1039,64 @@ class WalletsPageStateNotifier
         ref.read(walletsPageStateSessionCacheProvider)[cacheKey];
   }
 
-  void _listenToInMemoryOptimisticTransactions(WalletsScopeQuery arg) {
+  void _listenToLocalTransactions(WalletsScopeQuery arg) {
     var disposed = false;
+    var overlayRevision = 0;
     ref.onDispose(() => disposed = true);
+    void applyLocalOverlay() {
+      final revision = ++overlayRevision;
+      final expectedCacheKey = walletsPageStateCacheKey(arg);
+      final expectedGeneration = _readWalletsPageStateCacheGeneration(ref);
+      final baseState = _readSessionCachedPageState() ?? state.valueOrNull;
+      if (baseState == null) return;
+
+      unawaited(() async {
+        try {
+          if (disposed) return;
+          final overlaidState =
+              await _walletCacheNeedsLocalRebuild(ref, baseState)
+                  ? await _loadInitialState(
+                      trace: _createWalletsTrace(
+                        ref,
+                        label: 'WalletsPageRollback',
+                      ),
+                    )
+                  : await _overlayPendingLocalWalletPageState(
+                      baseState,
+                      inMemoryOptimisticTransactions: const <ExpenseEntry>[],
+                    );
+          if (disposed ||
+              revision != overlayRevision ||
+              walletsPageStateCacheKey(_query) != expectedCacheKey) {
+            return;
+          }
+          if (_readWalletsPageStateCacheGeneration(ref) != expectedGeneration) {
+            return;
+          }
+          final currentState = state.valueOrNull;
+          if (currentState != null) {
+            state = AsyncData(
+              overlaidState.copyWith(isRefreshing: currentState.isRefreshing),
+            );
+            _storePageState(overlaidState);
+          }
+        } catch (_) {
+          // Provider disposal can happen while the local overlay reads async
+          // dependencies; the next rebuild/refresh will recompute the overlay.
+        }
+      }());
+    }
+
     ref.listen<List<ExpenseEntry>>(
       _walletsOptimisticTransactionsRevisionProvider(arg),
-      (previous, next) {
-        final expectedCacheKey = walletsPageStateCacheKey(arg);
-        final expectedGeneration = _readWalletsPageStateCacheGeneration(ref);
-        final baseState = _readSessionCachedPageState() ?? state.valueOrNull;
-        if (baseState == null) return;
-
-        unawaited(() async {
-          try {
-            if (disposed) return;
-            final overlaidState =
-                await _walletCacheNeedsLocalRebuild(ref, baseState)
-                    ? await _loadInitialState(
-                        trace: _createWalletsTrace(
-                          ref,
-                          label: 'WalletsPageRollback',
-                        ),
-                      )
-                    : await _overlayPendingLocalWalletPageState(
-                        baseState,
-                        inMemoryOptimisticTransactions: const <ExpenseEntry>[],
-                      );
-            if (disposed ||
-                walletsPageStateCacheKey(_query) != expectedCacheKey) {
-              return;
-            }
-            if (_readWalletsPageStateCacheGeneration(ref) !=
-                expectedGeneration) {
-              return;
-            }
-            final currentState = state.valueOrNull;
-            if (currentState != null) {
-              state = AsyncData(
-                overlaidState.copyWith(isRefreshing: currentState.isRefreshing),
-              );
-            }
-          } catch (_) {
-            // Provider disposal can happen while the local overlay reads async
-            // dependencies; the next rebuild/refresh will recompute the overlay.
-          }
-        }());
+      (_, __) => applyLocalOverlay(),
+    );
+    // Transfers are committed to SQLite without an analytics overlay. Observe
+    // that durable write while keeping the cached snapshots visible.
+    ref.listen<AsyncValue<int>>(
+      localTransactionRevisionProvider,
+      (_, next) {
+        if (next.hasValue) applyLocalOverlay();
       },
     );
   }
@@ -1694,7 +1712,8 @@ Future<List<_WalletPendingMutationEffect>> _loadWalletPendingMutationEffects(
     final mutations = await database.getOutboxMutations();
     final activeMutations = mutations.where(
       (mutation) =>
-          mutation.entityType == 'transaction' &&
+          (mutation.entityType == 'transaction' ||
+              mutation.entityType == 'wallet') &&
           const {
             localMutationStatusQueued,
             localMutationStatusSyncing,
@@ -1724,6 +1743,9 @@ Future<List<_WalletPendingMutationEffect>> _loadWalletPendingMutationEffects(
       final payloadMap = payload is Map
           ? Map<String, dynamic>.from(payload)
           : const <String, dynamic>{};
+      final isTransferCreate = mutation.entityType == 'wallet' &&
+          payloadMap['functionName'] == 'create-wallet-transfer';
+      if (mutation.entityType == 'wallet' && !isTransferCreate) continue;
       final originals = <String, ExpenseEntry>{};
       final originalEntry = payloadMap['originalEntry'];
       if (originalEntry is Map) {
@@ -1746,7 +1768,8 @@ Future<List<_WalletPendingMutationEffect>> _loadWalletPendingMutationEffects(
       final currentById = <String, ExpenseEntry>{
         for (final current in currents) current.id: current,
       };
-      final isCreate = mutation.operation == 'create' ||
+      final isCreate = isTransferCreate ||
+          mutation.operation == 'create' ||
           mutation.operation ==
               localRecurringOccurrenceConfirmationMutationOperation;
       final isDelete = mutation.operation == 'delete_transaction' ||
@@ -1835,7 +1858,8 @@ Future<bool> _walletCacheNeedsLocalRebuild(
         .where(
           (mutation) =>
               mutation.status == localMutationStatusCancelled &&
-              mutation.entityType == 'transaction',
+              (mutation.entityType == 'transaction' ||
+                  mutation.entityType == 'wallet'),
         )
         .map((mutation) => mutation.clientMutationId)
         .toSet();

@@ -401,8 +401,12 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
     final authHeaders = ref.watch(walletAuthHeadersProvider);
     ref.watch(dashboardRefreshSignalProvider);
     ref.watch(transactionsFeedRefreshSignalProvider);
+    // Consuming the bypass must not invalidate this ref mid-refresh.
+    ref.listen<int>(walletsPersistedCacheBypassCountProvider, (_, next) {
+      if (next > 0) ref.invalidateSelf();
+    });
     final bypassPersistedCache =
-        ref.watch(walletsPersistedCacheBypassCountProvider) > 0;
+        ref.read(walletsPersistedCacheBypassCountProvider) > 0;
     final cacheKey = walletsListCacheKey(
       userId: user.uid,
       householdId: householdId,
