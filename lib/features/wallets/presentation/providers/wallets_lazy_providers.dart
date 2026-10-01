@@ -6,6 +6,8 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/monitoring/performance_trace.dart';
+import 'package:moneko/core/utils/in_flight_requests.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -25,7 +27,6 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart'
     show PocketsScopeType, loadScopedRecurringTransactions;
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
-import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
@@ -143,17 +144,68 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
   LocalWalletsLegacyDataLoader(this.ref);
 
   final Ref ref;
+  final _inputs = InFlightRequests<Object, _WalletRecurringAwareData>();
+
+  Future<_WalletRecurringAwareData> _loadInputs(
+      WalletsScopeQuery query, DateTime endInclusive) {
+    final database = ref.read(localDatabaseProvider).valueOrNull;
+    final identity = (
+      query,
+      endInclusive,
+      database,
+      database?.transactionRevision ?? 0,
+      ref.read(walletAuthHeadersProvider),
+      ref.read(householdScopeProvider),
+      ref.read(walletsRefreshSignalProvider),
+      ref.read(walletsRecurringMutationSignalProvider),
+      ref.read(dashboardRefreshSignalProvider),
+      ref.read(transactionsFeedRefreshSignalProvider),
+      ref.read(networkReachabilityProvider).valueOrNull,
+      ref.read(transactionsFeedServiceProvider),
+      ref.read(walletsListSessionCacheProvider)
+    );
+    PerformanceTrace.event(
+        'wallet.legacy-input-request',
+        () => _walletsScopeDebugFields(query)
+          ..addAll({
+            'endInclusive': endInclusive,
+            'revision': identity.$4,
+            'walletGeneration': identity.$7,
+            'recurringGeneration': identity.$8,
+            'dashboardGeneration': identity.$9,
+            'transactionGeneration': identity.$10,
+          }));
+    return _inputs.run(
+        identity,
+        () => PerformanceTrace.measureAsync(
+            'wallet.legacy-inputs',
+            () => _loadWalletRecurringAwareData(ref, query,
+                endInclusive: endInclusive),
+            identity: () => _walletsScopeDebugFields(query)
+              ..addAll({
+                'endInclusive': endInclusive,
+                'revision': identity.$4,
+                'walletGeneration': identity.$7,
+                'recurringGeneration': identity.$8,
+                'dashboardGeneration': identity.$9,
+                'transactionGeneration': identity.$10,
+              })));
+  }
 
   @override
   Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
+    return PerformanceTrace.measureAsync(
+        'wallet.history', () => _fetchHistory(query),
+        identity: () => _walletsScopeDebugFields(query));
+  }
+
+  Future<WalletsHistorySummary> _fetchHistory(WalletsScopeQuery query) async {
     final now = _walletProjectionNow(ref);
     final endInclusive = DateTime(now.year, now.month, now.day);
-    final rates = await _walletCurrencyRates(ref);
-    final recurringAwareData = await _loadWalletRecurringAwareData(
-      ref,
-      query,
-      endInclusive: endInclusive,
-    );
+    final rates = await PerformanceTrace.measureAsync(
+        'wallet.fx-read', () => _walletCurrencyRates(ref),
+        identity: () => _walletsScopeDebugFields(query));
+    final recurringAwareData = await _loadInputs(query, endInclusive);
     final pendingTransactions = await _loadPendingLocalWalletTransactions(
       ref,
       query,
@@ -226,18 +278,24 @@ class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
   @override
   Future<WalletsMonthSnapshot> fetchMonthSnapshot(
       WalletsMonthQuery query) async {
+    return PerformanceTrace.measureAsync(
+        'wallet.month-snapshot', () => _fetchMonthSnapshot(query),
+        identity: () => _walletsMonthDebugFields(query));
+  }
+
+  Future<WalletsMonthSnapshot> _fetchMonthSnapshot(
+      WalletsMonthQuery query) async {
     final now = _walletProjectionNow(ref);
     final endExclusive = _walletSnapshotEndExclusive(
       monthStart: query.monthStart,
       now: now,
       financialMonthStartDay: query.scope.financialMonthStartDay,
     );
-    final rates = await _walletCurrencyRates(ref);
-    final recurringAwareData = await _loadWalletRecurringAwareData(
-      ref,
-      query.scope,
-      endInclusive: endExclusive.subtract(const Duration(days: 1)),
-    );
+    final rates = await PerformanceTrace.measureAsync(
+        'wallet.fx-read', () => _walletCurrencyRates(ref),
+        identity: () => _walletsMonthDebugFields(query));
+    final recurringAwareData = await _loadInputs(
+        query.scope, endExclusive.subtract(const Duration(days: 1)));
     final pendingTransactions = await _loadPendingLocalWalletTransactions(
       ref,
       query.scope,
@@ -1361,8 +1419,7 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     ),
     financialMonthStartDay: query.financialMonthStartDay,
   );
-  final occurrenceResolution =
-      await loadRecurringOccurrenceProjectionResolution(
+  await loadRecurringOccurrenceProjectionResolution(
     query: RecurringOccurrenceProjectionResolutionQuery(
       userId: query.userId,
       householdId: query.householdId,
@@ -1374,24 +1431,13 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
       recurringOccurrenceTimelineProvider(occurrenceQuery).future,
     ),
   );
-  final projectedTransactions = _buildProjectedWalletRecurringTransactions(
-    recurringTransactions: recurringTransactions,
-    actualTransactions: actualTransactions,
-    selectedCurrency: query.selectedCurrency,
-    selectedCurrencies: query.normalizedSelectedCurrencies,
-    rangeStart: projectionRangeStart,
-    rangeEndInclusive: endInclusive,
-    confirmedOccurrenceSuppressionEntries:
-        occurrenceResolution.suppressionEntries,
-  );
-  trace.mark('legacy-projection-built', {
+  trace.mark('legacy-occurrence-resolution-complete', {
     'rangeStart': projectionRangeStart,
-    'projectedCount': projectedTransactions.length,
   });
   return _WalletRecurringAwareData(
     wallets: wallets,
     // Wallet balances, net worth, and period totals use only materialized
-    // transactions. The projection above remains the upcoming-only source.
+    // transactions. Upcoming projections have their own read path.
     transactions: actualTransactions,
   );
 }
@@ -1526,12 +1572,16 @@ Future<List<ExpenseEntry>> _fetchWalletActualTransactions(
     _walletActualTransactionsQuery(query, endInclusive: endInclusive),
   );
 
-  final filtered = filterWalletTransactions(
-    allExpenses: transactions,
-    scope: scope,
-    selectedCurrency: query.selectedCurrency,
-    selectedCurrencies: query.normalizedSelectedCurrencies,
-  );
+  final filtered = PerformanceTrace.measureSync(
+      'wallet.actual-filter',
+      () => filterWalletTransactions(
+            allExpenses: transactions,
+            scope: scope,
+            selectedCurrency: query.selectedCurrency,
+            selectedCurrencies: query.normalizedSelectedCurrencies,
+          ),
+      identity: () =>
+          _walletsScopeDebugFields(query)..['rows'] = transactions.length);
   trace.mark('fetch-all-pages-success', {
     'rawCount': transactions.length,
     'filteredCount': filtered.length,
@@ -1610,23 +1660,31 @@ Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
     if (database == null) {
       return inMemoryOptimistic;
     }
-    final transactions = await database.getTransactionsFeedItems(
-      LocalTransactionsFeedQuery(
-        userId: query.userId,
-        householdId: query.householdId,
-        currency: query.selectedCurrency,
-        currencies: query.normalizedSelectedCurrencies,
-        category: null,
-        accountId: null,
-        categories: null,
-        type: 'all',
-        searchQuery: '',
-        startDate: startDate,
-        endDate: endInclusive,
-        pageSize: 500,
-      ),
-      syncStatus: localSyncStatusLocal,
-    );
+    final transactions = await PerformanceTrace.measureAsync(
+        'wallet.pending-read',
+        () => database.getTransactionsFeedItems(
+              LocalTransactionsFeedQuery(
+                userId: query.userId,
+                householdId: query.householdId,
+                currency: query.selectedCurrency,
+                currencies: query.normalizedSelectedCurrencies,
+                category: null,
+                accountId: null,
+                categories: null,
+                type: 'all',
+                searchQuery: '',
+                startDate: startDate,
+                endDate: endInclusive,
+                pageSize: 500,
+              ),
+              syncStatus: localSyncStatusLocal,
+            ),
+        identity: () => _walletsScopeDebugFields(query)
+          ..addAll({
+            'startDate': startDate,
+            'endInclusive': endInclusive,
+            'revision': database.transactionRevision,
+          }));
     final scope = ref.read(householdScopeProvider);
     final filtered = filterWalletTransactions(
       allExpenses: transactions,
@@ -2299,56 +2357,4 @@ DateTime _resolveWalletProjectionRangeStart({
   }
 
   return earliest;
-}
-
-List<ExpenseEntry> _buildProjectedWalletRecurringTransactions({
-  required List<RecurringTransaction> recurringTransactions,
-  required List<ExpenseEntry> actualTransactions,
-  required String selectedCurrency,
-  List<String>? selectedCurrencies,
-  required DateTime rangeStart,
-  required DateTime rangeEndInclusive,
-  Iterable<ExpenseEntry> confirmedOccurrenceSuppressionEntries =
-      const <ExpenseEntry>[],
-}) {
-  if (recurringTransactions.isEmpty) {
-    return const <ExpenseEntry>[];
-  }
-
-  final recurringById = <String, RecurringTransaction>{
-    for (final recurring in recurringTransactions) recurring.id: recurring,
-  };
-  final projectedExpenses = projectRecurringTransactionsAsExpenseEntries(
-    recurringTransactions: recurringTransactions,
-    rangeStart: rangeStart,
-    rangeEnd: rangeEndInclusive,
-    selectedCurrency: selectedCurrency,
-    selectedCurrencies: selectedCurrencies,
-  ).map((expense) {
-    final recurringId =
-        extractRecurringTransactionIdFromProjectedExpenseId(expense.id);
-    final source = recurringId == null ? null : recurringById[recurringId];
-    final accountId = source?.accountId?.trim();
-    // CRITICAL: preserve the source recurring account_id on projected wallet
-    // rows.
-    // STRICT REQUIREMENT: without this, projected recurring transactions lose
-    // wallet ownership and either fall into the legacy default wallet or
-    // disappear from wallet-specific calculations.
-    return expense.copyWith(
-      accountId: accountId == null || accountId.isEmpty ? null : accountId,
-    );
-  }).toList(growable: false);
-
-  // CRITICAL: wallet month snapshots/history must include projected recurring
-  // transactions month-by-month.
-  // STRICT REQUIREMENT: keep this local recurring-aware path until every
-  // wallet summary RPC used by the app is guaranteed to return the same
-  // recurring-expanded balances, or the wallets page will regress again.
-  return dedupeProjectedRecurringExpenseEntries(
-    projectedExpenses: projectedExpenses,
-    actualExpenses: <ExpenseEntry>[
-      ...actualTransactions,
-      ...confirmedOccurrenceSuppressionEntries,
-    ],
-  );
 }

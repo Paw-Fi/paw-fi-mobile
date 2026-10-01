@@ -8,6 +8,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/monitoring/performance_trace.dart';
+import 'package:moneko/core/sync/foreground_reconciler.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
@@ -74,7 +77,13 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
 
-final Map<String, Future<void>> _mobileSyncInFlightByUser = {};
+final _mobileSyncReconcilerProvider = Provider<ForegroundReconciler<Object>>(
+  (ref) => ForegroundReconciler<Object>(),
+);
+
+final _foregroundReconcilerProvider = Provider<ForegroundReconciler<Object>>(
+  (ref) => ForegroundReconciler<Object>(),
+);
 
 class _MainShellAsyncGuard {
   bool _isActive = true;
@@ -103,13 +112,15 @@ void _silentResyncMainShellData(
   WidgetRef ref,
   String userId,
   int currentIndex,
-  _MainShellAsyncGuard guard,
-) {
+  _MainShellAsyncGuard guard, {
+  String reason = 'startup',
+}) {
   if (!guard.isActive) return;
   if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
 
-  unawaited(_syncThenRefreshMainShellData(ref, userId, currentIndex, guard));
+  unawaited(PerformanceTrace.withReason(reason,
+      () => _syncThenRefreshMainShellData(ref, userId, currentIndex, guard)));
 }
 
 Future<void> _syncThenRefreshMainShellData(
@@ -120,15 +131,60 @@ Future<void> _syncThenRefreshMainShellData(
 ) async {
   if (!guard.isActive) return;
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
-  await _syncMobileTransactions(ref, userId, guard);
-  if (!guard.isActive) return;
-  await _refreshActiveHouseholdSettlementData(ref, guard);
-  if (!guard.isActive) return;
-  await _syncCurrencyRates(ref, guard);
-  if (!guard.isActive) return;
-  await _refreshActiveMainShellTab(ref, userId, currentIndex, guard);
-  if (!guard.isActive) return;
-  await _refreshDeferredMainShellData(ref, userId, currentIndex, guard);
+  final database = ref.read(localDatabaseProvider).valueOrNull;
+  final filter = ref.read(homeFilterProvider);
+  final scope = ref.read(householdScopeProvider);
+  final walletQuery = ref.read(walletsScopeQueryProvider);
+  final identity = (
+    userId,
+    currentIndex,
+    filter,
+    scope,
+    walletQuery,
+    database,
+    database?.transactionRevision ?? 0,
+    ref.read(walletAuthHeadersProvider),
+    ref.read(transactionsFeedRefreshSignalProvider),
+    ref.read(dashboardRefreshSignalProvider),
+    ref.read(walletsRefreshSignalProvider),
+    ref.read(walletsRecurringMutationSignalProvider),
+  );
+  Map<String, Object?> traceIdentity() => {
+        'user': userId,
+        'household': scope.activeAccountHouseholdId,
+        'currencies': filter.normalizedSelectedCurrencies,
+        'displayCurrency': filter.selectedCurrency,
+        'tab': currentIndex,
+        'cycle': walletQuery.currentMonthStart,
+        'financialMonthStartDay': walletQuery.financialMonthStartDay,
+        'revision': identity.$7,
+        'transactionGeneration': identity.$9,
+        'dashboardGeneration': identity.$10,
+        'walletGeneration': identity.$11,
+        'recurringGeneration': identity.$12,
+      };
+  PerformanceTrace.event('shell.request', traceIdentity);
+  await ref.read(_foregroundReconcilerProvider).run(
+    identity: identity,
+    isActive: () => guard.isActive,
+    phases: [
+      () => PerformanceTrace.measureAsync(
+          'shell.sync', () => _syncMobileTransactions(ref, userId, guard),
+          identity: traceIdentity),
+      () => PerformanceTrace.measureAsync('shell.settlement',
+          () => _refreshActiveHouseholdSettlementData(ref, guard),
+          identity: traceIdentity),
+      () => PerformanceTrace.measureAsync(
+          'shell.fx', () => _syncCurrencyRates(ref, guard),
+          identity: traceIdentity),
+      () => PerformanceTrace.measureAsync('shell.active-tab',
+          () => _refreshActiveMainShellTab(ref, userId, currentIndex, guard),
+          identity: traceIdentity),
+      () => PerformanceTrace.measureAsync('shell.deferred-tabs',
+          () => _refreshDeferredMainShellData(ref, userId, currentIndex, guard),
+          identity: traceIdentity),
+    ],
+  );
 }
 
 Future<void> _refreshActiveHouseholdSettlementData(
@@ -313,25 +369,25 @@ Future<void> _syncMobileTransactions(
   if (userId.isEmpty) return;
   if (ref.read(networkReachabilityProvider).valueOrNull == false) return;
 
-  final inFlight = _mobileSyncInFlightByUser[userId];
-  if (inFlight != null) {
-    await inFlight;
-    return;
-  }
-
-  final sync = () async {
-    try {
-      await _drainMobileOutbox(ref, guard);
-      if (!guard.isActive) return;
-      await _syncCategoryRemaps(ref, userId, guard);
-      if (!guard.isActive) return;
-      await _pullMobileDelta(ref, userId, guard);
-    } finally {
-      _mobileSyncInFlightByUser.remove(userId);
-    }
-  }();
-  _mobileSyncInFlightByUser[userId] = sync;
-  await sync;
+  final database = ref.read(localDatabaseProvider).valueOrNull;
+  await ref.read(_mobileSyncReconcilerProvider).run(
+        // Preserve per-user outbox/delta sequencing. A newer revision queues a
+        // distinct reconciliation instead of joining or racing the old one.
+        serializationKey: userId,
+        identity: (
+          userId,
+          database,
+          database?.transactionRevision ?? 0,
+          ref.read(walletAuthHeadersProvider),
+          ref.read(transactionsFeedRefreshSignalProvider)
+        ),
+        isActive: () => guard.isActive,
+        phases: [
+          () => _drainMobileOutbox(ref, guard),
+          () => _syncCategoryRemaps(ref, userId, guard),
+          () => _pullMobileDelta(ref, userId, guard),
+        ],
+      );
 }
 
 Future<void> _drainMobileOutbox(
@@ -603,6 +659,7 @@ class MainShell extends HookConsumerWidget {
               userId,
               ref.read(mainShellTabIndexProvider),
               guard,
+              reason: 'foreground-resume',
             ),
           ));
         },

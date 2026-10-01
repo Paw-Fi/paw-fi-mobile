@@ -10,6 +10,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_page_command_provider.dart';
+import 'package:moneko/features/recurring/presentation/widgets/recurring_series_group_sliver.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -512,14 +513,9 @@ class _RecurringTransactionsPageState
         summaryCardSliver,
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          sliver: SliverToBoxAdapter(
-            child: _buildRecurringGroupCard(
-              colorScheme: colorScheme,
-              summaries: summaries,
-              showCurrencyFlag: hasMultipleSelectedCurrencies,
-              onTransactionTap: null,
-              onTransactionDelete: null,
-            ),
+          sliver: RecurringSeriesGroupSliver(
+            summaries: summaries,
+            showCurrencyFlag: hasMultipleSelectedCurrencies,
           ),
         ),
       ];
@@ -581,16 +577,12 @@ class _RecurringTransactionsPageState
       slivers.add(
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverToBoxAdapter(
-            child: _buildRecurringGroupCard(
-              colorScheme: colorScheme,
-              summaries: groupTransactions,
-              showCurrencyFlag: hasMultipleSelectedCurrencies,
-              onTransactionTap: (transaction) =>
-                  _showTransactionDetails(transaction),
-              onTransactionDelete: (transaction) =>
-                  _deleteTransaction(transaction, householdId),
-            ),
+          sliver: RecurringSeriesGroupSliver(
+            summaries: groupTransactions,
+            showCurrencyFlag: hasMultipleSelectedCurrencies,
+            onTransactionTap: _showTransactionDetails,
+            onTransactionDelete: (transaction) =>
+                _deleteTransaction(transaction, householdId),
           ),
         ),
       );
@@ -648,73 +640,6 @@ class _RecurringTransactionsPageState
     );
 
     return slivers;
-  }
-
-  Widget _buildRecurringGroupCard({
-    required ColorScheme colorScheme,
-    required List<RecurringSeriesSummary> summaries,
-    required bool showCurrencyFlag,
-    required ValueChanged<RecurringTransaction>? onTransactionTap,
-    required ValueChanged<RecurringTransaction>? onTransactionDelete,
-  }) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          for (var index = 0; index < summaries.length; index++) ...[
-            RecurringTransactionCard(
-              transaction: summaries[index].transaction,
-              nextOccurrenceDate: summaries[index].nextOccurrenceDate,
-              latestActionableOccurrenceDate:
-                  _latestActionableOccurrenceDate(summaries[index]),
-              showCurrencyFlag: showCurrencyFlag,
-              grouped: true,
-              onTap: onTransactionTap == null
-                  ? null
-                  : () => onTransactionTap(summaries[index].transaction),
-              onDelete: onTransactionDelete == null
-                  ? null
-                  : () => onTransactionDelete(summaries[index].transaction),
-            ),
-            if (index < summaries.length - 1)
-              const SizedBox(
-                height: 8,
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  DateTime? _latestActionableOccurrenceDate(RecurringSeriesSummary summary) {
-    final actionableDate = summary.latestActionableOccurrenceDate;
-    if (actionableDate == null) return null;
-    final materialized = ref.watch(recurringOccurrenceMaterializedProvider(
-      RecurringOccurrenceMaterializationQuery(
-        userId: summary.transaction.userId ?? '',
-        householdId: summary.transaction.householdId,
-        recurringId: summary.transaction.id,
-        scheduledOccurrenceDate: actionableDate,
-      ),
-    ));
-    // Do not briefly present a stale confirmation CTA before SQLite resolves.
-    return materialized.valueOrNull == false ? actionableDate : null;
   }
 
   Widget _buildSummaryCard({

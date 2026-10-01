@@ -96,184 +96,174 @@ class TransactionListTile extends StatelessWidget {
 
     return Consumer(
       builder: (context, ref, _) {
-        final shouldShowCurrencyFlag = ((ref
-                    .watch(
-                      homeFilterProvider.select(
-                          (state) => state.normalizedSelectedCurrencies),
-                    )
-                    ?.length ??
-                0) >
-            1);
+        final shouldShowCurrencyFlag = ref.watch(
+          homeFilterProvider.select(
+            (state) => (state.normalizedSelectedCurrencies?.length ?? 0) > 1,
+          ),
+        );
         return _buildContent(context, shouldShowCurrencyFlag);
       },
     );
   }
 
   Widget _buildContent(BuildContext context, bool shouldShowCurrencyFlag) {
+    if (!useCustomCategoryStyleOverrides) {
+      return _buildStyledContent(context, shouldShowCurrencyFlag);
+    }
     return ValueListenableBuilder<Map<String, CustomCategoryStyle>>(
       valueListenable: customCategoryStyleOverridesNotifier,
-      builder: (context, _, __) {
-        final colorScheme = Theme.of(context).colorScheme;
-        final color = useCustomCategoryStyleOverrides
-            ? getCategoryColor(category, context)
-            : getSharedTransactionCategoryColor(category, context);
-        final icon = useCustomCategoryStyleOverrides
-            ? getCategoryIcon(category)
-            : getSharedTransactionCategoryIcon(category);
-        final sign = isIncome ? '+' : '-';
-        final normalizedAmount = double.parse(formatAmount(amount.abs()));
-        final localizedNumber =
-            formatLocalizedNumber(context, normalizedAmount);
-        final currencySymbol = resolveCurrencySymbol(currency);
-        final formattedAmount = '$sign$currencySymbol$localizedNumber';
-        final trimmedDescription = description?.trim() ?? '';
-        final trimmedTitle = title.trim();
-        final displayTitle = trimmedDescription.isNotEmpty
-            ? trimmedDescription
-            : (trimmedTitle.isNotEmpty ? trimmedTitle : category);
-        final hasMerchantLogo = buildMerchantLogoUrl(
-              logoUrl: merchantLogoUrl,
-              merchantId: merchantId,
-              domain: merchantDomain,
-              merchantStructuredName: merchantStructuredName,
-              merchantName: merchantName,
-            ) !=
-            null;
-        final merchantLogo = MerchantLogo(
+      builder: (context, _, __) =>
+          _buildStyledContent(context, shouldShowCurrencyFlag),
+    );
+  }
+
+  Widget _buildStyledContent(
+      BuildContext context, bool shouldShowCurrencyFlag) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = useCustomCategoryStyleOverrides
+        ? getCategoryColor(category, context)
+        : getSharedTransactionCategoryColor(category, context);
+    final icon = useCustomCategoryStyleOverrides
+        ? getCategoryIcon(category)
+        : getSharedTransactionCategoryIcon(category);
+    final sign = isIncome ? '+' : '-';
+    final normalizedAmount = double.parse(formatAmount(amount.abs()));
+    final localizedNumber = formatLocalizedNumber(context, normalizedAmount);
+    final currencySymbol = resolveCurrencySymbol(currency);
+    final formattedAmount = '$sign$currencySymbol$localizedNumber';
+    final trimmedDescription = description?.trim() ?? '';
+    final trimmedTitle = title.trim();
+    final displayTitle = trimmedDescription.isNotEmpty
+        ? trimmedDescription
+        : (trimmedTitle.isNotEmpty ? trimmedTitle : category);
+    final hasMerchantLogo = buildMerchantLogoUrl(
+          logoUrl: merchantLogoUrl,
           merchantId: merchantId,
           domain: merchantDomain,
-          logoUrl: merchantLogoUrl,
           merchantStructuredName: merchantStructuredName,
           merchantName: merchantName,
-          fallback: Icon(icon, color: color, size: 20),
-        );
+        ) !=
+        null;
+    final merchantLogo = MerchantLogo(
+      merchantId: merchantId,
+      domain: merchantDomain,
+      logoUrl: merchantLogoUrl,
+      merchantStructuredName: merchantStructuredName,
+      merchantName: merchantName,
+      fallback: Icon(icon, color: color, size: 20),
+    );
 
-        // Build badge chips
-        final chips = <Widget>[];
-        if (showYouLabel) {
-          chips.add(
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                'You',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.primary,
-                  letterSpacing: 0.2,
-                ),
+    // Build badge chips
+    final chips = <Widget>[];
+    if (showYouLabel) {
+      chips.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            'You',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.primary,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      );
+    }
+    if (showRecurringChip) {
+      chips.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: colorScheme.tertiary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.repeat, size: 10, color: colorScheme.tertiary),
+            ],
+          ),
+        ),
+      );
+    }
+    if (showPendingChip) {
+      chips.add(
+        Semantics(
+          label: context.l10n.pending,
+          excludeSemantics: true,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: colorScheme.warningSurface,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              context.l10n.pending,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.warning,
+                letterSpacing: 0.2,
               ),
             ),
-          );
-        }
-        if (showRecurringChip) {
-          chips.add(
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: colorScheme.tertiary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.repeat, size: 10, color: colorScheme.tertiary),
-                ],
-              ),
-            ),
-          );
-        }
-        if (showPendingChip) {
-          chips.add(
-            Semantics(
-              label: context.l10n.pending,
-              excludeSemantics: true,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: colorScheme.warningSurface,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  context.l10n.pending,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.warning,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-        if (shouldShowCurrencyFlag) {
-          chips.add(TransactionCurrencyFlagBadge(currencyCode: currency));
-        }
+          ),
+        ),
+      );
+    }
+    if (shouldShowCurrencyFlag) {
+      chips.add(TransactionCurrencyFlagBadge(currencyCode: currency));
+    }
 
-        final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
-        Widget? subtitleNode;
-        if (subtitleWidget != null) {
+    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
+    Widget? subtitleNode;
+    if (subtitleWidget != null) {
+      subtitleNode = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(child: subtitleWidget!),
+          if (chips.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            ...chips.expand((chip) => [chip, const SizedBox(width: 4)]).toList()
+              ..removeLast(),
+          ],
+        ],
+      );
+    } else if (date != null) {
+      final base = _formatDate(context, date!);
+      if (base != null && base.isNotEmpty) {
+        if (chips.isNotEmpty) {
           subtitleNode = Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Flexible(child: subtitleWidget!),
-              if (chips.isNotEmpty) ...[
-                const SizedBox(width: 6),
-                ...chips
-                    .expand((chip) => [chip, const SizedBox(width: 4)])
-                    .toList()
-                  ..removeLast(),
-              ],
+              Flexible(
+                child: Text(
+                  base,
+                  maxLines: isLargeText ? 3 : 1,
+                  overflow: isLargeText
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              ...chips
+                  .expand((chip) => [chip, const SizedBox(width: 4)])
+                  .toList()
+                ..removeLast(),
             ],
           );
-        } else if (date != null) {
-          final base = _formatDate(context, date!);
-          if (base != null && base.isNotEmpty) {
-            if (chips.isNotEmpty) {
-              subtitleNode = Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      base,
-                      maxLines: isLargeText ? 3 : 1,
-                      overflow: isLargeText
-                          ? TextOverflow.visible
-                          : TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  ...chips
-                      .expand((chip) => [chip, const SizedBox(width: 4)])
-                      .toList()
-                    ..removeLast(),
-                ],
-              );
-            } else {
-              subtitleNode = Text(
-                base,
-                maxLines: isLargeText ? 3 : 1,
-                overflow:
-                    isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.mutedForeground,
-                ),
-              );
-            }
-          }
-        } else if (subtitle != null) {
+        } else {
           subtitleNode = Text(
-            subtitle!,
+            base,
             maxLines: isLargeText ? 3 : 1,
             overflow:
                 isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
@@ -283,108 +273,118 @@ class TransactionListTile extends StatelessWidget {
             ),
           );
         }
+      }
+    } else if (subtitle != null) {
+      subtitleNode = Text(
+        subtitle!,
+        maxLines: isLargeText ? 3 : 1,
+        overflow: isLargeText ? TextOverflow.visible : TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 13,
+          color: colorScheme.mutedForeground,
+        ),
+      );
+    }
 
-        final leading = hasMerchantLogo
-            ? ClipOval(
-                child: SizedBox(width: 36, height: 36, child: merchantLogo),
-              )
-            : ClipOval(
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: colorScheme.onSurface.withValues(alpha: 0.04),
-                    shape: BoxShape.circle,
-                  ),
-                  child: merchantLogo,
-                ),
-              );
-        final amountNode = Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
+    final leading = hasMerchantLogo
+        ? ClipOval(
+            child: SizedBox(width: 36, height: 36, child: merchantLogo),
+          )
+        : ClipOval(
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurface.withValues(alpha: 0.04),
+                shape: BoxShape.circle,
+              ),
+              child: merchantLogo,
+            ),
+          );
+    final amountNode = Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          formattedAmount,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: isIncome ? colorScheme.success : colorScheme.foreground,
+          ),
+        ),
+        if (trailingWidget != null) ...[
+          const SizedBox(height: 2),
+          trailingWidget!,
+        ],
+      ],
+    );
+    final defaultTile = ListTile(
+      onTap: onTap,
+      dense: dense,
+      minVerticalPadding: 6,
+      contentPadding: EdgeInsets.zero,
+      leading: leading,
+      title: Text(
+        displayTitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: colorScheme.foreground,
+        ),
+      ),
+      subtitle: subtitleNode,
+      trailing: amountNode,
+    );
+    final largeTile = InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              formattedAmount,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: isIncome ? colorScheme.success : colorScheme.foreground,
+            leading,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayTitle,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  if (subtitleNode != null) ...[
+                    const SizedBox(height: 2),
+                    subtitleNode,
+                  ],
+                ],
               ),
             ),
-            if (trailingWidget != null) ...[
-              const SizedBox(height: 2),
-              trailingWidget!,
-            ],
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: amountNode,
+              ),
+            ),
           ],
-        );
-        final defaultTile = ListTile(
-          onTap: onTap,
-          dense: dense,
-          minVerticalPadding: 6,
-          contentPadding: EdgeInsets.zero,
-          leading: leading,
-          title: Text(
-            displayTitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.foreground,
-            ),
-          ),
-          subtitle: subtitleNode,
-          trailing: amountNode,
-        );
-        final largeTile = InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                leading,
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayTitle,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                      if (subtitleNode != null) ...[
-                        const SizedBox(height: 2),
-                        subtitleNode,
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 120),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: amountNode,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        ),
+      ),
+    );
 
-        return MonekoTextScale(
-          mode: MonekoTextScaling.constrained,
-          child: isLargeText ? largeTile : defaultTile,
-        );
-      },
+    return MonekoTextScale(
+      mode: MonekoTextScaling.constrained,
+      child: isLargeText ? largeTile : defaultTile,
     );
   }
 }

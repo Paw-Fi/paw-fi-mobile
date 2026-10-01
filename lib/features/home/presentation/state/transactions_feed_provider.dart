@@ -5,6 +5,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/monitoring/performance_trace.dart';
+import 'package:moneko/core/utils/in_flight_requests.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -12,34 +14,6 @@ import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dar
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-void _homeSpendTrace(String _) {}
-
-int _traceExpenseCents(Iterable<ExpenseEntry> entries) {
-  return entries.fold<int>(0, (sum, entry) {
-    final type = (entry.type ?? 'expense').toLowerCase();
-    if (type == 'income') return sum;
-    return sum + entry.amountCents.abs();
-  });
-}
-
-String _traceAmountFromCents(int cents) => (cents / 100.0).toStringAsFixed(2);
-
-String _traceFeedQuery(TransactionsFeedQuery query) {
-  final user = query.userId.isEmpty ? '<empty>' : query.userId;
-  final household = query.householdId ?? '<personal>';
-  final currency = query.normalizedCurrency ?? '<none>';
-  final start = query.formattedStartDate ?? '<none>';
-  final end = query.formattedEndDate ?? '<none>';
-  return 'user=$user '
-      'household=$household '
-      'currency=$currency '
-      'currencies=${query.normalizedCurrencies ?? const <String>[]} '
-      'type=${query.normalizedType} '
-      'start=$start '
-      'end=$end '
-      'pageSize=${query.pageSize}';
-}
 
 class TransactionsFeedQuery {
   final String userId;
@@ -243,6 +217,24 @@ class TransactionsFeedQuery {
         normalizedSummaryIntervalGranularity,
       );
 }
+
+Map<String, Object?> describeTransactionsFeedRequest(
+        TransactionsFeedQuery query) =>
+    {
+      'user': query.userId,
+      'household': query.householdId,
+      'currencies': query.normalizedCurrencies,
+      'category': query.normalizedCategory,
+      'categories': query.normalizedCategories,
+      'wallet': query.normalizedAccountId,
+      'includeUnassigned': query.includeUnassignedAccount,
+      'type': query.normalizedType,
+      'searchFingerprint': query.normalizedSearchQuery?.hashCode,
+      'start': query.formattedStartDate,
+      'end': query.formattedEndDate,
+      'interval': query.normalizedSummaryIntervalGranularity,
+      'pageSize': query.pageSize,
+    };
 
 class TransactionsFeedCursor {
   final DateTime date;
@@ -473,6 +465,7 @@ List<ExpenseEntry> postedTransactionFeedEntries(
     entries.where((entry) => !entry.isRecurring).toList(growable: false);
 
 abstract class TransactionsFeedService {
+  int get reconciliationRevision => 0;
   const TransactionsFeedService();
 
   bool get supportsBackgroundRefresh => false;
@@ -483,6 +476,13 @@ abstract class TransactionsFeedService {
   });
 
   Future<TransactionsFeedSummary> fetchSummary(TransactionsFeedQuery query);
+
+  /// Returns a trustworthy local page and summary without contacting remote.
+  /// A partial row cache must not be presented as a complete financial summary.
+  Future<TransactionsFeedState?> fetchCachedSnapshot(
+    TransactionsFeedQuery query,
+  ) async =>
+      null;
 
   Future<void> refreshFromRemote(TransactionsFeedQuery query) async {}
 
@@ -526,6 +526,12 @@ class EmptyTransactionsFeedService extends TransactionsFeedService {
   ) async {
     return const TransactionsFeedSummary.empty();
   }
+}
+
+/// The database has not resolved yet; this is not a successfully empty feed.
+class OpeningDatabaseTransactionsFeedService
+    extends EmptyTransactionsFeedService {
+  const OpeningDatabaseTransactionsFeedService();
 }
 
 class SupabaseTransactionsFeedService extends TransactionsFeedService {
@@ -785,7 +791,13 @@ class SupabaseTransactionsFeedService extends TransactionsFeedService {
     required String rpcName,
     required Map<String, dynamic> params,
   }) async {
-    return _client.rpc(rpcName, params: params);
+    return PerformanceTrace.measureAsync(
+        'rpc.$rpcName', () async => _client.rpc(rpcName, params: params),
+        identity: () => {
+              for (final entry in params.entries)
+                if (entry.key != 'p_search_query') entry.key: entry.value,
+              'searchFingerprint': params['p_search_query']?.hashCode,
+            });
   }
 }
 
@@ -801,7 +813,7 @@ const _transactionsSummaryRpcName = 'get_user_transactions_summary_v2';
 String transactionsSummaryRpcNameForTesting() => _transactionsSummaryRpcName;
 
 class LocalFirstTransactionsFeedService extends TransactionsFeedService {
-  const LocalFirstTransactionsFeedService({
+  LocalFirstTransactionsFeedService({
     required MonekoDatabase database,
     required TransactionsFeedService remote,
     bool remoteEnabled = true,
@@ -812,9 +824,34 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
   final MonekoDatabase _database;
   final TransactionsFeedService _remote;
   final bool _remoteEnabled;
+  final _remoteRefreshRequests =
+      InFlightRequests<(TransactionsFeedQuery, int), void>();
+
+  @override
+  int get reconciliationRevision => _database.transactionRevision;
 
   @override
   bool get supportsBackgroundRefresh => _remoteEnabled;
+
+  @override
+  Future<TransactionsFeedState?> fetchCachedSnapshot(
+    TransactionsFeedQuery query,
+  ) async {
+    final localQuery = _localQuery(query);
+    if (!await _database.isTransactionsFeedCacheComplete(localQuery)) {
+      return null;
+    }
+    final page = await _database.getTransactionsFeedPage(localQuery);
+    final summary = await _database.getTransactionsFeedSummary(localQuery);
+    final localPage = _pageFromLocal(page, query);
+    return TransactionsFeedState(
+      summary: _summaryFromLocal(summary),
+      items: localPage.items,
+      hasMore: localPage.hasMore,
+      nextCursor: localPage.nextCursor,
+      hasLoadedInitial: true,
+    );
+  }
 
   @override
   Future<TransactionsFeedPageResult> fetchPage(
@@ -828,28 +865,10 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final isComplete = await _database.isTransactionsFeedCacheComplete(
       _localQuery(query),
     );
-    final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
-    _homeSpendTrace(
-      'feed-fetchPage start ${_traceFeedQuery(query)} cursor=${cursor != null} '
-      'remote=$_remoteEnabled complete=$isComplete pending=$hasPendingLocalRows '
-      'localCount=${localPage.items.length} localTotal=${_traceAmountFromCents(_traceExpenseCents(localPage.items))}',
-    );
     if (!_remoteEnabled) {
-      _homeSpendTrace(
-          'feed-fetchPage return=local-offline count=${localPage.items.length}');
       return _pageFromLocal(localPage, query);
     }
     if (isComplete || (cursor == null && localPage.items.isNotEmpty)) {
-      final reason = isComplete
-          ? 'complete'
-          : cursor != null
-              ? 'cursor'
-              : hasPendingLocalRows
-                  ? 'pending'
-                  : 'cached';
-      _homeSpendTrace(
-        'feed-fetchPage return=local-authoritative reason=$reason count=${localPage.items.length}',
-      );
       return _pageFromLocal(localPage, query);
     }
 
@@ -859,10 +878,6 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
         items: postedTransactionFeedEntries(rawRemotePage.items),
         hasMore: rawRemotePage.hasMore,
         nextCursor: rawRemotePage.nextCursor,
-      );
-      _homeSpendTrace(
-        'feed-fetchPage remote count=${remotePage.items.length} '
-        'total=${_traceAmountFromCents(_traceExpenseCents(remotePage.items))} hasMore=${remotePage.hasMore}',
       );
       await _cacheRemoteItems(remotePage.items);
       if (cursor == null || !remotePage.hasMore) {
@@ -874,10 +889,6 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       final updatedLocalPage = await _database.getTransactionsFeedPage(
         localQuery,
       );
-      _homeSpendTrace(
-        'feed-fetchPage return=remote-cached updatedLocalCount=${updatedLocalPage.items.length} '
-        'updatedLocalTotal=${_traceAmountFromCents(_traceExpenseCents(updatedLocalPage.items))}',
-      );
       if (updatedLocalPage.items.isEmpty) return remotePage;
       return _pageFromLocal(
         updatedLocalPage,
@@ -887,8 +898,6 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       );
     } catch (error) {
       if (_isAuthorizationError(error)) rethrow;
-      _homeSpendTrace(
-          'feed-fetchPage remote-error return=local error=$error count=${localPage.items.length}');
       return _pageFromLocal(localPage, query);
     }
   }
@@ -902,20 +911,10 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
     final hasPendingUpdatesOrDeletes =
         await _database.hasPendingTransactionUpdatesOrDeletes();
-    _homeSpendTrace(
-      'feed-fetchSummary start ${_traceFeedQuery(query)} '
-      'remote=$_remoteEnabled pending=$hasPendingLocalRows '
-      'localCount=${localSummary.transactionCount} '
-      'localExpense=${_traceAmountFromCents(localSummary.expenseTotalCents)} '
-      'localIncome=${_traceAmountFromCents(localSummary.incomeTotalCents)}',
-    );
     if (!_remoteEnabled) {
-      _homeSpendTrace('feed-fetchSummary return=local-offline');
       return _summaryFromLocal(localSummary);
     }
     if (hasPendingUpdatesOrDeletes) {
-      _homeSpendTrace(
-          'feed-fetchSummary return=local-authoritative reason=pending-update-or-delete');
       return _summaryFromLocal(localSummary);
     }
     try {
@@ -931,16 +930,9 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
             .toList(growable: false);
         remoteSummary = remoteSummary.addingExpenses(pendingCreates);
       }
-      _homeSpendTrace(
-        'feed-fetchSummary return=remote count=${remoteSummary.transactionCount} '
-        'expense=${_traceAmountFromCents((remoteSummary.expenseTotal * 100).round())} '
-        'income=${_traceAmountFromCents((remoteSummary.incomeTotal * 100).round())}',
-      );
       return remoteSummary;
     } catch (error) {
       if (_isAuthorizationError(error)) rethrow;
-      _homeSpendTrace(
-          'feed-fetchSummary remote-error return=local error=$error');
       return _summaryFromLocal(localSummary);
     }
   }
@@ -952,32 +944,16 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final isComplete = await _database.isTransactionsFeedCacheComplete(
       _localQuery(query),
     );
-    final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
-    _homeSpendTrace(
-      'feed-fetchAllPages start ${_traceFeedQuery(query)} '
-      'remote=$_remoteEnabled complete=$isComplete pending=$hasPendingLocalRows '
-      'localCount=${localItems.length} localTotal=${_traceAmountFromCents(_traceExpenseCents(localItems))}',
-    );
     if (!_remoteEnabled) {
-      _homeSpendTrace(
-          'feed-fetchAllPages return=local-offline count=${localItems.length}');
       return localItems;
     }
     if (isComplete) {
-      _homeSpendTrace(
-        'feed-fetchAllPages return=local-authoritative reason=complete '
-        'count=${localItems.length} total=${_traceAmountFromCents(_traceExpenseCents(localItems))}',
-      );
       return localItems;
     }
 
     try {
       final remoteItems = postedTransactionFeedEntries(
         await _remote.fetchAllPages(query),
-      );
-      _homeSpendTrace(
-        'feed-fetchAllPages remote count=${remoteItems.length} '
-        'total=${_traceAmountFromCents(_traceExpenseCents(remoteItems))}',
       );
       await _cacheRemoteItems(remoteItems);
       await _database.reconcileTransactionsFeedPage(
@@ -993,18 +969,10 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       final updatedLocalItems = await _database.getTransactionsFeedItems(
         localQuery,
       );
-      _homeSpendTrace(
-        'feed-fetchAllPages return=remote-cached updatedLocalCount=${updatedLocalItems.length} '
-        'updatedLocalTotal=${_traceAmountFromCents(_traceExpenseCents(updatedLocalItems))}',
-      );
       if (updatedLocalItems.isEmpty) return remoteItems;
       return _mergeRemoteWithLocalItems(remoteItems, updatedLocalItems);
     } catch (error) {
       if (_isAuthorizationError(error)) rethrow;
-      _homeSpendTrace(
-        'feed-fetchAllPages remote-error return=local error=$error '
-        'count=${localItems.length} total=${_traceAmountFromCents(_traceExpenseCents(localItems))}',
-      );
       return localItems;
     }
   }
@@ -1027,6 +995,18 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
   @override
   Future<void> refreshFromRemote(TransactionsFeedQuery query) async {
     if (!_remoteEnabled) return;
+    final revision = reconciliationRevision;
+    PerformanceTrace.event('feed.reconcile-request',
+        () => describeTransactionsFeedRequest(query)..['revision'] = revision);
+    return _remoteRefreshRequests.run((query, revision), () {
+      return PerformanceTrace.measureAsync(
+          'feed.reconcile', () => _refreshFromRemote(query),
+          identity: () =>
+              describeTransactionsFeedRequest(query)..['revision'] = revision);
+    });
+  }
+
+  Future<void> _refreshFromRemote(TransactionsFeedQuery query) async {
     final localQuery = _localQuery(query);
     final cacheWasComplete =
         await _database.isTransactionsFeedCacheComplete(localQuery);
@@ -1285,7 +1265,7 @@ final transactionsFeedServiceProvider =
       remoteEnabled: hasNetworkAccess,
     ),
     error: (_, __) => remote,
-    loading: () => const EmptyTransactionsFeedService(),
+    loading: () => const OpeningDatabaseTransactionsFeedService(),
   );
 });
 
@@ -1313,7 +1293,31 @@ final transactionsFeedAllItemsProvider = FutureProvider.autoDispose
     return const <ExpenseEntry>[];
   }
 
-  return ref.watch(transactionsFeedServiceProvider).fetchAllPages(query);
+  var active = true;
+  ref.onDispose(() => active = false);
+  final service = await ref.watch(transactionsFeedReadyServiceProvider.future);
+  // A dependency can rebuild this provider while SQLite is opening. The old
+  // generation's result is discarded; it must not continue into a second read.
+  if (!active) return const <ExpenseEntry>[];
+  return service.fetchAllPages(query);
+});
+
+/// Waiting readers never interpret an opening database as a valid empty list.
+/// Dependencies are captured before awaiting; no disposed ref is used later.
+final transactionsFeedReadyServiceProvider =
+    FutureProvider<TransactionsFeedService>((ref) async {
+  final service = ref.watch(transactionsFeedServiceProvider);
+  if (service is! OpeningDatabaseTransactionsFeedService) return service;
+  final remote = ref.watch(transactionsRemoteFeedServiceProvider);
+  final online = ref.watch(networkReachabilityProvider).valueOrNull ?? true;
+  final opening = ref.watch(localDatabaseProvider.future);
+  try {
+    final database = await opening;
+    return LocalFirstTransactionsFeedService(
+        database: database, remote: remote, remoteEnabled: online);
+  } catch (_) {
+    return remote;
+  }
 });
 
 final transactionsFeedProvider = StateNotifierProvider.autoDispose.family<
@@ -1333,7 +1337,7 @@ final transactionsFeedProvider = StateNotifierProvider.autoDispose.family<
       if (previous == null || previous == next) {
         return;
       }
-      unawaited(notifier.refresh());
+      unawaited(notifier.refresh(reason: 'mutation-refresh'));
     });
     ref.listen<TransactionsFeedEditedEntry?>(
         transactionsFeedEditedEntryProvider, (previous, next) {
@@ -1345,7 +1349,8 @@ final transactionsFeedProvider = StateNotifierProvider.autoDispose.family<
         replacingIds: next.replacingIds,
       );
     });
-    unawaited(notifier.loadInitial());
+    unawaited(PerformanceTrace.withReason(
+        'provider-initialization', notifier.loadInitial));
     return notifier;
   },
 );
@@ -1360,7 +1365,9 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
 
   TransactionsFeedService _service;
   final TransactionsFeedQuery _query;
-  Future<void>? _backgroundRefresh;
+  final _refreshRequests = InFlightRequests<(int, int, int), void>();
+  (int, int, int)? _latestRefreshKey;
+  int _localEditGeneration = 0;
   Future<void>? _initialLoadOperation;
   int _serviceGeneration = 0;
 
@@ -1369,8 +1376,16 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       return;
     }
 
+    final wasWaitingForDatabase =
+        _service is OpeningDatabaseTransactionsFeedService;
     _service = service;
     _serviceGeneration++;
+    if (wasWaitingForDatabase &&
+        service is! OpeningDatabaseTransactionsFeedService) {
+      state = state.copyWith(isLoading: false);
+      unawaited(loadInitial());
+      return;
+    }
 
     if (_query.userId.isEmpty || state.isLoading || state.isLoadingMore) {
       return;
@@ -1405,6 +1420,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
       nextItems.add(entry);
     }
 
+    _localEditGeneration++;
     state = state.copyWith(
       items: _uniqueSortedTransactions(nextItems),
       clearError: true,
@@ -1415,6 +1431,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     final matchingEntries = entries.where(_entryMatchesQuery).toList();
     if (matchingEntries.isEmpty) return;
     final matchingIds = matchingEntries.map((entry) => entry.id).toSet();
+    _localEditGeneration++;
     state = state.copyWith(
       items: _uniqueSortedTransactions([
         ...state.items.where((entry) => !matchingIds.contains(entry.id)),
@@ -1431,6 +1448,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
   }) {
     final ids = removedIds.where((id) => id.isNotEmpty).toSet();
     final matchingEntries = entries.where(_entryMatchesQuery).toList();
+    _localEditGeneration++;
     state = state.copyWith(
       items: _uniqueSortedTransactions([
         ...state.items.where((entry) => !ids.contains(entry.id)),
@@ -1549,6 +1567,10 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
 
     final service = _service;
     final generation = _serviceGeneration;
+    if (service is OpeningDatabaseTransactionsFeedService) {
+      state = state.copyWith(isLoading: true);
+      return;
+    }
 
     if (service.supportsBackgroundRefresh && state.items.isNotEmpty) {
       state = state.copyWith(clearError: true);
@@ -1563,6 +1585,18 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     );
 
     try {
+      final cached = await service.fetchCachedSnapshot(_query);
+      if (!mounted) return;
+      if (generation != _serviceGeneration) {
+        state = state.copyWith(isLoading: false);
+        unawaited(loadInitial());
+        return;
+      }
+      if (cached != null) {
+        state = cached;
+        if (service.supportsBackgroundRefresh) _startBackgroundRefresh();
+        return;
+      }
       final results = await Future.wait<dynamic>([
         service.fetchSummary(_query),
         service.fetchPage(_query),
@@ -1605,71 +1639,71 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     }
   }
 
-  Future<void> refresh() async {
-    if (state.isLoadingMore) {
+  Future<void> refresh(
+      {String reason = 'explicit-refresh', bool background = false}) async {
+    if (_service is OpeningDatabaseTransactionsFeedService) {
+      await loadInitial();
       return;
     }
-
+    if (state.isLoadingMore) return;
     if (_query.userId.isEmpty) {
       state = const TransactionsFeedState();
       return;
     }
-
     final service = _service;
     final generation = _serviceGeneration;
-
-    state = state.copyWith(
-      isLoading: true,
-      isLoadingMore: false,
-      clearError: true,
-    );
-
-    try {
-      if (service.supportsBackgroundRefresh) {
-        await service.refreshFromRemote(_query);
-        if (!mounted) return;
-        if (generation != _serviceGeneration) {
-          state = state.copyWith(isLoading: false, isLoadingMore: false);
-          unawaited(refresh());
-          return;
-        }
-      }
-      final results = await Future.wait<dynamic>([
-        service.fetchSummary(_query),
-        service.fetchPage(_query),
-      ]);
-      if (!mounted) return;
-      if (generation != _serviceGeneration) {
-        state = state.copyWith(isLoading: false, isLoadingMore: false);
-        unawaited(refresh());
-        return;
-      }
-      final summary = results[0] as TransactionsFeedSummary;
-      final page = results[1] as TransactionsFeedPageResult;
-      final mergedPage = await _reloadVisibleRefreshItems(
-        service: service,
-        refreshedPage: page,
-        existingItems: state.items,
-      );
-      if (!mounted) return;
-      if (generation != _serviceGeneration) {
-        state = state.copyWith(isLoading: false, isLoadingMore: false);
-        unawaited(refresh());
-        return;
-      }
-      state = TransactionsFeedState(
-        summary: summary,
-        items: mergedPage.items,
-        hasMore: mergedPage.hasMore,
-        hasLoadedInitial: true,
-        nextCursor: mergedPage.nextCursor,
-      );
-    } catch (error) {
-      if (!mounted) return;
+    final editGeneration = _localEditGeneration;
+    final key = (generation, service.reconciliationRevision, editGeneration);
+    PerformanceTrace.withReason(reason, () {
+      PerformanceTrace.event(
+          'feed.notifier-request',
+          () => describeTransactionsFeedRequest(_query)
+            ..addAll({
+              'serviceGeneration': generation,
+              'editGeneration': editGeneration,
+              'revision': key.$2,
+              'background': background,
+            }));
+    });
+    if (!background) {
       state = state.copyWith(
-        isLoading: false,
-        error: error.toString(),
-      );
+          isLoading: true, isLoadingMore: false, clearError: true);
+    }
+    try {
+      await _refreshRequests.run(key, () {
+        _latestRefreshKey = key;
+        return PerformanceTrace.withReason(
+            reason,
+            () => PerformanceTrace.measureAsync('feed.notifier-reconcile',
+                () => _reconcileAndReload(service, key),
+                identity: () => describeTransactionsFeedRequest(_query)
+                  ..addAll({
+                    'serviceGeneration': generation,
+                    'editGeneration': editGeneration,
+                    'revision': key.$2
+                  })));
+      });
+    } catch (error) {
+      if (_isCurrentRefresh(key) && !background) {
+        state = state.copyWith(isLoading: false, error: error.toString());
+      } else if (_isCurrentRefresh(key) && state.isLoading) {
+        // A newer silent pass can supersede a foreground pass. Its failure
+        // must still release that pass's indicator while retaining content.
+        state = state.copyWith(isLoading: false);
+      }
+    }
+    if (!mounted) return;
+    if (generation != _serviceGeneration ||
+        editGeneration != _localEditGeneration) {
+      // A newer caller already owns the required generation, including when
+      // it completed before this older response. Do not start a third pass.
+      final latest = _latestRefreshKey;
+      if (latest != key &&
+          latest?.$1 == _serviceGeneration &&
+          latest?.$3 == _localEditGeneration) {
+        return;
+      }
+      await refresh(reason: 'revision-followup', background: background);
     }
   }
 
@@ -1720,43 +1754,42 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     }
   }
 
-  Future<void> _refreshFromRemoteAndReload() async {
-    final service = _service;
-    final generation = _serviceGeneration;
+  bool _isCurrentRefresh((int, int, int) key) =>
+      mounted &&
+      key == _latestRefreshKey &&
+      key.$1 == _serviceGeneration &&
+      key.$3 == _localEditGeneration;
 
-    try {
+  Future<void> _reconcileAndReload(
+      TransactionsFeedService service, (int, int, int) key) async {
+    if (service.supportsBackgroundRefresh) {
       await service.refreshFromRemote(_query);
-      if (!mounted || generation != _serviceGeneration) return;
-      final results = await Future.wait<dynamic>([
-        service.fetchSummary(_query),
-        service.fetchPage(_query),
-      ]);
-      if (!mounted || generation != _serviceGeneration) return;
-      final summary = results[0] as TransactionsFeedSummary;
-      final page = results[1] as TransactionsFeedPageResult;
-      final mergedPage = await _reloadVisibleRefreshItems(
-        service: service,
-        refreshedPage: page,
-        existingItems: state.items,
-      );
-      if (!mounted || generation != _serviceGeneration) return;
-      state = TransactionsFeedState(
-        summary: summary,
-        items: mergedPage.items,
-        hasMore: mergedPage.hasMore,
-        hasLoadedInitial: true,
-        nextCursor: mergedPage.nextCursor,
-      );
-    } catch (_) {
-      // The local snapshot is already rendered. Background refresh failures
-      // should not replace usable cached data with an error state.
+      if (!_isCurrentRefresh(key)) return;
     }
+    final results = await Future.wait<dynamic>([
+      service.fetchSummary(_query),
+      service.fetchPage(_query),
+    ]);
+    if (!_isCurrentRefresh(key)) return;
+    final summary = results[0] as TransactionsFeedSummary;
+    final page = results[1] as TransactionsFeedPageResult;
+    final mergedPage = await _reloadVisibleRefreshItems(
+      service: service,
+      refreshedPage: page,
+      existingItems: state.items,
+    );
+    if (!_isCurrentRefresh(key)) return;
+    state = TransactionsFeedState(
+      summary: summary,
+      items: mergedPage.items,
+      hasMore: mergedPage.hasMore,
+      hasLoadedInitial: true,
+      nextCursor: mergedPage.nextCursor,
+    );
   }
 
   void _startBackgroundRefresh() {
-    _backgroundRefresh ??= _refreshFromRemoteAndReload().whenComplete(() {
-      _backgroundRefresh = null;
-    });
+    unawaited(refresh(reason: 'background-reconciliation', background: true));
   }
 
   Future<_RefreshMergeResult> _reloadVisibleRefreshItems({

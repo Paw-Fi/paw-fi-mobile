@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:moneko/core/monitoring/performance_trace.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:path/path.dart' as p;
@@ -469,6 +470,11 @@ class MonekoDatabase {
   }
 
   final Database _db;
+  int _transactionRevision = 0;
+
+  /// Synchronous revision of committed writes, including canonical hydration.
+  /// It is diagnostic/read-coordination metadata, never persisted authority.
+  int get transactionRevision => _transactionRevision;
   final StreamController<void> _changes = StreamController<void>.broadcast();
   final StreamController<void> _transactionChanges =
       StreamController<void>.broadcast();
@@ -2428,7 +2434,9 @@ class MonekoDatabase {
       args.add(localSyncStatusFailed);
     }
     final pageSize = query.pageSize.clamp(1, 500);
-    final rows = _db.select(
+    final rows = _selectFeed(
+      query,
+      'sqlite.feed.page',
       '''
       SELECT *
       FROM local_transactions
@@ -2437,12 +2445,14 @@ class MonekoDatabase {
       LIMIT ?
       ''',
       [...args, pageSize + 1],
+      syncStatus: syncStatus,
     );
 
     final visibleRows = rows.take(pageSize).toList(growable: false);
-    final items = visibleRows.map(_entryFromTransactionRow).toList(
-          growable: false,
-        );
+    final items = PerformanceTrace.measureSync('sqlite.feed.row-transform',
+        () => visibleRows.map(_entryFromTransactionRow).toList(growable: false),
+        identity: () =>
+            _feedTraceIdentity(query)..['rows'] = visibleRows.length);
     final last = items.isEmpty ? null : items.last;
 
     return LocalTransactionsFeedPage(
@@ -3129,7 +3139,9 @@ class MonekoDatabase {
     final args = <Object?>[...filter.args, localSyncStatusFailed];
     final summaryWhereSql = '$whereSql AND id NOT LIKE ?';
     final summaryArgs = <Object?>[...args, 'transfer:%'];
-    final totals = _db.select(
+    final totals = _selectFeed(
+      query,
+      'sqlite.feed.summary.totals',
       '''
       SELECT
         COUNT(*) AS transaction_count,
@@ -3148,7 +3160,9 @@ class MonekoDatabase {
       summaryArgs,
     ).first;
 
-    final categoryRows = _db.select(
+    final categoryRows = _selectFeed(
+      query,
+      'sqlite.feed.summary.categories',
       '''
       SELECT
         LOWER(COALESCE(NULLIF(TRIM(category), ''), 'uncategorized')) AS category_key,
@@ -3166,7 +3180,9 @@ class MonekoDatabase {
       summaryArgs,
     );
 
-    final yearlyRows = _db.select(
+    final yearlyRows = _selectFeed(
+      query,
+      'sqlite.feed.summary.yearly',
       '''
       SELECT
         SUBSTR(date, 1, 4) || '-01-01' AS bucket_start,
@@ -3183,7 +3199,9 @@ class MonekoDatabase {
       summaryArgs,
     );
 
-    final periodRows = _db.select(
+    final periodRows = _selectFeed(
+      query,
+      'sqlite.feed.summary.period',
       '''
       SELECT
         ${_periodBucketExpression(query.intervalGranularity)} AS bucket_start,
@@ -3200,7 +3218,9 @@ class MonekoDatabase {
       summaryArgs,
     );
 
-    final currencyCategoryRows = _db.select(
+    final currencyCategoryRows = _selectFeed(
+      query,
+      'sqlite.feed.summary.currency-categories',
       '''
       SELECT
         LOWER(COALESCE(NULLIF(TRIM(category), ''), 'uncategorized')) AS category_key,
@@ -3219,7 +3239,9 @@ class MonekoDatabase {
       summaryArgs,
     );
 
-    final currencyYearlyRows = _db.select(
+    final currencyYearlyRows = _selectFeed(
+      query,
+      'sqlite.feed.summary.currency-yearly',
       '''
       SELECT
         SUBSTR(date, 1, 4) || '-01-01' AS bucket_start,
@@ -3237,7 +3259,9 @@ class MonekoDatabase {
       summaryArgs,
     );
 
-    final currencyPeriodRows = _db.select(
+    final currencyPeriodRows = _selectFeed(
+      query,
+      'sqlite.feed.summary.currency-period',
       '''
       SELECT
         ${_periodBucketExpression(query.intervalGranularity)} AS bucket_start,
@@ -3255,7 +3279,9 @@ class MonekoDatabase {
       summaryArgs,
     );
 
-    final currencyTypeRows = _db.select(
+    final currencyTypeRows = _selectFeed(
+      query,
+      'sqlite.feed.summary.currency-types',
       '''
       SELECT
         UPPER(COALESCE(currency, '')) AS currency_key,
@@ -3340,13 +3366,17 @@ class MonekoDatabase {
       args.add('transfer:%');
     }
 
-    final rows = _db.select(
+    final rows = _selectFeed(
+      query,
+      'sqlite.feed.count',
       '''
       SELECT COUNT(*) AS transaction_count
       FROM local_transactions
       WHERE ${conditions.join(' AND ')}
       ''',
       args,
+      syncStatus: syncStatus,
+      excludeWalletTransferFeedRows: excludeWalletTransferFeedRows,
     );
 
     return rows.isEmpty ? 0 : _rowInt(rows.first['transaction_count']);
@@ -5280,7 +5310,40 @@ class MonekoDatabase {
     );
   }
 
+  Map<String, Object?> _feedTraceIdentity(LocalTransactionsFeedQuery query) {
+    final fields =
+        Map<String, Object?>.from(jsonDecode(_feedCacheKey(query)) as Map);
+    final search = fields.remove('searchQuery');
+    return fields
+      ..addAll({
+        'searchFingerprint': search?.hashCode,
+        'revision': transactionRevision,
+        'pageSize': query.pageSize,
+        'cursor': query.cursor == null
+            ? null
+            : {
+                'id': query.cursor!.id,
+                'date': query.cursor!.date,
+                'createdAt': query.cursor!.createdAt,
+              },
+      });
+  }
+
+  ResultSet _selectFeed(LocalTransactionsFeedQuery query, String readType,
+      String sql, List<Object?> arguments,
+      {String? syncStatus, bool? excludeWalletTransferFeedRows}) {
+    if (!PerformanceTrace.enabled) return _db.select(sql, arguments);
+    return PerformanceTrace.measureSync(
+        readType, () => _db.select(sql, arguments),
+        identity: () => _feedTraceIdentity(query)
+          ..addAll({
+            'syncStatus': syncStatus,
+            'excludeWalletTransferFeedRows': excludeWalletTransferFeedRows,
+          }));
+  }
+
   void _notifyChanged() {
+    _transactionRevision++;
     if (!_changes.isClosed) {
       _changes.add(null);
     }
