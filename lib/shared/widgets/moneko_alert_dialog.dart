@@ -65,6 +65,7 @@ class MonekoAlertDialog {
     bool barrierDismissible = true,
     MonekoAlertDialogInputConfig? inputConfig,
     MonekoAlertDialogInputConfig? secondaryInputConfig,
+    Widget? leadingContent,
     Widget? content,
     bool isDestructive = false,
   }) {
@@ -99,6 +100,7 @@ class MonekoAlertDialog {
               secondaryLabel: secondaryLabel,
               inputConfig: inputConfig,
               secondaryInputConfig: secondaryInputConfig,
+              leadingContent: leadingContent,
               content: content,
               isDestructive: isDestructive,
             ),
@@ -119,6 +121,7 @@ class _MonekoAlertDialogWidget extends StatefulWidget {
     this.secondaryLabel,
     this.inputConfig,
     this.secondaryInputConfig,
+    this.leadingContent,
     this.content,
     this.isDestructive = false,
   });
@@ -131,6 +134,7 @@ class _MonekoAlertDialogWidget extends StatefulWidget {
   final String? secondaryLabel;
   final MonekoAlertDialogInputConfig? inputConfig;
   final MonekoAlertDialogInputConfig? secondaryInputConfig;
+  final Widget? leadingContent;
   final Widget? content;
   final bool isDestructive;
 
@@ -327,6 +331,10 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (widget.leadingContent != null) ...[
+                      widget.leadingContent!,
+                      const SizedBox(height: 16),
+                    ],
                     Text(
                       widget.title,
                       style: theme.textTheme.headlineSmall?.copyWith(
@@ -441,6 +449,10 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (widget.leadingContent != null) ...[
+                            widget.leadingContent!,
+                            const SizedBox(height: 16),
+                          ],
                           Text(
                             widget.title,
                             textAlign: TextAlign.center,

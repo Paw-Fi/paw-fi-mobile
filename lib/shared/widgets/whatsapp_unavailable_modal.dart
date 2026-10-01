@@ -9,6 +9,11 @@ Future<bool> showWhatsAppUnavailableModal(BuildContext context) async {
     context: context,
     title: context.l10n.whatsappIsTemporarilyUnavailable,
     description: context.l10n.whatsappUnavailableUseTelegram,
+    leadingContent: Image.asset(
+      'lib/assets/mascots/moneko-crying.png',
+      height: 144,
+      fit: BoxFit.contain,
+    ),
     confirmLabel: context.l10n.useTelegram,
     cancelLabel: context.l10n.close,
   );
