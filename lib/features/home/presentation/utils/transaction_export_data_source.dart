@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/widgets/transaction_export_options_sheet.dart';
+import 'package:moneko/features/households/data/services/household_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TransactionExportDataSource {
@@ -11,7 +12,7 @@ class TransactionExportDataSource {
   static const _maxPages = 200;
   static const _queryTimeout = Duration(seconds: 20);
   static const _selectFields =
-      'id,contact_id,user_id,household_id,date,amount_cents,currency,category,raw_text,merchant,merchant_id,merchant_structured_name,merchants(domain, logo_identifier),breakdown,receipt_image_url,created_at,updated_at,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,type,is_recurring,account_id';
+      'id,contact_id,user_id,household_id,date,amount_cents,currency,category,raw_text,merchant,merchant_id,merchant_structured_name,merchants(domain, logo_identifier),breakdown,receipt_image_url,created_at,updated_at,split_group_id,parent_recurring_id,scheduled_occurrence_date,recurring_confirmed_at,recurring_confirmation_source,type,is_recurring,account_id,bank_account_id,provider_pending,provider_recurring,analytics_class,analytics_is_final,analytics_spending_multiplier,analytics_counts_toward_income';
 
   final SupabaseClient _client;
 
@@ -51,21 +52,102 @@ class TransactionExportDataSource {
       );
 
       if (batch.length < _pageSize) {
-        break;
+        return rows
+            .where((row) => !excludedExpenseIds.contains(row['id']))
+            .map(ExpenseEntry.fromJson)
+            .toList(growable: false);
       }
       offset += _pageSize;
     }
 
-    if (rows.length >= _pageSize * _maxPages) {
-      debugPrint(
-        '[TransactionExportDataSource] max pages reached; export may be truncated at ${rows.length} rows',
-      );
+    throw StateError('Transaction export exceeded its pagination limit');
+  }
+
+  /// Resolve labels after local edits are merged, so a pending wallet change
+  /// uses its new wallet and never inherits the remote row's old label.
+  Future<List<ExpenseEntry>> enrichExportExpenses(
+    List<ExpenseEntry> expenses,
+  ) async {
+    if (expenses.isEmpty) return expenses;
+    final walletIds = expenses
+        .map((expense) => expense.walletId)
+        .whereType<String>()
+        .where(_isCanonicalId)
+        .toSet();
+    final userIds = expenses
+        .map((expense) => expense.userId)
+        .whereType<String>()
+        .where(_isCanonicalId)
+        .toSet();
+    final walletNames = await _fetchNames('accounts', 'name', walletIds);
+    final userNames = await _fetchNames('users', 'full_name', userIds);
+    final householdUserNames = <String, String>{};
+    final householdIds = expenses
+        .where((expense) => !userNames.containsKey(expense.userId))
+        .map((expense) => expense.householdId)
+        .whereType<String>()
+        .where(_isCanonicalId)
+        .toSet();
+    for (final householdId in householdIds) {
+      final members = await HouseholdService(_client)
+          .getHouseholdMembers(householdId)
+          .timeout(_queryTimeout);
+      for (final member in members) {
+        final profile = member['users'] as Map<String, dynamic>?;
+        final name =
+            ((profile?['full_name'] ?? member['user_name']) as String?)?.trim();
+        if (name?.isNotEmpty == true) {
+          householdUserNames['$householdId::${member['user_id']}'] = name!;
+        }
+      }
     }
 
-    return rows
-        .where((row) => !excludedExpenseIds.contains(row['id']))
-        .map(ExpenseEntry.fromJson)
-        .toList(growable: false);
+    return expenses.map((expense) {
+      return expense.copyWith(
+        accountName: walletIds.contains(expense.walletId)
+            ? walletNames[expense.walletId] ?? ''
+            : expense.accountName,
+        userName: userNames[expense.userId] ??
+            householdUserNames['${expense.householdId}::${expense.userId}'] ??
+            expense.userName,
+      );
+    }).toList(growable: false);
+  }
+
+  Future<Map<String, String>> fetchExportHouseholdNames(
+    List<ExpenseEntry> expenses,
+  ) =>
+      _fetchNames(
+        'households',
+        'name',
+        expenses
+            .map((expense) => expense.householdId)
+            .whereType<String>()
+            .where(_isCanonicalId)
+            .toSet(),
+      );
+
+  Future<Map<String, String>> _fetchNames(
+    String table,
+    String nameColumn,
+    Set<String> ids,
+  ) async {
+    final names = <String, String>{};
+    final orderedIds = ids.toList(growable: false);
+    // Keep UUID filters below URL limits and each response below the API cap.
+    for (var offset = 0; offset < orderedIds.length; offset += 100) {
+      final end = (offset + 100).clamp(0, orderedIds.length);
+      final response = await _client
+          .from(table)
+          .select('id,$nameColumn')
+          .inFilter('id', orderedIds.sublist(offset, end))
+          .timeout(_queryTimeout);
+      for (final row in response) {
+        final name = (row[nameColumn] as String?)?.trim() ?? '';
+        if (name.isNotEmpty) names[row['id'] as String] = name;
+      }
+    }
+    return names;
   }
 
   Future<List<String>> _fetchContactIds(String userId) async {
@@ -128,6 +210,10 @@ class TransactionExportDataSource {
     return (response as List).cast<Map<String, dynamic>>();
   }
 }
+
+bool _isCanonicalId(String id) => RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(id);
 
 List<ExpenseEntry> mergeExportExpenses({
   required Iterable<ExpenseEntry> remoteExpenses,

@@ -12,11 +12,14 @@ import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart'
+    show supabaseClientProvider;
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -171,7 +174,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          _buildAppBar(context, colorScheme, memberTransactions),
+          _buildAppBar(context, ref, colorScheme, memberTransactions),
           SliverToBoxAdapter(
             child: _buildHeader(
               context,
@@ -232,6 +235,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
   Widget _buildAppBar(
     BuildContext context,
+    WidgetRef ref,
     ColorScheme colorScheme,
     List<ExpenseEntry> exportTransactions,
   ) {
@@ -254,6 +258,9 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           onPressed: () => exportTransactionsAsExcelSheet(
             context,
             exportTransactions,
+            client: ref.read(supabaseClientProvider),
+            preferredTimezone:
+                ref.read(analyticsProvider).contact?.preferredTimezone,
             fileNamePrefix: 'member_transactions',
           ),
         ),

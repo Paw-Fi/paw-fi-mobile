@@ -459,21 +459,26 @@ class HomeHeaderSliver extends HookConsumerWidget {
         );
       } catch (_) {}
 
-      final remoteExpenses = await TransactionExportDataSource(
+      final exportDataSource = TransactionExportDataSource(
         ref.read(supabaseClientProvider),
-      ).fetchExportExpenses(
+      );
+      final remoteExpenses = await exportDataSource.fetchExportExpenses(
         userId: user.uid,
         dateRange: exportRequest.dateRange,
         space: exportRequest.space,
         excludedExpenseIds: locallyDeletedExpenseIds,
       );
-      final exportableExpenses = mergeExportExpenses(
+      final mergedExpenses = mergeExportExpenses(
         remoteExpenses: remoteExpenses,
         pendingLocalExpenses: pendingLocalExpenses,
         space: exportRequest.space,
         dateRange: exportRequest.dateRange,
         excludedExpenseIds: locallyDeletedExpenseIds,
       );
+      final exportableExpenses =
+          exportRequest.format == TransactionExportFormat.excel
+              ? await exportDataSource.enrichExportExpenses(mergedExpenses)
+              : mergedExpenses;
       if (!context.mounted) {
         closeBlockingDialog();
         return;
@@ -484,7 +489,14 @@ class HomeHeaderSliver extends HookConsumerWidget {
       );
       final householdNames = {
         for (final household in households) household.id: household.name,
+        if (exportRequest.format == TransactionExportFormat.excel)
+          ...await exportDataSource
+              .fetchExportHouseholdNames(exportableExpenses),
       };
+      if (!context.mounted) {
+        closeBlockingDialog();
+        return;
+      }
       try {
         if (exportRequest.format == TransactionExportFormat.excel) {
           debugPrint(
@@ -497,6 +509,8 @@ class HomeHeaderSliver extends HookConsumerWidget {
             exportableExpenses,
             personalLabel: exportPersonalLabel,
             householdNames: householdNames,
+            preferredTimezone:
+                ref.read(analyticsProvider).contact?.preferredTimezone,
             selectedDateRange: exportRequest.dateRange,
             fileNamePrefix:
                 _exportFileNamePrefix('transactions', exportRequest),

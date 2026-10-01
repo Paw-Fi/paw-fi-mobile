@@ -8,15 +8,22 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_export_data_source.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
 Future<void> exportTransactionsAsExcelSheet(
   BuildContext context,
   List<ExpenseEntry> expenses, {
+  required SupabaseClient client,
   String fileNamePrefix = 'transactions',
+  String? preferredTimezone,
+  Map<String, String> householdNames = const {},
 }) async {
   if (expenses.isEmpty) {
     AppToast.info(context, context.l10n.noTransactionsFound);
@@ -30,7 +37,16 @@ Future<void> exportTransactionsAsExcelSheet(
       '[exportTransactionsAsExcelSheet] count=${expenses.length} web=$kIsWeb');
 
   try {
-    final excelBytes = await _buildExcel(expenses);
+    final dataSource = TransactionExportDataSource(client);
+    final exportExpenses = await dataSource.enrichExportExpenses(expenses);
+    final resolvedHouseholdNames =
+        await dataSource.fetchExportHouseholdNames(exportExpenses);
+    final excelBytes = await buildTransactionExportWorkbook(
+      exportExpenses,
+      householdNames: {...householdNames, ...resolvedHouseholdNames},
+      preferredTimezone: preferredTimezone,
+      includeSpaceSheets: false,
+    );
 
     if (!context.mounted) return;
 
@@ -69,6 +85,7 @@ Future<void> exportAllTransactionsAsExcelSheet(
   List<ExpenseEntry> expenses, {
   required String personalLabel,
   Map<String, String> householdNames = const {},
+  String? preferredTimezone,
   DateTimeRange? selectedDateRange,
   String fileNamePrefix = 'moneko_full_export',
   VoidCallback? onBeforeShare,
@@ -86,12 +103,13 @@ Future<void> exportAllTransactionsAsExcelSheet(
   try {
     // NOTE: Receipt image downloads are temporarily disabled for export.
     // final receiptBundle = await _downloadReceiptImages(expenses);
-    final excelBytes = await _buildFullExportExcel(
+    final excelBytes = await buildTransactionExportWorkbook(
       expenses,
       personalLabel: personalLabel,
       householdNames: householdNames,
       receiptFileNamesById: const {},
       selectedDateRange: selectedDateRange,
+      preferredTimezone: preferredTimezone,
     );
 
     if (!context.mounted) return;
@@ -320,179 +338,14 @@ void _showShareResultToast(
   }
 }
 
-Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
-  final excel = Excel.createExcel();
-
-  // Rename default sheet to 'Transactions'
-  final defaultSheet = excel.getDefaultSheet();
-  if (defaultSheet != null) {
-    excel.rename(defaultSheet, 'Transactions');
-  }
-
-  final Sheet sheet = excel['Transactions'];
-
-  // Add Headers (Removed ID and Currency)
-  final headers = [
-    'Date',
-    'Account / User',
-    'Description',
-    'Merchant',
-    'Category',
-    'Amount',
-    'Type',
-    'Notes',
-    'Receipt Image',
-  ];
-
-  sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
-
-  final dateFormat = DateFormat('yyyy-MM-dd');
-  final categoryMap = <String, double>{};
-
-  double totalIncome = 0.0;
-  double totalExpense = 0.0;
-  DateTime? minDate;
-  DateTime? maxDate;
-
-  for (final expense in expenses) {
-    final date = dateFormat.format(expense.date);
-
-    // Track date range
-    if (minDate == null || expense.date.isBefore(minDate)) {
-      minDate = expense.date;
-    }
-    if (maxDate == null || expense.date.isAfter(maxDate)) {
-      maxDate = expense.date;
-    }
-
-    // Determine Account/User info
-    String accountInfo = 'Personal';
-    if (expense.householdId != null) {
-      accountInfo = 'Household';
-      if (expense.userName != null) {
-        accountInfo += ' (${expense.userName})';
-      }
-    }
-
-    final description = expense.rawText ?? '';
-    final merchant = expense.merchant ?? '';
-    final category = expense.category ?? 'Uncategorized';
-    final amountVal =
-        expense.amount; // Should we strictly use absolute for math?
-    // Usually expense amount is positive in DB but typed as 'expense'.
-    // We'll trust the Type field for classification.
-
-    final type = expense.type ?? 'expense';
-
-    // Calculation Logic
-    final isIncome = type.toLowerCase() == 'income';
-    final amountAbs = amountVal.abs();
-    if (isIncome) {
-      totalIncome += amountAbs;
-    } else {
-      totalExpense += amountAbs;
-      // Track category for expenses only
-      final currentCatTotal = categoryMap[category] ?? 0.0;
-      categoryMap[category] = currentCatTotal + amountAbs;
-    }
-
-    const notes = '';
-
-    final row = [
-      TextCellValue(date),
-      TextCellValue(accountInfo),
-      TextCellValue(description),
-      TextCellValue(merchant),
-      TextCellValue(category),
-      DoubleCellValue(amountVal),
-      TextCellValue(type),
-      TextCellValue(notes),
-      TextCellValue(''),
-    ];
-
-    sheet.appendRow(row);
-  }
-
-  // --- Summary Calculation ---
-
-  // Top Category
-  String topCategory = '-';
-  double topCategoryAmount = 0.0;
-  if (categoryMap.isNotEmpty) {
-    final sortedEntries = categoryMap.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    if (sortedEntries.isNotEmpty) {
-      topCategory = sortedEntries.first.key;
-      topCategoryAmount = sortedEntries.first.value;
-    }
-  }
-
-  // Net Cash Flow
-  final netCashFlow = totalIncome - totalExpense;
-
-  // Savings Rate
-  double savingsRate = 0.0;
-  if (totalIncome > 0) {
-    savingsRate = ((totalIncome - totalExpense) / totalIncome) * 100;
-  }
-
-  // Days and Daily Avg
-  int daysCount = 0;
-  double dailyAvgSpend = 0.0;
-  if (minDate != null && maxDate != null) {
-    daysCount = maxDate.difference(minDate).inDays + 1;
-    if (daysCount > 0) {
-      dailyAvgSpend = totalExpense / daysCount;
-    }
-  }
-
-  // Date Range formatted
-  String rangeStr = '-';
-  if (minDate != null && maxDate != null) {
-    rangeStr = '${dateFormat.format(minDate)} to ${dateFormat.format(maxDate)}';
-  }
-
-  // --- Append Summary Section ---
-
-  // Add some spacing
-  sheet.appendRow([TextCellValue('')]);
-  sheet.appendRow([TextCellValue('')]);
-
-  // Section Header
-  sheet.appendRow([TextCellValue('Summary Report')]);
-  sheet.appendRow([TextCellValue('')]);
-
-  // Summary Rows
-  void addSummaryRow(String label, dynamic value) {
-    CellValue val;
-    if (value is double) {
-      val = DoubleCellValue(value);
-    } else {
-      val = TextCellValue(value.toString());
-    }
-    sheet.appendRow([TextCellValue(label), val]);
-  }
-
-  addSummaryRow('Period', rangeStr);
-  addSummaryRow('Total Days', daysCount);
-  addSummaryRow('Total Income', totalIncome);
-  addSummaryRow('Total Expenses', totalExpense);
-  addSummaryRow('Net Cash Flow', netCashFlow);
-  addSummaryRow('Savings Rate (%)',
-      double.parse(savingsRate.toStringAsFixed(2))); // formatted
-  addSummaryRow('Daily Average Spend', dailyAvgSpend);
-  addSummaryRow('Top Expense Category', topCategory);
-  addSummaryRow('Top Category Amount', topCategoryAmount);
-
-  return excel.encode();
-}
-
-Future<List<int>?> _buildFullExportExcel(
+Future<List<int>?> buildTransactionExportWorkbook(
   List<ExpenseEntry> expenses, {
-  required String personalLabel,
-  required Map<String, String> householdNames,
+  String personalLabel = '',
+  Map<String, String> householdNames = const {},
   Map<String, String> receiptFileNamesById = const {},
   DateTimeRange? selectedDateRange,
+  String? preferredTimezone,
+  bool includeSpaceSheets = true,
 }) async {
   final excel = Excel.createExcel();
   final existingNames = <String>{};
@@ -511,15 +364,19 @@ Future<List<int>?> _buildFullExportExcel(
     selectedDateRange: selectedDateRange,
   );
 
-  final allSheetName = _uniqueSheetName(existingNames, 'All Transactions');
+  final allSheetName = _uniqueSheetName(
+      existingNames, includeSpaceSheets ? 'All Transactions' : 'Transactions');
   _appendTransactionsSheet(
     excel[allSheetName],
     expenses,
     personalLabel: personalLabel,
     householdNames: householdNames,
     receiptFileNamesById: receiptFileNamesById,
+    preferredTimezone: preferredTimezone,
   );
   existingNames.add(allSheetName);
+
+  if (!includeSpaceSheets) return excel.encode();
 
   final grouped = _groupExpensesByAccount(expenses);
   for (final entry in grouped.entries) {
@@ -536,6 +393,7 @@ Future<List<int>?> _buildFullExportExcel(
       personalLabel: personalLabel,
       householdNames: householdNames,
       receiptFileNamesById: receiptFileNamesById,
+      preferredTimezone: preferredTimezone,
     );
     existingNames.add(sheetName);
   }
@@ -577,12 +435,17 @@ void _buildOverviewSheet(
   sheet.appendRow([TextCellValue('')]);
 
   sheet.appendRow([
-    TextCellValue('Account'),
+    TextCellValue('Space'),
     TextCellValue('Currency'),
     TextCellValue('Transactions'),
     TextCellValue('Total Income'),
     TextCellValue('Total Expenses'),
     TextCellValue('Net'),
+    TextCellValue('Total Days'),
+    TextCellValue('Savings Rate (%)'),
+    TextCellValue('Daily Average Spend'),
+    TextCellValue('Top Expense Category'),
+    TextCellValue('Top Category Amount'),
   ]);
 
   final summaries = <String, _AccountSummary>{};
@@ -592,19 +455,25 @@ void _buildOverviewSheet(
       personalLabel: personalLabel,
       householdNames: householdNames,
     );
-    final currency = (expense.currency ?? 'UNKNOWN').toUpperCase();
-    final key = '$accountLabel::$currency';
+    final currency = _exportCurrency(expense);
+    final householdId = expense.householdId?.trim() ?? '';
+    final key = '${householdId.isEmpty ? "personal" : householdId}::$currency';
     final summary = summaries.putIfAbsent(
       key,
       () => _AccountSummary(accountLabel: accountLabel, currency: currency),
     );
     summary.count += 1;
-    final amount = expense.amount.abs();
+    final amountCents = expense.amountCents.abs();
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
     if (isIncome) {
-      summary.totalIncome += amount;
+      summary.totalIncomeCents += amountCents;
     } else {
-      summary.totalExpense += amount;
+      summary.totalExpenseCents += amountCents;
+      final category = expense.category?.trim().isNotEmpty == true
+          ? expense.category!
+          : 'Uncategorized';
+      summary.categoryTotals.update(category, (value) => value + amountCents,
+          ifAbsent: () => amountCents);
     }
   }
 
@@ -616,13 +485,35 @@ void _buildOverviewSheet(
     });
 
   for (final summary in sortedSummaries) {
+    final start = selectedDateRange?.start ?? minDate;
+    final end = selectedDateRange?.end ?? maxDate;
+    final days = start == null || end == null
+        ? 0
+        : DateTime.utc(end.year, end.month, end.day)
+                .difference(DateTime.utc(start.year, start.month, start.day))
+                .inDays +
+            1;
+    final topCategories = summary.categoryTotals.entries.toList()
+      ..sort((left, right) {
+        final amountOrder = right.value.compareTo(left.value);
+        return amountOrder != 0 ? amountOrder : left.key.compareTo(right.key);
+      });
+    final topCategory = topCategories.isEmpty ? null : topCategories.first;
+    final net = summary.totalIncome - summary.totalExpense;
     sheet.appendRow([
       TextCellValue(summary.accountLabel),
       TextCellValue(summary.currency),
       IntCellValue(summary.count),
       DoubleCellValue(summary.totalIncome),
       DoubleCellValue(summary.totalExpense),
-      DoubleCellValue(summary.totalIncome - summary.totalExpense),
+      DoubleCellValue(net),
+      IntCellValue(days),
+      DoubleCellValue(summary.totalIncome > 0
+          ? double.parse((net / summary.totalIncome * 100).toStringAsFixed(2))
+          : 0),
+      DoubleCellValue(days > 0 ? summary.totalExpense / days : 0),
+      TextCellValue(topCategory?.key ?? '-'),
+      DoubleCellValue((topCategory?.value ?? 0) / 100),
     ]);
   }
 }
@@ -633,60 +524,132 @@ void _appendTransactionsSheet(
   required String personalLabel,
   required Map<String, String> householdNames,
   Map<String, String> receiptFileNamesById = const {},
+  String? preferredTimezone,
 }) {
-  final headers = [
+  const headers = [
     'Date',
-    'Account',
-    'User',
-    'Description',
+    'Time',
+    'Space',
+    'Recorded By',
+    'Wallet',
+    'Description / Notes',
     'Merchant',
     'Category',
     'Amount',
     'Currency',
     'Type',
-    'Notes',
-    'Receipt Image',
+    'Financial Activity',
+    'Bank Status',
+    'Item Breakdown',
+    'Recurring',
+    'Scheduled Date',
+    'Receipt Link',
   ];
-
-  sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
+  sheet.appendRow(headers.map(TextCellValue.new).toList());
 
   final dateFormat = DateFormat('yyyy-MM-dd');
-  final rows = expenses.toList()..sort((a, b) => b.date.compareTo(a.date));
+  final timeFormat = DateFormat('HH:mm:ss');
+  final rows = expenses.toList()
+    ..sort((a, b) {
+      final dateOrder = b.date.compareTo(a.date);
+      if (dateOrder != 0) return dateOrder;
+      final timeOrder = b.createdAt.compareTo(a.createdAt);
+      return timeOrder != 0 ? timeOrder : b.id.compareTo(a.id);
+    });
 
   for (final expense in rows) {
-    final date = dateFormat.format(expense.date);
-    final accountLabel = _resolveAccountLabel(
-      expense,
-      personalLabel: personalLabel,
-      householdNames: householdNames,
-    );
-    final userLabel = _resolveUserLabel(
-      expense,
-      personalLabel: personalLabel,
-    );
-    final description = expense.rawText ?? '';
-    final merchant = expense.merchant ?? '';
-    final category = expense.category ?? 'Uncategorized';
-    final amountVal = expense.amount;
-    final currency = (expense.currency ?? 'UNKNOWN').toUpperCase();
-    final type = expense.type ?? 'expense';
-    final receiptFileName = receiptFileNamesById[expense.id] ?? '';
-
+    final merchant = expense.merchantStructuredName?.trim();
+    final receiptUrl = expense.receiptImageUrl?.trim() ?? '';
+    final receiptUri = Uri.tryParse(receiptUrl);
+    final receiptLink = receiptFileNamesById[expense.id] ??
+        (receiptUri != null &&
+                receiptUri.hasAuthority &&
+                (receiptUri.scheme == 'https' || receiptUri.scheme == 'http')
+            ? receiptUrl
+            : '');
+    final hasRecordedTime = expense.createdAt.millisecondsSinceEpoch != 0 &&
+        !_isScheduledRecurring(expense);
+    // Transfer wall time is an optional serialized row field. Older models
+    // omit it, so this export does not require the separate wallet-time update.
+    final transferTime = expense.id.startsWith('transfer:')
+        ? (expense.toJson()['transfer_time'] as String?)?.trim() ?? ''
+        : '';
     sheet.appendRow([
-      TextCellValue(date),
-      TextCellValue(accountLabel),
-      TextCellValue(userLabel),
-      TextCellValue(description),
-      TextCellValue(merchant),
-      TextCellValue(category),
-      DoubleCellValue(amountVal),
-      TextCellValue(currency),
-      TextCellValue(type),
-      TextCellValue(''),
-      TextCellValue(receiptFileName),
+      TextCellValue(dateFormat.format(expense.date)),
+      TextCellValue(transferTime.isNotEmpty
+          ? transferTime
+          : hasRecordedTime
+              ? timeFormat.format(toEffectiveWallTime(
+                  utcOrLocalInstant: expense.createdAt,
+                  preferredTimezone: preferredTimezone,
+                ))
+              : ''),
+      TextCellValue(_resolveAccountLabel(
+        expense,
+        personalLabel: personalLabel,
+        householdNames: householdNames,
+      )),
+      TextCellValue(_resolveUserLabel(expense, personalLabel: personalLabel)),
+      TextCellValue(expense.accountName?.trim() ?? ''),
+      TextCellValue(expense.rawText ?? ''),
+      TextCellValue(
+          merchant?.isNotEmpty == true ? merchant! : expense.merchant ?? ''),
+      TextCellValue(expense.category?.trim().isNotEmpty == true
+          ? expense.category!
+          : 'Uncategorized'),
+      DoubleCellValue(expense.amount),
+      TextCellValue(_exportCurrency(expense)),
+      TextCellValue(expense.type ?? 'expense'),
+      TextCellValue(_financialActivityLabel(expense)),
+      TextCellValue(expense.bankAccountId?.trim().isNotEmpty == true
+          ? (expense.isProviderPending ? 'Pending' : 'Posted')
+          : ''),
+      TextCellValue((expense.breakdown ?? const <String>[]).join('\n')),
+      TextCellValue(_recurringLabel(expense)),
+      TextCellValue(expense.scheduledOccurrenceDate == null
+          ? ''
+          : dateFormat.format(expense.scheduledOccurrenceDate!)),
+      TextCellValue(receiptLink),
     ]);
   }
 }
+
+String _exportCurrency(ExpenseEntry expense) {
+  final currency = expense.currency?.trim() ?? '';
+  return currency.isEmpty ? 'UNKNOWN' : currency.toUpperCase();
+}
+
+String _financialActivityLabel(ExpenseEntry expense) {
+  return switch (expense.analyticsClass) {
+    'consumer_spend' => 'Spending',
+    'income' => 'Income',
+    'transfer_in' => 'Transfer in',
+    'transfer_out' => 'Transfer out',
+    'debt_payment' => 'Debt repayment',
+    'loan_disbursement' => 'Loan received',
+    'refund_or_reversal' => 'Refund / reversal',
+    'bank_fee' => 'Bank fee',
+    'cash_movement' => 'Cash movement',
+    'unknown' => 'Unclassified',
+    _ => expense.countsTowardIncome ? 'Income' : 'Spending',
+  };
+}
+
+String _recurringLabel(ExpenseEntry expense) {
+  if (_isScheduledRecurring(expense)) {
+    return 'Scheduled';
+  }
+  if (expense.parentRecurringId?.isNotEmpty == true ||
+      expense.scheduledOccurrenceDate != null ||
+      expense.recurringConfirmedAt != null) {
+    return 'Recorded payment';
+  }
+  return expense.providerRecurring ? 'Bank-detected recurring' : '';
+}
+
+bool _isScheduledRecurring(ExpenseEntry expense) =>
+    expense.isRecurring ||
+    extractRecurringTransactionIdFromProjectedExpenseId(expense.id) != null;
 
 class _ReceiptBundle {
   const _ReceiptBundle({
@@ -999,6 +962,10 @@ class _AccountSummary {
   final String accountLabel;
   final String currency;
   int count = 0;
-  double totalIncome = 0.0;
-  double totalExpense = 0.0;
+  int totalIncomeCents = 0;
+  int totalExpenseCents = 0;
+  final categoryTotals = <String, int>{};
+
+  double get totalIncome => totalIncomeCents / 100;
+  double get totalExpense => totalExpenseCents / 100;
 }

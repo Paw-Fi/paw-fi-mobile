@@ -24,6 +24,8 @@ import 'package:moneko/features/home/presentation/utils/transactions_page_derive
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart'
+    show supabaseClientProvider;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -519,6 +521,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     await exportTransactionsAsExcelSheet(
       context,
       exportData.filteredExpenses,
+      client: ref.read(supabaseClientProvider),
+      preferredTimezone: ref.read(analyticsProvider).contact?.preferredTimezone,
       fileNamePrefix: widget.householdId != null
           ? 'household_transactions'
           : 'transactions',
