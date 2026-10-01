@@ -31,7 +31,7 @@ bool _isTransactionUpdateOperation(String operation) =>
 bool _isTransactionDeleteOperation(String operation) =>
     operation == 'unconfirm_recurring_occurrence';
 
-const int _localDatabaseSchemaVersion = 12;
+const int _localDatabaseSchemaVersion = 13;
 const Duration localMutationSyncLease = Duration(minutes: 10);
 
 String localScopeKey({
@@ -512,18 +512,27 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
-  Future<ExpenseEntry?> getTransactionByIdOrClientRecordId(String id) async {
+  Future<ExpenseEntry?> getTransactionByIdOrClientRecordId(
+    String id, {
+    String? syncStatus,
+  }) async {
     final normalizedId = id.trim();
     if (normalizedId.isEmpty) return null;
     final rows = _db.select(
       '''
       SELECT *
       FROM local_transactions
-      WHERE id = ? OR client_record_id = ?
+      WHERE (id = ? OR client_record_id = ?)
+      ${syncStatus == null ? '' : 'AND sync_status = ?'}
       ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
       LIMIT 1
       ''',
-      [normalizedId, normalizedId, normalizedId],
+      [
+        normalizedId,
+        normalizedId,
+        if (syncStatus != null) syncStatus,
+        normalizedId
+      ],
     );
     return rows.isEmpty ? null : _entryFromTransactionRow(rows.first);
   }
@@ -909,8 +918,27 @@ class MonekoDatabase {
   Future<void> markOptimisticWalletTransferMutationSynced({
     required String clientMutationId,
     required bool isDelete,
+    List<ExpenseEntry> savedEntries = const [],
   }) async {
     _runInTransaction(() {
+      for (final entry in savedEntries) {
+        if (_transactionMutationStillOwnsEntry(entry.id, clientMutationId) &&
+            _isLocalPendingTransaction(entry.id)) {
+          final current = _entryFromTransactionRow(_db.select(
+            'SELECT * FROM local_transactions WHERE id = ?',
+            [entry.id],
+          ).first);
+          final saved = entry.walletId == current.walletId
+              ? entry.copyWith(
+                  accountName: entry.accountName ?? current.accountName,
+                  accountIcon: entry.accountIcon ?? current.accountIcon,
+                  accountColor: entry.accountColor ?? current.accountColor,
+                )
+              : entry;
+          _upsertTransaction(saved,
+              syncStatus: localSyncStatusSynced, preserveLocalPending: false);
+        }
+      }
       _markMutationStatus(
         clientMutationId: clientMutationId,
         status: localMutationStatusSynced,
@@ -934,6 +962,14 @@ class MonekoDatabase {
     required Object error,
   }) async {
     _runInTransaction(() {
+      final mutation = _db.select(
+        'SELECT status FROM local_mutation_outbox WHERE client_mutation_id = ?',
+        [clientMutationId],
+      );
+      if (mutation.isNotEmpty &&
+          mutation.first['status'] == localMutationStatusSynced) {
+        return;
+      }
       final touched = <_SummaryKey>{};
       for (final entry in originalEntries) {
         final ownsEntry = isDelete
@@ -4362,6 +4398,7 @@ class MonekoDatabase {
         household_id TEXT,
         scope_key TEXT NOT NULL,
         date TEXT NOT NULL,
+        transfer_time TEXT,
         amount_cents INTEGER NOT NULL,
         currency TEXT NOT NULL,
         category TEXT,
@@ -4618,6 +4655,7 @@ class MonekoDatabase {
       _ensureColumn('local_transactions', 'last_error', 'TEXT');
       _ensureColumn('local_transactions', 'created_device_id', 'TEXT');
       _ensureColumn('local_transactions', 'deleted_at', 'TEXT');
+      _ensureColumn('local_transactions', 'transfer_time', 'TEXT');
       _ensureColumn(
           'local_transactions', 'local_updated_at', "TEXT NOT NULL DEFAULT ''");
 
@@ -4735,14 +4773,15 @@ class MonekoDatabase {
         analytics_counts_toward_income, is_recurring, provider_recurring,
         recurrence_rule_json, client_record_id, client_mutation_id,
         idempotency_key, sync_status, merchant_id, merchant_domain,
-        merchant_logo_url, merchant_structured_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        merchant_logo_url, merchant_structured_name, transfer_time
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         user_id = excluded.user_id,
         contact_id = excluded.contact_id,
         household_id = excluded.household_id,
         scope_key = excluded.scope_key,
         date = excluded.date,
+        transfer_time = excluded.transfer_time,
         amount_cents = excluded.amount_cents,
         currency = excluded.currency,
         category = excluded.category,
@@ -4826,6 +4865,7 @@ class MonekoDatabase {
           local_transactions.idempotency_key
         ),
         sync_status = excluded.sync_status
+      ${preserveLocalPending && syncStatus == localSyncStatusSynced && entry.id.startsWith('transfer:') ? 'WHERE excluded.updated_at IS NULL OR local_transactions.updated_at IS NULL OR excluded.updated_at >= local_transactions.updated_at' : ''}
       ''',
       [
         entry.id,
@@ -4880,8 +4920,37 @@ class MonekoDatabase {
         entry.merchantDomain,
         entry.merchantLogoUrl,
         entry.merchantStructuredName,
+        entry.transferTime,
       ],
     );
+    if (syncStatus == localSyncStatusSynced &&
+        entry.id.startsWith('transfer:')) {
+      if (_db.select('SELECT changes() AS count').first['count'] == 0) {
+        return false;
+      }
+      // A wallet-scoped feed returns one direction. Both rows describe the same
+      // recorded clock; synchronize an already-cached, non-pending counterpart.
+      final separator = entry.id.lastIndexOf(':');
+      final pairedId = '${entry.id.substring(0, separator + 1)}'
+          '${entry.id.endsWith(':in') ? 'out' : 'in'}';
+      final updatedAt =
+          entry.updatedAt == null ? null : _instant(entry.updatedAt!);
+      _db.execute('''
+        UPDATE local_transactions
+        SET date = ?, transfer_time = ?, updated_at = ?, local_updated_at = ?
+        WHERE id = ? AND sync_status = ?
+          AND (? IS NULL OR updated_at IS NULL OR ? >= updated_at)
+      ''', [
+        _dateOnly(entry.date),
+        entry.transferTime,
+        updatedAt,
+        _instant(DateTime.now().toUtc()),
+        pairedId,
+        localSyncStatusSynced,
+        updatedAt,
+        updatedAt,
+      ]);
+    }
     return true;
   }
 
@@ -5228,6 +5297,7 @@ ExpenseEntry _entryFromTransactionRow(Row row) {
     userId: row['user_id'] as String?,
     householdId: row['household_id'] as String?,
     date: DateTime.parse(row['date'] as String),
+    transferTime: row['transfer_time'] as String?,
     amountCents: row['amount_cents'] as int,
     currency: row['currency'] as String?,
     category: row['category'] as String?,

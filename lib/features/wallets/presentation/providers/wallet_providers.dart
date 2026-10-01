@@ -1064,6 +1064,7 @@ class WalletActions {
     required int amountCents,
     required String currency,
     required DateTime date,
+    String? time,
     String? note,
   }) async {
     final authHeaders = _requireAuthHeaders();
@@ -1081,6 +1082,7 @@ class WalletActions {
       'amountCents': amountCents,
       'currency': currency,
       'date': formatDateOnlyYmd(date),
+      'time': time,
       if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
     };
     final user = ref.read(authProvider);
@@ -1093,6 +1095,7 @@ class WalletActions {
         'amount_cents': amountCents,
         'currency': currency,
         'date': formatDateOnlyYmd(date),
+        'time': time,
         'note': note,
         'created_by_user_id': user.uid,
         'household_id': fromWallet?.householdId ?? toWallet?.householdId,
@@ -1217,6 +1220,7 @@ class WalletActions {
     required int amountCents,
     required String currency,
     required DateTime date,
+    required String? time,
     String? note,
   }) async {
     final authHeaders = _requireAuthHeaders();
@@ -1240,7 +1244,10 @@ class WalletActions {
       amountCents: amountCents,
       currency: currency.trim().toUpperCase(),
       date: date,
+      time: time,
       note: note,
+      createdAt: existingTransfer.createdAt,
+      updatedAt: existingTransfer.updatedAt,
     );
     final updatedEntries = _transferFeedEntries(
       transfer: updatedTransfer,
@@ -1260,6 +1267,7 @@ class WalletActions {
         'amountCents': amountCents,
         'currency': currency,
         'date': formatDateOnlyYmd(date),
+        'time': updatedTransfer.time,
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
       };
       await localDatabase.writeOptimisticWalletTransferUpdate(
@@ -1288,9 +1296,21 @@ class WalletActions {
         body: requestBody,
       );
       _throwIfFailed(response.data, 'Failed to update transfer');
+      final savedTransfer = response.data is Map ? response.data['data'] : null;
+      if (savedTransfer is! Map) {
+        throw StateError('Transfer update succeeded without a saved transfer');
+      }
       await localDatabase.markOptimisticWalletTransferMutationSynced(
         clientMutationId: _walletMutationId(mutationEntityId),
         isDelete: false,
+        savedEntries: buildWalletTransferFeedEntries(
+          transferJson: Map<String, dynamic>.from(savedTransfer),
+          fallbackUserId: ref.read(authProvider).uid,
+          fromWallet:
+              wallets.where((wallet) => wallet.id == fromAccountId).firstOrNull,
+          toWallet:
+              wallets.where((wallet) => wallet.id == toAccountId).firstOrNull,
+        ),
       );
       _invalidateAll();
     } catch (error) {
@@ -1405,7 +1425,10 @@ class WalletActions {
         'amount_cents': transfer.amountCents,
         'currency': transfer.currency,
         'date': formatDateOnlyYmd(transfer.date),
+        'time': transfer.time,
         'note': transfer.note,
+        'created_at': transfer.createdAt?.toIso8601String(),
+        'updated_at': transfer.updatedAt?.toIso8601String(),
         'created_by_user_id': ref.read(authProvider).uid,
       },
       fallbackUserId: ref.read(authProvider).uid,

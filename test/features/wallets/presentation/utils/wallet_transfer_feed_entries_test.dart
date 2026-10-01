@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -6,8 +7,192 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 void main() {
+  test(
+      'SQLite upgrade retains historical dates and queued time survives restart',
+      () async {
+    final directory = await Directory.systemTemp.createTemp('transfer-time-');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = '${directory.path}/local.sqlite';
+    var database =
+        MonekoDatabase.fromExistingDatabaseForTesting(sqlite3.open(path));
+    final rows = buildWalletTransferFeedEntries(
+      transferJson: {
+        'id': 'historical',
+        'from_account_id': 'from-wallet',
+        'to_account_id': 'to-wallet',
+        'amount_cents': 2500,
+        'currency': 'USD',
+        'date': '2026-09-15',
+        'created_by_user_id': 'user-1'
+      },
+      fallbackUserId: 'user-1',
+    );
+    await database.upsertTransactions(rows);
+    await database.close();
+    final legacy = sqlite3.open(path);
+    legacy.execute('ALTER TABLE local_transactions DROP COLUMN transfer_time');
+    legacy.execute('PRAGMA user_version = 12');
+    legacy.dispose();
+    database =
+        MonekoDatabase.fromExistingDatabaseForTesting(sqlite3.open(path));
+    final historical =
+        await database.getTransactionByIdOrClientRecordId(rows.first.id);
+    expect(historical?.date, DateTime(2026, 9, 15));
+    expect(historical?.transferTime, isNull);
+    final edited = buildWalletTransferFeedEntries(
+      transferJson: {
+        'id': 'historical',
+        'from_account_id': 'from-wallet',
+        'to_account_id': 'to-wallet',
+        'amount_cents': 2500,
+        'currency': 'USD',
+        'date': '2026-09-15',
+        'time': '23:45:00',
+        'created_by_user_id': 'user-1'
+      },
+      fallbackUserId: 'user-1',
+    );
+    await database.writeOptimisticWalletTransferUpdate(
+      originalEntries: rows,
+      updatedEntries: edited,
+      clientMutationId: 'restart-edit',
+      transferId: 'historical',
+      payload: {
+        'functionName': 'update-wallet-transfer',
+        'requestBody': {'transferId': 'historical', 'time': '23:45:00'}
+      },
+    );
+    await database.close();
+    database =
+        MonekoDatabase.fromExistingDatabaseForTesting(sqlite3.open(path));
+    addTearDown(database.close);
+    final pending = await database.getTransactionByIdOrClientRecordId(
+      rows.first.id,
+      syncStatus: localSyncStatusLocal,
+    );
+    expect(pending?.date, DateTime(2026, 9, 15));
+    expect(pending?.transferTime, '23:45:00');
+    final queued = (await database.getOutboxMutations()).single;
+    expect(jsonDecode(queued.payloadJson)['requestBody']['time'], '23:45:00');
+  });
+
+  test(
+      'optional transfer wall time survives JSON and SQLite without shifting date',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    for (final time in [null, '00:00:00', '23:45:00']) {
+      final rows = buildWalletTransferFeedEntries(
+        transferJson: {
+          'id': 'time-test',
+          'from_account_id': 'from-wallet',
+          'to_account_id': 'to-wallet',
+          'amount_cents': 2500,
+          'currency': 'USD',
+          'date': '2026-10-01',
+          'time': time,
+          'created_by_user_id': 'user-1',
+        },
+        fallbackUserId: 'user-1',
+      );
+      for (final row in rows) {
+        expect(row.toJson()['transfer_time'], time);
+        expect(ExpenseEntry.fromJson(row.toJson()).toJson()['transfer_time'],
+            time);
+        expect(row.copyWith(amountCents: 5000).toJson()['transfer_time'], time);
+        expect(row.date, DateTime(2026, 10, 1));
+      }
+      await database.upsertTransactions(rows);
+      final saved =
+          await database.getTransactionByIdOrClientRecordId(rows.first.id);
+      expect(saved!.toJson()['transfer_time'], time);
+      expect(saved.date, DateTime(2026, 10, 1));
+    }
+  });
+
+  test(
+      'time-only edits queue immediately and rollback only their owned revision',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    List<ExpenseEntry> rows(String? time) => buildWalletTransferFeedEntries(
+          transferJson: {
+            'id': 'time-edit',
+            'from_account_id': 'from-wallet',
+            'to_account_id': 'to-wallet',
+            'amount_cents': 2500,
+            'currency': 'USD',
+            'date': '2026-10-01',
+            'time': time,
+            'created_by_user_id': 'user-1'
+          },
+          fallbackUserId: 'user-1',
+        );
+    final original = rows(null);
+    final firstEdit = rows('09:30:00');
+    await database.upsertTransactions(original);
+    await database.writeOptimisticWalletTransferUpdate(
+      originalEntries: original,
+      updatedEntries: firstEdit,
+      clientMutationId: 'edit-1',
+      transferId: 'time-edit',
+      payload: {
+        'functionName': 'update-wallet-transfer',
+        'requestBody': {'transferId': 'time-edit', 'time': '09:30:00'}
+      },
+    );
+    final pending = await database.getTransactionByIdOrClientRecordId(
+      original.first.id,
+      syncStatus: localSyncStatusLocal,
+    );
+    expect(pending?.transferTime, '09:30:00');
+    final queued = (await database.getOutboxMutations()).single;
+    expect(jsonDecode(queued.payloadJson)['requestBody']['time'], '09:30:00');
+    await database.rollbackOptimisticWalletTransferMutation(
+      originalEntries: original,
+      clientMutationId: 'edit-1',
+      isDelete: false,
+      error: StateError('terminal rejection'),
+    );
+    expect(
+        (await database.getTransactionByIdOrClientRecordId(original.first.id))
+            ?.transferTime,
+        isNull);
+
+    for (final revision in [2, 3]) {
+      await database.writeOptimisticWalletTransferUpdate(
+        originalEntries: revision == 2 ? original : firstEdit,
+        updatedEntries: revision == 2 ? firstEdit : rows('14:45:00'),
+        clientMutationId: 'edit-$revision',
+        transferId: 'time-edit',
+        payload: {'functionName': 'update-wallet-transfer'},
+      );
+    }
+    await database.rollbackOptimisticWalletTransferMutation(
+      originalEntries: original,
+      clientMutationId: 'edit-2',
+      isDelete: false,
+      error: StateError('stale rejection'),
+    );
+    expect(
+        (await database.getTransactionByIdOrClientRecordId(original.first.id))
+            ?.transferTime,
+        '14:45:00');
+    await database.markOptimisticWalletTransferMutationSynced(
+      clientMutationId: 'edit-3',
+      isDelete: false,
+    );
+    // A successful authoritative refresh must also propagate a cleared time.
+    await database.upsertTransactions(original);
+    expect(
+        (await database.getTransactionByIdOrClientRecordId(original.first.id))
+            ?.transferTime,
+        isNull);
+  });
+
   test('rebuilds existing synthetic transfer rows with the edited values', () {
     const fromWallet = WalletEntity(
       id: 'from-wallet',
@@ -174,6 +359,7 @@ void main() {
         'amount_cents': 2500,
         'currency': 'USD',
         'date': '2026-07-28',
+        'time': '09:30:00',
         'created_by_user_id': 'user-1',
         'created_at': '2026-07-28T12:00:00Z',
       },
@@ -192,6 +378,7 @@ void main() {
           'amountCents': 2500,
           'currency': 'USD',
           'date': '2026-07-28',
+          'time': '09:30:00',
         },
       },
     );
@@ -216,6 +403,7 @@ void main() {
         'amount_cents': 3000,
         'currency': 'USD',
         'date': '2026-07-28',
+        'time': '14:45:00',
         'created_by_user_id': 'user-1',
         'created_at': '2026-07-28T12:00:00Z',
       },
@@ -228,7 +416,10 @@ void main() {
       transferId: 'optimistic-transfer-1',
       payload: const {
         'functionName': 'update-wallet-transfer',
-        'requestBody': {'transferId': 'optimistic-transfer-1'},
+        'requestBody': {
+          'transferId': 'optimistic-transfer-1',
+          'time': '14:45:00'
+        },
       },
     );
 
@@ -240,6 +431,7 @@ void main() {
         'amount_cents': 2500,
         'currency': 'USD',
         'date': '2026-07-28',
+        'time': '09:30:00',
         'created_by_user_id': 'user-1',
         'created_at': '2026-07-28T12:00:01Z',
       },
@@ -277,6 +469,12 @@ void main() {
     );
     final dependentPayload =
         jsonDecode(dependentMutation.payloadJson) as Map<String, dynamic>;
+    expect(
+        (await database.getTransactionByIdOrClientRecordId(
+                'transfer:server-transfer-1:out'))
+            ?.transferTime,
+        '14:45:00');
+    expect((dependentPayload['requestBody'] as Map)['time'], '14:45:00');
     expect(dependentMutation.status, localMutationStatusQueued);
     expect(
       (dependentPayload['requestBody'] as Map)['transferId'],
@@ -287,6 +485,7 @@ void main() {
         .map((entry) => ExpenseEntry.fromJson(Map<String, dynamic>.from(entry)))
         .toList(growable: false);
     expect(rollbackEntries.first.id, 'transfer:server-transfer-1:out');
+    expect(rollbackEntries.first.transferTime, '09:30:00');
 
     await database.rollbackOptimisticWalletTransferMutation(
       originalEntries: rollbackEntries,
@@ -294,6 +493,11 @@ void main() {
       isDelete: false,
       error: StateError('rejected edit'),
     );
+    expect(
+        (await database.getTransactionByIdOrClientRecordId(
+                'transfer:server-transfer-1:out'))
+            ?.transferTime,
+        '09:30:00');
     expect(
       (await database.getTransactionsFeedPage(sourceQuery))
           .items

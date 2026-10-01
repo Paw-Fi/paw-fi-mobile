@@ -565,9 +565,18 @@ Future<void> _reconcileSyncedWalletMutation(
     );
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
   } else if (payload['functionName'] == 'update-wallet-transfer') {
+    final savedTransfer = _mapValue(responseBody['data']);
+    if (savedTransfer == null) {
+      throw StateError(
+          'Transfer update sync succeeded without a saved transfer');
+    }
     await database.markOptimisticWalletTransferMutationSynced(
       clientMutationId: mutation.clientMutationId,
       isDelete: false,
+      savedEntries: buildWalletTransferFeedEntries(
+        transferJson: savedTransfer,
+        fallbackUserId: ref.read(authProvider).uid,
+      ),
     );
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;

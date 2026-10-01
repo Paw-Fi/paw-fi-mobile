@@ -6,6 +6,8 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
 const String mobileDeltaEntityName = 'mobile_delta_v5';
 const String mobileDeltaRpcName = 'get_mobile_delta_v6';
+const String mobileTransferDeltaEntityName = 'mobile_transfer_delta_v1';
+const String mobileTransferDeltaRpcName = 'get_mobile_transfer_delta_v1';
 const int _maxDeltaPagesPerPull = 20;
 
 typedef MobileDeltaFetcher = Future<MobileDelta> Function({
@@ -59,21 +61,58 @@ class MobileDeltaSyncService {
   const MobileDeltaSyncService({
     required this.database,
     required this.fetchDelta,
+    this.fetchTransferDelta,
   });
 
   final MonekoDatabase database;
   final MobileDeltaFetcher fetchDelta;
+  final MobileDeltaFetcher? fetchTransferDelta;
 
   Future<MobileDelta> pullAndApply({
     required String userId,
     DateTime? since,
     int limit = 500,
   }) async {
+    final expenses = await _pullAndApplyEntity(
+      userId: userId,
+      since: since,
+      limit: limit,
+      entityName: mobileDeltaEntityName,
+      fetch: fetchDelta,
+    );
+    final transferFetcher = fetchTransferDelta;
+    if (transferFetcher == null) return expenses;
+    final transfers = await _pullAndApplyEntity(
+      userId: userId,
+      since: since,
+      limit: limit,
+      entityName: mobileTransferDeltaEntityName,
+      fetch: transferFetcher,
+    );
+    return MobileDelta(
+      transactions: [...expenses.transactions, ...transfers.transactions],
+      deletedTransactionIds: [
+        ...expenses.deletedTransactionIds,
+        ...transfers.deletedTransactionIds
+      ],
+      nextCursor: expenses.nextCursor,
+      nextCursorId: expenses.nextCursorId,
+      hasMore: expenses.hasMore || transfers.hasMore,
+    );
+  }
+
+  Future<MobileDelta> _pullAndApplyEntity({
+    required String userId,
+    required DateTime? since,
+    required int limit,
+    required String entityName,
+    required MobileDeltaFetcher fetch,
+  }) async {
     final scopeKey = _cursorScopeKey(userId);
     final storedCursor = since == null
         ? _MobileDeltaStoredCursor.fromValue(
             await database.getSyncCursorValue(
-              entityName: mobileDeltaEntityName,
+              entityName: entityName,
               scopeKey: scopeKey,
             ),
           )
@@ -85,7 +124,7 @@ class MobileDeltaSyncService {
     final deletedTransactionIds = <String>[];
 
     for (var page = 0; page < _maxDeltaPagesPerPull; page++) {
-      final delta = await fetchDelta(
+      final delta = await fetch(
         userId: userId,
         since: pageCursor.changedAt,
         sinceId: pageCursor.id,
@@ -105,7 +144,7 @@ class MobileDeltaSyncService {
         id: delta.nextCursorId,
       );
       await database.setSyncCursorValue(
-        entityName: mobileDeltaEntityName,
+        entityName: entityName,
         scopeKey: scopeKey,
         cursor: pageCursor.toValue(),
       );
@@ -125,7 +164,8 @@ class MobileDeltaSyncService {
   String _cursorScopeKey(String userId) => '$userId:all';
 }
 
-MobileDeltaFetcher supabaseMobileDeltaFetcher() {
+MobileDeltaFetcher supabaseMobileDeltaFetcher(
+    {String rpcName = mobileDeltaRpcName}) {
   return ({
     required String userId,
     required DateTime? since,
@@ -133,7 +173,7 @@ MobileDeltaFetcher supabaseMobileDeltaFetcher() {
     required int limit,
   }) async {
     final response = await supabase.rpc(
-      mobileDeltaRpcName,
+      rpcName,
       params: {
         'p_user_id': userId,
         'p_since': since?.toUtc().toIso8601String(),

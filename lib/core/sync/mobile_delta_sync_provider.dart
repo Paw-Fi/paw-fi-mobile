@@ -8,5 +8,7 @@ final mobileDeltaSyncServiceProvider =
   return MobileDeltaSyncService(
     database: database,
     fetchDelta: supabaseMobileDeltaFetcher(),
+    fetchTransferDelta:
+        supabaseMobileDeltaFetcher(rpcName: mobileTransferDeltaRpcName),
   );
 });

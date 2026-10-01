@@ -897,6 +897,7 @@ class WalletDetailsPage extends HookConsumerWidget {
             amountCents: result.amountCents,
             currency: result.currency,
             date: result.date,
+            time: result.time,
             note: result.note,
           );
           final optimisticEntries = operation!.entries;

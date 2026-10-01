@@ -31,6 +31,7 @@ class ExpenseEntry {
   final String? userAvatarUrl; // From users.avatar_url
   final String? householdId;
   final DateTime date;
+  final String? transferTime;
   final int amountCents;
   final String? currency;
   final String? category;
@@ -77,6 +78,7 @@ class ExpenseEntry {
     this.userAvatarUrl,
     this.householdId,
     required this.date,
+    this.transferTime,
     required this.amountCents,
     this.currency,
     this.category,
@@ -186,6 +188,7 @@ class ExpenseEntry {
           (json['user_avatar_url'] as String?),
       householdId: json['household_id'] as String?,
       date: parseDateOnly(json['date']),
+      transferTime: json['transfer_time'] as String?,
       amountCents: parseAmountCents(json['amount_cents']),
       currency: canonicalizeCurrencyCode(json['currency'] as String?),
       category: _sanitizeNullable(json['category'] as String?),
@@ -267,6 +270,7 @@ class ExpenseEntry {
       'user_avatar_url': userAvatarUrl,
       'household_id': householdId,
       'date': formatDateOnlyYmd(date),
+      if (id.startsWith('transfer:')) 'transfer_time': transferTime,
       'amount_cents': amountCents,
       'currency': currency,
       'category': category,
@@ -365,6 +369,7 @@ class ExpenseEntry {
       userAvatarUrl: userAvatarUrl ?? this.userAvatarUrl,
       householdId: householdId ?? this.householdId,
       date: date ?? this.date,
+      transferTime: transferTime,
       amountCents: amountCents ?? this.amountCents,
       currency: currency ?? this.currency,
       category: category ?? this.category,

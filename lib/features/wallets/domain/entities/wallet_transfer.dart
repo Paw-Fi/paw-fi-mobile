@@ -5,7 +5,10 @@ class WalletTransfer {
   final int amountCents;
   final String currency;
   final DateTime date;
+  final String? time;
   final String? note;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   const WalletTransfer({
     required this.id,
@@ -14,7 +17,10 @@ class WalletTransfer {
     required this.amountCents,
     required this.currency,
     required this.date,
+    this.time,
     this.note,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory WalletTransfer.fromJson(Map<String, dynamic> json) {
@@ -27,6 +33,9 @@ class WalletTransfer {
       date:
           DateTime.tryParse((json['date'] as String?) ?? '') ?? DateTime.now(),
       note: json['note'] as String?,
+      time: json['time'] as String?,
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
+      updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? ''),
     );
   }
 }

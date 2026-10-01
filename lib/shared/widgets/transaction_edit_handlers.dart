@@ -25,38 +25,39 @@ class TransactionEditHandlers {
     final initialValue = formatAmount(currentAmount);
     final colorScheme = Theme.of(context).colorScheme;
 
-    final fallbackHeader = header ?? Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.brightness == Brightness.dark
-            ? Colors.white.withValues(alpha: 0.05)
-            : Colors.black.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.08),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.calculate_rounded,
-            size: 14,
-            color: colorScheme.primary,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            context.l10n.amount,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.foreground,
+    final fallbackHeader = header ??
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: colorScheme.outline.withValues(alpha: 0.08),
+              width: 1,
             ),
           ),
-        ],
-      ),
-    );
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.calculate_rounded,
+                size: 14,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.l10n.amount,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.foreground,
+                ),
+              ),
+            ],
+          ),
+        );
 
     final result = await showCalculatorKeypadSheet(
       context: context,
@@ -135,7 +136,7 @@ class TransactionEditHandlers {
     BuildContext context, {
     required TimeOfDay currentTime,
   }) async {
-    if (Platform.isIOS) {
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
       return _showCupertinoTimePicker(context, currentTime: currentTime);
     } else {
       return showTimePicker(
@@ -261,7 +262,7 @@ class TransactionEditHandlers {
                 child: CupertinoDatePicker(
                   mode: CupertinoDatePickerMode.time,
                   initialDateTime: initialDateTime,
-                  use24hFormat: false,
+                  use24hFormat: MediaQuery.alwaysUse24HourFormatOf(context),
                   onDateTimeChanged: (DateTime value) {
                     tempTime = value;
                   },

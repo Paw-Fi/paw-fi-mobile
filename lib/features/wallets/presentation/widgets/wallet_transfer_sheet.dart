@@ -3,7 +3,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
@@ -11,6 +13,8 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_wall_time.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -21,6 +25,7 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
+import 'package:moneko/shared/widgets/transaction_edit_handlers.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -67,6 +72,7 @@ class WalletTransferResult {
   final int amountCents;
   final String currency;
   final DateTime date;
+  final String? time;
   final String? note;
 
   const WalletTransferResult({
@@ -75,6 +81,7 @@ class WalletTransferResult {
     required this.amountCents,
     required this.currency,
     required this.date,
+    this.time,
     this.note,
   });
 }
@@ -131,6 +138,7 @@ Future<bool> showWalletTransferEditorForExpense(
   final transfer = await loadWalletTransferForExpense(
     context,
     transferExpense.id,
+    wallets: wallets,
   );
   if (transfer == null ||
       wallets.length < 2 ||
@@ -156,6 +164,7 @@ Future<bool> showWalletTransferEditorForExpense(
         amountCents: result.amountCents,
         currency: result.currency,
         date: result.date,
+        time: result.time,
         note: result.note,
       );
       await ProviderScope.containerOf(context, listen: false)
@@ -167,6 +176,7 @@ Future<bool> showWalletTransferEditorForExpense(
             amountCents: result.amountCents,
             currency: result.currency,
             date: result.date,
+            time: result.time,
             note: result.note,
           );
       updated = true;
@@ -236,9 +246,16 @@ class _WalletTransferSheet extends HookConsumerWidget {
       text: initialTransfer?.note?.trim() ?? '',
     );
     useListenable(noteController);
-    final selectedDate = useState<DateTime>(
-      initialTransfer?.date ?? DateTime.now(),
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
+    final initialWallNow = useMemoized(
+      () => walletTransferWallNow(preferredTimezone: preferredTimezone),
     );
+    final selectedDate = useState<DateTime>(initialTransfer?.date ??
+        DateTime(
+            initialWallNow.year, initialWallNow.month, initialWallNow.day));
+    final selectedTime = useState<String?>(initialTransfer != null
+        ? initialTransfer!.time
+        : _formatTransferTime(TimeOfDay.fromDateTime(initialWallNow)));
     final isSaving = useState<bool>(false);
     final editingTransfer = initialTransfer;
     final isEditing = editingTransfer != null;
@@ -249,6 +266,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
             (tryParseMoneyToCents(amountText.value) ?? 0).toInt() !=
                 editingTransfer.amountCents ||
             !_isSameCalendarDay(selectedDate.value, editingTransfer.date) ||
+            selectedTime.value != editingTransfer.time ||
             _normalizedNote(noteController.text) !=
                 _normalizedNote(editingTransfer.note));
 
@@ -356,7 +374,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
     }
 
     Future<void> handleEditDate() async {
-      final now = DateTime.now();
+      final now = walletTransferWallNow(preferredTimezone: preferredTimezone);
       final lastDate =
           selectedDate.value.isAfter(now) ? selectedDate.value : now;
       final firstDate = selectedDate.value.isBefore(DateTime(2020))
@@ -370,6 +388,19 @@ class _WalletTransferSheet extends HookConsumerWidget {
       );
       if (result != null) {
         selectedDate.value = result;
+      }
+    }
+
+    Future<void> handleEditTime() async {
+      final result = await TransactionEditHandlers.editTime(
+        context,
+        currentTime: selectedTime.value == null
+            ? TimeOfDay.fromDateTime(
+                walletTransferWallNow(preferredTimezone: preferredTimezone))
+            : _parseTransferTime(selectedTime.value!),
+      );
+      if (result != null && context.mounted) {
+        selectedTime.value = _formatTransferTime(result);
       }
     }
 
@@ -403,6 +434,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
         amountCents: amountCents,
         currency: fromWallet.currency,
         date: selectedDate.value,
+        time: selectedTime.value,
         note: noteController.text.trim().isEmpty
             ? null
             : noteController.text.trim(),
@@ -884,6 +916,59 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
                         const SizedBox(height: 24),
 
+                        Text(
+                          context.l10n.time,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        MonekoInput(
+                          child: InkWell(
+                            key: const ValueKey('wallet-transfer-time'),
+                            onTap: isSaving.value ? null : handleEditTime,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 200),
+                                      child: Align(
+                                        key: ValueKey(selectedTime.value),
+                                        alignment:
+                                            AlignmentDirectional.centerStart,
+                                        child: Text(
+                                          selectedTime.value == null
+                                              ? context.l10n.notSet
+                                              : _parseTransferTime(
+                                                      selectedTime.value!)
+                                                  .format(context),
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: colorScheme.foreground,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(Icons.chevron_right,
+                                      size: 20,
+                                      color: colorScheme.mutedForeground
+                                          .withValues(alpha: 0.5)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
                         // Note Field
                         Text(
                           context.l10n.noteOptional,
@@ -1051,26 +1136,62 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
 Future<WalletTransfer?> loadWalletTransferForExpense(
   BuildContext context,
-  String transferExpenseId,
-) async {
+  String transferExpenseId, {
+  List<WalletEntity> wallets = const [],
+}) async {
   final transferId = extractWalletTransferIdFromExpenseId(transferExpenseId);
   if (transferId == null) return null;
+
+  final database = await ProviderScope.containerOf(context, listen: false)
+      .read(localDatabaseProvider.future);
+  final pendingOutgoing = await database.getTransactionByIdOrClientRecordId(
+    'transfer:$transferId:out',
+    syncStatus: localSyncStatusLocal,
+  );
+  final pendingIncoming = await database.getTransactionByIdOrClientRecordId(
+    'transfer:$transferId:in',
+    syncStatus: localSyncStatusLocal,
+  );
+  if (pendingOutgoing?.walletId != null && pendingIncoming?.walletId != null) {
+    return WalletTransfer(
+      id: transferId,
+      fromAccountId: pendingOutgoing!.walletId!,
+      toAccountId: pendingIncoming!.walletId!,
+      amountCents: pendingOutgoing.amountCents,
+      currency: pendingOutgoing.currency ?? pendingIncoming.currency ?? 'USD',
+      date: pendingOutgoing.date,
+      time: pendingOutgoing.transferTime,
+      createdAt: pendingOutgoing.createdAt,
+      updatedAt: pendingOutgoing.updatedAt,
+      note: _normalizedNote(pendingOutgoing.rawText),
+    );
+  }
 
   try {
     final row = await Supabase.instance.client
         .from('account_transfers')
         .select(
-            'id, from_account_id, to_account_id, amount_cents, currency, date, note')
+            'id, from_account_id, to_account_id, amount_cents, currency, date, time, note, created_by_user_id, household_id, created_at, updated_at')
         .eq('id', transferId)
         .maybeSingle();
-    if (row is Map<String, dynamic>) return WalletTransfer.fromJson(row);
+    if (row is Map<String, dynamic>) {
+      final transfer = WalletTransfer.fromJson(row);
+      await database.upsertTransactions(buildWalletTransferFeedEntries(
+        transferJson: row,
+        fallbackUserId: row['created_by_user_id'] as String,
+        fromWallet: wallets
+            .where((wallet) => wallet.id == transfer.fromAccountId)
+            .firstOrNull,
+        toWallet: wallets
+            .where((wallet) => wallet.id == transfer.toAccountId)
+            .firstOrNull,
+      ));
+    }
   } catch (_) {
-    // A locally queued transfer may not have a canonical server row yet.
+    // Offline reads and locally queued transfers use the paired SQLite rows.
   }
   if (!context.mounted) return null;
 
-  final database = await ProviderScope.containerOf(context, listen: false)
-      .read(localDatabaseProvider.future);
   final outgoing = await database.getTransactionByIdOrClientRecordId(
     'transfer:$transferId:out',
   );
@@ -1085,6 +1206,9 @@ Future<WalletTransfer?> loadWalletTransferForExpense(
     amountCents: outgoing.amountCents,
     currency: outgoing.currency ?? incoming.currency ?? 'USD',
     date: outgoing.date,
+    time: outgoing.transferTime,
+    createdAt: outgoing.createdAt,
+    updatedAt: outgoing.updatedAt,
     note: _normalizedNote(outgoing.rawText),
   );
 }
@@ -1093,6 +1217,14 @@ bool _isSameCalendarDay(DateTime left, DateTime right) =>
     left.year == right.year &&
     left.month == right.month &&
     left.day == right.day;
+
+TimeOfDay _parseTransferTime(String time) {
+  final parts = time.split(':');
+  return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+}
+
+String _formatTransferTime(TimeOfDay time) =>
+    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:00';
 
 String? _normalizedNote(String? value) {
   final note = value?.trim();
