@@ -33,7 +33,7 @@ int regionalPriceForPlan(
   required String plan,
   String? billingInterval,
 }) {
-  if (plan == 'lifetime') return market.lifetime;
+  if (plan == 'lifetime') return market.lifetimePromo;
   return billingInterval == 'yearly' ? market.yearly : market.monthly;
 }
 
@@ -46,7 +46,7 @@ String formatRegionalPrice(
     1 => 10,
     2 => 100,
     3 => 1000,
-    _ => 100,
+    _ => throw StateError('Unknown regional pricing currency exponent'),
   };
   final locale = Intl.canonicalizedLocale(market.locale.replaceAll('-', '_'));
   try {

@@ -122,19 +122,27 @@ void main() {
       );
       expect(
         regionalPriceForPlan(market, plan: 'lifetime'),
-        market.lifetime,
+        market.lifetimePromo,
       );
       expect(formatRegionalPrice(market, market.monthly), contains('4.99'));
     });
 
-    test('keeps GBP source prices and canonical EUR/USD Stripe prices', () {
+    test('uses regenerated GBP prices and canonical EUR/USD Stripe prices', () {
       final gbp = regionalPricingForCountry('GB');
       expect(gbp.monthly, 399);
-      expect(gbp.yearly, 2499);
-      expect(gbp.lifetime, 8999);
-      expect(formatRegionalPrice(gbp, gbp.lifetime), contains('89.99'));
+      expect(gbp.yearly, 2599);
+      expect(gbp.lifetimePromo, 5999);
+      expect(formatRegionalPrice(gbp, gbp.lifetimePromo), contains('59.99'));
       expect(regionalPricingForCountry('ME').monthly, 499);
       expect(regionalPricingForCountry('AF').monthly, 1099);
+    });
+
+    test('Lifetime checkout preserves billed EUR/USD/CAD prices', () {
+      for (final entry in {'IE': 6999, 'US': 9999, 'CA': 13999}.entries) {
+        final market = regionalPricingForCountry(entry.key);
+        expect(regionalPriceForPlan(market, plan: 'lifetime'), entry.value);
+        expect(market.lifetime, greaterThan(market.lifetimePromo));
+      }
     });
   });
 
@@ -245,7 +253,7 @@ void main() {
     );
     expect(
       lifetimePlan.priceDisplay,
-      formatRegionalPrice(market, market.lifetime),
+      formatRegionalPrice(market, market.lifetimePromo),
     );
   });
 
