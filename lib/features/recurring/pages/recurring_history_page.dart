@@ -69,7 +69,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
     final categoryColor = getCategoryColor(transaction.category, context);
     final adaptedCategoryColor =
         AppTheme.adaptCategoryColorForTheme(categoryColor, colorScheme);
-    final categoryIcon = getCategoryIcon(transaction.category);
+    final categoryIcon = buildCategoryIcon(transaction.category, size: 24);
 
     final isIncome = transaction.type == 'income';
     final sign = isIncome ? '+' : '-';
@@ -310,11 +310,7 @@ class RecurringHistoryPage extends HookConsumerWidget {
                                               width: 1,
                                             ),
                                           ),
-                                          child: Icon(
-                                            categoryIcon,
-                                            color: adaptedCategoryColor,
-                                            size: 24,
-                                          ),
+                                          child: categoryIcon,
                                         ),
                                         const SizedBox(width: 14),
                                         Expanded(

@@ -86,7 +86,7 @@ class RecurringTransactionCard extends StatelessWidget {
     final categoryColor = getCategoryColor(transaction.category, context);
     final adaptedCategoryColor =
         AppTheme.adaptCategoryColorForTheme(categoryColor, colorScheme);
-    final categoryIcon = getCategoryIcon(transaction.category);
+    final categoryIcon = buildCategoryIcon(transaction.category, size: 22);
     final hasMerchantLogo = buildMerchantLogoUrl(
           logoUrl: transaction.merchantLogoUrl,
           merchantId: transaction.merchantId,
@@ -101,11 +101,7 @@ class RecurringTransactionCard extends StatelessWidget {
       logoUrl: transaction.merchantLogoUrl,
       merchantStructuredName: transaction.merchantStructuredName,
       merchantName: transaction.merchant,
-      fallback: Icon(
-        categoryIcon,
-        color: adaptedCategoryColor,
-        size: 22,
-      ),
+      fallback: categoryIcon,
     );
 
     // Format amount

@@ -615,11 +615,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                 color: categoryColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(
-                getCategoryIcon(summary.category),
-                color: categoryColor,
-                size: 22,
-              ),
+              child: buildCategoryIcon(summary.category, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -744,11 +740,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                     color: categoryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    getCategoryIcon(summary.category),
-                    color: categoryColor,
-                    size: 18,
-                  ),
+                  child: buildCategoryIcon(summary.category, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1169,11 +1161,7 @@ class HouseholdMemberCategoryDetailsPage extends StatelessWidget {
                           .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(
-                      getCategoryIcon(category),
-                      color: getCategoryColor(category, context),
-                      size: 24,
-                    ),
+                    child: buildCategoryIcon(category, size: 24),
                   ),
                   const SizedBox(width: 16),
                   Expanded(

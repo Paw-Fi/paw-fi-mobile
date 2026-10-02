@@ -795,8 +795,7 @@ class _OccurrenceIdentityHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final category = recurringTransaction.category;
-    final categoryIcon = getCategoryIcon(category);
-    final categoryColor = getCategoryColor(category, context);
+    final categoryIcon = buildCategoryIcon(category, size: 32);
 
     return Column(
       children: [
@@ -822,13 +821,7 @@ class _OccurrenceIdentityHeader extends StatelessWidget {
                 merchantStructuredName:
                     recurringTransaction.merchantStructuredName,
                 merchantName: recurringTransaction.merchant,
-                fallback: Center(
-                  child: Icon(
-                    categoryIcon,
-                    color: categoryColor,
-                    size: 32,
-                  ),
-                ),
+                fallback: Center(child: categoryIcon),
               ),
             ),
           ),

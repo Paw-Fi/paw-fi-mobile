@@ -260,7 +260,7 @@ class _CategoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = getCategoryTranslation(context, categoryKey);
     final color = getCategoryColor(categoryKey, context);
-    final icon = getCategoryIcon(categoryKey);
+    final icon = buildCategoryIcon(categoryKey, size: 20);
 
     // Calculate percentage, careful of div by zero
     final percent = totalSpent > 0 ? (amount / totalSpent) : 0.0;
@@ -281,11 +281,7 @@ class _CategoryRow extends StatelessWidget {
                 color: color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: color,
-              ),
+              child: icon,
             ),
             const SizedBox(width: 12),
 

@@ -364,8 +364,9 @@ class _EditTransactionBottomSheetState
     final selectedCategoryColor = _selectedCategory != null
         ? getCategoryColor(_selectedCategory!, context)
         : colorScheme.border;
-    final selectedCategoryIcon =
-        _selectedCategory != null ? getCategoryIcon(_selectedCategory!) : null;
+    final selectedCategoryIcon = _selectedCategory == null
+        ? null
+        : buildCategoryIcon(_selectedCategory!, size: 18);
     final selectedCategoryLabel = _selectedCategory != null
         ? getCategoryTranslation(context, _selectedCategory!)
         : null;
@@ -397,11 +398,7 @@ class _EditTransactionBottomSheetState
             child: Row(
               children: [
                 if (selectedCategoryIcon != null) ...[
-                  Icon(
-                    selectedCategoryIcon,
-                    color: selectedCategoryColor,
-                    size: 18,
-                  ),
+                  selectedCategoryIcon,
                   const SizedBox(width: 10),
                 ],
                 Expanded(

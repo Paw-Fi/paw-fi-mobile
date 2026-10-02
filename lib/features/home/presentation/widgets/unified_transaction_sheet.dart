@@ -1233,11 +1233,9 @@ class _UnifiedTransactionSheetV2State
                                                 merchantStructuredName,
                                             merchantName: displayMerchant,
                                             fallback: Center(
-                                              child: Icon(
-                                                getCategoryIcon(
-                                                    displayCategory),
+                                              child: buildCategoryIcon(
+                                                displayCategory,
                                                 size: 36,
-                                                color: textColor,
                                               ),
                                             ),
                                           ),
@@ -2212,7 +2210,7 @@ class _UnifiedTransactionSheetV2State
 
     final colorScheme = Theme.of(context).colorScheme;
     final categoryColor = getCategoryColor(displayCategory, context);
-    final categoryIcon = getCategoryIcon(displayCategory);
+    final categoryIcon = buildCategoryIcon(displayCategory, size: 12);
     final localizedCategory = _getLocalizedCategory(displayCategory);
 
     final header = Column(
@@ -2279,11 +2277,7 @@ class _UnifiedTransactionSheetV2State
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    categoryIcon,
-                    size: 12,
-                    color: categoryColor,
-                  ),
+                  categoryIcon,
                   const SizedBox(width: 6),
                   Text(
                     localizedCategory,

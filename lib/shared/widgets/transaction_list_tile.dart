@@ -120,12 +120,10 @@ class TransactionListTile extends StatelessWidget {
   Widget _buildStyledContent(
       BuildContext context, bool shouldShowCurrencyFlag) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color = useCustomCategoryStyleOverrides
-        ? getCategoryColor(category, context)
-        : getSharedTransactionCategoryColor(category, context);
-    final icon = useCustomCategoryStyleOverrides
-        ? getCategoryIcon(category)
-        : getSharedTransactionCategoryIcon(category);
+    final categoryIcon = buildCategoryIcon(
+      category,
+      size: 20,
+    );
     final sign = isIncome ? '+' : '-';
     final normalizedAmount = double.parse(formatAmount(amount.abs()));
     final localizedNumber = formatLocalizedNumber(context, normalizedAmount);
@@ -150,7 +148,7 @@ class TransactionListTile extends StatelessWidget {
       logoUrl: merchantLogoUrl,
       merchantStructuredName: merchantStructuredName,
       merchantName: merchantName,
-      fallback: Icon(icon, color: color, size: 20),
+      fallback: categoryIcon,
     );
 
     // Build badge chips

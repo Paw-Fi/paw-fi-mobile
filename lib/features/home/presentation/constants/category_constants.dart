@@ -465,6 +465,135 @@ final Map<String, IconData> categoryIcons = {
   'uncategorized': Icons.help_outline,
 };
 
+/// Available category image filenames, grouped by asset folder.
+const Map<String, Set<String>> _categoryImageFilesByFolder = {
+  'life-home': {
+    'groceries',
+    'food-drinks',
+    'restaurants',
+    'takeout-delivery',
+    'coffee-tea',
+    'snacks',
+    'cleaning-supplies',
+    'home-repairs',
+    'home-services',
+    'furniture',
+    'appliances',
+    'household-supplies',
+  },
+  'home-utilities': {
+    'home-decor',
+    'rent',
+    'mortgage',
+    'insurance',
+    'health-insurance',
+    'life-insurance',
+    'home-insurance',
+    'renters-insurance',
+    'electricity',
+    'water',
+    'heating-gas',
+    'internet',
+    'phone-bill',
+  },
+  'transport': {
+    'public-transport',
+    'taxi-ride-apps',
+    'fuel-gas',
+    'parking',
+    'tolls',
+    'car-repairs',
+    'car-insurance',
+    'car-parts',
+    'car-rental',
+    'bike-scooter',
+    'travel',
+    'transportation',
+  },
+  'travel': {
+    'flights',
+    'hotels',
+    'travel-insurance',
+    'travel-activities',
+    'luggage-travel-gear',
+    'passport-visa-fees',
+  },
+  'health-wellness': {
+    'medical-care',
+    'pharmacy',
+    'dental-care',
+    'eye-care',
+    'mental-health',
+    'therapy',
+    'fitness-gym',
+    'sports-exercise',
+    'supplements',
+    'personal-care',
+    'beauty-cosmetics',
+    'spa-massage',
+  },
+  'kids-pets': {
+    'childcare',
+    'school-supplies',
+    'kids-activities',
+    'kids-clothing',
+    'toys-games',
+    'baby-supplies',
+    'pet-food',
+    'pet-treats',
+    'vet-visits',
+    'pet-medicine',
+    'pet-grooming',
+    'pet-supplies',
+  },
+  'work-learning': {
+    'work-supplies',
+    'home-office',
+    'software-tools',
+    'cloud-storage',
+    'courses-classes',
+    'books-study-materials',
+    'exams-certificates',
+    'coworking-space',
+    'professional-services',
+    'business-expenses',
+    'ads-marketing',
+    'licensing-fees',
+  },
+  'fun-social': {
+    'movies-shows',
+    'music-streaming',
+    'games-apps',
+    'hobbies',
+    'crafts-art',
+    'sports-clubs',
+    'concerts-events',
+    'bars-drinks',
+    'dating',
+    'parties-hosting',
+    'gifts',
+    'charity',
+  },
+  'money': {
+    'savings',
+    'loan-payments',
+    'debt-payments',
+    'bank-fees',
+    'taxes',
+    'fines',
+  },
+  'community-misc': {
+    'government-services',
+    'post-delivery',
+    'religious-spiritual',
+    'community-events',
+    'environmental-green',
+    'miscellaneous',
+  },
+};
+
+final RegExp _categoryImageFilenameSeparators = RegExp(r'[^a-z0-9]+');
+
 List<Color> getCustomCategoryColorOptions() {
   return List<Color>.unmodifiable(_fallbackPalette);
 }
@@ -550,6 +679,39 @@ IconData getCategoryIcon(String? category) =>
 
 IconData getSharedTransactionCategoryIcon(String? category) =>
     _getCategoryIcon(category, useCustomStyleOverrides: false);
+
+/// Returns the bundled image for a built-in category, if available.
+/// User-selected icon overrides intentionally continue to use their icon glyph.
+String? getCategoryImageAsset(
+  String? category,
+) {
+  final key = canonicalizeCategoryKey(category);
+  final filename = key.replaceAll(_categoryImageFilenameSeparators, '-');
+  for (final entry in _categoryImageFilesByFolder.entries) {
+    if (entry.value.contains(filename)) {
+      return 'lib/assets/images/category/${entry.key}/$filename.png';
+    }
+  }
+  return null;
+}
+
+Widget buildCategoryIcon(
+  String? category, {
+  double size = 20,
+}) {
+  final asset = getCategoryImageAsset(category);
+  if (asset != null) {
+    return Image.asset(
+      asset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      semanticLabel: category,
+      errorBuilder: (_, __, ___) => SizedBox.square(dimension: size),
+    );
+  }
+  return SizedBox.square(dimension: size);
+}
 
 IconData _getCategoryIcon(
   String? category, {

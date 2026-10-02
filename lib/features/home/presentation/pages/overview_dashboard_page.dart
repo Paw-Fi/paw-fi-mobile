@@ -820,13 +820,13 @@ class OverviewDashboardPage extends ConsumerWidget {
                         title: context.l10n.topInsight,
                         children: [
                           _DashboardTile(
-                            customIcon: Icon(
-                              topCategory != null
-                                  ? getCategoryIcon(topCategory.key)
-                                  : Icons.lightbulb_outline_rounded,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
+                            customIcon: topCategory != null
+                                ? buildCategoryIcon(topCategory.key, size: 20)
+                                : Icon(
+                                    Icons.lightbulb_outline_rounded,
+                                    size: 20,
+                                    color: colorScheme.primary,
+                                  ),
                             label: topCategoryName,
                             value: hasExpenses
                                 ? formatMoney(topCategory?.value ?? 0)

@@ -649,7 +649,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     required MapEntry<String, double>? topMerchant,
   }) {
     final color = getCategoryColor(widget.categoryKey, context);
-    final icon = getCategoryIcon(widget.categoryKey);
+    final icon = buildCategoryIcon(widget.categoryKey, size: 24);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -665,7 +665,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                   color: color.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 24, color: color),
+                child: icon,
               ),
               const SizedBox(width: 16),
               Expanded(

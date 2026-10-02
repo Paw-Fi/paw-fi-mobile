@@ -129,7 +129,7 @@ class DashboardCategoryList extends StatelessWidget {
               ),
             ],
           ),
-          icon: getCategoryIcon(cat.id),
+          iconWidget: buildCategoryIcon(cat.id, size: 20),
           iconColor: color,
           value: amountFormatter.format(cat.amount),
           showChevron: onCategoryTap != null,

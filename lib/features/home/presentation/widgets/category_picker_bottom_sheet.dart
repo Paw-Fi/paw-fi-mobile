@@ -5,7 +5,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
-import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
@@ -625,7 +624,6 @@ class _CategoryTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final color = _categoryColor(context, categoryKey,
         isCustomCategory: isCustomCategory);
-    final icon = _categoryIcon(categoryKey, isCustomCategory: isCustomCategory);
     final label = _categoryLabel(
       context,
       categoryKey,
@@ -633,9 +631,6 @@ class _CategoryTile extends StatelessWidget {
     );
 
     final circleColor = isSelected ? color : colorScheme.sheetElementBackground;
-    final iconColor = isSelected
-        ? colorScheme.primaryForeground
-        : color.withValues(alpha: 0.4);
 
     return Semantics(
       button: true,
@@ -672,11 +667,7 @@ class _CategoryTile extends StatelessWidget {
                         ]
                       : null,
                 ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 22,
-                ),
+                child: buildCategoryIcon(categoryKey, size: 22),
               ),
               const SizedBox(height: 6),
               SizedBox(
@@ -727,18 +718,4 @@ Color _categoryColor(BuildContext context, String categoryKey,
   final palette = getCustomCategoryColorOptions();
   final index = categoryKey.hashCode.abs() % palette.length;
   return palette[index];
-}
-
-IconData _categoryIcon(String categoryKey, {required bool isCustomCategory}) {
-  if (!isCustomCategory) {
-    return getCategoryIcon(categoryKey);
-  }
-
-  final style = getCustomCategoryStyleOverrides()[categoryKey];
-  final iconKey = style?.iconKey?.trim();
-  if (iconKey != null && iconKey.isNotEmpty) {
-    return customCategoryIconForKey(iconKey);
-  }
-
-  return customCategoryIconForKey('tag');
 }

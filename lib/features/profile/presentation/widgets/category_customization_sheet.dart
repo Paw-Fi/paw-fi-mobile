@@ -10,7 +10,6 @@ import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
-import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -350,28 +349,28 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                 final targetCategories = (isExpense
                         ? config.visibleExpenseCategories
                         : config.visibleIncomeCategories)
-                    .where((category) =>
-                        category.trim().toLowerCase() != 'other')
+                    .where(
+                        (category) => category.trim().toLowerCase() != 'other')
                     .toList(growable: false);
-          
+
                 final groupsToDisplay = <String, List<String>>{};
-          
+
                 for (final entry in categoryGroups.entries) {
                   final groupKey = entry.key;
                   final cats = entry.value;
-          
+
                   final validCats = cats.where((c) {
                     if (!builtinSet.contains(c)) return false;
-          
+
                     final normalized = c.trim().toLowerCase();
                     if (normalized == 'other' ||
                         normalized == 'uncategorized') {
                       return false;
                     }
-          
+
                     if (query.isNotEmpty) {
-                      final localized = getCategoryTranslation(context, c)
-                          .toLowerCase();
+                      final localized =
+                          getCategoryTranslation(context, c).toLowerCase();
                       if (!c.toLowerCase().contains(query) &&
                           !localized.contains(query)) {
                         return false;
@@ -379,12 +378,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                     }
                     return true;
                   }).toList();
-          
+
                   if (validCats.isNotEmpty) {
                     groupsToDisplay[groupKey] = validCats;
                   }
                 }
-          
+
                 final customCats = config.customCategories.where((c) {
                   if (isExpense && c.transactionType == 'income') {
                     return false;
@@ -392,15 +391,15 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                   if (!isExpense && c.transactionType == 'expense') {
                     return false;
                   }
-          
+
                   if (query.isNotEmpty &&
                       !c.name.toLowerCase().contains(query)) {
                     return false;
                   }
-          
+
                   return true;
                 }).toList();
-          
+
                 final remaps = (remapsAsync.valueOrNull ??
                         const <UserCategoryRemapPreference>[])
                     .where((remap) {
@@ -417,7 +416,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                       fromLabel.contains(query) ||
                       toLabel.contains(query);
                 }).toList(growable: false);
-          
+
                 if (groupsToDisplay.isEmpty &&
                     customCats.isEmpty &&
                     remaps.isEmpty &&
@@ -434,7 +433,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                     ),
                   );
                 }
-          
+
                 bool isHidden(String name) {
                   final key = name.trim().toLowerCase();
                   if (type == 'income') {
@@ -442,12 +441,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                   }
                   return config.hiddenExpenseCategories.contains(key);
                 }
-          
+
                 Widget buildRemapSection() {
                   if (query.isNotEmpty && remaps.isEmpty) {
                     return const SizedBox.shrink();
                   }
-          
+
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -465,13 +464,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                 context,
                                 remap.toCategory,
                               );
-          
+
                               return Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   ListTile(
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(
+                                    contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 14,
                                       vertical: 6,
                                     ),
@@ -481,8 +479,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                       decoration: BoxDecoration(
                                         color: colorScheme.primary
                                             .withValues(alpha: 0.12),
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Icon(
                                         Icons.route_outlined,
@@ -500,39 +497,38 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                     ),
                                     subtitle: Row(
                                       children: [
-                                             Icon(
+                                        Icon(
                                           PlatformInfo.isIOS
-                                             ? CupertinoIcons.arrow_turn_down_right
-      : Icons.subdirectory_arrow_right_rounded,
+                                              ? CupertinoIcons
+                                                  .arrow_turn_down_right
+                                              : Icons
+                                                  .subdirectory_arrow_right_rounded,
                                           size: 12,
-                                          color:
-                                              colorScheme.mutedForeground,
+                                          color: colorScheme.mutedForeground,
                                         ),
-                                         const SizedBox(width: 6),
+                                        const SizedBox(width: 6),
                                         Flexible(
                                           child: Text(
                                             toLabel,
-                                            overflow:
-                                                TextOverflow.ellipsis,
+                                            overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              color: colorScheme
-                                                  .mutedForeground,
+                                              color:
+                                                  colorScheme.mutedForeground,
                                               fontWeight: FontWeight.w500,
                                               fontSize: 13,
                                             ),
                                           ),
                                         ),
-                                   
                                       ],
                                     ),
                                     trailing: GestureDetector(
                                       onTap: () async {
                                         final l10n = context.l10n;
-                                        final action =
-                                            await MonekoActionSheet.show<
-                                                String>(
+                                        final action = await MonekoActionSheet
+                                            .show<String>(
                                           context: context,
-                                          title: context.l10n.remapTitle(fromLabel, toLabel),
+                                          title: context.l10n
+                                              .remapTitle(fromLabel, toLabel),
                                           actions: [
                                             MonekoActionSheetAction(
                                               label: l10n.edit,
@@ -544,30 +540,25 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                               isDestructive: true,
                                             ),
                                           ],
-                                          cancelAction:
-                                              MonekoActionSheetAction(
+                                          cancelAction: MonekoActionSheetAction(
                                             label: l10n.cancel,
                                             value: 'cancel',
                                           ),
                                         );
-          
+
                                         if (action == 'edit') {
                                           await showRemapSheet(
                                             title: context.l10n.editMapping,
                                             initialFromCategory:
                                                 remap.fromCategory,
-                                            initialToCategory:
-                                                remap.toCategory,
-                                            initialType:
-                                                remap.transactionType,
-                                            targetCategories:
-                                                targetCategories,
+                                            initialToCategory: remap.toCategory,
+                                            initialType: remap.transactionType,
+                                            targetCategories: targetCategories,
                                           );
                                         } else if (action == 'delete') {
                                           await deleteUserCategoryRemapPreference(
                                             ref: ref,
-                                            fromCategory:
-                                                remap.fromCategory,
+                                            fromCategory: remap.fromCategory,
                                             transactionType:
                                                 remap.transactionType,
                                           );
@@ -579,8 +570,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                           PlatformInfo.isIOS
                                               ? CupertinoIcons.ellipsis
                                               : Icons.more_vert,
-                                          color:
-                                              colorScheme.mutedForeground,
+                                          color: colorScheme.mutedForeground,
                                           size: 18,
                                         ),
                                       ),
@@ -632,14 +622,14 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                     ],
                   );
                 }
-          
+
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   children: [
                     buildRemapSection(),
-          
+
                     // Custom Categories Group
                     if (query.isEmpty || customCats.isNotEmpty) ...[
                       _SectionLabel(context.l10n.custom),
@@ -651,13 +641,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                               final name = cat.name;
                               final catType = cat.transactionType;
                               final hiddenNow = isHidden(name);
-          
+
                               return Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   ListTile(
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(
+                                    contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 14,
                                       vertical: 6,
                                     ),
@@ -668,14 +657,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                         color: Color(cat.colorArgb ??
                                             computeFallbackCategoryColorArgb(
                                                 name)),
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Icon(
                                         customCategoryIconForKey(
                                             cat.iconKey ?? 'tag'),
-                                        color:
-                                            colorScheme.primaryForeground,
+                                        color: colorScheme.primaryForeground,
                                         size: 18,
                                       ),
                                     ),
@@ -693,9 +680,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                     trailing: GestureDetector(
                                       onTap: () async {
                                         final l10n = context.l10n;
-                                        final action =
-                                            await MonekoActionSheet.show<
-                                                String>(
+                                        final action = await MonekoActionSheet
+                                            .show<String>(
                                           context: context,
                                           title: name,
                                           actions: [
@@ -715,13 +701,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                               isDestructive: true,
                                             ),
                                           ],
-                                          cancelAction:
-                                              MonekoActionSheetAction(
+                                          cancelAction: MonekoActionSheetAction(
                                             label: l10n.cancel,
                                             value: 'cancel',
                                           ),
                                         );
-          
+
                                         if (action == 'hide_unhide') {
                                           await setUserCategoryHidden(
                                             ref: ref,
@@ -734,27 +719,22 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                             title: l10n.editCategory,
                                             initialName: name,
                                             initialType: catType,
-                                            initialColorArgb:
-                                                cat.colorArgb,
+                                            initialColorArgb: cat.colorArgb,
                                             initialIconKey: cat.iconKey,
-                                            onSubmit: (newName,
-                                                newType,
-                                                colorArgb,
-                                                iconKey) async {
+                                            onSubmit: (newName, newType,
+                                                colorArgb, iconKey) async {
                                               final renamed =
                                                   await renameUserCustomCategory(
                                                 ref: ref,
                                                 oldName: name,
-                                                oldTransactionType:
-                                                    catType,
+                                                oldTransactionType: catType,
                                                 newName: newName,
-                                                newTransactionType:
-                                                    newType,
+                                                newTransactionType: newType,
                                               );
                                               if (!renamed) {
                                                 return false;
                                               }
-          
+
                                               final styled =
                                                   await setUserCustomCategoryStyle(
                                                 ref: ref,
@@ -779,8 +759,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                           PlatformInfo.isIOS
                                               ? CupertinoIcons.ellipsis
                                               : Icons.more_vert,
-                                          color:
-                                              colorScheme.mutedForeground,
+                                          color: colorScheme.mutedForeground,
                                           size: 18,
                                         ),
                                       ),
@@ -800,8 +779,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: colorScheme.primary
-                                    .withValues(alpha: 0.1),
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
@@ -838,28 +817,24 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                         ],
                       ),
                     ],
-          
+
                     // Built-in Groups
                     for (final entry in groupsToDisplay.entries) ...[
-                      _SectionLabel(getCategoryGroupTranslation(
-                          context, entry.key)),
+                      _SectionLabel(
+                          getCategoryGroupTranslation(context, entry.key)),
                       _SectionCard(
                         children: [
-                          for (int i = 0;
-                              i < entry.value.length;
-                              i++) ...[
+                          for (int i = 0; i < entry.value.length; i++) ...[
                             Builder(builder: (context) {
                               final name = entry.value[i];
-                              final normalized =
-                                  name.trim().toLowerCase();
+                              final normalized = name.trim().toLowerCase();
                               final hiddenNow = isHidden(normalized);
-          
+
                               return Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   ListTile(
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(
+                                    contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 14,
                                       vertical: 6,
                                     ),
@@ -867,21 +842,13 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                       width: 36,
                                       height: 36,
                                       decoration: BoxDecoration(
-                                        color: getCategoryColor(
-                                            name, context),
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        color: getCategoryColor(name, context),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: Icon(
-                                        getCategoryIcon(name),
-                                        color:
-                                            colorScheme.primaryForeground,
-                                        size: 18,
-                                      ),
+                                      child: buildCategoryIcon(name, size: 18),
                                     ),
                                     title: Text(
-                                      getCategoryTranslation(
-                                          context, name),
+                                      getCategoryTranslation(context, name),
                                       style: TextStyle(
                                         fontWeight: FontWeight.w500,
                                         fontSize: 15,
@@ -912,7 +879,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                   ],
                 );
               }
-          
+
               switch (scope.value) {
                 case _CategoryScope.expense:
                   return buildCategoryList(type: 'expense');
@@ -1089,8 +1056,8 @@ class _CategoryRemapUpsertSheet extends HookWidget {
                           }
                         },
                       ),
-                      ],
-                    ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -1299,7 +1266,6 @@ class _CategoryUpsertSheet extends HookWidget {
                     ],
                   ),
                   const SizedBox(height: 24),
-
                   _SectionLabel(context.l10n.color),
                   SizedBox(
                     height: 52,
@@ -1401,7 +1367,6 @@ class _CategoryUpsertSheet extends HookWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-
                   _SectionLabel(context.l10n.pocketIconLabel),
                   SizedBox(
                     height: 52,

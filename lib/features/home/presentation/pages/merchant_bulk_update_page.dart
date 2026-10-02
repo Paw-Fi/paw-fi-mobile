@@ -682,7 +682,7 @@ class _BulkTransactionTile extends StatelessWidget {
       getCategoryColor(categoryName, context),
       colorScheme,
     );
-    final categoryIcon = getCategoryIcon(categoryName);
+    final categoryIcon = buildCategoryIcon(categoryName, size: 18);
 
     final title = entry.merchant?.trim().isNotEmpty == true
         ? entry.merchant!.trim()
@@ -749,13 +749,7 @@ class _BulkTransactionTile extends StatelessWidget {
                               merchantStructuredName:
                                   targetSelection.merchantName,
                               merchantName: targetSelection.merchant,
-                              fallback: Center(
-                                child: Icon(
-                                  categoryIcon,
-                                  color: categoryColor,
-                                  size: 18,
-                                ),
-                              ),
+                              fallback: Center(child: categoryIcon),
                             ),
                           )
                         : Container(
@@ -784,11 +778,7 @@ class _BulkTransactionTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Center(
-                          child: Icon(
-                            categoryIcon,
-                            color: categoryColor,
-                            size: 18,
-                          ),
+                          child: categoryIcon,
                         ),
                       ),
               ),

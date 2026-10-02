@@ -1624,7 +1624,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       final isIncomeMode = !isExpense;
       final displayCategory = selectedCategory.value ?? 'other';
       final categoryColor = getCategoryColor(displayCategory, context);
-      final categoryIcon = getCategoryIcon(displayCategory);
+      final categoryIcon = buildCategoryIcon(displayCategory, size: 12);
       final localizedCategory =
           getCategoryTranslation(context, displayCategory);
       final displayMerchant = merchantController.text.trim();
@@ -1696,11 +1696,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      categoryIcon,
-                      size: 12,
-                      color: categoryColor,
-                    ),
+                    categoryIcon,
                     const SizedBox(width: 6),
                     Text(
                       localizedCategory,

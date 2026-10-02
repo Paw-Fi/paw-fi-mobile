@@ -330,7 +330,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
       colorScheme,
     );
     final fallback = _CategoryFallbackIcon(
-      icon: getCategoryIcon(widget.category),
+      icon: buildCategoryIcon(widget.category, size: 20),
       color: categoryColor,
     );
 
@@ -406,10 +406,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
                 ),
               Expanded(
                 child: query.isEmpty
-                    ? _MerchantEmptyState(
-                        categoryIcon: getCategoryIcon(widget.category),
-                        categoryColor: categoryColor,
-                      )
+                    ? const _MerchantEmptyState()
                     : ListView(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                         children: [
@@ -879,7 +876,7 @@ class _MerchantCandidateTile extends StatelessWidget {
 class _CategoryFallbackIcon extends StatelessWidget {
   const _CategoryFallbackIcon({required this.icon, required this.color});
 
-  final IconData icon;
+  final Widget icon;
   final Color color;
 
   @override
@@ -889,21 +886,13 @@ class _CategoryFallbackIcon extends StatelessWidget {
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Center(
-        child: Icon(icon, color: color, size: 20),
-      ),
+      child: Center(child: icon),
     );
   }
 }
 
 class _MerchantEmptyState extends StatelessWidget {
-  const _MerchantEmptyState({
-    required this.categoryIcon,
-    required this.categoryColor,
-  });
-
-  final IconData categoryIcon;
-  final Color categoryColor;
+  const _MerchantEmptyState();
 
   @override
   Widget build(BuildContext context) {

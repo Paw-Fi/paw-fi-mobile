@@ -250,11 +250,7 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
-                    child: Icon(
-                      getCategoryIcon(widget.item.category),
-                      color: categoryColor,
-                      size: 20,
-                    ),
+                    child: buildCategoryIcon(widget.item.category, size: 20),
                   ),
                   const SizedBox(width: 12),
 

@@ -604,8 +604,11 @@ Future<void> _showLoggedExpenseResultSheet(
           _ResultDetailRow(
             leading: _MerchantLogoBadge(
               item: firstItem,
-              fallbackIcon: Icons.storefront_outlined,
-              fallbackColor: colorScheme.mutedForeground,
+              fallbackIcon: Icon(
+                Icons.storefront_outlined,
+                size: 19,
+                color: colorScheme.mutedForeground,
+              ),
             ),
             label: l10n.merchant,
             value: merchantName,
@@ -940,7 +943,7 @@ class _CategoryIconBadge extends StatelessWidget {
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(getCategoryIcon(category), size: 19, color: color),
+      child: buildCategoryIcon(category, size: 19),
     );
   }
 }
@@ -949,12 +952,10 @@ class _MerchantLogoBadge extends StatelessWidget {
   const _MerchantLogoBadge({
     required this.item,
     required this.fallbackIcon,
-    required this.fallbackColor,
   });
 
   final ParsedExpense item;
-  final IconData fallbackIcon;
-  final Color fallbackColor;
+  final Widget fallbackIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -973,9 +974,7 @@ class _MerchantLogoBadge extends StatelessWidget {
         logoUrl: item.merchantLogoUrl,
         merchantStructuredName: item.merchantStructuredName,
         merchantName: item.merchant,
-        fallback: Center(
-          child: Icon(fallbackIcon, size: 19, color: fallbackColor),
-        ),
+        fallback: Center(child: fallbackIcon),
       ),
     );
   }
@@ -1008,8 +1007,7 @@ class _LoggedItemRow extends StatelessWidget {
         children: [
           _MerchantLogoBadge(
             item: item,
-            fallbackIcon: getCategoryIcon(item.category),
-            fallbackColor: getCategoryColor(item.category, context),
+            fallbackIcon: buildCategoryIcon(item.category, size: 19),
           ),
           const SizedBox(width: 12),
           Expanded(

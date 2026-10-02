@@ -137,6 +137,7 @@ class DashboardListTile extends StatelessWidget {
   final String? subtitle;
   final Widget? subtitleWidget;
   final IconData? icon;
+  final Widget? iconWidget;
   final Color? iconColor;
   final String? value;
   final Widget? trailing;
@@ -149,6 +150,7 @@ class DashboardListTile extends StatelessWidget {
     this.subtitle,
     this.subtitleWidget,
     this.icon,
+    this.iconWidget,
     this.iconColor,
     this.value,
     this.trailing,
@@ -207,7 +209,7 @@ class DashboardListTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (icon != null)
+              if (iconWidget != null || icon != null)
                 Container(
                   width: 36,
                   height: 36,
@@ -215,13 +217,14 @@ class DashboardListTile extends StatelessWidget {
                     color: colorScheme.onSurface.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    icon,
-                    size: 20,
-                    color: iconColor ?? colorScheme.primary,
-                  ),
+                  child: iconWidget ??
+                      Icon(
+                        icon!,
+                        size: 20,
+                        color: iconColor ?? colorScheme.primary,
+                      ),
                 ),
-              if (icon != null) const SizedBox(width: 16),
+              if (iconWidget != null || icon != null) const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
