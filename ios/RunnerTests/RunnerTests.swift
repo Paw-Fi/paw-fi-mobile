@@ -1,9 +1,40 @@
 import Flutter
 import UIKit
 import XCTest
+import FirebaseCore
+import firebase_messaging
 @testable import Runner
 
 class RunnerTests: XCTestCase {
+
+  func testSceneUsesTheEngineRegisteredAtApplicationLaunch() throws {
+    let appDelegate = try XCTUnwrap(UIApplication.shared.delegate as? AppDelegate)
+    let engine = try XCTUnwrap(appDelegate.flutterEngine)
+    let controller = try XCTUnwrap(appDelegate.window?.rootViewController as? FlutterViewController)
+
+    XCTAssertTrue(controller.engine === engine)
+    XCTAssertTrue(engine.hasPlugin("FLTFirebaseMessagingPlugin"))
+    XCTAssertTrue(engine.hasPlugin("AppLinksIosPlugin"))
+  }
+
+  func testFirebaseMessagingReceivesLaunchAndCompletesInitialMessageRead() throws {
+    let appDelegate = try XCTUnwrap(UIApplication.shared.delegate as? AppDelegate)
+    let engine = try XCTUnwrap(appDelegate.flutterEngine)
+    let plugin = try XCTUnwrap(
+      engine.valuePublished(byPlugin: "FLTFirebaseMessagingPlugin") as? FLTFirebaseMessagingPlugin
+    )
+    if FirebaseApp.app() == nil {
+      FirebaseApp.configure()
+    }
+    let completed = expectation(description: "Firebase Messaging initialized at launch")
+
+    // Without the launch callback, the plugin leaves this request pending forever.
+    plugin.handle(FlutterMethodCall(methodName: "Messaging#getInitialMessage", arguments: nil)) { result in
+      XCTAssertFalse(result is FlutterError)
+      completed.fulfill()
+    }
+    wait(for: [completed], timeout: 2)
+  }
 
   func testWalletCaptureRetainsTemporaryServerFailuresForRetry() {
     for statusCode in [408, 425, 429, 500, 502, 503, 504, 599] {

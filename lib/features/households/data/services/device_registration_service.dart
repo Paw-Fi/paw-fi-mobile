@@ -83,15 +83,22 @@ abstract interface class DeviceRegistrationGateway {
   Future<String?> getApnsToken();
   Future<String?> getToken();
   Future<void> deleteToken();
-  Future<bool> registerDevice(String pushToken);
-  Future<bool> unregisterDevice(String pushToken);
+  Future<bool> registerDevice(String pushToken,
+      {required String expectedUserId});
+  Future<bool> unregisterDevice(String pushToken,
+      {required String expectedUserId});
 }
 
 class FirebaseDeviceRegistrationGateway implements DeviceRegistrationGateway {
-  FirebaseDeviceRegistrationGateway(this._supabase, this._messaging);
+  FirebaseDeviceRegistrationGateway(
+    this._supabase,
+    this._messaging, {
+    Duration requestTimeout = const Duration(seconds: 10),
+  }) : _requestTimeout = requestTimeout;
 
   final SupabaseClient _supabase;
   final FirebaseMessaging _messaging;
+  final Duration _requestTimeout;
 
   @override
   String? get currentUserId => _supabase.auth.currentUser?.id;
@@ -145,37 +152,47 @@ class FirebaseDeviceRegistrationGateway implements DeviceRegistrationGateway {
   Future<void> deleteToken() => _messaging.deleteToken();
 
   @override
-  Future<bool> registerDevice(String pushToken) async {
+  Future<bool> registerDevice(String pushToken,
+      {required String expectedUserId}) async {
     try {
+      final session = _supabase.auth.currentSession;
+      if (session == null || session.user.id != expectedUserId) return false;
       final response = await _supabase.functions.invoke(
         'households-register-device',
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
         body: {
           'platform': isIOS ? 'ios' : 'android',
           'push_token': pushToken,
           'device_model': isIOS ? 'iOS Device' : 'Android Device',
           'os_version': Platform.operatingSystemVersion,
         },
-      );
-      return response.status == 200;
-    } on FunctionException catch (error) {
-      return error.status == 409;
+      ).timeout(_requestTimeout);
+      return response.status == 200 &&
+          response.data is Map &&
+          response.data['success'] == true;
     } catch (_) {
       return false;
     }
   }
 
   @override
-  Future<bool> unregisterDevice(String pushToken) async {
+  Future<bool> unregisterDevice(String pushToken,
+      {required String expectedUserId}) async {
     try {
+      final session = _supabase.auth.currentSession;
+      if (session == null || session.user.id != expectedUserId) return false;
       final response = await _supabase.functions.invoke(
         'households-register-device',
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
         body: {
           'platform': isIOS ? 'ios' : 'android',
           'push_token': pushToken,
           'delete_device': true,
         },
-      );
-      return response.status == 200;
+      ).timeout(_requestTimeout);
+      return response.status == 200 &&
+          response.data is Map &&
+          response.data['success'] == true;
     } catch (_) {
       return false;
     }
@@ -202,7 +219,10 @@ class DeviceRegistrationService {
   int _lifecycleGeneration = 0;
   bool _acceptTokenRefreshes = false;
   Future<void> _tokenRefreshQueue = Future.value();
+  Future<void> _registrationQueue = Future.value();
   Future<void>? _sessionCleanupFuture;
+  // Include in-flight and unacknowledged writes in this installation's logout.
+  final Map<String, Set<String>> _registrationTokensByUser = {};
 
   static const String _androidChannelId = 'high_importance_channel';
   static const String _androidChannelName = 'High Importance Notifications';
@@ -411,6 +431,9 @@ class DeviceRegistrationService {
         _gateway.onTokenRefresh.listen((newToken) {
           _debugPrint('🔄 FCM Token refreshed');
           _enqueueTokenRefresh(newToken);
+        }, onError: (Object error) {
+          _initialized = false;
+          _initializedUserId = null;
         });
         _tokenRefreshListenerInitialized = true;
       }
@@ -451,9 +474,11 @@ class DeviceRegistrationService {
         generation: generation,
       );
     } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      _acceptTokenRefreshes = false;
       _debugPrint('❌ Push notification permission denied');
       return DeviceRegistrationResult.permissionDenied;
     } else {
+      _acceptTokenRefreshes = false;
       _debugPrint('⚠️ Push notification permission not determined');
       return DeviceRegistrationResult.permissionDenied;
     }
@@ -465,7 +490,10 @@ class DeviceRegistrationService {
     final stopwatch = Stopwatch()..start();
     while (true) {
       try {
-        final apns = await _gateway.getApnsToken();
+        final remaining = _apnsTokenWaitTimeout - stopwatch.elapsed;
+        final apns = await _gateway.getApnsToken().timeout(
+              remaining.isNegative ? Duration.zero : remaining,
+            );
         if (apns != null && apns.isNotEmpty) return apns;
       } catch (_) {}
       if (stopwatch.elapsed >= _apnsTokenWaitTimeout) return null;
@@ -582,10 +610,27 @@ class DeviceRegistrationService {
     String pushToken, {
     String? expectedUserId,
     int? generation,
+  }) {
+    final userId = expectedUserId ?? _gateway.currentUserId;
+    final attemptGeneration = generation ?? _lifecycleGeneration;
+    // Keep ownership upserts in order across refresh, repair and account changes.
+    final registration = _registrationQueue.then((_) => _registerDevice(
+          pushToken,
+          expectedUserId: userId,
+          generation: attemptGeneration,
+        ));
+    _registrationQueue = registration.then<void>((_) {}, onError: (_, __) {});
+    return registration;
+  }
+
+  Future<DeviceRegistrationResult> _registerDevice(
+    String pushToken, {
+    required String? expectedUserId,
+    required int generation,
   }) async {
     try {
-      final userId = expectedUserId ?? _gateway.currentUserId;
-      final attemptGeneration = generation ?? _lifecycleGeneration;
+      final userId = expectedUserId;
+      final attemptGeneration = generation;
       if (userId == null ||
           userId.isEmpty ||
           !_isCurrentAttempt(userId, attemptGeneration)) {
@@ -601,7 +646,11 @@ class DeviceRegistrationService {
       }
 
       _debugPrint('📤 Registering device with backend...');
-      final registered = await _gateway.registerDevice(pushToken);
+      final registrationTokens =
+          _registrationTokensByUser.putIfAbsent(userId, () => <String>{});
+      registrationTokens.add(pushToken);
+      final registered =
+          await _gateway.registerDevice(pushToken, expectedUserId: userId);
       if (!registered) {
         _debugPrint('❌ Device registration failed');
         return DeviceRegistrationResult.backendRejected;
@@ -614,7 +663,11 @@ class DeviceRegistrationService {
       if (previousToken != null &&
           previousToken.isNotEmpty &&
           previousToken != pushToken) {
-        await _gateway.unregisterDevice(previousToken);
+        registrationTokens.add(previousToken);
+        if (await _gateway.unregisterDevice(previousToken,
+            expectedUserId: userId)) {
+          registrationTokens.remove(previousToken);
+        }
         if (!_isCurrentAttempt(userId, attemptGeneration)) {
           return DeviceRegistrationResult.unauthenticated;
         }
@@ -670,10 +723,9 @@ class DeviceRegistrationService {
       expectedUserId: expectedUserId,
       generation: generation,
     );
-    if (result == DeviceRegistrationResult.registered &&
-        _isCurrentAttempt(expectedUserId, generation)) {
-      _initialized = true;
-      _initializedUserId = expectedUserId;
+    if (_isCurrentAttempt(expectedUserId, generation)) {
+      _initialized = result == DeviceRegistrationResult.registered;
+      _initializedUserId = _initialized ? expectedUserId : null;
     }
   }
 
@@ -860,11 +912,13 @@ class DeviceRegistrationService {
       } catch (_) {}
     }
     await _tokenRefreshQueue;
+    await _registrationQueue;
 
     final prefs = await SharedPreferences.getInstance();
     final cachePrefix = 'device_reg:${userId ?? "anon"}:';
-    if (userId != null && _hasDifferentActiveUser(userId)) {
-      await _clearRegistrationCacheForUser(prefs, userId);
+    if (_hasDifferentActiveUser(userId)) {
+      _registrationTokensByUser.remove(userId);
+      if (userId != null) await _clearRegistrationCacheForUser(prefs, userId);
       return;
     }
 
@@ -875,24 +929,34 @@ class DeviceRegistrationService {
       }
 
       // Try to get token from cache first (more reliable than FCM during logout)
-      String? token = prefs.getString('${cachePrefix}token');
+      final tokens = <String>{
+        ...?_registrationTokensByUser[userId],
+      };
+      final cachedToken = prefs.getString('${cachePrefix}token');
+      if (cachedToken != null && cachedToken.isNotEmpty) {
+        tokens.add(cachedToken);
+      }
 
       // Fallback to FCM token if cache is empty
-      if (token == null || token.isEmpty) {
+      if (tokens.isEmpty) {
         try {
-          token = await _gateway.getToken();
+          final token =
+              await _gateway.getToken().timeout(const Duration(seconds: 5));
+          if (token != null && token.isNotEmpty) tokens.add(token);
         } catch (_) {
           _debugPrint('⚠️ Failed to read FCM token during unregister');
         }
       }
 
-      if (token != null && token.isNotEmpty) {
+      for (final token in tokens) {
+        if (_hasDifferentActiveUser(userId)) break;
         _debugPrint('🗑️ Deleting device from backend...');
 
         // Call Edge Function to DELETE device row (not just mark inactive)
-        if (_gateway.hasActiveSession) {
+        if (_gateway.hasActiveSession && userId != null) {
           try {
-            final deleted = await _gateway.unregisterDevice(token);
+            final deleted =
+                await _gateway.unregisterDevice(token, expectedUserId: userId);
             if (deleted) {
               _debugPrint('✅ Device deleted from backend successfully');
             } else {
@@ -904,12 +968,11 @@ class DeviceRegistrationService {
         } else {
           _debugPrint('⚠️ Skipping backend delete - session missing');
         }
-      } else {
-        _debugPrint('⚠️ No push token found to delete');
       }
     } catch (_) {
       _debugPrint('❌ Error unregistering device');
     } finally {
+      _registrationTokensByUser.remove(userId);
       try {
         if (userId == null) {
           await prefs.remove('${cachePrefix}token');
@@ -921,19 +984,20 @@ class DeviceRegistrationService {
         _debugPrint('⚠️ Failed to clear local device cache');
       }
 
-      if (userId == null || !_hasDifferentActiveUser(userId)) {
+      if (!_hasDifferentActiveUser(userId)) {
         try {
-          await _gateway.deleteToken();
+          await _gateway.deleteToken().timeout(const Duration(seconds: 5));
           _debugPrint('🗑️ FCM token deleted locally');
         } catch (_) {
           _debugPrint('⚠️ Failed to delete FCM token locally');
         }
 
-        await clearAllNotifications();
-
-        _initialized = false;
-        _initializedUserId = null;
-        _initializationFuture = null;
+        if (!_hasDifferentActiveUser(userId)) {
+          await clearAllNotifications();
+          _initialized = false;
+          _initializedUserId = null;
+          _initializationFuture = null;
+        }
       }
     }
   }
@@ -954,6 +1018,7 @@ class DeviceRegistrationService {
     required Future<DeviceRegistrationResult>? pendingInitialization,
   }) async {
     if (_hasDifferentActiveUser(userId)) {
+      _registrationTokensByUser.remove(userId);
       final prefs = await SharedPreferences.getInstance();
       await _clearRegistrationCacheForUser(prefs, userId);
       return;
@@ -965,6 +1030,8 @@ class DeviceRegistrationService {
       } catch (_) {}
     }
     await _tokenRefreshQueue;
+    await _registrationQueue;
+    _registrationTokensByUser.remove(userId);
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -976,11 +1043,12 @@ class DeviceRegistrationService {
     if (_hasDifferentActiveUser(userId)) return;
 
     try {
-      await _gateway.deleteToken();
+      await _gateway.deleteToken().timeout(const Duration(seconds: 5));
     } catch (_) {
       _debugPrint('⚠️ Failed to delete FCM token after session ended');
     }
 
+    if (_hasDifferentActiveUser(userId)) return;
     await clearAllNotifications();
 
     _initialized = false;
@@ -1012,7 +1080,7 @@ class DeviceRegistrationService {
     return _initializationFuture;
   }
 
-  bool _hasDifferentActiveUser(String endedUserId) {
+  bool _hasDifferentActiveUser(String? endedUserId) {
     final activeUserId = _gateway.currentUserId;
     return _gateway.hasActiveSession &&
         activeUserId != null &&
@@ -1030,7 +1098,7 @@ class DeviceRegistrationService {
 
   Future<void> clearAllNotifications() async {
     try {
-      await _localNotifications.cancelAll();
+      await _localNotifications.cancelAll().timeout(const Duration(seconds: 5));
       _debugPrint('🧹 Cleared all local notifications');
     } catch (e) {
       _debugPrint('⚠️ Failed to clear local notifications');

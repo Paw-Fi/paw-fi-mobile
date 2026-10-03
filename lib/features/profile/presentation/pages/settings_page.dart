@@ -35,7 +35,6 @@ import 'package:moneko/features/profile/data/providers/telegram_binding_provider
 import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_modal.dart';
 import 'package:moneko/features/profile/presentation/widgets/support_contact_options_sheet.dart';
 // import 'package:moneko/features/subscription/data/models/subscription_details.dart'; // Removed unused import
-import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -43,6 +42,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
+import 'package:moneko/features/profile/presentation/providers/notification_repair_provider.dart';
+import 'package:moneko/features/profile/presentation/widgets/notification_repair_dialogs.dart';
 // import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart'; // Removed unused import
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
@@ -189,6 +190,8 @@ class SettingsPage extends HookConsumerWidget {
     final isAccountDeletionInProgress = useState(false);
     final isDataResetInProgress = useState(false);
     final isAppLockSetupInProgress = useState(false);
+    final isNotificationRepairInProgress =
+        ref.watch(notificationRepairProvider);
     final nameReloadKey = useState(0);
     final deviceTimezoneFuture = useFuture(
       useMemoized(resolveCanonicalDeviceTimezone),
@@ -226,9 +229,11 @@ class SettingsPage extends HookConsumerWidget {
             AppToast.info(context, context.l10n.enableNotificationsInSettings);
           }
         } else if (status.isGranted) {
-          final result = await ref
-              .read(deviceRegistrationServiceProvider)
-              .repairDeviceRegistration();
+          if (!context.mounted || ref.read(notificationRepairProvider)) return;
+          final result = await runNotificationRepairWithDialogs(
+            context: context,
+            repair: ref.read(notificationRepairProvider.notifier).repair,
+          );
           if (!context.mounted) return;
           if (result == DeviceRegistrationResult.registered) {
             AppToast.success(
@@ -241,9 +246,13 @@ class SettingsPage extends HookConsumerWidget {
         } else {
           final newStatus = await Permission.notification.request();
           if (newStatus.isGranted) {
-            final result = await ref
-                .read(deviceRegistrationServiceProvider)
-                .repairDeviceRegistration();
+            if (!context.mounted || ref.read(notificationRepairProvider)) {
+              return;
+            }
+            final result = await runNotificationRepairWithDialogs(
+              context: context,
+              repair: ref.read(notificationRepairProvider.notifier).repair,
+            );
             if (!context.mounted) return;
             if (result == DeviceRegistrationResult.registered) {
               AppToast.success(
@@ -261,10 +270,12 @@ class SettingsPage extends HookConsumerWidget {
     }
 
     Future<void> handleManualNotificationFix() async {
+      if (ref.read(notificationRepairProvider)) return;
       try {
-        final result = await ref
-            .read(deviceRegistrationServiceProvider)
-            .repairDeviceRegistration();
+        final result = await runNotificationRepairWithDialogs(
+          context: context,
+          repair: ref.read(notificationRepairProvider.notifier).repair,
+        );
         if (!context.mounted) return;
 
         if (result == DeviceRegistrationResult.permissionDenied) {
@@ -273,7 +284,7 @@ class SettingsPage extends HookConsumerWidget {
             asAnotherTask: true,
           );
           if (context.mounted) {
-            AppToast.info(
+            AppToast.error(
               context,
               context.l10n.enableNotificationsInSettings,
             );
@@ -283,9 +294,7 @@ class SettingsPage extends HookConsumerWidget {
 
         if (result == DeviceRegistrationResult.registered) {
           AppToast.success(
-            context,
-            context.l10n.notificationsRefreshedSuccessfully,
-          );
+              context, context.l10n.notificationsRefreshedSuccessfully);
         } else {
           AppToast.error(context, context.l10n.failedToUpdateAppSetting);
         }
@@ -1384,12 +1393,16 @@ class SettingsPage extends HookConsumerWidget {
                       _SettingsTile(
                         icon: Icons.notifications_active_rounded,
                         label: context.l10n.pushNotifications,
-                        onTap: () => handleNotificationToggle(),
+                        onTap: isNotificationRepairInProgress
+                            ? null
+                            : handleNotificationToggle,
                       ),
                       _SettingsTile(
                         icon: Icons.build_circle_rounded,
                         label: context.l10n.fixNotificationIssuesTitle,
-                        onTap: () => handleManualNotificationFix(),
+                        onTap: isNotificationRepairInProgress
+                            ? null
+                            : handleManualNotificationFix,
                       ),
                       _SettingsTile(
                         icon: Icons.remove_circle_outline_rounded,

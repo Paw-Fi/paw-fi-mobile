@@ -21,6 +21,16 @@ class _MockLocalNotifications extends Mock
 class _MockDeviceRegistrationGateway extends Mock
     implements DeviceRegistrationGateway {}
 
+class _MockGoTrueClient extends Mock implements GoTrueClient {}
+
+class _MockFunctionsClient extends Mock implements FunctionsClient {}
+
+class _MockSession extends Mock implements Session {}
+
+class _MockUser extends Mock implements User {}
+
+class _MockNotificationSettings extends Mock implements NotificationSettings {}
+
 const _authorizedSettings = NotificationSettings(
   authorizationStatus: AuthorizationStatus.authorized,
   alert: AppleNotificationSetting.enabled,
@@ -81,6 +91,110 @@ void main() {
         'splits');
   });
 
+  group('Firebase registration backend contract', () {
+    late _MockSupabaseClient supabase;
+    late _MockGoTrueClient auth;
+    late _MockFunctionsClient functions;
+    late _MockSession session;
+    late FirebaseDeviceRegistrationGateway gateway;
+
+    setUp(() {
+      supabase = _MockSupabaseClient();
+      auth = _MockGoTrueClient();
+      functions = _MockFunctionsClient();
+      session = _MockSession();
+      final user = _MockUser();
+      when(() => user.id).thenReturn('user-1');
+      when(() => session.user).thenReturn(user);
+      when(() => session.accessToken).thenReturn('session-jwt');
+      when(() => supabase.auth).thenReturn(auth);
+      when(() => supabase.functions).thenReturn(functions);
+      when(() => auth.currentSession).thenReturn(session);
+      gateway = FirebaseDeviceRegistrationGateway(
+          supabase, _MockFirebaseMessaging(),
+          requestTimeout: Duration.zero);
+      when(() =>
+          functions.invoke('households-register-device',
+              headers: any(named: 'headers'),
+              body: any(named: 'body'))).thenAnswer(
+          (_) async => FunctionResponse(status: 200, data: {'success': true}));
+    });
+
+    test('registration and deletion use the captured authenticated session',
+        () async {
+      expect(await gateway.registerDevice('token-1', expectedUserId: 'user-1'),
+          isTrue);
+      expect(
+          await gateway.unregisterDevice('token-1', expectedUserId: 'user-1'),
+          isTrue);
+      final calls = verify(() => functions.invoke('households-register-device',
+          headers: captureAny(named: 'headers'),
+          body: captureAny(named: 'body'))).captured;
+      expect(calls[0], {'Authorization': 'Bearer session-jwt'});
+      expect((calls[1] as Map)['push_token'], 'token-1');
+      expect(calls[2], {'Authorization': 'Bearer session-jwt'});
+      expect((calls[3] as Map)['delete_device'], isTrue);
+    });
+
+    for (final absent in [false, true]) {
+      test(
+          'no request is sent for ${absent ? 'a missing session' : 'a different account'}',
+          () async {
+        if (absent) when(() => auth.currentSession).thenReturn(null);
+        expect(
+            await gateway.registerDevice('token-1',
+                expectedUserId: absent ? 'user-1' : 'user-2'),
+            isFalse);
+        expect(
+            await gateway.unregisterDevice('token-1',
+                expectedUserId: absent ? 'user-1' : 'user-2'),
+            isFalse);
+        verifyNever(() => functions.invoke(any(),
+            headers: any(named: 'headers'), body: any(named: 'body')));
+      });
+    }
+
+    for (final data in [
+      {'success': false},
+      {'message': 'missing acknowledgement'},
+      'unexpected response'
+    ]) {
+      test('HTTP 200 without success acknowledgement is rejected: $data',
+          () async {
+        when(() => functions.invoke(any(),
+                headers: any(named: 'headers'), body: any(named: 'body')))
+            .thenAnswer((_) async => FunctionResponse(status: 200, data: data));
+        expect(
+            await gateway.registerDevice('token-1', expectedUserId: 'user-1'),
+            isFalse);
+        expect(
+            await gateway.unregisterDevice('token-1', expectedUserId: 'user-1'),
+            isFalse);
+      });
+    }
+
+    test('HTTP conflict is a failed registration, not a cached success',
+        () async {
+      when(() => functions.invoke(any(),
+              headers: any(named: 'headers'), body: any(named: 'body')))
+          .thenThrow(const FunctionException(status: 409));
+      expect(await gateway.registerDevice('token-1', expectedUserId: 'user-1'),
+          isFalse);
+    });
+
+    test('stalled backend requests return failure within the request timeout',
+        () async {
+      when(() => functions.invoke(any(),
+              headers: any(named: 'headers'), body: any(named: 'body')))
+          .thenAnswer((_) => Completer<FunctionResponse>().future);
+      expect(await gateway.registerDevice('token-1', expectedUserId: 'user-1'),
+          isFalse);
+      expect(
+          await gateway.unregisterDevice('token-1', expectedUserId: 'user-1'),
+          isFalse);
+    });
+  });
+
   group('device registration lifecycle', () {
     late _MockDeviceRegistrationGateway gateway;
     late StreamController<String> tokenRefreshController;
@@ -123,6 +237,8 @@ void main() {
       when(() => gateway.hasActiveSession).thenReturn(true);
       when(() => gateway.isIOS).thenReturn(false);
       when(() => gateway.isAndroid).thenReturn(false);
+      when(() => gateway.requestAndroidNotificationPermission())
+          .thenAnswer((_) async {});
       when(() => gateway.onTokenRefresh)
           .thenAnswer((_) => tokenRefreshController.stream);
       when(() => gateway.requestMessagingPermission())
@@ -132,11 +248,14 @@ void main() {
       when(() => gateway.getToken())
           .thenAnswer((_) => Future<String?>.value('token-1'));
       when(() => gateway.deleteToken()).thenAnswer((_) async {});
-      when(() => gateway.registerDevice('token-1'))
+      when(() => gateway.registerDevice('token-1',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) async => true);
-      when(() => gateway.unregisterDevice('token-1'))
+      when(() => gateway.unregisterDevice('token-1',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) async => true);
-      when(() => gateway.unregisterDevice('token-2'))
+      when(() => gateway.unregisterDevice('token-2',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) async => true);
     });
 
@@ -144,9 +263,288 @@ void main() {
       await tokenRefreshController.close();
     });
 
+    for (final platform in ['iOS', 'Android']) {
+      test('$platform registers and caches only after backend confirmation',
+          () async {
+        final isIOS = platform == 'iOS';
+        when(() => gateway.isIOS).thenReturn(isIOS);
+        when(() => gateway.isAndroid).thenReturn(!isIOS);
+        when(() => gateway.getApnsToken())
+            .thenAnswer((_) async => 'apns-token');
+        final backend = Completer<bool>();
+        when(() => gateway.registerDevice('token-1',
+                expectedUserId: any(named: 'expectedUserId')))
+            .thenAnswer((_) => backend.future);
+        final service = buildService();
+        final pending = service.repairDeviceRegistration();
+        await pumpEventQueue();
+
+        final preferences = await SharedPreferences.getInstance();
+        expect(preferences.getString('device_reg:user-1:token'), isNull);
+        verify(() => gateway.getToken()).called(1);
+        if (isIOS) {
+          verify(() => gateway.getApnsToken()).called(1);
+          verify(() => gateway.configureForegroundPresentation()).called(1);
+          verifyNever(() => gateway.requestAndroidNotificationPermission());
+        } else {
+          verify(() => gateway.requestAndroidNotificationPermission())
+              .called(1);
+          verifyNever(() => gateway.getApnsToken());
+          verifyNever(() => gateway.configureForegroundPresentation());
+        }
+
+        backend.complete(true);
+        expect(await pending, DeviceRegistrationResult.registered);
+        expect(preferences.getString('device_reg:user-1:token'), 'token-1');
+      });
+
+      test('$platform replaces a refreshed token and retires the prior token',
+          () async {
+        when(() => gateway.isIOS).thenReturn(platform == 'iOS');
+        when(() => gateway.isAndroid).thenReturn(platform == 'Android');
+        when(() => gateway.getApnsToken())
+            .thenAnswer((_) async => 'apns-token');
+        when(() => gateway.registerDevice('token-2',
+                expectedUserId: any(named: 'expectedUserId')))
+            .thenAnswer((_) async => true);
+        final service = buildService();
+        expect(await service.initialize(), DeviceRegistrationResult.registered);
+
+        tokenRefreshController.add('token-2');
+        await pumpEventQueue();
+
+        final preferences = await SharedPreferences.getInstance();
+        expect(preferences.getString('device_reg:user-1:token'), 'token-2');
+        verify(() => gateway.registerDevice('token-2',
+            expectedUserId: any(named: 'expectedUserId'))).called(1);
+        verify(() => gateway.unregisterDevice('token-1',
+            expectedUserId: any(named: 'expectedUserId'))).called(1);
+      });
+    }
+
+    test('failed token refresh is retried on the next app resume', () async {
+      final service = buildService();
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      when(() => gateway.registerDevice('token-2',
+              expectedUserId: any(named: 'expectedUserId')))
+          .thenAnswer((_) async => false);
+      when(() => gateway.getToken())
+          .thenAnswer((_) => Future<String?>.value('token-2'));
+      tokenRefreshController.add('token-2');
+      await pumpEventQueue();
+      when(() => gateway.registerDevice('token-2',
+              expectedUserId: any(named: 'expectedUserId')))
+          .thenAnswer((_) async => true);
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      verify(() => gateway.registerDevice('token-2',
+          expectedUserId: any(named: 'expectedUserId'))).called(2);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('device_reg:user-1:token'), 'token-2');
+    });
+
+    test('logout during token rotation removes the old and in-flight tokens',
+        () async {
+      final service = buildService();
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      final backend = Completer<bool>();
+      when(() => gateway.registerDevice('token-2',
+              expectedUserId: any(named: 'expectedUserId')))
+          .thenAnswer((_) => backend.future);
+      tokenRefreshController.add('token-2');
+      await pumpEventQueue();
+      final logout = service.unregisterDevice();
+      backend.complete(true);
+      await logout;
+      verify(() => gateway.unregisterDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
+      verify(() => gateway.unregisterDevice('token-2',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
+      verify(() => gateway.deleteToken()).called(1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('device_reg:user-1:token'), isNull);
+    });
+
+    test('logout rechecks the account after reading the fallback token',
+        () async {
+      final token = Completer<String?>();
+      when(() => gateway.getToken()).thenAnswer((_) => token.future);
+      final logout = buildService().unregisterDevice();
+      await pumpEventQueue();
+      when(() => gateway.currentUserId).thenReturn('user-2');
+      token.complete('token-2');
+      await logout;
+      verifyNever(() => gateway.unregisterDevice(any(),
+          expectedUserId: any(named: 'expectedUserId')));
+      verifyNever(() => gateway.deleteToken());
+    });
+
+    test('a stalled native APNs read cannot block repair or logout', () async {
+      when(() => gateway.isIOS).thenReturn(true);
+      when(() => gateway.getApnsToken())
+          .thenAnswer((_) => Completer<String?>().future);
+      final service = buildService();
+      expect(await service.repairDeviceRegistration(),
+          DeviceRegistrationResult.tokenUnavailable);
+      await service.unregisterDevice();
+      verifyNever(() => gateway.registerDevice(any(),
+          expectedUserId: any(named: 'expectedUserId')));
+      verify(() => gateway.deleteToken()).called(1);
+    });
+
+    for (final platform in ['iOS', 'Android']) {
+      test('$platform signup defers until prompted then registers', () async {
+        SharedPreferences.setMockInitialValues({});
+        when(() => gateway.isIOS).thenReturn(platform == 'iOS');
+        when(() => gateway.isAndroid).thenReturn(platform == 'Android');
+        when(() => gateway.getApnsToken())
+            .thenAnswer((_) async => 'apns-token');
+        final service = buildService();
+        expect(await service.initialize(),
+            DeviceRegistrationResult.deferredUntilPrompted);
+        verifyNever(() => gateway.requestMessagingPermission());
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('notifications_prompted:user-1', true);
+        expect(await service.initialize(), DeviceRegistrationResult.registered);
+      });
+
+      test('$platform denied permission remains retryable after enabling it',
+          () async {
+        when(() => gateway.isIOS).thenReturn(platform == 'iOS');
+        when(() => gateway.isAndroid).thenReturn(platform == 'Android');
+        when(() => gateway.getApnsToken())
+            .thenAnswer((_) async => 'apns-token');
+        final denied = _MockNotificationSettings();
+        when(() => denied.authorizationStatus)
+            .thenReturn(AuthorizationStatus.denied);
+        when(() => gateway.requestMessagingPermission())
+            .thenAnswer((_) => Future<NotificationSettings>.value(denied));
+        final service = buildService();
+        expect(await service.initialize(),
+            DeviceRegistrationResult.permissionDenied);
+        verifyNever(() => gateway.registerDevice(any(),
+            expectedUserId: any(named: 'expectedUserId')));
+        when(() => gateway.requestMessagingPermission())
+            .thenAnswer((_) async => _authorizedSettings);
+        expect(await service.initialize(), DeviceRegistrationResult.registered);
+      });
+    }
+
+    test('account switch waits for the prior account token refresh upsert',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'notifications_prompted:user-1': true,
+        'notifications_prompted:user-2': true
+      });
+      final service = buildService();
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      final oldWrite = Completer<bool>();
+      when(() => gateway.registerDevice('token-2', expectedUserId: 'user-1'))
+          .thenAnswer((_) => oldWrite.future);
+      when(() => gateway.registerDevice('token-2', expectedUserId: 'user-2'))
+          .thenAnswer((_) async => true);
+      tokenRefreshController.add('token-2');
+      await pumpEventQueue();
+      when(() => gateway.currentUserId).thenReturn('user-2');
+      when(() => gateway.getToken())
+          .thenAnswer((_) => Future<String?>.value('token-2'));
+      final login = service.initialize();
+      await pumpEventQueue();
+      verifyNever(
+          () => gateway.registerDevice('token-2', expectedUserId: 'user-2'));
+      oldWrite.complete(true);
+      expect(await login, DeviceRegistrationResult.registered);
+      verifyInOrder([
+        () => gateway.registerDevice('token-2', expectedUserId: 'user-1'),
+        () => gateway.registerDevice('token-2', expectedUserId: 'user-2'),
+      ]);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('device_reg:user-2:token'), 'token-2');
+      await service.handleSessionEnded(userId: 'user-1');
+      verifyNever(() => gateway.deleteToken());
+      expect(prefs.getString('device_reg:user-1:token'), isNull);
+    });
+
+    test('logout and same-account login preserve another physical device',
+        () async {
+      final serverTokens = {'token-1', 'other-device-token'};
+      when(() => gateway.registerDevice(any(), expectedUserId: 'user-1'))
+          .thenAnswer((call) async {
+        serverTokens.add(call.positionalArguments.first as String);
+        return true;
+      });
+      when(() => gateway.unregisterDevice(any(), expectedUserId: 'user-1'))
+          .thenAnswer((call) async {
+        serverTokens.remove(call.positionalArguments.first);
+        return true;
+      });
+      final service = buildService();
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      await service.unregisterDevice();
+      expect(serverTokens, {'other-device-token'});
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('device_reg:user-1:token'), isNull);
+      when(() => gateway.getToken())
+          .thenAnswer((_) => Future<String?>.value('token-2'));
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      expect(serverTokens, {'token-2', 'other-device-token'});
+    });
+
+    test(
+        'account deletion or session loss still clears local token when backend auth is gone',
+        () async {
+      final service = buildService();
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      when(() => gateway.hasActiveSession).thenReturn(false);
+      when(() => gateway.currentUserId).thenReturn(null);
+      await service.handleSessionEnded(userId: 'user-1');
+      verifyNever(() => gateway.unregisterDevice(any(),
+          expectedUserId: any(named: 'expectedUserId')));
+      verify(() => gateway.deleteToken()).called(1);
+      tokenRefreshController.add('token-2');
+      await pumpEventQueue();
+      verifyNever(() => gateway.registerDevice('token-2',
+          expectedUserId: any(named: 'expectedUserId')));
+      expect(
+          await service.initialize(), DeviceRegistrationResult.unauthenticated);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('device_reg:user-1:token'), isNull);
+    });
+
+    test('token stream failure is handled and allows registration on resume',
+        () async {
+      final service = buildService();
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      tokenRefreshController
+          .addError(StateError('Native token stream unavailable'));
+      await pumpEventQueue();
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+    });
+
+    test(
+        'revoked permission does not let a later refresh restore initialized state',
+        () async {
+      final service = buildService();
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+      final denied = _MockNotificationSettings();
+      when(() => denied.authorizationStatus)
+          .thenReturn(AuthorizationStatus.denied);
+      when(() => gateway.requestMessagingPermission())
+          .thenAnswer((_) => Future<NotificationSettings>.value(denied));
+      expect(await service.repairDeviceRegistration(),
+          DeviceRegistrationResult.permissionDenied);
+      tokenRefreshController.add('token-2');
+      await pumpEventQueue();
+      verifyNever(() => gateway.registerDevice('token-2',
+          expectedUserId: any(named: 'expectedUserId')));
+      when(() => gateway.requestMessagingPermission())
+          .thenAnswer((_) async => _authorizedSettings);
+      expect(await service.initialize(), DeviceRegistrationResult.registered);
+    });
+
     test('backend rejection remains retryable and is not initialized',
         () async {
-      when(() => gateway.registerDevice('token-1'))
+      when(() => gateway.registerDevice('token-1',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) async => false);
       final service = buildService();
 
@@ -157,7 +555,8 @@ void main() {
         DeviceRegistrationResult.backendRejected,
       );
 
-      verify(() => gateway.registerDevice('token-1')).called(2);
+      verify(() => gateway.registerDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(2);
     });
 
     test('initialization timeout releases lifecycle waiters', () async {
@@ -190,7 +589,8 @@ void main() {
         DeviceRegistrationResult.tokenUnavailable,
       );
 
-      verifyNever(() => gateway.registerDevice(any()));
+      verifyNever(() => gateway.registerDevice(any(),
+          expectedUserId: any(named: 'expectedUserId')));
     });
 
     test('explicit repair bypasses prompt and fresh local cache', () async {
@@ -203,8 +603,10 @@ void main() {
       final result = await service.repairDeviceRegistration();
 
       expect(result, DeviceRegistrationResult.registered);
-      verify(() => gateway.registerDevice('token-1')).called(1);
-      verifyNever(() => gateway.unregisterDevice(any()));
+      verify(() => gateway.registerDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
+      verifyNever(() => gateway.unregisterDevice(any(),
+          expectedUserId: any(named: 'expectedUserId')));
       verifyNever(() => gateway.deleteToken());
     });
 
@@ -214,20 +616,23 @@ void main() {
         await service.initialize(),
         DeviceRegistrationResult.registered,
       );
-      when(() => gateway.unregisterDevice('token-1'))
+      when(() => gateway.unregisterDevice('token-1',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenThrow(Exception('offline'));
 
       await service.unregisterDevice();
       final secondResult = await service.initialize();
 
       expect(secondResult, DeviceRegistrationResult.registered);
-      verify(() => gateway.registerDevice('token-1')).called(2);
+      verify(() => gateway.registerDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(2);
       verify(() => gateway.deleteToken()).called(1);
     });
 
     test('concurrent initialization performs one backend upsert', () async {
       final registration = Completer<bool>();
-      when(() => gateway.registerDevice('token-1'))
+      when(() => gateway.registerDevice('token-1',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) => registration.future);
       final service = buildService();
 
@@ -237,11 +642,13 @@ void main() {
 
       expect(await first, DeviceRegistrationResult.registered);
       expect(await second, DeviceRegistrationResult.registered);
-      verify(() => gateway.registerDevice('token-1')).called(1);
+      verify(() => gateway.registerDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
     });
 
     test('token refresh registers the replacement token', () async {
-      when(() => gateway.registerDevice('token-2'))
+      when(() => gateway.registerDevice('token-2',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) async => true);
       final service = buildService();
       expect(
@@ -252,15 +659,19 @@ void main() {
       tokenRefreshController.add('token-2');
       await Future<void>.delayed(Duration.zero);
 
-      verify(() => gateway.registerDevice('token-2')).called(1);
-      verify(() => gateway.unregisterDevice('token-1')).called(1);
+      verify(() => gateway.registerDevice('token-2',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
+      verify(() => gateway.unregisterDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
     });
 
     test('overlapping token refreshes persist only the latest token', () async {
       final token2Registration = Completer<bool>();
-      when(() => gateway.registerDevice('token-2'))
+      when(() => gateway.registerDevice('token-2',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) => token2Registration.future);
-      when(() => gateway.registerDevice('token-3'))
+      when(() => gateway.registerDevice('token-3',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) async => true);
       final service = buildService();
       expect(
@@ -278,11 +689,15 @@ void main() {
       final preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('device_reg:user-1:token'), 'token-3');
       verifyInOrder([
-        () => gateway.registerDevice('token-2'),
-        () => gateway.registerDevice('token-3'),
+        () => gateway.registerDevice('token-2',
+            expectedUserId: any(named: 'expectedUserId')),
+        () => gateway.registerDevice('token-3',
+            expectedUserId: any(named: 'expectedUserId')),
       ]);
-      verify(() => gateway.unregisterDevice('token-1')).called(1);
-      verify(() => gateway.unregisterDevice('token-2')).called(1);
+      verify(() => gateway.unregisterDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
+      verify(() => gateway.unregisterDevice('token-2',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
     });
 
     test('switching accounts registers the token for the new user', () async {
@@ -300,13 +715,15 @@ void main() {
       final secondResult = await service.initialize();
 
       expect(secondResult, DeviceRegistrationResult.registered);
-      verify(() => gateway.registerDevice('token-1')).called(2);
+      verify(() => gateway.registerDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(2);
     });
 
     test('logout waits for initialization and removes its backend token',
         () async {
       final registration = Completer<bool>();
-      when(() => gateway.registerDevice('token-1'))
+      when(() => gateway.registerDevice('token-1',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) => registration.future);
       final service = buildService();
 
@@ -320,7 +737,8 @@ void main() {
         DeviceRegistrationResult.unauthenticated,
       );
       await logout;
-      verify(() => gateway.unregisterDevice('token-1')).called(1);
+      verify(() => gateway.unregisterDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(1);
       final preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('device_reg:user-1:token'), isNull);
     });
@@ -332,7 +750,8 @@ void main() {
         'device_reg:user-2:token': 'token-2',
       });
       final registration = Completer<bool>();
-      when(() => gateway.registerDevice('token-1'))
+      when(() => gateway.registerDevice('token-1',
+              expectedUserId: any(named: 'expectedUserId')))
           .thenAnswer((_) => registration.future);
       final service = buildService();
 
@@ -344,7 +763,8 @@ void main() {
 
       await initialization;
       await logout;
-      verifyNever(() => gateway.unregisterDevice('token-2'));
+      verifyNever(() => gateway.unregisterDevice('token-2',
+          expectedUserId: any(named: 'expectedUserId')));
       verifyNever(() => gateway.deleteToken());
       final preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('device_reg:user-2:token'), 'token-2');
@@ -367,7 +787,8 @@ void main() {
         DeviceRegistrationResult.registered,
       );
       expect(await repair, DeviceRegistrationResult.registered);
-      verify(() => gateway.registerDevice('token-1')).called(2);
+      verify(() => gateway.registerDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(2);
     });
 
     test('session ending resets registration without requesting a new token',
@@ -386,7 +807,8 @@ void main() {
         await service.initialize(),
         DeviceRegistrationResult.registered,
       );
-      verify(() => gateway.registerDevice('token-1')).called(2);
+      verify(() => gateway.registerDevice('token-1',
+          expectedUserId: any(named: 'expectedUserId'))).called(2);
     });
 
     test('delayed session end cannot clear a newly signed-in user', () async {

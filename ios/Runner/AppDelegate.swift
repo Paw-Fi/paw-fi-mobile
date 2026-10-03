@@ -3446,11 +3446,20 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
+  private(set) var flutterEngine: FlutterEngine?
   private var pendingCommitmentTransactions: [UInt64: StoreKit.Transaction] = [:]
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Flutter 3.35 plugins observe UIApplication.didFinishLaunchingNotification.
+    // Register before this callback returns; scene connection happens too late
+    // for Firebase Messaging to install its APNs registration handlers.
+    let engine = FlutterEngine(name: "moneko_flutter_engine")
+    guard engine.run() else { return false }
+    flutterEngine = engine
+    GeneratedPluginRegistrant.register(with: engine)
+    setupFlutterChannels(binaryMessenger: engine.binaryMessenger)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

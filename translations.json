@@ -135,6 +135,23 @@
     "zh_TW": "",
     "vi": ""
   },
+  "notificationRepairProcessing": {
+    "en": "Checking push notifications…",
+    "de": "",
+    "es": "",
+    "fr": "",
+    "it": "",
+    "ja": "",
+    "ko": "",
+    "nl": "",
+    "ur": "",
+    "ru": "",
+    "th": "",
+    "uk": "",
+    "zh": "",
+    "zh_TW": "",
+    "vi": ""
+  },
   "emailFileImportAccountEmailAlreadyIncluded": {
     "en": "Your Moneko account email is already an allowed sender. No need to add it again.",
     "de": "",

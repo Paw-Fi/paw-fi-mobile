@@ -48,6 +48,11 @@ extension EmailImportSettingsL10nX on AppLocalizations {
 
 extension HomeDashboardL10nX on AppLocalizations {}
 
+/// English fallback until the notification processing catalog is exported.
+extension NotificationRepairL10nX on AppLocalizations {
+  String get notificationRepairProcessing => 'Checking push notifications…';
+}
+
 extension MerchantIdentityL10nX on AppLocalizations {
   String get merchantWebsite => 'Merchant website';
   String get addMerchantWebsite => 'Add merchant website';

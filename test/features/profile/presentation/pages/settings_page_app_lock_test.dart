@@ -1,3 +1,6 @@
+import 'package:moneko/core/l10n/l10n.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,6 +12,9 @@ import 'package:moneko/features/app_lock/presentation/pages/app_lock_setup_page.
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
+import 'package:moneko/features/profile/presentation/providers/notification_repair_provider.dart';
+import 'package:moneko/features/households/data/services/device_registration_service.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
@@ -83,9 +89,13 @@ final _activePlusSubscription = SubscriptionDetails(
 ProviderScope _settingsPageTestScope(
   SharedPreferences preferences, {
   SubscriptionDetails? subscriptionDetails,
+  NotificationRepairController? notificationRepairController,
 }) {
   return ProviderScope(
     overrides: [
+      if (notificationRepairController != null)
+        notificationRepairProvider
+            .overrideWith((_) => notificationRepairController),
       authProvider.overrideWith(_TestAuth.new),
       sharedPreferencesProvider.overrideWithValue(preferences),
       appLockControllerProvider.overrideWith(
@@ -113,6 +123,42 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
   });
+
+  for (final result in [
+    DeviceRegistrationResult.registered,
+    DeviceRegistrationResult.tokenUnavailable
+  ]) {
+    testWidgets(
+        'Fix notification issues blocks then shows a toast for ${result.name}',
+        (tester) async {
+      final completion = Completer<DeviceRegistrationResult>();
+      await tester.pumpWidget(_settingsPageTestScope(preferences,
+          notificationRepairController:
+              NotificationRepairController(() => completion.future)));
+      await tester.pumpAndSettle();
+      final fix = find.text('Fix notification issues');
+      await tester.scrollUntilVisible(fix, 300,
+          scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      await tester.tap(fix);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(BlockingProcessingDialog), findsOneWidget);
+      completion.complete(result);
+      await tester.pumpAndSettle();
+      expect(find.byType(BlockingProcessingDialog), findsNothing);
+      expect(find.text('Notification repair diagnostics'), findsNothing);
+      final context = tester.element(find.byType(SettingsPage));
+      expect(
+          find.text(result == DeviceRegistrationResult.registered
+              ? context.l10n.notificationsRefreshedSuccessfully
+              : context.l10n.failedToUpdateAppSetting),
+          findsOneWidget);
+      expect(find.byType(SettingsPage), findsOneWidget);
+      await tester.pump(const Duration(seconds: 8));
+      await tester.pumpAndSettle();
+    });
+  }
 
   group('App Lock Toggle Behavior', () {
     testWidgets('should not toggle switch when setup is cancelled',
