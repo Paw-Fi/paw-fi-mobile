@@ -551,6 +551,51 @@ class MonekoDatabase {
     ExpenseEntry? relatedOriginalEntry,
     ExpenseEntry? relatedUpdatedEntry,
   }) async {
+    _runInTransaction(() {
+      _writeOptimisticTransactionRow(
+        entry: entry,
+        clientMutationId: clientMutationId,
+        operation: operation,
+        payload: payload,
+        relatedOriginalEntry: relatedOriginalEntry,
+        relatedUpdatedEntry: relatedUpdatedEntry,
+      );
+    });
+    _notifyChanged();
+  }
+
+  Future<void> writeOptimisticTransactionBatch(
+    List<
+            ({
+              ExpenseEntry entry,
+              String clientMutationId,
+              String operation,
+              Map<String, dynamic> payload,
+            })>
+        mutations,
+  ) async {
+    if (mutations.isEmpty) return;
+    _runInTransaction(() {
+      for (final mutation in mutations) {
+        _writeOptimisticTransactionRow(
+          entry: mutation.entry,
+          clientMutationId: mutation.clientMutationId,
+          operation: mutation.operation,
+          payload: mutation.payload,
+        );
+      }
+    });
+    _notifyChanged();
+  }
+
+  void _writeOptimisticTransactionRow({
+    required ExpenseEntry entry,
+    required String clientMutationId,
+    required String operation,
+    required Map<String, dynamic> payload,
+    ExpenseEntry? relatedOriginalEntry,
+    ExpenseEntry? relatedUpdatedEntry,
+  }) {
     final entryWithMutationMetadata = entry.copyWith(
       clientRecordId: entry.clientRecordId ?? entry.id,
       clientMutationId: entry.clientMutationId ?? clientMutationId,
@@ -563,31 +608,27 @@ class MonekoDatabase {
       if (relatedOriginalEntry != null)
         'relatedOriginalEntry': relatedOriginalEntry.toJson(),
     };
-    _runInTransaction(() {
+    _upsertTransaction(
+      entryWithMutationMetadata,
+      syncStatus: localSyncStatusLocal,
+    );
+    if (relatedUpdatedEntry != null) {
       _upsertTransaction(
-        entryWithMutationMetadata,
+        relatedUpdatedEntry.copyWith(clientMutationId: clientMutationId),
         syncStatus: localSyncStatusLocal,
       );
-      if (relatedUpdatedEntry != null) {
-        _upsertTransaction(
-          relatedUpdatedEntry.copyWith(clientMutationId: clientMutationId),
-          syncStatus: localSyncStatusLocal,
-        );
-      }
-      _enqueueMutationRow(
-        clientMutationId: clientMutationId,
-        entityType: 'transaction',
-        entityId: entryWithMutationMetadata.id,
-        operation: operation,
-        payload: outboxPayload,
-      );
-      _rebuildSummary(_SummaryKey.fromEntry(entryWithMutationMetadata));
-      if (relatedUpdatedEntry != null) {
-        _rebuildSummary(_SummaryKey.fromEntry(relatedUpdatedEntry));
-      }
-    });
-
-    _notifyChanged();
+    }
+    _enqueueMutationRow(
+      clientMutationId: clientMutationId,
+      entityType: 'transaction',
+      entityId: entryWithMutationMetadata.id,
+      operation: operation,
+      payload: outboxPayload,
+    );
+    _rebuildSummary(_SummaryKey.fromEntry(entryWithMutationMetadata));
+    if (relatedUpdatedEntry != null) {
+      _rebuildSummary(_SummaryKey.fromEntry(relatedUpdatedEntry));
+    }
   }
 
   Future<void> writeOptimisticWalletTransfer({

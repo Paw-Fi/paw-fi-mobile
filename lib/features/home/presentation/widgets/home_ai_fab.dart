@@ -29,6 +29,7 @@ import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
@@ -410,11 +411,18 @@ Household? _resolveHouseholdForAutoSplit(
   return null;
 }
 
-String _resolveOptimisticAiCategory({
+String resolveAiParsedCategory({
   required Object? rawCategory,
   required Object? rawDescription,
   required bool isIncome,
+  bool isInteractive = false,
 }) {
+  if (isInteractive) {
+    if (rawCategory is! String || rawCategory.trim().isEmpty) {
+      throw const FormatException('Missing verified category');
+    }
+    return rawCategory;
+  }
   final fallback = isIncome ? 'income' : 'other';
   final category = rawCategory?.toString().trim() ?? '';
   final normalizedCategory = normalizeCategory(category);
@@ -1026,7 +1034,7 @@ Future<void> _persistAiTransactions(
   try {
     final database = await container.read(localDatabaseProvider.future);
     localDatabase = database;
-    for (final prepared in preparedMutations) {
+    final localMutations = preparedMutations.map((prepared) {
       final entryForLocalQueue = shouldDeferForReceiptUpload &&
               !prepared.item.transaction.isIncome &&
               durableReceiptImagePath != null
@@ -1042,11 +1050,11 @@ Future<void> _persistAiTransactions(
           householdId: householdId,
         );
       }
-      await database.writeOptimisticTransaction(
+      return (
         entry: entryForLocalQueue,
         clientMutationId: prepared.metadata.clientMutationId,
         operation: 'create',
-        payload: {
+        payload: <String, dynamic>{
           ...prepared.metadata.toRequestJson(),
           'transaction': entryForLocalQueue.toJson(),
           'functionName': prepared.functionName,
@@ -1056,7 +1064,8 @@ Future<void> _persistAiTransactions(
             'localReceiptImagePath': durableReceiptImagePath,
         },
       );
-    }
+    }).toList(growable: false);
+    await database.writeOptimisticTransactionBatch(localMutations);
     queuedLocally = true;
     final queuedHousehold = householdId ?? '<personal>';
     homeSpendTrace(
@@ -1167,6 +1176,12 @@ Future<void> _persistAiTransactions(
               savedExpenseEntriesById[storedEntry.id] = storedEntry;
             }
           } else {
+            if (queuedLocally &&
+                shouldKeepQueuedAiBatchFailureForRetry(result)) {
+              scheduleMobileOutboxDrain(container,
+                  maxMutations: max(20, preparedMutations.length));
+              continue;
+            }
             // Remove failed optimistic entry
             removeOptimisticTransactionWithContainer(
               container: container,
@@ -1178,6 +1193,10 @@ Future<void> _persistAiTransactions(
               clientMutationId: prepared.metadata.clientMutationId,
               error: result['error'] ?? 'Batch item failed',
             );
+            container.read(appMutationErrorProvider.notifier).state =
+                AppMutationErrorEvent(
+                    id: prepared.metadata.clientMutationId,
+                    feature: 'transaction');
             _debugPrint(
                 '❌ Failed to persist transaction at index $originalIndex: ${result['error'] ?? 'unknown error'}');
           }
@@ -1409,6 +1428,32 @@ bool _shouldKeepQueuedLocalMutation(Object error) {
 
 bool shouldQueueAiInputForRetry(Object error) =>
     _shouldKeepQueuedLocalMutation(error);
+
+bool shouldKeepQueuedAiBatchFailureForRetry(Map<String, dynamic> result) {
+  final retryable = result['retryable'];
+  if (retryable is bool) return retryable;
+  final status = result['status'];
+  if (status is int && status >= 400) {
+    return status == 401 ||
+        status == 408 ||
+        status == 425 ||
+        status == 429 ||
+        status >= 500;
+  }
+  if (const {
+    'VALIDATION_ERROR',
+    'INVALID_REQUEST',
+    'BAD_REQUEST',
+    'FORBIDDEN',
+    'SUBSCRIPTION_REQUIRED'
+  }.contains(result['code'])) {
+    return false;
+  }
+  // Legacy batch results carry only a message. That cannot establish whether
+  // the write committed or whether rejection is terminal. Individual outbox
+  // replay uses the same idempotency key and authoritative error classifier.
+  return true;
+}
 
 Map<String, dynamic> buildQueuedAiInputPayload({
   required String userId,
@@ -1676,9 +1721,16 @@ DateTime resolveAiTransactionCreatedAt({
   required bool isRecurring,
   required String? preferredTimezone,
   DateTime? fallbackNow,
+  bool isInteractive = false,
 }) {
   final explicitLocalDateTime = transaction.explicitTransactionLocalDateTime;
   if (!isRecurring && explicitLocalDateTime != null) {
+    if (isInteractive) {
+      return resolveVerifiedAiClock(
+          date: formatDateOnlyYmd(transaction.date),
+          time: transaction.transactionTime!,
+          preferredTimezone: preferredTimezone);
+    }
     return utcInstantFromEffectiveLocalDateTime(
       localDateTimeWall: explicitLocalDateTime,
       preferredTimezone: preferredTimezone,
@@ -2168,7 +2220,8 @@ Future<void> _processExpense(
       locale.countryCode != null && locale.countryCode!.isNotEmpty
           ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
           : locale.languageCode;
-  final today = effectiveToday(preferredTimezone: contact?.preferredTimezone);
+  final today =
+      aiAnalysisWallNow(preferredTimezone: contact?.preferredTimezone);
   final defaultDateYmd = formatDateOnlyYmd(today);
   final filterState = ref.read(homeFilterProvider);
   final selectedCurrency = filterState.selectedCurrency;
@@ -2352,6 +2405,7 @@ Future<void> _processExpense(
 
     if (useInteractiveAnalysis) {
       responseData = await runInteractiveAiAnalysis(
+        preferredTimezone: contact?.preferredTimezone,
         body: {
           ...body,
           if (inputTarget.accountId != null) 'accountId': inputTarget.accountId
@@ -2420,6 +2474,11 @@ Future<void> _processExpense(
       }
     }
 
+    if (!context.mounted) {
+      processingOverlay?.dismiss();
+      return;
+    }
+
     // Use SSE streaming when media is involved to show real-time progress.
     if (responseData == null && shouldStream && dialogController != null) {
       try {
@@ -2480,6 +2539,10 @@ Future<void> _processExpense(
     if (responseData != null && responseData['success'] == true) {
       final innerData = _asStringDynamicMap(responseData['data']);
       final isInteractiveResult = innerData?['interactiveVersion'] == 1;
+      final analysisTimezone =
+          isInteractiveResult && innerData?['preferredTimezone'] is String
+              ? innerData!['preferredTimezone'] as String
+              : contact?.preferredTimezone;
       if (innerData?['requireCorrection'] == true) {
         throw const FormatException('Unresolved analysis cannot be saved');
       }
@@ -2547,9 +2610,11 @@ Future<void> _processExpense(
               : null;
           final resolvedSplitContexts = <String, _AutoSplitContext?>{};
           if (isInteractiveResult) {
-            final groups = groupInteractiveAiItems(items
-                .map((item) => Map<String, dynamic>.from(item as Map))
-                .toList());
+            final groups = groupInteractiveAiItems(
+                items
+                    .map((item) => Map<String, dynamic>.from(item as Map))
+                    .toList(),
+                preferredTimezone: analysisTimezone);
             for (final destination in groups.keys) {
               final id = destination.householdId;
               if (id != null &&
@@ -2600,10 +2665,11 @@ Future<void> _processExpense(
                   _debugPrint('Skipping AI item with invalid amount/currency');
                   return null;
                 }
-                final resolvedCategory = _resolveOptimisticAiCategory(
+                final resolvedCategory = resolveAiParsedCategory(
                   rawCategory: item['category'],
                   rawDescription: item['description'],
                   isIncome: isIncome,
+                  isInteractive: isInteractiveResult,
                 );
                 final transaction = ParsedExpense(
                   isIncome: isIncome,
@@ -2671,7 +2737,8 @@ Future<void> _processExpense(
                 final createdAt = resolveAiTransactionCreatedAt(
                   transaction: transaction,
                   isRecurring: isRecurring,
-                  preferredTimezone: contact?.preferredTimezone,
+                  preferredTimezone: analysisTimezone,
+                  isInteractive: isInteractiveResult,
                 );
                 final optimisticSplitGroup = householdId != null &&
                         householdId.isNotEmpty &&

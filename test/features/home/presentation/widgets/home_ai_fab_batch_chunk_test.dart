@@ -3,6 +3,27 @@ import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 
 void main() {
+  test('ambiguous and retryable batch failures retain durable transactions',
+      () {
+    for (final result in [
+      {'success': false, 'error': 'write failed'},
+      {'success': false, 'status': 503, 'error': 'write failed'},
+      {'success': false, 'code': 'SERVER_ERROR'},
+      {'success': false, 'status': 429},
+      {'success': false, 'status': 401},
+    ]) {
+      expect(shouldKeepQueuedAiBatchFailureForRetry(result), true,
+          reason: result.toString());
+    }
+    expect(
+        shouldKeepQueuedAiBatchFailureForRetry(
+            {'success': false, 'status': 400, 'code': 'VALIDATION_ERROR'}),
+        false);
+    expect(
+        shouldKeepQueuedAiBatchFailureForRetry(
+            {'success': false, 'code': 'VALIDATION_ERROR'}),
+        false);
+  });
   test('chunkList splits items into batches of max size', () {
     final items = List<int>.generate(501, (index) => index);
     final chunks = chunkList(items, 500);
@@ -69,5 +90,50 @@ void main() {
       ),
       fallbackNow,
     );
+  });
+
+  test('verified clocks use the configured IANA zone rather than the device',
+      () {
+    for (final values in [
+      ('2026-07-02', 'America/New_York', DateTime.utc(2026, 7, 2, 22, 45, 27)),
+      ('2026-12-02', 'America/New_York', DateTime.utc(2026, 12, 2, 23, 45, 27)),
+      ('2026-07-02', 'Asia/Kathmandu', DateTime.utc(2026, 7, 2, 13, 0, 27)),
+    ]) {
+      final transaction = ParsedExpense(
+          amount: 30,
+          category: 'food',
+          currency: 'USD',
+          currencySymbol: r'$',
+          date: DateTime.parse(values.$1),
+          transactionTime: '18:45:27');
+      expect(
+          resolveAiTransactionCreatedAt(
+              transaction: transaction,
+              isRecurring: false,
+              preferredTimezone: values.$2,
+              isInteractive: true),
+          values.$3);
+    }
+  });
+
+  test(
+      'verified custom and other categories cannot be replaced by descriptions',
+      () {
+    for (final category in ['家族の食費', 'consulting', 'other']) {
+      expect(
+          resolveAiParsedCategory(
+              rawCategory: category,
+              rawDescription: 'groceries',
+              isIncome: category == 'consulting',
+              isInteractive: true),
+          category);
+    }
+    expect(
+        () => resolveAiParsedCategory(
+            rawCategory: null,
+            rawDescription: 'groceries',
+            isIncome: false,
+            isInteractive: true),
+        throwsFormatException);
   });
 }
