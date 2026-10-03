@@ -1,0 +1,221 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/network/network_reachability_provider.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
+import 'package:moneko/features/app_lock/data/app_lock_repository.dart';
+import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
+import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/data/repositories/ai_input_capture_repository.dart';
+import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _Auth extends Auth {
+  @override
+  AppUser build() => const AppUser(uid: 'owner', email: 'owner@example.com');
+  void changeUser() {
+    state = const AppUser(uid: 'other', email: 'other@example.com');
+  }
+}
+
+class _Store implements AppLockKeyValueStore {
+  @override
+  Future<void> delete(String key) async {}
+  @override
+  Future<String?> read(String key) async => null;
+  @override
+  Future<void> write(String key, String value) async {}
+}
+
+class _Biometrics implements AppLockBiometricService {
+  @override
+  Future<bool> authenticate() async => false;
+  @override
+  Future<AppLockBiometricAvailability> getAvailability() async =>
+      const AppLockBiometricAvailability.unavailable();
+}
+
+class _PausedDrainer extends MobileOutboxDrainer {
+  _PausedDrainer()
+      : super(() async => throw StateError('network disabled in fixture'));
+  @override
+  Future<int> drain({int maxMutations = 20}) async => 0;
+}
+
+Map<String, dynamic> _item(String currency, String wallet,
+        {bool income = false}) =>
+    {
+      'type': income ? 'income' : 'expense',
+      'amount': income ? 20 : 50,
+      'category': income ? 'salary' : 'food',
+      'currency': currency,
+      'date': '2026-10-03',
+      'description': income ? '給料' : '小商店で買い物',
+      'merchant': '小商店',
+      'merchant_id': 'merchant-id',
+      'merchant_structured_name': '小商店',
+      'breakdown': ['一品'],
+      if (!income) 'transactionTime': '18:30:00',
+      if (income) 'isRecurring': true,
+      if (income)
+        'recurrence_rule': {
+          'frequency': 'monthly',
+          'anchor_date': '2026-10-03',
+          'interval': 1
+        },
+      'destination': {
+        'householdId': null,
+        'isPortfolio': false,
+        'accountId': wallet,
+        'accountCurrency': currency,
+        'spaceLabel': 'Personal'
+      },
+    };
+
+void main() {
+  testWidgets(
+      'resumed ready result uses the Home save contract and cannot materialize twice',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final root = Directory.systemTemp.createTempSync('moneko-ai-resume-');
+    final database = MonekoDatabase.inMemory();
+    final repository =
+        AiInputCaptureRepository(database, directory: () async => root);
+    final capturedAt = DateTime.utc(2026, 10, 2, 23, 30);
+    var capture = (await tester.runAsync(() => repository.capture(
+        userId: 'owner',
+        body: {
+          'userId': 'owner',
+          'text': '買い物５０円、給料２０ドル',
+          'date': '2026-10-03',
+          'currency': 'JPY'
+        },
+        target: {'accountType': 'personal'},
+        preferredTimezone: 'Asia/Tokyo',
+        capturedAt: capturedAt,
+        isOnboarding: true)))!;
+    final items = [
+      _item('JPY', 'jpy-wallet'),
+      _item('USD', 'usd-wallet', income: true)
+    ];
+    capture = await repository.checkpoint(capture, {
+      'readyResponse': {
+        'success': true,
+        'data': {
+          'interactiveVersion': 1,
+          'requireCorrection': false,
+          'preferredTimezone': 'Asia/Tokyo',
+          'items': items
+        }
+      },
+      'destinationKeys': items
+          .map((item) => jsonEncode([
+                null,
+                false,
+                (item['destination'] as Map)['accountId'],
+                (item['destination'] as Map)['accountCurrency']
+              ]))
+          .toList(),
+      'completedDestinations': <String>[],
+    });
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_Auth.new),
+      sharedPreferencesProvider.overrideWithValue(preferences),
+      appUserContactProvider.overrideWithValue(null),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      aiInputCaptureRepositoryProvider.overrideWith((ref) async => repository),
+      networkReachabilityProvider.overrideWith((ref) => Stream.value(true)),
+      mobileOutboxDrainerProvider.overrideWith((ref) => _PausedDrainer()),
+      appLockControllerProvider.overrideWith((ref) => AppLockController(
+          userId: 'owner',
+          repository: AppLockRepository(store: _Store()),
+          hasher: AppLockPasscodeHasher(),
+          biometricService: _Biometrics(),
+          isEnabledFlagSet: false,
+          setEnabledFlag: (_) async {})),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await database.close();
+      root.deleteSync(recursive: true);
+    });
+    late BuildContext mountedContext;
+    late WidgetRef mountedRef;
+    await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Consumer(builder: (context, ref, _) {
+              mountedContext = context;
+              mountedRef = ref;
+              return const Scaffold(body: SizedBox());
+            }))));
+    await tester.pump();
+    await tester
+        .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
+    await tester.pump(const Duration(seconds: 2));
+    expect(tester.takeException(), isNull);
+    expect(await repository.pending('owner'), isEmpty);
+    final rows = await database.getRecentTransactions(
+        userId: 'owner', householdId: null);
+    expect(rows, hasLength(2));
+    final expense = rows.singleWhere((row) => row.type == 'expense');
+    expect(expense.walletId, 'jpy-wallet');
+    expect(expense.currency, 'JPY');
+    expect(expense.merchant, '小商店');
+    expect(expense.createdAt.toUtc(), DateTime.utc(2026, 10, 3, 9, 30));
+    final mutations = (await database.getOutboxMutations())
+        .where((row) => row.entityType == 'transaction')
+        .toList();
+    expect(mutations, hasLength(2));
+    final requests =
+        mutations.map((row) => jsonDecode(row.payloadJson) as Map).toList();
+    final expenseRequest = requests.singleWhere(
+        (row) => row['functionName'] == 'save-expense')['requestBody'] as Map;
+    expect(expenseRequest['merchant'], '小商店');
+    expect(expenseRequest['merchantId'], 'merchant-id');
+    expect(expenseRequest['merchantStructuredName'], '小商店');
+    expect(expenseRequest['breakdown'], ['一品']);
+    final incomeRequest = requests.singleWhere(
+        (row) => row['functionName'] == 'save-income')['requestBody'] as Map;
+    expect(incomeRequest['currency'], 'USD');
+    expect(incomeRequest['accountId'], 'usd-wallet');
+    expect(incomeRequest['isRecurring'], true);
+    expect(incomeRequest['recurrence_rule'],
+        {'frequency': 'monthly', 'anchor_date': '2026-10-03', 'interval': 1});
+    expect(incomeRequest['clientCreatedAt'], capturedAt.toIso8601String());
+    expect(requests.every((row) => row['aiCaptureId'] == capture.id), isTrue);
+    expect(
+        container.read(transactionsFeedRefreshSignalProvider), greaterThan(0));
+    expect(container.read(dashboardRefreshSignalProvider), greaterThan(0));
+    container.read(aiInputResumeControllerProvider).wake();
+    await tester
+        .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
+    expect(
+        await database.getRecentTransactions(
+            userId: 'owner', householdId: null),
+        hasLength(2));
+    (container.read(authProvider.notifier) as _Auth).changeUser();
+    await tester
+        .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
+    expect(
+        await database.getRecentTransactions(
+            userId: 'other', householdId: null),
+        isEmpty);
+    await tester.pumpWidget(const SizedBox());
+  });
+}

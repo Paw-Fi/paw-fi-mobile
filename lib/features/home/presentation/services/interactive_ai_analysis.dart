@@ -91,13 +91,39 @@ Future<Map<String, dynamic>?> runInteractiveAiAnalysis({
   required Future<bool> Function(Object) retry,
   required bool Function() isActive,
   String? preferredTimezone,
+  List<Map<String, String>> initialAnswers = const [],
+  AiAnalysisQuestion? initialQuestion,
+  AiClockIssue? initialClockIssue,
+  Future<void> Function(List<Map<String, String>> answers,
+          AiAnalysisQuestion? question, AiClockIssue? clockIssue)?
+      checkpoint,
 }) async {
-  final answers = <Map<String, String>>[];
-  AiClockIssue? pendingClockIssue;
+  final answers = initialAnswers.map(Map<String, String>.from).toList();
+  AiClockIssue? pendingClockIssue = initialClockIssue;
+  AiAnalysisQuestion? pendingQuestion = initialQuestion;
+  Future<void> persist() async => checkpoint?.call(
+      answers.map(Map<String, String>.from).toList(),
+      pendingQuestion,
+      pendingClockIssue);
   while (isActive()) {
     Map<String, dynamic> response;
     Map<String, dynamic> data;
     try {
+      if (pendingQuestion != null) {
+        final answer = await ask(pendingQuestion);
+        if (answer == null) return null;
+        final normalized = answer.trim();
+        if (normalized.isEmpty || normalized.length > 4000) {
+          throw const FormatException('Invalid clarification answer');
+        }
+        answers
+            .add({'question': pendingQuestion.question, 'answer': normalized});
+        pendingQuestion = null;
+        pendingClockIssue = null;
+        await persist();
+        if (!isActive()) return null;
+        continue;
+      }
       response = await invoke({
         ...body,
         'interactive': {
@@ -150,17 +176,11 @@ Future<Map<String, dynamic>?> runInteractiveAiAnalysis({
         throw const FormatException(
             'Unresolved analysis contains transactions');
       }
-      final question = AiAnalysisQuestion.fromJson(data['correction']);
-      final answer = await ask(question);
-      if (!isActive() || answer == null) return null;
-      final normalized = answer.trim();
-      if (normalized.isEmpty || normalized.length > 4000) {
-        throw const FormatException('Invalid clarification answer');
-      }
-      answers.add({'question': question.question, 'answer': normalized});
-      pendingClockIssue = null;
+      pendingQuestion = AiAnalysisQuestion.fromJson(data['correction']);
+      await persist();
     } on AiClockIssue catch (issue) {
       pendingClockIssue = issue;
+      await persist();
     } catch (error) {
       if (!isActive() || !await retry(error) || !isActive()) return null;
     }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -76,6 +77,7 @@ class SyncCoordinator {
         if (error is NonRetryableLocalMutationException ||
             (!isDurableHouseholdSettlementMutation(mutation) &&
                 !_isDurableRecurringOccurrenceMutation(mutation) &&
+                !_isDurableAiCaptureTransaction(mutation) &&
                 nextAttempt >= maxAttempts)) {
           final didCancel =
               await database.markMutationCancelledIfPayloadMatches(
@@ -98,6 +100,21 @@ class SyncCoordinator {
     }
 
     return syncedCount;
+  }
+
+  static bool _isDurableAiCaptureTransaction(LocalMutationOutboxData mutation) {
+    if (mutation.entityType != 'transaction' ||
+        mutation.operation != 'create') {
+      return false;
+    }
+    try {
+      final payload = jsonDecode(mutation.payloadJson);
+      return payload is Map &&
+          payload['aiCaptureId'] is String &&
+          (payload['aiCaptureId'] as String).isNotEmpty;
+    } catch (_) {
+      return false;
+    }
   }
 
   static bool _isDurableRecurringOccurrenceMutation(

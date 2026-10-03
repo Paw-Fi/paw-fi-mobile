@@ -12,7 +12,6 @@ import 'package:moneko/core/sync/sync_coordinator.dart';
 import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
@@ -255,6 +254,7 @@ Future<void> _dispatchMobileMutation(
       final responseBody = await _invokeMutationFunction(
         payload['functionName']?.toString(),
         requestBody,
+        isAiCapture: payload['aiCaptureId'] is String,
       );
       if (mutation.entityType == 'transaction') {
         final savedPayload = _extractSavedEntryPayload(responseBody);
@@ -311,10 +311,12 @@ Future<void> _dispatchMobileMutation(
         ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         _commitRecurringOptimisticMutation(ref, mutation.clientMutationId);
       }
-      await _deleteQueuedLocalFile(payload['localReceiptImagePath']);
+      await deleteQueuedReceiptIfUnused(database, mutation, payload);
       return;
     case 'analyze_ai_input':
-      await _analyzeQueuedAiInput(database, payload, mutation.entityId);
+      // Analysis needs the foreground clarification UI and the full Home save contract.
+      // Holding this row also lets financial mutations behind it continue syncing.
+      await database.holdAiInputForForeground(mutation);
       return;
     case 'invoke_function':
       final functionName = payload['functionName']?.toString();
@@ -633,6 +635,11 @@ Future<void> _handleCancelledMobileMutation(
   }
   if (mutation.entityType != 'wallet') {
     await database.markTransactionMutationExhausted(mutation: mutation);
+    await deleteQueuedReceiptIfUnused(
+      database,
+      mutation,
+      _decodePayload(mutation.payloadJson),
+    );
     ref
         .read(recurringSeriesOptimisticProvider.notifier)
         .rollbackMutation(mutation.clientMutationId);
@@ -881,8 +888,9 @@ Future<void> _deleteCategoryRemap(Map<String, dynamic> payload) async {
 
 Future<Map<String, dynamic>> _invokeMutationFunction(
   String? functionName,
-  Map<String, dynamic>? body,
-) async {
+  Map<String, dynamic>? body, {
+  bool isAiCapture = false,
+}) async {
   if (functionName == null || functionName.isEmpty) {
     throw ArgumentError('Missing mutation function name');
   }
@@ -908,6 +916,11 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
     // Preserve retry semantics for auth, throttling, transport and server errors.
     final details = _mapValue(error.details);
     final code = details?['code']?.toString() ?? '';
+    if (isAiCapture && isTerminalAiCaptureStatus(error.status)) {
+      throw NonRetryableLocalMutationException(
+        details?['error']?.toString() ?? '$functionName failed',
+      );
+    }
     if (!isRecurringOccurrenceMutation ||
         (error.status != 400 && error.status != 403) ||
         !_isTerminalRecurringOccurrenceCode(code)) {
@@ -919,6 +932,12 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
   }
   if (responseBody == null || responseBody['success'] != true) {
     final code = responseBody?['code']?.toString() ?? '';
+    final status = responseBody?['status'];
+    if (isAiCapture && status is int && isTerminalAiCaptureStatus(status)) {
+      throw NonRetryableLocalMutationException(
+        responseBody?['error']?.toString() ?? '$functionName failed',
+      );
+    }
     if (isRecurringOccurrenceMutation &&
         _isTerminalRecurringOccurrenceCode(code)) {
       throw NonRetryableLocalMutationException(
@@ -976,86 +995,24 @@ Future<Map<String, dynamic>?> _requestBodyWithQueuedReceipt(
   };
 }
 
-Future<void> _analyzeQueuedAiInput(
-  MonekoDatabase database,
-  Map<String, dynamic> payload,
-  String queuedInputId,
-) async {
-  final userId = payload['userId']?.toString();
-  if (userId == null || userId.isEmpty) {
-    throw ArgumentError('Missing userId for queued AI input');
-  }
+bool isTerminalAiCaptureStatus(int status) =>
+    status >= 400 &&
+    status < 500 &&
+    !const {401, 408, 425, 429}.contains(status);
 
-  final analysisBody = await _queuedAiAnalysisBody(payload);
-  final analysisResponse = await _invokeMutationFunction(
-    'analyze-expense',
-    analysisBody,
-  );
-  final transactions = await _saveTransactionsForQueuedAiInput(
-    database: database,
-    userId: userId,
-    payload: payload,
-    queuedInputId: queuedInputId,
-    analysisResponse: analysisResponse,
-  );
-  if (transactions.isEmpty) {
-    throw StateError('Queued AI input produced no saveable transactions');
+Future<void> deleteQueuedReceiptIfUnused(MonekoDatabase database,
+    LocalMutationOutboxData mutation, Map<String, dynamic> payload) async {
+  final path = payload['localReceiptImagePath'];
+  if (path is! String || path.isEmpty) {
+    return;
   }
-
-  final batchResponse =
-      await _invokeMutationFunction('save-transactions-batch', {
-    'userId': userId,
-    'debugTraceId': 'mobile-ai-replay-$queuedInputId',
-    if (payload['householdId'] != null) 'householdId': payload['householdId'],
-    if (payload['householdId'] != null)
-      'isPortfolio': payload['isPortfolio'] == true,
-    'transactions': transactions,
-  });
-  _ensureQueuedBatchSavedAll(
-    batchResponse,
-    expectedCount: transactions.length,
-  );
-  await _deleteQueuedAiInputFiles(payload);
-}
-
-void _ensureQueuedBatchSavedAll(
-  Map<String, dynamic> responseBody, {
-  required int expectedCount,
-}) {
-  final summary = _mapValue(responseBody['summary']);
-  final summaryFailed = (summary?['failed'] as num?)?.toInt();
-  final summarySucceeded = (summary?['succeeded'] as num?)?.toInt();
-  final rawResults = responseBody['results'];
-  final results = rawResults is List
-      ? rawResults.map(_mapValue).whereType<Map<String, dynamic>>().toList()
-      : const <Map<String, dynamic>>[];
-  final failedResults = results.where((result) => result['success'] != true);
-
-  if (summaryFailed != null && summaryFailed > 0) {
-    throw StateError(
-      'Queued AI input batch save failed for $summaryFailed transaction(s)',
-    );
+  if (await database.hasOtherPendingReceiptReference(
+      path: path,
+      clientMutationId: mutation.clientMutationId,
+      expectedPayloadJson: mutation.payloadJson)) {
+    return;
   }
-  if (failedResults.isNotEmpty) {
-    throw StateError(
-      'Queued AI input batch save returned failed transaction result(s)',
-    );
-  }
-  if (summarySucceeded != null && summarySucceeded < expectedCount) {
-    throw StateError(
-      'Queued AI input batch save persisted $summarySucceeded/$expectedCount transaction(s)',
-    );
-  }
-  if (results.isNotEmpty && results.length < expectedCount) {
-    throw StateError(
-      'Queued AI input batch save returned ${results.length}/$expectedCount transaction result(s)',
-    );
-  }
-}
-
-Future<void> _deleteQueuedAiInputFiles(Map<String, dynamic> payload) async {
-  await _deleteQueuedLocalFile(payload['localImagePath']);
-  await _deleteQueuedLocalFile(payload['localAudioPath']);
+  await _deleteQueuedLocalFile(path);
 }
 
 Future<void> _deleteQueuedLocalFile(Object? path) async {
@@ -1068,193 +1025,6 @@ Future<void> _deleteQueuedLocalFile(Object? path) async {
       await file.delete();
     }
   } catch (_) {}
-}
-
-Future<Map<String, dynamic>> _queuedAiAnalysisBody(
-  Map<String, dynamic> payload,
-) async {
-  final body = _mapValue(payload['body']);
-  if (body == null || body.isEmpty) {
-    throw ArgumentError('Missing queued AI input body');
-  }
-  final nextBody = Map<String, dynamic>.from(body);
-
-  final localImagePath = payload['localImagePath']?.toString();
-  if (localImagePath != null && localImagePath.isNotEmpty) {
-    final file = File(localImagePath);
-    if (!await file.exists()) {
-      throw FileSystemException('Queued AI image is missing', localImagePath);
-    }
-    nextBody['image'] = <String, dynamic>{
-      'data': base64Encode(await file.readAsBytes()),
-      'contentType': payload['imageContentType']?.toString() ?? 'image/jpeg',
-    };
-  }
-
-  final localAudioPath = payload['localAudioPath']?.toString();
-  if (localAudioPath != null && localAudioPath.isNotEmpty) {
-    final file = File(localAudioPath);
-    if (!await file.exists()) {
-      throw FileSystemException('Queued AI audio is missing', localAudioPath);
-    }
-    nextBody['audio'] = <String, dynamic>{
-      'data': base64Encode(await file.readAsBytes()),
-      'contentType': payload['audioContentType']?.toString() ?? 'audio/mpeg',
-    };
-  }
-
-  return nextBody;
-}
-
-Future<List<Map<String, dynamic>>> _saveTransactionsForQueuedAiInput({
-  required MonekoDatabase database,
-  required String userId,
-  required Map<String, dynamic> payload,
-  required String queuedInputId,
-  required Map<String, dynamic> analysisResponse,
-}) async {
-  final data = _mapValue(analysisResponse['data']);
-  final rawItems = data?['items'];
-  if (rawItems is! List || rawItems.isEmpty) {
-    return const <Map<String, dynamic>>[];
-  }
-  final items = rawItems.length > 1
-      ? rawItems.where((item) => !_isTotalLikeAnalysisItem(item)).toList()
-      : rawItems;
-  if (items.isEmpty) return const <Map<String, dynamic>>[];
-
-  String? receiptUrl;
-  final localImagePath = payload['localImagePath']?.toString();
-  if (localImagePath != null && localImagePath.isNotEmpty) {
-    final userId = payload['userId']?.toString();
-    if (userId == null || userId.isEmpty) {
-      throw ArgumentError('Missing userId for queued receipt upload');
-    }
-    receiptUrl = await _uploadQueuedReceiptImage(
-      localImagePath,
-      userId,
-      storageKey: queuedInputId,
-    );
-  }
-
-  final clientCreatedAt = DateTime.now().toUtc().toIso8601String();
-  final queuedBody = _mapValue(payload['body']);
-  final transactions = <Map<String, dynamic>>[];
-  for (var index = 0; index < items.length; index++) {
-    final item = _mapValue(items[index]);
-    if (item == null) continue;
-
-    final amount = _parseAmount(item['amount']);
-    final currency = item['currency']?.toString().trim();
-    final accountCurrency =
-        payload['accountCurrency']?.toString().trim().toUpperCase();
-    final date =
-        item['date']?.toString().trim() ?? queuedBody?['date']?.toString();
-    if (amount == null || currency == null || currency.isEmpty) continue;
-    if (date == null || date.isEmpty) continue;
-
-    final rawType = item['type']?.toString().trim().toLowerCase();
-    final isIncome = rawType == 'income' || item['is_income'] == true;
-    final rawCategory = item['category']?.toString().trim();
-    final category = await _resolveQueuedCategory(
-      database: database,
-      userId: userId,
-      transactionType: isIncome ? 'income' : 'expense',
-      rawCategory: rawCategory,
-      rawDescription: item['description']?.toString().trim(),
-      fallbackCategory: isIncome ? 'income' : 'other',
-    );
-    final clientRecordId = '$queuedInputId-$index';
-    final transaction = <String, dynamic>{
-      'type': isIncome ? 'income' : 'expense',
-      'amount': amount,
-      'category': category,
-      'currency': currency,
-      'date': date,
-      'clientCreatedAt': clientCreatedAt,
-      'clientRecordId': clientRecordId,
-      'clientMutationId': 'mobile:$clientRecordId',
-      'idempotencyKey': 'mobile:$clientRecordId',
-      if (payload['accountId'] != null &&
-          (accountCurrency == null ||
-              accountCurrency.isEmpty ||
-              accountCurrency == currency.toUpperCase()))
-        'accountId': payload['accountId'],
-      if (!isIncome && receiptUrl != null) 'receiptImageUrl': receiptUrl,
-      if (item['description']?.toString().trim().isNotEmpty == true)
-        'description': item['description'].toString().trim(),
-      if (item['breakdown'] is List) 'breakdown': item['breakdown'],
-      if (item['payerUserId']?.toString().trim().isNotEmpty == true)
-        'payerUserId': item['payerUserId'].toString().trim(),
-      if (item['customSplits'] is Map) 'customSplits': item['customSplits'],
-    };
-    transactions.add(transaction);
-  }
-  return transactions;
-}
-
-Future<String> _resolveQueuedCategory({
-  required MonekoDatabase database,
-  required String userId,
-  required String transactionType,
-  required String? rawCategory,
-  required String? rawDescription,
-  required String fallbackCategory,
-}) async {
-  final category = _resolveQueuedBaseCategory(
-    rawCategory: rawCategory,
-    rawDescription: rawDescription,
-    fallbackCategory: fallbackCategory,
-  );
-  final mapped = await database.resolveCategoryRemap(
-    userId: userId,
-    category: category,
-    transactionType: transactionType,
-  );
-  return mapped ?? category;
-}
-
-String _resolveQueuedBaseCategory({
-  required String? rawCategory,
-  required String? rawDescription,
-  required String fallbackCategory,
-}) {
-  final normalizedCategory = normalizeCategory(rawCategory ?? '');
-  final builtinCategory = resolveBuiltinCategoryKeyAcrossLocales(
-    normalizedCategory,
-  );
-  if (builtinCategory != null &&
-      builtinCategory != 'other' &&
-      builtinCategory != 'uncategorized') {
-    return builtinCategory;
-  }
-
-  final normalizedDescription = normalizeCategory(rawDescription ?? '');
-  final descriptionCategory = resolveBuiltinCategoryKeyAcrossLocales(
-    normalizedDescription,
-  );
-  if (descriptionCategory != null &&
-      descriptionCategory != 'other' &&
-      descriptionCategory != 'uncategorized') {
-    return descriptionCategory;
-  }
-
-  return builtinCategory ?? fallbackCategory;
-}
-
-double? _parseAmount(Object? value) {
-  if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value.trim());
-  return null;
-}
-
-bool _isTotalLikeAnalysisItem(Object? value) {
-  final item = _mapValue(value);
-  final description = item?['description']?.toString() ?? '';
-  return RegExp(
-    r'(sub\s*total|subtotal|grand\s*total|total)',
-    caseSensitive: false,
-  ).hasMatch(description);
 }
 
 Future<String> _uploadQueuedReceiptImage(

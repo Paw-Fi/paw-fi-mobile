@@ -21,6 +21,8 @@ extension RecurrencePickerL10nX on AppLocalizations {
 }
 
 extension AiClarificationL10nX on AppLocalizations {
+  String get aiInputSavedForLater =>
+      'Input saved on this device. Analysis will continue when you open Moneko with an internet connection.';
   String get aiClarificationNotSaved =>
       'Nothing is saved until these details are confirmed.';
   String get aiClarificationCustomAnswer => 'Type your own answer';

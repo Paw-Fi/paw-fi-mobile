@@ -42,6 +42,99 @@ final correction = {
 };
 
 void main() {
+  test(
+      'a saved question reopens before analysis and custom answers checkpoint before invocation',
+      () async {
+    final events = <String>[];
+    final answers = [
+      {'question': '金額は？', 'answer': '７０円'}
+    ];
+    final result = await runInteractiveAiAnalysis(
+      body: {'text': '買い物'},
+      initialAnswers: answers,
+      initialQuestion: AiAnalysisQuestion.fromJson(
+          (correction['data'] as Map)['correction']),
+      ask: (question) async {
+        events.add('ask');
+        return '家族に３０円';
+      },
+      checkpoint: (savedAnswers, question, clock) async {
+        events.add('checkpoint');
+        expect(savedAnswers, [
+          ...answers,
+          {'question': '残りの30は誰に？', 'answer': '家族に３０円'}
+        ]);
+        expect(question, isNull);
+      },
+      invoke: (request) async {
+        events.add('invoke');
+        expect((request['interactive'] as Map)['answers'], hasLength(2));
+        return ready([item(null, null, 'JPY')]);
+      },
+      retry: (_) async => false,
+      isActive: () => true,
+    );
+    expect(result, isNotNull);
+    expect(events, ['ask', 'checkpoint', 'invoke']);
+    expect(answers, hasLength(1));
+  });
+
+  test(
+      'a dismissed question is checkpointed with no transaction save or second request',
+      () async {
+    final events = <String>[];
+    final result = await runInteractiveAiAnalysis(
+      body: {'text': '買い物'},
+      invoke: (_) async {
+        events.add('invoke');
+        return correction;
+      },
+      checkpoint: (answers, question, issue) async {
+        events.add('checkpoint');
+        expect(question?.question, '残りの30は誰に？');
+        expect(answers, isEmpty);
+      },
+      ask: (_) async {
+        events.add('ask');
+        return null;
+      },
+      retry: (_) async => false,
+      isActive: () => true,
+    );
+    expect(result, isNull);
+    expect(events, ['invoke', 'checkpoint', 'ask']);
+  });
+
+  test(
+      'an accepted answer persists if the app pauses immediately before its next request',
+      () async {
+    var active = true;
+    var checkpointed = false;
+    var requests = 0;
+    final result = await runInteractiveAiAnalysis(
+      body: {'text': '買い物'},
+      invoke: (_) async {
+        requests++;
+        return correction;
+      },
+      ask: (_) async {
+        active = false;
+        return '私に３０円';
+      },
+      checkpoint: (answers, question, issue) async {
+        if (answers.isNotEmpty) {
+          checkpointed = true;
+          expect(answers.single['answer'], '私に３０円');
+        }
+      },
+      retry: (_) async => false,
+      isActive: () => active,
+    );
+    expect(result, isNull);
+    expect(requests, 1);
+    expect(checkpointed, isTrue);
+  });
+
   test('AI default day follows the configured IANA timezone', () {
     final now = DateTime.utc(2026, 10, 2, 23, 30);
     expect(aiAnalysisWallNow(preferredTimezone: 'Asia/Tokyo', at: now).day, 3);

@@ -43,6 +43,9 @@ import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/services/interactive_ai_analysis.dart';
+import 'package:moneko/features/home/data/repositories/ai_input_capture_repository.dart';
+import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
+import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/home/presentation/widgets/ai_correction_sheet.dart';
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
@@ -50,7 +53,6 @@ import 'package:moneko/features/home/presentation/state/expense_save_providers.d
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
-import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -547,6 +549,9 @@ Future<void> _persistAiTransactions(
   String? localImagePath,
   bool requestReview = true,
   BuildContext? candidateReviewContext,
+  AiInputCapture? capturedInput,
+  String? captureDestinationKey,
+  bool Function()? isCaptureActive,
 }) async {
   if (transactions.isEmpty) return;
 
@@ -891,7 +896,9 @@ Future<void> _persistAiTransactions(
       localImagePath.isNotEmpty &&
       transactions.any((item) => !item.transaction.isIncome);
   Object? receiptUploadError;
-  if (localImagePath != null && localImagePath.isNotEmpty) {
+  if (capturedInput == null &&
+      localImagePath != null &&
+      localImagePath.isNotEmpty) {
     try {
       receiptUrl = await _uploadReceiptImageForAiQueue(
         File(localImagePath),
@@ -905,9 +912,10 @@ Future<void> _persistAiTransactions(
     }
   }
   var shouldDeferForReceiptUpload = hasReceiptExpense &&
-      receiptUrl == null &&
-      receiptUploadError != null &&
-      _shouldKeepQueuedLocalMutation(receiptUploadError);
+      (capturedInput != null ||
+          (receiptUrl == null &&
+              receiptUploadError != null &&
+              _shouldKeepQueuedLocalMutation(receiptUploadError)));
   String? durableReceiptImagePath;
   if (shouldDeferForReceiptUpload) {
     try {
@@ -917,6 +925,7 @@ Future<void> _persistAiTransactions(
         fallbackExtension: 'jpg',
       );
     } catch (error) {
+      if (capturedInput != null) rethrow;
       shouldDeferForReceiptUpload = false;
       _debugPrint(
         '⚠️ Failed to keep receipt image for retry; saving without receipt: $error',
@@ -1055,6 +1064,7 @@ Future<void> _persistAiTransactions(
         clientMutationId: prepared.metadata.clientMutationId,
         operation: 'create',
         payload: <String, dynamic>{
+          if (capturedInput != null) 'aiCaptureId': capturedInput.id,
           ...prepared.metadata.toRequestJson(),
           'transaction': entryForLocalQueue.toJson(),
           'functionName': prepared.functionName,
@@ -1065,7 +1075,20 @@ Future<void> _persistAiTransactions(
         },
       );
     }).toList(growable: false);
-    await database.writeOptimisticTransactionBatch(localMutations);
+    if (capturedInput != null) {
+      if (isCaptureActive?.call() != true) {
+        throw StateError('AI capture owner is no longer active');
+      }
+      await database.materializeAiInputDestination(
+        clientMutationId: capturedInput.mutation.clientMutationId,
+        userId: userId,
+        expectedReadyResponseJson: jsonEncode(capturedInput.readyResponse),
+        destinationKey: captureDestinationKey!,
+        mutations: localMutations,
+      );
+    } else {
+      await database.writeOptimisticTransactionBatch(localMutations);
+    }
     queuedLocally = true;
     final queuedHousehold = householdId ?? '<personal>';
     homeSpendTrace(
@@ -1077,6 +1100,13 @@ Future<void> _persistAiTransactions(
     container.read(dashboardRefreshSignalProvider.notifier).state += 1;
   } catch (error) {
     _debugPrint('⚠️ Failed to queue AI transactions locally: $error');
+    if (capturedInput != null) rethrow;
+  }
+
+  if (capturedInput != null) {
+    scheduleMobileOutboxDrain(container,
+        maxMutations: max(20, preparedMutations.length));
+    return;
   }
 
   if (shouldDeferForReceiptUpload && queuedLocally) {
@@ -1582,21 +1612,6 @@ Future<String> _copyPendingAiInputFile({
   return copy.path;
 }
 
-Future<String> _writePendingAiInputBytes({
-  required Uint8List bytes,
-  required String prefix,
-  required String extension,
-}) async {
-  final directory = await _pendingAiInputDirectory();
-  final safeExtension =
-      RegExp(r'^[a-z0-9]{1,8}$').hasMatch(extension) ? extension : 'bin';
-  final fileName = '${prefix}_${DateTime.now().microsecondsSinceEpoch}_'
-      '${Random.secure().nextInt(1 << 32)}.$safeExtension';
-  final file = File('${directory.path}/$fileName');
-  await file.writeAsBytes(bytes, flush: true);
-  return file.path;
-}
-
 Future<String> _uploadReceiptImageForAiQueue(
     File imageFile, String userId) async {
   final compressedBytes = await ImageCompressor.compressFile(
@@ -1620,79 +1635,6 @@ Future<String> _uploadReceiptImageForAiQueue(
       );
   if (response.isEmpty) throw StateError('Receipt upload failed');
   return supabase.storage.from('expense-receipts').getPublicUrl(path);
-}
-
-Future<bool> _queueAiInputForBackgroundRetry(
-  ProviderContainer container, {
-  required String userId,
-  required String? householdId,
-  required bool isPortfolio,
-  required String? accountId,
-  String? accountCurrency,
-  required Map<String, dynamic> analysisBody,
-  String? imagePath,
-  Uint8List? audioBytes,
-  String? audioContentType,
-}) async {
-  final hasText = analysisBody['text']?.toString().trim().isNotEmpty == true;
-  final hasAttachments = analysisBody['attachments'] is List &&
-      (analysisBody['attachments'] as List).isNotEmpty;
-  final hasImage = imagePath?.trim().isNotEmpty == true;
-  final hasAudio = audioBytes != null && audioBytes.isNotEmpty;
-  if (!hasText && !hasAttachments && !hasImage && !hasAudio) return false;
-
-  String? durableImagePath;
-  String? durableAudioPath;
-  if (hasImage) {
-    durableImagePath = await _copyPendingAiInputFile(
-      source: File(imagePath!),
-      prefix: 'image',
-      fallbackExtension: 'jpg',
-    );
-  }
-  if (hasAudio) {
-    final contentType = audioContentType ?? 'audio/mpeg';
-    final extension = contentType.contains('aac')
-        ? 'aac'
-        : contentType.contains('wav')
-            ? 'wav'
-            : contentType.contains('m4a')
-                ? 'm4a'
-                : 'mp3';
-    durableAudioPath = await _writePendingAiInputBytes(
-      bytes: audioBytes,
-      prefix: 'audio',
-      extension: extension,
-    );
-  }
-
-  final database = await container.read(localDatabaseProvider.future);
-  final queuedId = makeOptimisticTransactionId().replaceFirst(
-    'optimistic_',
-    'ai_input_',
-  );
-  final payload = buildQueuedAiInputPayload(
-    userId: userId,
-    householdId: householdId,
-    isPortfolio: isPortfolio,
-    accountId: accountId,
-    accountCurrency: accountCurrency,
-    analysisBody: analysisBody,
-    localImagePath: durableImagePath,
-    imageContentType:
-        imagePath == null ? null : _imageContentTypeForPath(imagePath),
-    localAudioPath: durableAudioPath,
-    audioContentType: audioContentType,
-  );
-
-  await database.enqueueMutation(
-    clientMutationId: 'mobile:$queuedId',
-    entityType: 'ai_input',
-    entityId: queuedId,
-    operation: 'analyze_ai_input',
-    payload: payload,
-  );
-  return true;
 }
 
 List<List<T>> chunkList<T>(List<T> items, int maxSize) {
@@ -2076,11 +2018,7 @@ Future<void> handleAiFileOrGallery(
         style: AlertActionStyle.primary,
         onPressed: () async {
           if (!context.mounted) return;
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const ImportWizardPage(),
-            ),
-          );
+          await handleAiFileUpload(context, ref, onSuccess: onSuccess);
         },
       ),
       AlertAction(
@@ -2195,6 +2133,49 @@ Future<void> _maybeShowUnsetHoldQuickActionReminder(
   await prefs.setBool(shownKey, true);
 }
 
+Future<void> resumePendingAiInputs(BuildContext context, WidgetRef ref) async {
+  final userId = ref.read(authProvider).uid;
+  if (userId.isEmpty ||
+      ref.read(previewModeProvider).isActive ||
+      ref.read(aiInputResumeControllerProvider).isActive) {
+    return;
+  }
+  final container = ProviderScope.containerOf(context, listen: false);
+  final repository =
+      await container.read(aiInputCaptureRepositoryProvider.future);
+  if (!context.mounted || container.read(authProvider).uid != userId) return;
+  for (final capture in await repository.pending(userId)) {
+    if (!context.mounted ||
+        container.read(authProvider).uid != userId ||
+        container.read(networkReachabilityProvider).valueOrNull == false ||
+        container.read(appLockControllerProvider).shouldBlockApp ||
+        (WidgetsBinding.instance.lifecycleState != null &&
+            WidgetsBinding.instance.lifecycleState !=
+                AppLifecycleState.resumed)) {
+      return;
+    }
+    final target = capture.payload['target'] is Map
+        ? Map<String, dynamic>.from(capture.payload['target'] as Map)
+        : capture.payload;
+    await _processExpense(
+      context,
+      ref,
+      inputTarget: AiInputTarget(
+        accountType: aiInputTargetAccountTypeFromStorage(
+                target['accountType'] as String?) ??
+            ActiveWalletType.personal,
+        householdId: target['householdId'] as String?,
+        isPortfolio: target['isPortfolio'] == true,
+        accountId: target['accountId'] as String?,
+        accountCurrency: target['accountCurrency'] as String?,
+        spaceLabel: target['spaceLabel'] as String?,
+      ),
+      pendingCapture: capture,
+      isOnboarding: capture.payload['isOnboarding'] == true,
+    );
+  }
+}
+
 Future<void> _processExpense(
   BuildContext context,
   WidgetRef ref, {
@@ -2206,6 +2187,7 @@ Future<void> _processExpense(
   required AiInputTarget inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
   bool isOnboarding = false,
+  AiInputCapture? pendingCapture,
 }) async {
   final user = ref.read(authProvider);
   final preview = ref.read(previewModeProvider);
@@ -2220,8 +2202,12 @@ Future<void> _processExpense(
       locale.countryCode != null && locale.countryCode!.isNotEmpty
           ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
           : locale.languageCode;
+  final preferredTimezone = pendingCapture == null
+      ? contact?.preferredTimezone
+      : pendingCapture.payload['preferredTimezone'] as String?;
+  final capturedAt = pendingCapture?.capturedAt ?? DateTime.now();
   final today =
-      aiAnalysisWallNow(preferredTimezone: contact?.preferredTimezone);
+      aiAnalysisWallNow(preferredTimezone: preferredTimezone, at: capturedAt);
   final defaultDateYmd = formatDateOnlyYmd(today);
   final filterState = ref.read(homeFilterProvider);
   final selectedCurrency = filterState.selectedCurrency;
@@ -2231,10 +2217,34 @@ Future<void> _processExpense(
           : contact?.preferredCurrency?.toUpperCase();
   final providerContainer = ProviderScope.containerOf(context, listen: false);
 
+  var capture = pendingCapture;
+  AiInputCaptureRepository? captureRepository;
+  AiInputResumeController? resumeController;
+  var claimedCapture = false;
+  bool ownsCapture() =>
+      (!claimedCapture || resumeController?.isDisposed == false) &&
+      (preview.isActive ||
+          providerContainer.read(authProvider).uid == user.uid);
+  bool isActive() =>
+      context.mounted &&
+      ownsCapture() &&
+      !providerContainer.read(appLockControllerProvider).shouldBlockApp &&
+      (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
+  final capturedBody = pendingCapture?.body;
+  if (pendingCapture != null) {
+    text = capturedBody?['text'] as String?;
+    imagePath = pendingCapture.payload['localImagePath'] as String?;
+  }
   // Determine if this is a potentially slow operation.
-  final hasAttachments = attachments?.isNotEmpty ?? false;
+  final hasAttachments = (attachments?.isNotEmpty ?? false) ||
+      (pendingCapture?.payload['localAttachments'] is List &&
+          (pendingCapture!.payload['localAttachments'] as List).isNotEmpty) ||
+      (capturedBody?['attachments'] is List &&
+          (capturedBody!['attachments'] as List).isNotEmpty);
   final hasImageInput = imagePath != null && imagePath.isNotEmpty;
-  final hasAudioInput = audioBytes != null && audioBytes.isNotEmpty;
+  final hasAudioInput = (audioBytes != null && audioBytes.isNotEmpty) ||
+      pendingCapture?.payload['localAudioPath'] != null;
   final hasTextInput = text != null && text.trim().isNotEmpty;
   final useInteractiveAnalysis = !preview.isActive &&
       (hasTextInput || hasAudioInput) &&
@@ -2253,23 +2263,7 @@ Future<void> _processExpense(
 
   Map<String, dynamic>? responseData;
   var analysisRequestBody = <String, dynamic>{};
-  Future<bool> queueCurrentAiInputForRetry() {
-    if (useInteractiveAnalysis) return Future.value(false);
-    return _queueAiInputForBackgroundRetry(
-      providerContainer,
-      userId: user.uid,
-      householdId: householdId,
-      isPortfolio: isPortfolio,
-      accountId: inputTarget.accountId?.trim().isNotEmpty == true
-          ? inputTarget.accountId!.trim()
-          : null,
-      accountCurrency: inputTarget.accountCurrency,
-      analysisBody: analysisRequestBody,
-      imagePath: imagePath,
-      audioBytes: audioBytes,
-      audioContentType: audioContentType,
-    );
-  }
+  Future<bool> queueCurrentAiInputForRetry() async => capture != null;
 
   // A cached final category has no mapping revision. Always analyze against
   // current user preferences rather than replaying a stale final category.
@@ -2285,6 +2279,11 @@ Future<void> _processExpense(
   NonBlockingProcessingOverlay? processingOverlay;
   BlockingProcessingController? dialogController;
 
+  if (pendingCapture != null) {
+    resumeController = providerContainer.read(aiInputResumeControllerProvider);
+    claimedCapture = resumeController!.tryStart(pendingCapture.id);
+    if (!claimedCapture) return;
+  }
   if (shouldShowProcessingDialog) {
     processingOverlay = showNonBlockingProcessingOverlay(
       context: context,
@@ -2328,65 +2327,130 @@ Future<void> _processExpense(
       };
     }
 
-    analysisRequestBody = <String, dynamic>{
-      'userId': effectiveUserId,
-      'date': defaultDateYmd,
-      'language': languageTag,
-      'typeHint': 'mixed',
-    };
-    final body = analysisRequestBody;
+    if (pendingCapture == null) {
+      analysisRequestBody = <String, dynamic>{
+        'userId': effectiveUserId,
+        'date': defaultDateYmd,
+        'language': languageTag,
+        'typeHint': 'mixed',
+        if (!preview.isActive)
+          'captureContext': {
+            'version': 1,
+            'capturedAt': capturedAt.toUtc().toIso8601String(),
+            'date': defaultDateYmd,
+            'currency': effectiveCurrency,
+            'preferredTimezone': preferredTimezone,
+          },
+      };
+      final body = analysisRequestBody;
 
-    if (householdId != null && householdId.isNotEmpty) {
-      body['householdId'] = householdId;
-      body['isPortfolio'] = isPortfolio;
-      if (!isPortfolio) {
-        final memberContext = _buildHouseholdMemberContext(ref, householdId);
-        if (memberContext.isNotEmpty) {
-          body['householdMembers'] = memberContext;
+      if (householdId != null && householdId.isNotEmpty) {
+        body['householdId'] = householdId;
+        body['isPortfolio'] = isPortfolio;
+        if (!isPortfolio) {
+          final memberContext = _buildHouseholdMemberContext(ref, householdId);
+          if (memberContext.isNotEmpty) {
+            body['householdMembers'] = memberContext;
+          }
         }
       }
+
+      // Always use selected currency as default (same as personal expense)
+      // Backend will use this as a fallback if no currency is detected in the text/image.
+      // If this is also missing, backend defaults to USD.
+      if (effectiveCurrency != null && effectiveCurrency.isNotEmpty) {
+        body['currency'] = effectiveCurrency;
+      }
+
+      // Add either text, image, audio, or file attachments to the request
+      if (text != null) {
+        body['text'] = text;
+      } else if (imagePath != null) {
+        // Read image bytes and convert to base64
+        final imageFile = File(imagePath);
+        final bytes = await imageFile.readAsBytes();
+        final base64Image =
+            await foundation.compute<List<int>, String>(base64Encode, bytes);
+
+        // Determine content type from file extension
+        final contentType = _imageContentTypeForPath(imagePath);
+
+        body['image'] = {
+          'data': base64Image,
+          'contentType': contentType,
+        };
+      }
+
+      if (attachments != null && attachments.isNotEmpty) {
+        body['attachments'] = attachments;
+      }
+
+      if (audioBytes != null && audioBytes.isNotEmpty) {
+        final base64Audio = await foundation.compute<List<int>, String>(
+            base64Encode, audioBytes);
+        body['audio'] = {
+          'data': base64Audio,
+          'contentType': audioContentType ?? 'audio/mpeg',
+        };
+      }
+    } else {
+      captureRepository =
+          await providerContainer.read(aiInputCaptureRepositoryProvider.future);
+      analysisRequestBody =
+          await captureRepository!.requestBody(pendingCapture);
     }
-
-    // Always use selected currency as default (same as personal expense)
-    // Backend will use this as a fallback if no currency is detected in the text/image.
-    // If this is also missing, backend defaults to USD.
-    if (effectiveCurrency != null && effectiveCurrency.isNotEmpty) {
-      body['currency'] = effectiveCurrency;
+    if (!preview.isActive) {
+      captureRepository ??=
+          await providerContainer.read(aiInputCaptureRepositoryProvider.future);
+      capture ??= await captureRepository!.capture(
+        userId: user.uid,
+        body: {
+          ...analysisRequestBody,
+          if (inputTarget.accountId != null) 'accountId': inputTarget.accountId
+        },
+        target: {
+          'accountType':
+              aiInputTargetAccountTypeToStorage(inputTarget.accountType),
+          'householdId': householdId,
+          'isPortfolio': isPortfolio,
+          'accountId': inputTarget.accountId,
+          'accountCurrency': inputTarget.accountCurrency,
+          'spaceLabel': inputTarget.spaceLabel,
+        },
+        preferredTimezone: preferredTimezone,
+        capturedAt: capturedAt,
+        isOnboarding: isOnboarding,
+      );
+      if (!context.mounted ||
+          providerContainer.read(authProvider).uid != user.uid) {
+        return;
+      }
+      if (!claimedCapture) {
+        resumeController =
+            providerContainer.read(aiInputResumeControllerProvider);
+        claimedCapture = resumeController!.tryStart(capture.id);
+      }
+      if (!claimedCapture) {
+        processingOverlay?.complete(
+            message: context.l10n.aiInputSavedForLater,
+            outcome: ProcessingOverlayOutcome.info);
+        return;
+      }
+      capture = await captureRepository!.hold(capture);
+      if (!context.mounted || !isActive()) return;
+      // Receipts must also use the durable source after the temporary picker closes.
+      imagePath = capture.payload['localImagePath'] as String?;
+      if (ref.read(networkReachabilityProvider).valueOrNull == false) {
+        processingOverlay?.complete(
+            message: context.l10n.aiInputSavedForLater,
+            outcome: ProcessingOverlayOutcome.info);
+        AppToast.info(context, context.l10n.aiInputSavedForLater);
+        return;
+      }
+      responseData = capture.readyResponse;
     }
-
-    // Add either text, image, audio, or file attachments to the request
-    if (text != null) {
-      body['text'] = text;
-    } else if (imagePath != null) {
-      // Read image bytes and convert to base64
-      final imageFile = File(imagePath);
-      final bytes = await imageFile.readAsBytes();
-      final base64Image =
-          await foundation.compute<List<int>, String>(base64Encode, bytes);
-
-      // Determine content type from file extension
-      final contentType = _imageContentTypeForPath(imagePath);
-
-      body['image'] = {
-        'data': base64Image,
-        'contentType': contentType,
-      };
-    }
-
-    if (attachments != null && attachments.isNotEmpty) {
-      body['attachments'] = attachments;
-    }
-
-    if (audioBytes != null && audioBytes.isNotEmpty) {
-      final base64Audio =
-          await foundation.compute<List<int>, String>(base64Encode, audioBytes);
-      body['audio'] = {
-        'data': base64Audio,
-        'contentType': audioContentType ?? 'audio/mpeg',
-      };
-    }
-
-    if (!context.mounted) {
+    final body = analysisRequestBody;
+    if (!context.mounted || !isActive()) {
       processingOverlay?.dismiss();
       return;
     }
@@ -2403,15 +2467,38 @@ Future<void> _processExpense(
       return;
     }
 
-    if (useInteractiveAnalysis) {
+    if (useInteractiveAnalysis && responseData == null) {
       responseData = await runInteractiveAiAnalysis(
-        preferredTimezone: contact?.preferredTimezone,
+        preferredTimezone: preferredTimezone,
         body: {
           ...body,
           if (inputTarget.accountId != null) 'accountId': inputTarget.accountId
         },
-        isActive: () =>
-            context.mounted && ref.read(authProvider).uid == user.uid,
+        isActive: isActive,
+        initialAnswers: (capture?.payload['answers'] as List? ?? [])
+            .map((answer) => Map<String, String>.from(answer as Map))
+            .toList(),
+        initialQuestion: capture?.payload['question'] == null
+            ? null
+            : AiAnalysisQuestion.fromJson(capture!.payload['question']),
+        initialClockIssue: capture?.payload['clockIssue'] is Map
+            ? AiClockIssue(capture!.payload['clockIssue']['reason'] as String,
+                itemIndex: capture.payload['clockIssue']['itemIndex'] as int)
+            : null,
+        checkpoint: (answers, question, clockIssue) async {
+          if (!ownsCapture()) throw StateError('AI capture owner changed');
+          capture = await captureRepository!.checkpoint(capture!, {
+            'answers': answers,
+            'question': question == null
+                ? null
+                : {
+                    'question': question.question,
+                    'choices': question.choices,
+                    'allowCustomResponse': true
+                  },
+            'clockIssue': clockIssue?.toJson(),
+          });
+        },
         invoke: (request) async {
           processingOverlay ??= showNonBlockingProcessingOverlay(
             context: context,
@@ -2430,6 +2517,12 @@ Future<void> _processExpense(
           return showAiCorrectionSheet(context, question);
         },
         retry: (error) async {
+          if (capture != null && shouldQueueAiInputForRetry(error)) {
+            processingOverlay?.complete(
+                message: context.l10n.aiInputSavedForLater,
+                outcome: ProcessingOverlayOutcome.info);
+            return false;
+          }
           processingOverlay?.dismiss();
           processingOverlay = null;
           final result = await MonekoAlertDialog.show(
@@ -2449,7 +2542,7 @@ Future<void> _processExpense(
       }
     }
 
-    if (!context.mounted) {
+    if (!context.mounted || !isActive()) {
       processingOverlay?.dismiss();
       return;
     }
@@ -2458,23 +2551,23 @@ Future<void> _processExpense(
     if (!preview.isActive && responseData == null && isOffline) {
       final queued = await queueCurrentAiInputForRetry();
       if (queued) {
-        if (!context.mounted) {
+        if (!context.mounted || !isActive()) {
           processingOverlay?.dismiss();
           return;
         }
         processingOverlay?.complete(
-          message: context.l10n.walletCaptureOfflineDescription,
+          message: context.l10n.aiInputSavedForLater,
           outcome: ProcessingOverlayOutcome.info,
         );
         AppToast.success(
           context,
-          context.l10n.walletCaptureOfflineDescription,
+          context.l10n.aiInputSavedForLater,
         );
         return;
       }
     }
 
-    if (!context.mounted) {
+    if (!context.mounted || !isActive()) {
       processingOverlay?.dismiss();
       return;
     }
@@ -2495,7 +2588,7 @@ Future<void> _processExpense(
       }
     }
 
-    if (!context.mounted) {
+    if (!context.mounted || !isActive()) {
       processingOverlay?.dismiss();
       return;
     }
@@ -2529,7 +2622,7 @@ Future<void> _processExpense(
       }
     }
 
-    if (!context.mounted) {
+    if (!context.mounted || !isActive()) {
       processingOverlay?.dismiss();
       return;
     }
@@ -2542,7 +2635,7 @@ Future<void> _processExpense(
       final analysisTimezone =
           isInteractiveResult && innerData?['preferredTimezone'] is String
               ? innerData!['preferredTimezone'] as String
-              : contact?.preferredTimezone;
+              : preferredTimezone;
       if (innerData?['requireCorrection'] == true) {
         throw const FormatException('Unresolved analysis cannot be saved');
       }
@@ -2563,22 +2656,27 @@ Future<void> _processExpense(
           }).toList(growable: false))}',
           wrapWidth: 1024,
         );
-        // Safety filter: drop total/subtotal rows when multiple items exist
-        if (!isInteractiveResult && items.length > 1) {
-          bool isTotalLike(dynamic it) {
-            final desc = (it is Map && it['description'] is String)
-                ? (it['description'] as String)
-                : '';
-            return RegExp(r'(sub\s*total|subtotal|grand\s*total|total)',
-                    caseSensitive: false)
-                .hasMatch(desc);
-          }
-
-          final filtered = items.where((it) => !isTotalLike(it)).toList();
-          if (filtered.isNotEmpty) items = filtered;
-        }
-
         if (items.isNotEmpty) {
+          if (capture != null && capture!.readyResponse == null) {
+            final destinations = isInteractiveResult
+                ? groupInteractiveAiItems(
+                        items
+                            .map((item) =>
+                                Map<String, dynamic>.from(item as Map))
+                            .toList(),
+                        preferredTimezone: analysisTimezone)
+                    .keys
+                    .map((destination) => destination.key)
+                    .toList()
+                : <String>['default'];
+            capture = await captureRepository!.checkpoint(capture!, {
+              'readyResponse': responseData,
+              'destinationKeys': destinations,
+              'completedDestinations': <String>[],
+              'question': null,
+              'clockIssue': null,
+            });
+          }
           final analyticsContactId = ref.read(appUserContactProvider)?.id;
           final rawScopedDefaultAccountId =
               inputTarget.accountId?.trim().isNotEmpty == true
@@ -2632,9 +2730,13 @@ Future<void> _processExpense(
             return;
           }
 
-          // Parse ALL items and immediately optimistic-log them.
+          // Validate the whole response before changing mounted optimistic state.
+          final optimisticUpdates = <void Function()>[];
           final parsed = items
-              .map((rawItem) {
+              .asMap()
+              .entries
+              .map((indexedItem) {
+                final rawItem = indexedItem.value;
                 final item = rawItem is Map
                     ? Map<String, dynamic>.from(rawItem)
                     : <String, dynamic>{};
@@ -2724,6 +2826,11 @@ Future<void> _processExpense(
                     ? AiAnalysisDestination.fromJson(
                         item['destination'], transaction.currency)
                     : null;
+                if (capture?.completedDestinations
+                        .contains(destination?.key ?? 'default') ==
+                    true) {
+                  return null;
+                }
                 final householdId = destination == null
                     ? inputTarget.householdId
                     : destination.householdId;
@@ -2732,13 +2839,16 @@ Future<void> _processExpense(
                 final optimisticAutoSplitContext = destination == null
                     ? defaultAutoSplitContext
                     : resolvedSplitContexts[householdId];
-                final optimisticId = makeOptimisticTransactionId();
+                final optimisticId = capture == null
+                    ? makeOptimisticTransactionId()
+                    : capture!.transactionId(indexedItem.key);
                 final isRecurring = resolveAiIsRecurring(item);
                 final createdAt = resolveAiTransactionCreatedAt(
                   transaction: transaction,
                   isRecurring: isRecurring,
                   preferredTimezone: analysisTimezone,
                   isInteractive: isInteractiveResult,
+                  fallbackNow: capturedAt,
                 );
                 final optimisticSplitGroup = householdId != null &&
                         householdId.isNotEmpty &&
@@ -2778,27 +2888,29 @@ Future<void> _processExpense(
                   splitGroupId: optimisticSplitGroup?.id,
                   createdAt: createdAt,
                 );
-                addOptimisticTransaction(
-                  ref: ref,
-                  entry: entry,
-                  householdId: householdId,
-                );
-                final optimisticType = entry.type ?? 'expense';
-                final optimisticCurrency = entry.currency ?? '<none>';
-                final optimisticHousehold = householdId ?? '<personal>';
-                homeSpendTrace(
-                  'ai-optimistic-added id=${entry.id} type=$optimisticType '
-                  'amount=${traceAiAmount(entry.amount)} currency=$optimisticCurrency '
-                  'household=$optimisticHousehold',
-                );
-                if (optimisticSplitGroup != null) {
-                  ref
-                      .read(householdOptimisticSplitsProvider.notifier)
-                      .addSplitGroup(
-                        optimisticSplitGroup.householdId,
-                        optimisticSplitGroup,
-                      );
-                }
+                optimisticUpdates.add(() {
+                  addOptimisticTransaction(
+                    ref: ref,
+                    entry: entry,
+                    householdId: householdId,
+                  );
+                  final optimisticType = entry.type ?? 'expense';
+                  final optimisticCurrency = entry.currency ?? '<none>';
+                  final optimisticHousehold = householdId ?? '<personal>';
+                  homeSpendTrace(
+                    'ai-optimistic-added id=${entry.id} type=$optimisticType '
+                    'amount=${traceAiAmount(entry.amount)} currency=$optimisticCurrency '
+                    'household=$optimisticHousehold',
+                  );
+                  if (optimisticSplitGroup != null) {
+                    ref
+                        .read(householdOptimisticSplitsProvider.notifier)
+                        .addSplitGroup(
+                          optimisticSplitGroup.householdId,
+                          optimisticSplitGroup,
+                        );
+                  }
+                });
 
                 return _AiParsedItem(
                   transaction: transaction,
@@ -2812,7 +2924,7 @@ Future<void> _processExpense(
               .toList();
 
           if (parsed.isEmpty) {
-            if (!context.mounted) {
+            if (!context.mounted || !isActive()) {
               processingOverlay?.dismiss();
               return;
             }
@@ -2824,7 +2936,10 @@ Future<void> _processExpense(
             return;
           }
 
-          if (!context.mounted) return;
+          if (!context.mounted || !isActive()) return;
+          for (final update in optimisticUpdates) {
+            update();
+          }
           final optimisticTargetLabel = isInteractiveResult
               ? parsed
                   .map((item) => item.destination!.spaceLabel)
@@ -2836,6 +2951,57 @@ Future<void> _processExpense(
                   inputTarget: inputTarget,
                 );
 
+          if (!preview.isActive) {
+            final groups = <AiAnalysisDestination?, List<_AiParsedItem>>{};
+            for (final item in parsed) {
+              groups.putIfAbsent(item.destination, () => []).add(item);
+            }
+            final handedOff = <String>{};
+            for (final group in groups.entries) {
+              final destination = group.key;
+              final persistence = _persistAiTransactions(
+                providerContainer,
+                userId: user.uid,
+                householdId:
+                    destination == null ? householdId : destination.householdId,
+                isPortfolio: destination?.isPortfolio ?? isPortfolio,
+                transactions: group.value,
+                accountId: destination == null
+                    ? scopedDefaultAccountId
+                    : destination.accountId,
+                accountCurrency: destination == null
+                    ? inputTarget.accountCurrency
+                    : destination.accountCurrency,
+                localImagePath: imagePath,
+                requestReview: !isOnboarding,
+                candidateReviewContext: context.mounted ? context : null,
+                capturedInput: capture,
+                captureDestinationKey: destination?.key ?? 'default',
+                isCaptureActive: isActive,
+              );
+              if (capture == null) {
+                unawaited(persistence);
+              } else {
+                try {
+                  await persistence;
+                  handedOff.add(destination?.key ?? 'default');
+                } catch (_) {
+                  for (final item in parsed.where((item) => !handedOff
+                      .contains(item.destination?.key ?? 'default'))) {
+                    removeOptimisticTransactionWithContainer(
+                        container: providerContainer,
+                        optimisticId: item.optimisticId,
+                        householdId: item.optimisticEntry.householdId);
+                  }
+                  rethrow;
+                }
+              }
+            }
+          }
+          if (capture != null) {
+            await captureRepository!.removeMaterializedMedia(capture!);
+          }
+          if (!context.mounted || !isActive()) return;
           if (context.mounted) {
             processingOverlay?.complete(
               message: _formatAiLoggedToastMessage(
@@ -2868,36 +3034,6 @@ Future<void> _processExpense(
               additionalExpenseCount: expenseCount,
             ));
           }
-
-          if (!preview.isActive) {
-            final groups = <AiAnalysisDestination?, List<_AiParsedItem>>{};
-            for (final item in parsed) {
-              groups.putIfAbsent(item.destination, () => []).add(item);
-            }
-            for (final group in groups.entries) {
-              final destination = group.key;
-              unawaited(
-                _persistAiTransactions(
-                  providerContainer,
-                  userId: user.uid,
-                  householdId: destination == null
-                      ? householdId
-                      : destination.householdId,
-                  isPortfolio: destination?.isPortfolio ?? isPortfolio,
-                  transactions: group.value,
-                  accountId: destination == null
-                      ? scopedDefaultAccountId
-                      : destination.accountId,
-                  accountCurrency: destination == null
-                      ? inputTarget.accountCurrency
-                      : destination.accountCurrency,
-                  localImagePath: imagePath,
-                  requestReview: !isOnboarding,
-                  candidateReviewContext: context,
-                ),
-              );
-            }
-          }
         } else {
           processingOverlay?.complete(
             message: context.l10n.noExpenseInformationExtracted,
@@ -2927,17 +3063,17 @@ Future<void> _processExpense(
         try {
           final queued = await queueCurrentAiInputForRetry();
           if (queued) {
-            if (!context.mounted) {
+            if (!context.mounted || !isActive()) {
               processingOverlay?.dismiss();
               return;
             }
             processingOverlay?.complete(
-              message: context.l10n.walletCaptureOfflineDescription,
+              message: context.l10n.aiInputSavedForLater,
               outcome: ProcessingOverlayOutcome.info,
             );
             AppToast.success(
               context,
-              context.l10n.walletCaptureOfflineDescription,
+              context.l10n.aiInputSavedForLater,
             );
             return;
           }
@@ -2971,17 +3107,17 @@ Future<void> _processExpense(
       try {
         final queued = await queueCurrentAiInputForRetry();
         if (queued) {
-          if (!context.mounted) {
+          if (!context.mounted || !isActive()) {
             processingOverlay?.dismiss();
             return;
           }
           processingOverlay?.complete(
-            message: context.l10n.walletCaptureOfflineDescription,
+            message: context.l10n.aiInputSavedForLater,
             outcome: ProcessingOverlayOutcome.info,
           );
           AppToast.success(
             context,
-            context.l10n.walletCaptureOfflineDescription,
+            context.l10n.aiInputSavedForLater,
           );
           return;
         }
@@ -3007,6 +3143,14 @@ Future<void> _processExpense(
         ),
       );
     }
+  } finally {
+    if (claimedCapture) {
+      resumeController!.finish(capture!.id);
+      if (!resumeController.isDisposed) {
+        providerContainer.read(aiInputResumeSignalProvider.notifier).state += 1;
+      }
+    }
+    if (!context.mounted || !isActive()) processingOverlay?.dismiss();
   }
 }
 

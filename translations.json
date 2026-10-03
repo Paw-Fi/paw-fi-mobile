@@ -210,5 +210,22 @@
     "zh": "使用 Telegram",
     "zh_TW": "使用 Telegram",
     "vi": "Dùng Telegram"
+  },
+  "aiInputSavedForLater": {
+    "de": "",
+    "en": "Input saved on this device. Analysis will continue when you open Moneko with an internet connection.",
+    "es": "",
+    "fr": "",
+    "it": "",
+    "ja": "",
+    "ko": "",
+    "nl": "",
+    "ur": "",
+    "ru": "",
+    "th": "",
+    "uk": "",
+    "zh": "",
+    "zh_TW": "",
+    "vi": ""
   }
 }

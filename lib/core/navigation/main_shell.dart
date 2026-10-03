@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/monitoring/performance_trace.dart';
@@ -24,6 +25,7 @@ import 'package:moneko/features/recurring/pages/recurring_transactions_page.dart
 import 'package:moneko/features/pockets/presentation/pages/pockets_page.dart';
 import 'package:moneko/features/home/presentation/widgets/home_header_sliver.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
+import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -467,6 +469,51 @@ class MainShell extends HookConsumerWidget {
     final isAppLockPromptActive = ref.watch(
       appLockControllerProvider.select((state) => state.shouldBlockApp),
     );
+    final pendingAiInputs = previewState.isActive || auth.uid.isEmpty
+        ? null
+        : ref.watch(pendingAiInputsProvider(auth.uid)).valueOrNull;
+    final aiResumeSignal = ref.watch(aiInputResumeSignalProvider);
+    // A fresh session or connectivity recovery makes retained submissions eligible again.
+    useEffect(() {
+      if (!previewState.isActive && auth.uid.isNotEmpty && hasNetworkAccess) {
+        ref.read(aiInputResumeControllerProvider).wake();
+      }
+      return null;
+    }, [auth.uid, previewState.isActive, hasNetworkAccess]);
+    useEffect(() {
+      if (previewState.isActive ||
+          auth.uid.isEmpty ||
+          !hasNetworkAccess ||
+          isUserDataCleanupInProgress ||
+          isAppLockPromptActive ||
+          pendingAiInputs?.isNotEmpty != true) {
+        return null;
+      }
+      var active = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!active || !context.mounted) return;
+        unawaited(
+            resumePendingAiInputs(context, ref).catchError((Object error) {
+          if (context.mounted) {
+            AppToast.error(
+                context,
+                ErrorHandler.getUserFriendlyMessage(error,
+                    context: BackendErrorContext.analyzeExpense));
+          }
+        }));
+      });
+      return () {
+        active = false;
+      };
+    }, [
+      auth.uid,
+      previewState.isActive,
+      hasNetworkAccess,
+      isUserDataCleanupInProgress,
+      isAppLockPromptActive,
+      pendingAiInputs,
+      aiResumeSignal
+    ]);
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
     final subscription = subscriptionAsync.valueOrNull;
     final isSubscriptionResolved = subscriptionAsync.hasValue;
@@ -651,6 +698,8 @@ class MainShell extends HookConsumerWidget {
         onResume: () {
           if (!guard.isActive) return;
           ref.invalidate(networkReachabilityProvider);
+          ref.read(aiInputResumeControllerProvider).wake();
+          ref.read(aiInputResumeSignalProvider.notifier).state += 1;
 
           final userId = ref.read(authProvider).uid;
           if (userId.isEmpty || ref.read(previewModeProvider).isActive) {

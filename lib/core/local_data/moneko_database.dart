@@ -478,6 +478,10 @@ class MonekoDatabase {
   final StreamController<void> _changes = StreamController<void>.broadcast();
   final StreamController<void> _transactionChanges =
       StreamController<void>.broadcast();
+  final StreamController<void> _aiInputChanges =
+      StreamController<void>.broadcast();
+
+  Stream<void> get aiInputChanges => _aiInputChanges.stream;
 
   /// Emits after a committed local transaction change. Consumers use this to
   /// reconcile persisted transaction-derived snapshots without forcing a
@@ -487,7 +491,179 @@ class MonekoDatabase {
   Future<void> close() async {
     await _changes.close();
     await _transactionChanges.close();
+    await _aiInputChanges.close();
     _db.dispose();
+  }
+
+  Future<LocalMutationOutboxData> enqueueAiInput({
+    required String clientMutationId,
+    required String entityId,
+    required Map<String, dynamic> payload,
+  }) async {
+    _runInTransaction(() {
+      _enqueueMutationRow(
+        clientMutationId: clientMutationId,
+        entityType: 'ai_input',
+        entityId: entityId,
+        operation: 'analyze_ai_input',
+        payload: payload,
+      );
+      _db.execute(
+        'UPDATE local_mutation_outbox SET status = ? WHERE client_mutation_id = ?',
+        ['awaiting_ai', clientMutationId],
+      );
+    });
+    final mutation = _mutationFromRow(_db.select(
+      'SELECT * FROM local_mutation_outbox WHERE client_mutation_id = ?',
+      [clientMutationId],
+    ).single);
+    _aiInputChanges.add(null);
+    return mutation;
+  }
+
+  Future<List<LocalMutationOutboxData>> getPendingAiInputs(
+      String userId) async {
+    final rows = _db.select('''
+      SELECT * FROM local_mutation_outbox
+      WHERE entity_type = 'ai_input' AND operation = 'analyze_ai_input'
+        AND status NOT IN (?, ?)
+        AND json_valid(payload_json)
+        AND json_extract(payload_json, '\$.userId') = ?
+      ORDER BY created_at ASC
+    ''', [localMutationStatusSynced, localMutationStatusCancelled, userId]);
+    return rows.map(_mutationFromRow).toList(growable: false);
+  }
+
+  Future<bool> holdAiInputForForeground(
+      LocalMutationOutboxData mutation) async {
+    _db.execute('''
+      UPDATE local_mutation_outbox SET status = 'awaiting_ai', retry_after = NULL
+      WHERE client_mutation_id = ? AND payload_json = ?
+        AND entity_type = 'ai_input' AND operation = 'analyze_ai_input'
+        AND status NOT IN (?, ?)
+    ''', [
+      mutation.clientMutationId,
+      mutation.payloadJson,
+      localMutationStatusSynced,
+      localMutationStatusCancelled
+    ]);
+    final changed = _lastStatementChangedRow();
+    if (changed) _aiInputChanges.add(null);
+    return changed;
+  }
+
+  Future<bool> checkpointAiInput({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required Map<String, dynamic> payload,
+  }) async {
+    _db.execute('''
+      UPDATE local_mutation_outbox SET payload_json = ?, updated_at = ?
+      WHERE client_mutation_id = ? AND payload_json = ?
+        AND entity_type = 'ai_input' AND status = 'awaiting_ai'
+    ''', [
+      jsonEncode(payload),
+      _instant(DateTime.now().toUtc()),
+      clientMutationId,
+      expectedPayloadJson
+    ]);
+    final changed = _lastStatementChangedRow();
+    if (changed) _aiInputChanges.add(null);
+    return changed;
+  }
+
+  Future<bool> hasOtherPendingReceiptReference({
+    required String path,
+    required String clientMutationId,
+    required String expectedPayloadJson,
+  }) async =>
+      _db.select('''
+    SELECT 1 FROM local_mutation_outbox
+    WHERE status NOT IN (?, ?) AND json_valid(payload_json)
+      AND json_extract(payload_json, '\$.localReceiptImagePath') = ?
+      AND (client_mutation_id != ? OR payload_json != ?)
+    LIMIT 1
+  ''', [
+        localMutationStatusSynced,
+        localMutationStatusCancelled,
+        path,
+        clientMutationId,
+        expectedPayloadJson
+      ]).isNotEmpty;
+
+  Future<bool> materializeAiInputDestination({
+    required String clientMutationId,
+    required String userId,
+    required String expectedReadyResponseJson,
+    required String destinationKey,
+    required List<
+            ({
+              ExpenseEntry entry,
+              String clientMutationId,
+              String operation,
+              Map<String, dynamic> payload
+            })>
+        mutations,
+  }) async {
+    var wrote = false;
+    _runInTransaction(() {
+      final rows = _db.select('''
+        SELECT * FROM local_mutation_outbox
+        WHERE client_mutation_id = ? AND entity_type = 'ai_input'
+      ''', [clientMutationId]);
+      if (rows.isEmpty) throw StateError('AI capture no longer exists');
+      final payload = Map<String, dynamic>.from(
+          jsonDecode(rows.single['payload_json'] as String) as Map);
+      if (payload['userId'] != userId ||
+          jsonEncode(payload['readyResponse']) != expectedReadyResponseJson) {
+        throw StateError('AI capture changed before local save');
+      }
+      final completed =
+          List<String>.from(payload['completedDestinations'] ?? []);
+      final destinations = List<String>.from(payload['destinationKeys'] ?? []);
+      if (payload['readyResponse'] is! Map ||
+          destinations.isEmpty ||
+          destinations.toSet().length != destinations.length ||
+          completed.toSet().length != completed.length ||
+          completed.any((key) => !destinations.contains(key))) {
+        throw StateError('Invalid AI capture handoff');
+      }
+      if (completed.contains(destinationKey)) return;
+      if (rows.single['status'] != 'awaiting_ai' ||
+          !destinations.contains(destinationKey) ||
+          mutations.isEmpty) {
+        throw StateError('AI destination is not ready to save');
+      }
+      for (final mutation in mutations) {
+        if (mutation.entry.userId != userId) {
+          throw ArgumentError('AI transaction owner mismatch');
+        }
+        _writeOptimisticTransactionRow(
+            entry: mutation.entry,
+            clientMutationId: mutation.clientMutationId,
+            operation: mutation.operation,
+            payload: mutation.payload);
+      }
+      completed.add(destinationKey);
+      payload['completedDestinations'] = completed;
+      _db.execute('''
+        UPDATE local_mutation_outbox SET payload_json = ?, status = ?, updated_at = ?
+        WHERE client_mutation_id = ?
+      ''', [
+        jsonEncode(payload),
+        completed.length == destinations.length
+            ? localMutationStatusSynced
+            : 'awaiting_ai',
+        _instant(DateTime.now().toUtc()),
+        clientMutationId
+      ]);
+      wrote = true;
+    });
+    if (wrote) {
+      _notifyChanged();
+      _aiInputChanges.add(null);
+    }
+    return wrote;
   }
 
   Future<void> upsertTransactions(
