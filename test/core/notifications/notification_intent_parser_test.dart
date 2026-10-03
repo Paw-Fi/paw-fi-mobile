@@ -120,12 +120,78 @@ void main() {
       expect(intent.recurringType, 'income');
     });
 
+    test('routes a recurring reminder to its exact occurrence', () {
+      final intent = parser.fromData(<String, dynamic>{
+        'event_type': 'recurring_reminder',
+        'expense_id': 'rec-1',
+        'household_id': 'hh-1',
+        'occurrence_date': '2026-09-30',
+        'type': 'income',
+      });
+      expect(intent.action,
+          NotificationIntentAction.openRecurringOccurrenceConfirmation);
+      expect(intent.recurringId, 'rec-1');
+      expect(intent.scheduledOccurrenceDate, DateTime(2026, 9, 30));
+      expect(intent.householdId, 'hh-1');
+      expect(intent.recurringType, 'income');
+      expect(
+          NotificationIntent.fromJson(intent.toJson()).scheduledOccurrenceDate,
+          DateTime(2026, 9, 30));
+    });
+
+    test('retains nested occurrence dates and legacy deep-link dates', () {
+      for (final data in <Map<String, dynamic>>[
+        {
+          'event_type': 'recurring_reminder',
+          'payload': '{"expense_id":"rec-1","occurrence_date":"2026-09-30"}',
+        },
+        {
+          'event_type': 'recurring_reminder',
+          'expense_id': 'rec-1',
+          'deep_link': 'moneko://recurring/rec-1?occurrence_date=2026-09-30',
+        },
+      ]) {
+        final intent = parser.fromData(data);
+        expect(intent.action,
+            NotificationIntentAction.openRecurringOccurrenceConfirmation);
+        expect(intent.scheduledOccurrenceDate, DateTime(2026, 9, 30));
+      }
+    });
+
+    test('malformed occurrence dates keep the legacy editor route', () {
+      for (final date in [
+        '2026-02-30',
+        '30/09/2026',
+        '2026-9-30',
+        '2026-09-30T00:00:00Z'
+      ]) {
+        final intent = parser.fromData({
+          'event_type': 'recurring_reminder',
+          'expense_id': 'rec-1',
+          'occurrence_date': date,
+        });
+        expect(intent.action, NotificationIntentAction.openRecurringEditor);
+        expect(intent.scheduledOccurrenceDate, isNull);
+      }
+    });
+
     test('parses log reminder to quick entry intent', () {
       final intent = parser.fromData(<String, dynamic>{
         'event_type': 'log_expense_reminder',
       });
 
       expect(intent.action, NotificationIntentAction.openLogExpenseQuickEntry);
+    });
+
+    test('a conflicting deep link cannot supply another series occurrence', () {
+      final intent = parser.fromData({
+        'event_type': 'recurring_reminder',
+        'expense_id': 'rec-1',
+        'deep_link': 'moneko://recurring/rec-2?occurrence_date=2026-09-30',
+      });
+      expect(intent.action, NotificationIntentAction.openRecurringEditor);
+      expect(intent.recurringId, 'rec-1');
+      expect(intent.scheduledOccurrenceDate, isNull);
     });
 
     test('uses split_group_id fallback for split-created payload', () {
@@ -225,6 +291,15 @@ void main() {
       final intent = parser.fromUri(Uri.parse('moneko://recurring/rec-1'));
       expect(intent?.action, NotificationIntentAction.openRecurringEditor);
       expect(intent?.recurringId, 'rec-1');
+    });
+
+    test('maps an occurrence deep link to the confirmation route', () {
+      final intent = parser.fromUri(Uri.parse(
+          'moneko://recurring/rec-1?occurrence_date=2026-09-30&household_id=hh-1'));
+      expect(intent?.action,
+          NotificationIntentAction.openRecurringOccurrenceConfirmation);
+      expect(intent?.scheduledOccurrenceDate, DateTime(2026, 9, 30));
+      expect(intent?.householdId, 'hh-1');
     });
 
     test('maps recurring root deep link to recurring page intent', () {

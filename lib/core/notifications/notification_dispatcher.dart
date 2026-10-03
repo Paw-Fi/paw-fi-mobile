@@ -201,6 +201,7 @@ class NotificationDispatcher {
         await _openSettlementHistory(intent);
         return;
       case NotificationIntentAction.openRecurringEditor:
+      case NotificationIntentAction.openRecurringOccurrenceConfirmation:
         await _openRecurringEditor(intent);
         return;
       case NotificationIntentAction.openRecurringPage:
@@ -633,6 +634,7 @@ class NotificationDispatcher {
         RecurringPageCommand(
       recurringId: recurringId,
       recurringType: intent.recurringType,
+      scheduledOccurrenceDate: intent.scheduledOccurrenceDate,
       requestId: _requestCounter,
     );
   }

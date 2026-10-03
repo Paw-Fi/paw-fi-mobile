@@ -69,6 +69,22 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
+TimeOfDay _timeOfDayFromDueTime(String value) {
+  final parts = value.split(':');
+  final hour = int.tryParse(parts.isEmpty ? '' : parts.first) ?? 9;
+  final minute = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 0;
+  return TimeOfDay(
+    hour: hour.clamp(0, 23).toInt(),
+    minute: minute.clamp(0, 59).toInt(),
+  );
+}
+
+String _canonicalDueTime(TimeOfDay value) =>
+    '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:00';
+
+String _formatDueTime(BuildContext context, String value) =>
+    _timeOfDayFromDueTime(value).format(context);
+
 String _normalizeCategoryRemapKey(String? category) {
   final raw = (category ?? '').trim().toLowerCase();
   if (raw.isEmpty) return '';
@@ -154,6 +170,10 @@ class AddRecurringSheet extends HookConsumerWidget {
     final selectedCategory = useState<String?>(existingTransaction?.category);
     final selectedFrequency = useState<String>(
       existingTransaction?.recurrenceRule?.frequency ?? 'monthly',
+    );
+    final selectedDueTime = useState<String?>(
+      existingTransaction?.recurrenceRule?.dueTime ??
+          (selectedFrequency.value == 'daily' ? '09:00:00' : null),
     );
 
     // Default currency:
@@ -988,6 +1008,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   currency: selectedCurrency.value,
                   startDate: startDate.value,
                   frequency: selectedFrequency.value,
+                  dueTime: selectedDueTime.value,
                   endDate: hasEndDate.value ? endDate.value : null,
                   interval: customInterval.value,
                   description: descriptionController.text.trim().isEmpty
@@ -1033,6 +1054,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   currency: selectedCurrency.value,
                   startDate: startDate.value,
                   frequency: selectedFrequency.value,
+                  dueTime: selectedDueTime.value,
                   endDate: hasEndDate.value ? endDate.value : null,
                   interval: customInterval.value,
                   description: descriptionController.text.trim().isEmpty
@@ -1097,6 +1119,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   currency: selectedCurrency.value,
                   startDate: startDate.value,
                   frequency: selectedFrequency.value,
+                  dueTime: selectedDueTime.value,
                   endDate: hasEndDate.value ? endDate.value : null,
                   interval: customInterval.value,
                   description: descriptionController.text.trim().isEmpty
@@ -1142,6 +1165,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   currency: selectedCurrency.value,
                   startDate: startDate.value,
                   frequency: selectedFrequency.value,
+                  dueTime: selectedDueTime.value,
                   endDate: hasEndDate.value ? endDate.value : null,
                   interval: customInterval.value,
                   description: descriptionController.text.trim().isEmpty
@@ -2006,6 +2030,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     if (result == null) return;
 
                                     selectedFrequency.value = result.frequency;
+                                    if (result.frequency == 'daily' &&
+                                        selectedDueTime.value == null) {
+                                      selectedDueTime.value = '09:00:00';
+                                    }
                                     final interval = result.interval;
                                     customInterval.value =
                                         (interval != null && interval > 1)
@@ -2014,6 +2042,47 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   },
                                 ),
                                 _buildDivider(colorScheme),
+                                AnimatedSize(
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeInOut,
+                                  child: selectedFrequency.value == 'daily'
+                                      ? Column(
+                                          children: [
+                                            _buildDetailCard(
+                                              colorScheme: colorScheme,
+                                              label: context.l10n.time,
+                                              value: _formatDueTime(
+                                                context,
+                                                selectedDueTime.value ??
+                                                    '09:00:00',
+                                              ),
+                                              onTap: () async {
+                                                final initialTime =
+                                                    _timeOfDayFromDueTime(
+                                                  selectedDueTime.value ??
+                                                      '09:00:00',
+                                                );
+                                                final result =
+                                                    await AdaptiveTimePicker
+                                                        .show(
+                                                  context: context,
+                                                  initialTime: initialTime,
+                                                  use24HourFormat: MediaQuery
+                                                          .of(context)
+                                                      .alwaysUse24HourFormat,
+                                                );
+                                                if (result != null &&
+                                                    context.mounted) {
+                                                  selectedDueTime.value =
+                                                      _canonicalDueTime(result);
+                                                }
+                                              },
+                                            ),
+                                            _buildDivider(colorScheme),
+                                          ],
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
                                 _buildDetailCard(
                                   colorScheme: colorScheme,
                                   label: context.l10n.startDate,

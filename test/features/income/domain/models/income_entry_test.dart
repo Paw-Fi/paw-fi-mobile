@@ -42,6 +42,7 @@ void main() {
         anchorDate: now,
         endDate: DateTime(2024, 12, 31),
         interval: 1,
+        dueTime: '09:00:00',
       );
       final attachments = [
         Attachment(
@@ -89,6 +90,7 @@ void main() {
       expect(entry.fxRate, 1.1);
       expect(entry.isRecurring, true);
       expect(entry.recurrenceRule, recurrenceRule);
+      expect(entry.recurrenceRule?.toJson()['due_time'], '09:00:00');
       expect(entry.parentRecurringId, 'rec_1');
       expect(entry.attachments.length, 1);
       expect(entry.privacyRedacted, true);
@@ -119,6 +121,7 @@ void main() {
           'anchor_date': '2024-01-01T00:00:00.000Z',
           'end_date': '2024-12-31T00:00:00.000Z',
           'interval': 1,
+          'due_time': '09:00:00',
         },
         'parentRecurringId': 'rec_1',
         'attachments': [
@@ -155,6 +158,7 @@ void main() {
       expect(entry.fxRate, 1.1);
       expect(entry.isRecurring, true);
       expect(entry.recurrenceRule, isNotNull);
+      expect(entry.recurrenceRule?.dueTime, '09:00:00');
       expect(entry.parentRecurringId, 'rec_1');
       expect(entry.attachments.length, 1);
       expect(entry.createdAt, DateTime.utc(2024, 1, 1));

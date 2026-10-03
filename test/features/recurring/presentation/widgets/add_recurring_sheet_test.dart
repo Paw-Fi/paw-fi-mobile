@@ -46,6 +46,7 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
     required String currency,
     required DateTime startDate,
     required String frequency,
+    String? dueTime,
     DateTime? endDate,
     int? interval,
     String? description,
@@ -76,6 +77,7 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
       'currency': currency,
       'startDate': startDate,
       'frequency': frequency,
+      'dueTime': dueTime,
       'endDate': endDate,
       'interval': interval,
       'description': description,
@@ -114,6 +116,7 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
         anchorDate: startDate,
         interval: interval,
         endDate: endDate,
+        dueTime: dueTime,
       ),
       type: 'expense',
       attachments: const [],
@@ -1554,6 +1557,7 @@ void main() {
                   reminderEnabled: true,
                   reminderValue: 3,
                   reminderUnit: 'days',
+                  dueTime: '09:00:00',
                 ),
               ),
             ),
@@ -1597,8 +1601,92 @@ void main() {
     expect(saveNotifier!.lastUpdateArgs?['hasReminder'], isTrue);
     expect(saveNotifier!.lastUpdateArgs?['reminderValue'], 3);
     expect(saveNotifier!.lastUpdateArgs?['reminderUnit'], 'days');
+    expect(saveNotifier!.lastUpdateArgs?['dueTime'], '09:00:00');
     await tester.pump(const Duration(seconds: 6));
   });
+
+  for (final dueTime in <String?>[null, '15:30:00']) {
+    testWidgets('daily time picker preserves and saves due time $dueTime',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final prefs = await SharedPreferences.getInstance();
+      final repository =
+          _FakeHouseholdRepository(members: const [], splits: const []);
+      late _TestRecurringSaveNotifier save;
+      final container = ProviderContainer(overrides: [
+        authProvider.overrideWith(_MockAuth.new),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        householdRepositoryProvider.overrideWithValue(repository),
+        userHouseholdsProvider('user_1').overrideWith((ref) =>
+            UserHouseholdsNotifier(repository, 'user_1', ref,
+                initialHouseholds: const [])),
+        ..._defaultWalletOverrides(),
+        selectedHouseholdProvider.overrideWith(
+            (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1')),
+        viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setMode(ViewMode.personal)),
+        homeFilterProvider.overrideWith(
+            (ref) => HomeFilterNotifier()..setSelectedCurrency('USD')),
+        recurringTransactionSaveProvider.overrideWith((ref) {
+          save = _TestRecurringSaveNotifier(ref);
+          return save;
+        }),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+            child: child!,
+          ),
+          home: Scaffold(
+              body: AddRecurringSheet(
+            type: 'expense',
+            existingTransaction: _recurringExpense(
+              id: 'daily-due-time',
+              recurrenceRule: RecurrenceRule(
+                frequency: 'daily',
+                anchorDate: DateTime(2026, 1, 1),
+                dueTime: dueTime,
+              ),
+            ),
+          )),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text(dueTime == null ? '09:00' : '15:30'), findsOneWidget);
+      await tester.ensureVisible(find.text('Time'));
+      await tester.tap(find.text('Time'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TimePickerDialog), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text(dueTime == null ? '09:00' : '15:30'), findsOneWidget);
+      await tester.tap(find.text('Time'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Switch to text input mode'));
+      await tester.pumpAndSettle();
+      final fields = find.descendant(
+          of: find.byType(TimePickerDialog), matching: find.byType(TextField));
+      await tester.enterText(fields.at(0), '16');
+      await tester.enterText(fields.at(1), '45');
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(find.text('16:45'), findsOneWidget);
+      await _tapUpdateRecurringButton(tester);
+      await tester.pumpAndSettle();
+      expect(save.lastUpdateArgs?['dueTime'], '16:45:00');
+      expect(save.lastUpdateArgs?['frequency'], 'daily');
+      await tester.pump(const Duration(seconds: 6));
+    });
+  }
 
   testWidgets(
       'Displays floating recurring icon badge on top of category/merchant icon',

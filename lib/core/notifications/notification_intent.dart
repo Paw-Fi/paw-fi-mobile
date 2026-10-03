@@ -5,6 +5,7 @@ enum NotificationIntentAction {
   openHouseholdInvites,
   openSettlementHistory,
   openRecurringEditor,
+  openRecurringOccurrenceConfirmation,
   openRecurringPage,
   openLogExpenseQuickEntry,
   openPocketsPage,
@@ -36,6 +37,8 @@ class NotificationIntent {
   String? get splitGroupId => args['split_group_id'] as String?;
   String? get recurringId => args['recurring_id'] as String?;
   String? get recurringType => args['recurring_type'] as String?;
+  DateTime? get scheduledOccurrenceDate =>
+      parseNotificationOccurrenceDate(args['occurrence_date']);
   String? get inviteToken => args['invite_token'] as String?;
   String? get toastMessage => args['toast_message'] as String?;
   String? get externalUrl => args['external_url'] as String?;
@@ -98,4 +101,19 @@ class NotificationIntent {
           const <String, dynamic>{},
     );
   }
+}
+
+/// Notification occurrence identity is a date-only machine contract.
+DateTime? parseNotificationOccurrenceDate(dynamic value) {
+  if (value is! String || !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
+    return null;
+  }
+  final date = DateTime.tryParse(value);
+  if (date == null ||
+      date.year != int.parse(value.substring(0, 4)) ||
+      date.month != int.parse(value.substring(5, 7)) ||
+      date.day != int.parse(value.substring(8, 10))) {
+    return null;
+  }
+  return date;
 }

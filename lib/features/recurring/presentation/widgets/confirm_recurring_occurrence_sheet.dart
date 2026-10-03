@@ -52,6 +52,195 @@ Future<void> showConfirmRecurringOccurrenceSheet({
   );
 }
 
+/// A notification carries occurrence identity, not a possibly stale template.
+Future<void> showConfirmRecurringOccurrenceSheetById({
+  required BuildContext context,
+  required String userId,
+  required String recurringId,
+  required DateTime scheduledOccurrenceDate,
+}) {
+  ProviderScope.containerOf(context, listen: false).invalidate(
+    recurringOccurrenceHistoryProvider(RecurringOccurrenceHistoryQuery(
+      userId: userId,
+      recurringId: recurringId,
+      beforeScheduledDate: DateTime(scheduledOccurrenceDate.year,
+          scheduledOccurrenceDate.month, scheduledOccurrenceDate.day + 1),
+      pageSize: 1,
+    )),
+  );
+  return MonekoBottomSheet.show<void>(
+    context: context,
+    title: context.l10n.confirmPayment,
+    isScrollControlled: true,
+    onClose: () => Navigator.of(context).pop(),
+    builder: (_) => _NotificationRecurringSeries(
+      userId: userId,
+      recurringId: recurringId,
+      scheduledOccurrenceDate: scheduledOccurrenceDate,
+    ),
+  );
+}
+
+class _NotificationRecurringSeries extends ConsumerWidget {
+  const _NotificationRecurringSeries({
+    required this.userId,
+    required this.recurringId,
+    required this.scheduledOccurrenceDate,
+  });
+
+  final String userId;
+  final String recurringId;
+  final DateTime scheduledOccurrenceDate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final query = RecurringSeriesDetailQuery(
+      userId: userId,
+      recurringId: recurringId,
+    );
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: ref.watch(recurringSeriesDetailProvider(query)).when(
+            skipLoadingOnReload: true,
+            data: (transaction) => _NotificationRecurringOccurrence(
+              transaction: transaction,
+              userId: userId,
+              scheduledOccurrenceDate: scheduledOccurrenceDate,
+            ),
+            loading: () => const _RecurringOccurrenceEditorSkeleton(),
+            error: (_, __) => Padding(
+              padding: const EdgeInsets.all(24),
+              child: PrimaryAdaptiveButton(
+                onPressed: () =>
+                    ref.invalidate(recurringSeriesDetailProvider(query)),
+                child: Text(context.l10n.retry),
+              ),
+            ),
+          ),
+    );
+  }
+}
+
+class _NotificationRecurringOccurrence extends ConsumerWidget {
+  const _NotificationRecurringOccurrence({
+    required this.transaction,
+    required this.userId,
+    required this.scheduledOccurrenceDate,
+  });
+
+  final RecurringTransaction transaction;
+  final String userId;
+  final DateTime scheduledOccurrenceDate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyQuery = RecurringOccurrenceHistoryQuery(
+      userId: userId,
+      recurringId: transaction.id,
+      beforeScheduledDate: DateTime(scheduledOccurrenceDate.year,
+          scheduledOccurrenceDate.month, scheduledOccurrenceDate.day + 1),
+      pageSize: 1,
+    );
+    final materializationQuery = RecurringOccurrenceMaterializationQuery(
+      userId: userId,
+      householdId: transaction.householdId,
+      recurringId: transaction.id,
+      scheduledOccurrenceDate: scheduledOccurrenceDate,
+    );
+    final history = ref.watch(recurringOccurrenceHistoryProvider(historyQuery));
+    final materialized = ref
+        .watch(recurringOccurrenceMaterializedProvider(materializationQuery));
+    Widget content;
+    if ((history.hasError && !history.hasValue) ||
+        (materialized.hasError && !materialized.hasValue)) {
+      content = Padding(
+        key: const ValueKey('notification-occurrence-error'),
+        padding: const EdgeInsets.all(24),
+        child: PrimaryAdaptiveButton(
+          onPressed: () {
+            ref.invalidate(recurringOccurrenceHistoryProvider(historyQuery));
+            ref.invalidate(
+                recurringOccurrenceMaterializedProvider(materializationQuery));
+          },
+          child: Text(context.l10n.retry),
+        ),
+      );
+    } else if (!history.hasValue || !materialized.hasValue) {
+      content = const _RecurringOccurrenceEditorSkeleton(
+        key: ValueKey('notification-occurrence-loading'),
+      );
+    } else {
+      final matching = history.requireValue.items.where((item) =>
+          formatDateOnlyYmd(item.scheduledOccurrenceDate) ==
+          formatDateOnlyYmd(scheduledOccurrenceDate));
+      final occurrence = matching.isEmpty ? null : matching.first;
+      if (materialized.requireValue || occurrence?.status != 'pending') {
+        content = Padding(
+          key: const ValueKey('notification-occurrence-resolved'),
+          padding: const EdgeInsets.all(24),
+          child: Text(context.l10n.recurringOccurrenceNotAvailable),
+        );
+      } else {
+        final isRevalidating = history.hasError ||
+            history.isLoading ||
+            history.requireValue.isRefreshing;
+        content = Column(
+          key: ValueKey('notification-occurrence-${transaction.id}'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 3,
+              child: isRevalidating && !history.hasError
+                  ? const LinearProgressIndicator()
+                  : null,
+            ),
+            Flexible(
+              child: ExcludeFocus(
+                excluding: isRevalidating,
+                child: AbsorbPointer(
+                  key: const ValueKey('notification-occurrence-revalidation'),
+                  absorbing: isRevalidating,
+                  child: _ConfirmRecurringOccurrenceForm(
+                    recurringTransaction: transaction,
+                    scheduledOccurrenceDate: scheduledOccurrenceDate,
+                    allowNextPreconfirmation: isNextFutureRecurringOccurrence(
+                      transaction: transaction,
+                      scheduledOccurrenceDate: scheduledOccurrenceDate,
+                      userNow: effectiveNow(
+                        preferredTimezone: ref
+                            .watch(analyticsProvider)
+                            .contact
+                            ?.preferredTimezone,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (history.hasError)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: PrimaryAdaptiveButton(
+                  isExpanded: false,
+                  onPressed: () => ref.invalidate(
+                      recurringOccurrenceHistoryProvider(historyQuery)),
+                  child: Text(context.l10n.retry),
+                ),
+              ),
+          ],
+        );
+      }
+    }
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        child: content,
+      ),
+    );
+  }
+}
+
 Future<void> showLazyRecurringOccurrenceSheet({
   required BuildContext context,
   required RecurringTransaction recurringTransaction,

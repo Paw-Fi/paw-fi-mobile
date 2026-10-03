@@ -72,6 +72,7 @@ void main() {
           currency: 'USD',
           startDate: DateTime(2026, 2, 1),
           frequency: 'monthly',
+          dueTime: '09:00:00',
           description: 'Household groceries',
           merchant: 'Fresh Market',
           householdId: 'household_1',
@@ -100,6 +101,8 @@ void main() {
     expect(requestBody['payerUserId'], 'user_2');
     expect(requestBody['merchant'], 'Fresh Market');
     expect(requestBody['customSplits'], _amountSplitPayload);
+    expect((requestBody['recurrence_rule'] as Map)['due_time'], '09:00:00');
+    expect(localRows.single.recurrenceRuleJson?['due_time'], '09:00:00');
     expect(capturedBody?['customSplits'], _amountSplitPayload);
     expect(capturedBody?['merchant'], 'Fresh Market');
   });
@@ -1289,6 +1292,7 @@ void main() {
           currency: 'USD',
           startDate: DateTime(2026, 2, 1),
           frequency: 'monthly',
+          dueTime: '09:00:00',
           householdId: 'household_1',
           customSplitType: SplitType.amount,
           customSplits: _amountSplits(),
@@ -1333,6 +1337,7 @@ void main() {
           currency: 'USD',
           startDate: DateTime(2026, 2, 1),
           frequency: 'monthly',
+          dueTime: '09:00:00',
           householdId: 'household_1',
           customSplitType: SplitType.amount,
           customSplits: _amountSplits(),
@@ -1349,6 +1354,7 @@ void main() {
     expect(requestBody['customSplits'], _amountSplitPayload);
     expect(requestBody['payerUserId'], 'user_2');
     expect(capturedBody?['customSplits'], _amountSplitPayload);
+    expect((requestBody['recurrence_rule'] as Map)['due_time'], '09:00:00');
   });
 
   test('same-household recurring edit queues splitUpdate', () async {
@@ -1357,6 +1363,7 @@ void main() {
     final original = _recurring(
       householdId: 'household_1',
       splitGroupId: 'split_1',
+      dueTime: '09:00:00',
     );
     await database.upsertTransactions([_entry(original)]);
     Map<String, dynamic>? capturedBody;
@@ -1400,6 +1407,11 @@ void main() {
     expect(extraBody['reSplitRequested'], isTrue);
     expect(extraBody, isNot(contains('customSplits')));
     expect(capturedBody?['reSplitRequested'], isTrue);
+    expect(
+      ((payload['updates'] as Map)['recurrence_rule'] as Map)['due_time'],
+      '09:00:00',
+    );
+    expect(saved?.recurrenceRule?.dueTime, '09:00:00');
     expect(mutation.status, localMutationStatusSynced);
   });
 
@@ -1852,6 +1864,7 @@ RecurringTransaction _recurring({
   String type = 'expense',
   String category = 'housing',
   String? splitGroupId,
+  String? dueTime,
   DateTime? date,
 }) {
   final resolvedDate = date ?? DateTime(2026, 2, 1);
@@ -1872,6 +1885,7 @@ RecurringTransaction _recurring({
     recurrenceRule: RecurrenceRule(
       frequency: 'monthly',
       anchorDate: resolvedDate,
+      dueTime: dueTime,
     ),
     type: type,
     attachments: const [],

@@ -4,11 +4,13 @@ class RecurringPageCommand {
   const RecurringPageCommand({
     required this.recurringId,
     this.recurringType,
+    this.scheduledOccurrenceDate,
     this.requestId = 0,
   });
 
   final String recurringId;
   final String? recurringType;
+  final DateTime? scheduledOccurrenceDate;
   final int requestId;
 }
 

@@ -233,6 +233,35 @@ void main() {
     expect(cached?.items.single.transaction.description, 'Local edit');
   });
 
+  test('queued recurring update retains due time in its cached overlay',
+      () async {
+    remote.responses['recurring-read:listSeries'] = {
+      'success': true,
+      'data': {
+        'items': [_seriesSummaryJson],
+        'has_more': false,
+        'next_cursor': null,
+      },
+    };
+    const scope = RecurringReadScope(
+      userId: _userId,
+      householdId: null,
+      currencies: ['USD'],
+    );
+    await repository.fetchSeriesPage(scope: scope);
+    await database.writeOptimisticTransactionUpdate(
+      originalEntry: _recurringEntry('Music'),
+      updatedEntry: _recurringEntry('Local edit', dueTime: '09:00:00'),
+      clientMutationId: 'update-recurring-due-time',
+      payload: const {'functionName': 'update-expense'},
+    );
+
+    final cached = await repository.readCachedSeriesPage(scope: scope);
+
+    expect(
+        cached?.items.single.transaction.recurrenceRule?.dueTime, '09:00:00');
+  });
+
   test('queued recurring deletion removes a persisted summary after restart',
       () async {
     remote.responses['recurring-read:listSeries'] = {
@@ -262,7 +291,8 @@ void main() {
   });
 }
 
-ExpenseEntry _recurringEntry(String description) => ExpenseEntry(
+ExpenseEntry _recurringEntry(String description, {String? dueTime}) =>
+    ExpenseEntry(
       id: _seriesId,
       userId: _userId,
       date: DateTime(2026, 1, 15),
@@ -274,11 +304,12 @@ ExpenseEntry _recurringEntry(String description) => ExpenseEntry(
       rawText: description,
       type: 'expense',
       isRecurring: true,
-      recurrenceRuleJson: const {
+      recurrenceRuleJson: {
         'frequency': 'monthly',
         'anchor_date': '2026-01-15',
         'interval': 1,
         'projection_enabled': true,
+        if (dueTime != null) 'due_time': dueTime,
       },
     );
 

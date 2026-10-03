@@ -324,12 +324,14 @@ class RecurrenceRule {
       frequency; // 'daily', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom'
   final DateTime anchorDate;
   final DateTime? endDate;
+  final String? dueTime;
   final int? interval; // For custom frequency (e.g., every 2 weeks)
 
   RecurrenceRule({
     required this.frequency,
     required this.anchorDate,
     this.endDate,
+    this.dueTime,
     this.interval,
   });
 
@@ -349,6 +351,7 @@ class RecurrenceRule {
       anchorDate: parseDate(json['anchor_date'] ?? json['anchorDate']) ??
           DateTime.now(),
       endDate: parseDate(json['end_date'] ?? json['endDate']),
+      dueTime: json['due_time'] as String? ?? json['dueTime'] as String?,
       interval: parseInt(json['interval']),
     );
   }
@@ -358,6 +361,7 @@ class RecurrenceRule {
       'frequency': frequency,
       'anchor_date': formatDateOnlyYmd(anchorDate),
       'end_date': endDate == null ? null : formatDateOnlyYmd(endDate!),
+      if (dueTime != null) 'due_time': dueTime,
       'interval': interval,
     };
   }

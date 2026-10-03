@@ -167,6 +167,7 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
   required DateTime startDate,
   required String frequency,
   DateTime? endDate,
+  String? dueTime,
   int? interval,
   String? description,
   String? merchant,
@@ -209,6 +210,7 @@ RecurringTransaction _buildOptimisticRecurringTransaction({
       endDate: endDate == null
           ? null
           : DateTime(endDate.year, endDate.month, endDate.day),
+      dueTime: dueTime,
       interval: interval,
       reminderEnabled: hasReminder,
       reminderValue: hasReminder == true ? reminderValue : null,
@@ -2601,6 +2603,7 @@ class RecurringTransactionSaveNotifier
     required DateTime startDate,
     required String frequency,
     DateTime? endDate,
+    String? dueTime,
     int? interval,
     String? description,
     String? merchant,
@@ -2640,6 +2643,7 @@ class RecurringTransactionSaveNotifier
         'frequency': frequency,
         'anchor_date': anchorDateYmd,
         if (endDateYmd != null) 'end_date': endDateYmd,
+        if (dueTime != null) 'due_time': dueTime,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -2723,6 +2727,7 @@ class RecurringTransactionSaveNotifier
         startDate: startDate,
         frequency: frequency,
         endDate: endDate,
+        dueTime: dueTime,
         interval: interval,
         description: description,
         merchant: merchant,
@@ -2878,6 +2883,7 @@ class RecurringTransactionSaveNotifier
     required DateTime startDate,
     required String frequency,
     DateTime? endDate,
+    String? dueTime,
     int? interval,
     String? description,
     String? merchant,
@@ -2918,6 +2924,7 @@ class RecurringTransactionSaveNotifier
         'frequency': frequency,
         'anchor_date': anchorDateYmd,
         if (endDateYmd != null) 'end_date': endDateYmd,
+        if (dueTime != null) 'due_time': dueTime,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -2938,6 +2945,7 @@ class RecurringTransactionSaveNotifier
         startDate: startDate,
         frequency: frequency,
         endDate: endDate,
+        dueTime: dueTime,
         interval: interval,
         description: description,
         merchant: merchant,
@@ -3310,6 +3318,7 @@ class RecurringTransactionSaveNotifier
     required DateTime startDate,
     required String frequency,
     DateTime? endDate,
+    String? dueTime,
     int? interval,
     String? description,
     String? merchant,
@@ -3386,6 +3395,9 @@ class RecurringTransactionSaveNotifier
         'projection_enabled':
             originalExpense?.recurrenceRule?.projectionEnabled ?? true,
         if (endDateYmd != null) 'end_date': endDateYmd,
+        if (dueTime ?? originalExpense?.recurrenceRule?.dueTime
+            case final value?)
+          'due_time': value,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -3518,6 +3530,7 @@ class RecurringTransactionSaveNotifier
         startDate: startDate,
         frequency: frequency,
         endDate: endDate,
+        dueTime: dueTime ?? originalExpense?.recurrenceRule?.dueTime,
         interval: interval,
         description: description,
         merchant: merchant,
@@ -3711,6 +3724,7 @@ class RecurringTransactionSaveNotifier
     required DateTime startDate,
     required String frequency,
     DateTime? endDate,
+    String? dueTime,
     int? interval,
     String? description,
     String? merchant,
@@ -3787,6 +3801,9 @@ class RecurringTransactionSaveNotifier
         'projection_enabled':
             originalIncome?.recurrenceRule?.projectionEnabled ?? true,
         if (endDateYmd != null) 'end_date': endDateYmd,
+        if (dueTime ?? originalIncome?.recurrenceRule?.dueTime
+            case final value?)
+          'due_time': value,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -3832,6 +3849,7 @@ class RecurringTransactionSaveNotifier
         startDate: startDate,
         frequency: frequency,
         endDate: endDate,
+        dueTime: dueTime ?? originalIncome?.recurrenceRule?.dueTime,
         interval: interval,
         description: description,
         merchant: merchant,

@@ -3,6 +3,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 
 void main() {
+  test('recurrence rule preserves an optional canonical due time', () {
+    final rule = RecurrenceRule.fromJson({
+      'frequency': 'daily',
+      'anchor_date': '2026-10-03',
+      'due_time': '09:00:00',
+    });
+
+    expect(rule.dueTime, '09:00:00');
+    expect(rule.copyWith(frequency: 'monthly').dueTime, '09:00:00');
+    expect(rule.toJson()['due_time'], '09:00:00');
+  });
+
+  test('recurrence rule keeps legacy missing due time nullable', () {
+    final rule = RecurrenceRule.fromJson({
+      'frequency': 'daily',
+      'anchor_date': '2026-10-03',
+    });
+
+    expect(rule.dueTime, isNull);
+    expect(rule.toJson().containsKey('due_time'), isFalse);
+  });
+
   test('bank-template provenance survives serialization and copies', () {
     final transaction = RecurringTransaction.fromJson({
       'id': 'telus-template',

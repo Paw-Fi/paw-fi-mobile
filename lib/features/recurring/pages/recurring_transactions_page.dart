@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/foundation.dart' as foundation;
 
@@ -142,14 +143,15 @@ class _RecurringTransactionsPageState
       ActiveWalletType.household => householdScope.selectedHouseholdId,
     };
 
-    ref.listen<RecurringPageCommand?>(recurringPageCommandProvider,
-        (previous, next) {
-      if (next == null) {
-        return;
-      }
-
-      Future<void>.microtask(() => _handleRecurringCommand(next, householdId));
-    });
+    final command = ref.watch(recurringPageCommandProvider);
+    if (command != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || ref.read(recurringPageCommandProvider) != command) {
+          return;
+        }
+        _handleRecurringCommand(command);
+      });
+    }
 
     _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     _debugPrint('🏠 [RecurringPage] BUILD');
@@ -275,22 +277,29 @@ class _RecurringTransactionsPageState
     ));
   }
 
-  Future<void> _handleRecurringCommand(
-    RecurringPageCommand command,
-    String? householdId,
-  ) async {
+  Future<void> _handleRecurringCommand(RecurringPageCommand command) async {
     final user = supabase.auth.currentUser;
     if (user == null) {
       return;
     }
 
-    unawaited(showLazyRecurringSheetById(
-      context,
-      userId: user.id,
-      recurringId: command.recurringId,
-      recurringType: command.recurringType,
-    ));
     ref.read(recurringPageCommandProvider.notifier).state = null;
+    final occurrenceDate = command.scheduledOccurrenceDate;
+    if (occurrenceDate != null) {
+      unawaited(showConfirmRecurringOccurrenceSheetById(
+        context: context,
+        userId: user.id,
+        recurringId: command.recurringId,
+        scheduledOccurrenceDate: occurrenceDate,
+      ));
+    } else {
+      unawaited(showLazyRecurringSheetById(
+        context,
+        userId: user.id,
+        recurringId: command.recurringId,
+        recurringType: command.recurringType,
+      ));
+    }
   }
 
   Widget _buildRecurringTabView({

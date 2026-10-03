@@ -54,9 +54,18 @@ class NotificationIntentParser {
     }
 
     if (DeepLinks.isRecurringLink(uri)) {
+      final occurrenceDate = uri.queryParameters['occurrence_date'];
       return NotificationIntent(
-        action: NotificationIntentAction.openRecurringEditor,
-        args: <String, dynamic>{'recurring_id': uri.pathSegments.first},
+        action: parseNotificationOccurrenceDate(occurrenceDate) == null
+            ? NotificationIntentAction.openRecurringEditor
+            : NotificationIntentAction.openRecurringOccurrenceConfirmation,
+        args: <String, dynamic>{
+          'recurring_id': uri.pathSegments.first,
+          if (parseNotificationOccurrenceDate(occurrenceDate) != null)
+            'occurrence_date': occurrenceDate,
+          if (_readId(uri.queryParameters, 'household_id') != null)
+            'household_id': _readId(uri.queryParameters, 'household_id'),
+        },
         raw: raw ?? const <String, dynamic>{},
       );
     }
@@ -123,6 +132,13 @@ class NotificationIntentParser {
     final nested = _nestedMaps(normalized);
 
     final args = <String, dynamic>{
+      if (_readIdFromAny(normalized, nested, 'recurring_id') != null)
+        'recurring_id': _readIdFromAny(normalized, nested, 'recurring_id'),
+      if (parseNotificationOccurrenceDate(
+              _readIdFromAny(normalized, nested, 'occurrence_date')) !=
+          null)
+        'occurrence_date':
+            _readIdFromAny(normalized, nested, 'occurrence_date'),
       if (_readIdFromAny(normalized, nested, 'household_id') != null)
         'household_id': _readIdFromAny(normalized, nested, 'household_id'),
       if (_readIdFromAny(normalized, nested, 'expense_id') != null)
@@ -242,15 +258,29 @@ class NotificationIntentParser {
           raw: normalized,
         );
       case 'recurring_reminder':
+        final recurringUri = Uri.tryParse(deepLink ?? '');
+        final payloadRecurringId = args['recurring_id'] ?? args['expense_id'];
+        final recurringLink = recurringUri != null &&
+                DeepLinks.isRecurringLink(recurringUri) &&
+                (payloadRecurringId == null ||
+                    recurringUri.pathSegments.first == payloadRecurringId)
+            ? fromUri(recurringUri)
+            : null;
+        final recurringArgs = <String, dynamic>{
+          ...?recurringLink?.args,
+          ...args,
+          if (!args.containsKey('recurring_id') && args['expense_id'] != null)
+            'recurring_id': args['expense_id'],
+        };
         return NotificationIntent(
-          action: NotificationIntentAction.openRecurringEditor,
+          action: parseNotificationOccurrenceDate(
+                      recurringArgs['occurrence_date']) ==
+                  null
+              ? NotificationIntentAction.openRecurringEditor
+              : NotificationIntentAction.openRecurringOccurrenceConfirmation,
           eventType: eventType,
           notificationId: notificationId,
-          args: <String, dynamic>{
-            ...args,
-            if (!args.containsKey('recurring_id') && args['expense_id'] != null)
-              'recurring_id': args['expense_id'],
-          },
+          args: recurringArgs,
           raw: normalized,
         );
       case 'log_expense_reminder':

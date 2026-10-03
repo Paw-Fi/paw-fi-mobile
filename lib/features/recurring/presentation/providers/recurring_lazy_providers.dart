@@ -835,21 +835,25 @@ class RecurringOccurrenceHistoryQuery {
     required this.userId,
     required this.recurringId,
     this.pageSize = 30,
+    this.beforeScheduledDate,
   });
 
   final String userId;
   final String recurringId;
   final int pageSize;
+  final DateTime? beforeScheduledDate;
 
   @override
   bool operator ==(Object other) =>
       other is RecurringOccurrenceHistoryQuery &&
       userId == other.userId &&
       recurringId == other.recurringId &&
+      beforeScheduledDate == other.beforeScheduledDate &&
       pageSize == other.pageSize;
 
   @override
-  int get hashCode => Object.hash(userId, recurringId, pageSize);
+  int get hashCode =>
+      Object.hash(userId, recurringId, pageSize, beforeScheduledDate);
 }
 
 @immutable
@@ -919,15 +923,19 @@ class RecurringOccurrenceHistoryNotifier extends FamilyAsyncNotifier<
     final cached = await repository.readCachedOccurrencePage(
       userId: arg.userId,
       recurringId: arg.recurringId,
+      beforeScheduledDate: arg.beforeScheduledDate,
       limit: arg.pageSize,
     );
     if (cached != null) {
       _scheduleRefresh();
-      return _withOptimisticOverlay(cached);
+      return _withOptimisticOverlay(cached).copyWith(
+        isRefreshing: arg.beforeScheduledDate != null,
+      );
     }
     final page = await repository.fetchOccurrencePage(
       userId: arg.userId,
       recurringId: arg.recurringId,
+      beforeScheduledDate: arg.beforeScheduledDate,
       limit: arg.pageSize,
     );
     ref
@@ -945,6 +953,7 @@ class RecurringOccurrenceHistoryNotifier extends FamilyAsyncNotifier<
       final page = await (await _repository).fetchOccurrencePage(
         userId: _query.userId,
         recurringId: _query.recurringId,
+        beforeScheduledDate: _query.beforeScheduledDate,
         limit: _query.pageSize,
       );
       ref
@@ -952,9 +961,15 @@ class RecurringOccurrenceHistoryNotifier extends FamilyAsyncNotifier<
           .reconcile(_query.recurringId, page.items);
       state = AsyncData(_withOptimisticOverlay(page));
     } catch (error, stackTrace) {
-      state = previous == null
-          ? AsyncError(error, stackTrace)
-          : AsyncData(previous.copyWith(isRefreshing: false));
+      if (previous == null) {
+        state = AsyncError(error, stackTrace);
+      } else if (_query.beforeScheduledDate != null) {
+        state = AsyncError<RecurringOccurrenceHistoryState>(error, stackTrace)
+            .copyWithPrevious(
+                AsyncData(previous.copyWith(isRefreshing: false)));
+      } else {
+        state = AsyncData(previous.copyWith(isRefreshing: false));
+      }
     }
   }
 

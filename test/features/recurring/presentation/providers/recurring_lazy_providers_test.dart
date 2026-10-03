@@ -35,6 +35,94 @@ void main() {
     expect(occurrence.wasSkippedBeforeConfirmation, isTrue);
   });
 
+  test(
+      'notification history keeps its exact date key through cache and refresh',
+      () async {
+    final date = DateTime(2026, 7, 16);
+    final query = RecurringOccurrenceHistoryQuery(
+      userId: _scope.userId,
+      recurringId: _seriesId,
+      beforeScheduledDate: date,
+      pageSize: 1,
+    );
+    expect(
+        query,
+        isNot(RecurringOccurrenceHistoryQuery(
+          userId: _scope.userId,
+          recurringId: _seriesId,
+          pageSize: 1,
+        )));
+    remote.responses['list-recurring-occurrences:none'] = {
+      'success': true,
+      'data': {
+        'items': [
+          {
+            'id': 'occurrence-1',
+            'recurring_id': _seriesId,
+            'scheduled_occurrence_date': '2026-07-15',
+            'status': 'pending',
+          }
+        ],
+        'has_more': false,
+        'next_cursor': null,
+      },
+    };
+    await repository.fetchOccurrencePage(
+      userId: _scope.userId,
+      recurringId: _seriesId,
+      beforeScheduledDate: date,
+      limit: 1,
+    );
+    final refresh = Completer<dynamic>();
+    remote.responses['list-recurring-occurrences:none'] = refresh.future;
+    final container = _container(repository);
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      recurringOccurrenceHistoryProvider(query),
+      (_, __) {},
+    );
+    addTearDown(subscription.close);
+    final cached =
+        await container.read(recurringOccurrenceHistoryProvider(query).future);
+    expect(cached.items.single.status, 'pending');
+    expect(cached.isRefreshing, isTrue);
+    await _flushEvents();
+    expect(remote.lastBody?['beforeScheduledDate'], '2026-07-16');
+    expect(remote.lastBody?['limit'], 1);
+    expect(
+        container
+            .read(recurringOccurrenceHistoryProvider(query))
+            .valueOrNull
+            ?.items
+            .single
+            .status,
+        'pending');
+    refresh.complete({
+      'success': true,
+      'data': {
+        'items': [
+          {
+            'id': 'occurrence-1',
+            'recurring_id': _seriesId,
+            'scheduled_occurrence_date': '2026-07-15',
+            'status': 'confirmed',
+          }
+        ],
+        'has_more': false,
+        'next_cursor': null,
+      },
+    });
+    await _flushEvents();
+    expect(
+        container
+            .read(recurringOccurrenceHistoryProvider(query))
+            .valueOrNull
+            ?.items
+            .single
+            .status,
+        'confirmed');
+  });
+
   test('uncached series remains loading until the remote response resolves',
       () async {
     final response = Completer<dynamic>();
@@ -336,12 +424,14 @@ Future<void> _flushEvents() async {
 
 class _ControlledRemote implements RecurringReadRemoteDataSource {
   final Map<String, dynamic> responses = {};
+  Map<String, dynamic>? lastBody;
 
   @override
   Future<dynamic> invoke(
     String functionName, {
     required Map<String, dynamic> body,
   }) async {
+    lastBody = body;
     final operation = body['operation']?.toString() ?? 'none';
     return await responses['$functionName:$operation'];
   }

@@ -673,6 +673,7 @@ class RecurrenceRule {
       frequency; // 'daily', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom'
   final DateTime anchorDate;
   final DateTime? endDate;
+  final String? dueTime;
   final int? interval; // For custom frequency (e.g., every 2 weeks)
   final bool? reminderEnabled;
   final int? reminderValue;
@@ -685,6 +686,7 @@ class RecurrenceRule {
     required this.frequency,
     required this.anchorDate,
     this.endDate,
+    this.dueTime,
     this.interval,
     this.reminderEnabled,
     this.reminderValue,
@@ -700,6 +702,7 @@ class RecurrenceRule {
       frequency: json['frequency'] as String,
       anchorDate: DateTime.parse(json['anchor_date'] as String),
       endDate: _parseRecurrenceCalendarDate(json['end_date']),
+      dueTime: json['due_time'] as String?,
       interval: json['interval'] as int?,
       reminderEnabled: reminder?['enabled'] as bool?,
       reminderValue: reminder?['value'] as int?,
@@ -716,6 +719,7 @@ class RecurrenceRule {
       'frequency': frequency,
       'anchor_date': formatDateOnlyYmd(anchorDate),
       'end_date': endDate == null ? null : formatDateOnlyYmd(endDate!),
+      if (dueTime != null) 'due_time': dueTime,
       'interval': interval,
       'projection_enabled': projectionEnabled,
       if (reminderEnabled != null ||
@@ -735,6 +739,7 @@ class RecurrenceRule {
     String? frequency,
     DateTime? anchorDate,
     DateTime? endDate,
+    String? dueTime,
     int? interval,
     bool? reminderEnabled,
     int? reminderValue,
@@ -746,6 +751,7 @@ class RecurrenceRule {
       frequency: frequency ?? this.frequency,
       anchorDate: anchorDate ?? this.anchorDate,
       endDate: endDate ?? this.endDate,
+      dueTime: dueTime ?? this.dueTime,
       interval: interval ?? this.interval,
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderValue: reminderValue ?? this.reminderValue,
