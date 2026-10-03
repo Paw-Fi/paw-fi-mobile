@@ -480,6 +480,10 @@ const Map<String, Set<String>> _categoryImageFilesByFolder = {
     'furniture',
     'appliances',
     'household-supplies',
+    'laundry-dry-cleaning',
+    'moving-costs',
+    'storage',
+    'clothing-shoes',
   },
   'home-utilities': {
     'home-decor',
@@ -495,6 +499,8 @@ const Map<String, Set<String>> _categoryImageFilesByFolder = {
     'heating-gas',
     'internet',
     'phone-bill',
+    'home-security',
+    'trash-recycling',
   },
   'transport': {
     'public-transport',
@@ -545,6 +551,8 @@ const Map<String, Set<String>> _categoryImageFilesByFolder = {
     'pet-medicine',
     'pet-grooming',
     'pet-supplies',
+    'pet-insurance',
+    'pet-boarding-sitting',
   },
   'work-learning': {
     'work-supplies',
@@ -573,9 +581,23 @@ const Map<String, Set<String>> _categoryImageFilesByFolder = {
     'parties-hosting',
     'gifts',
     'charity',
+    'collectibles',
   },
   'money': {
     'savings',
+    'income',
+    'salary',
+    'bonus',
+    'tips',
+    'freelance-income',
+    'rental-income',
+    'interest-income',
+    'gift',
+    'cashback',
+    'pension',
+    'refunds',
+    'transfers',
+    'investments',
     'loan-payments',
     'debt-payments',
     'bank-fees',
@@ -589,6 +611,8 @@ const Map<String, Set<String>> _categoryImageFilesByFolder = {
     'community-events',
     'environmental-green',
     'miscellaneous',
+    'other',
+    'uncategorized',
   },
 };
 
@@ -681,7 +705,6 @@ IconData getSharedTransactionCategoryIcon(String? category) =>
     _getCategoryIcon(category, useCustomStyleOverrides: false);
 
 /// Returns the bundled image for a built-in category, if available.
-/// User-selected icon overrides intentionally continue to use their icon glyph.
 String? getCategoryImageAsset(
   String? category,
 ) {

@@ -158,6 +158,16 @@ flutter:
     - lib/assets/images/flags/
     - lib/assets/images/household/
     - lib/assets/images/category/
+    - lib/assets/images/category/community-misc/
+    - lib/assets/images/category/fun-social/
+    - lib/assets/images/category/health-wellness/
+    - lib/assets/images/category/home-utilities/
+    - lib/assets/images/category/kids-pets/
+    - lib/assets/images/category/life-home/
+    - lib/assets/images/category/money/
+    - lib/assets/images/category/transport/
+    - lib/assets/images/category/travel/
+    - lib/assets/images/category/work-learning/
     - lib/assets/images/paywall/
     - lib/assets/images/wallet_sync/
     - lib/assets/images/whatsapp/text.png
