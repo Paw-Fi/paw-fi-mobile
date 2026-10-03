@@ -11,6 +11,7 @@ import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/monitoring/performance_trace.dart';
 import 'package:moneko/core/sync/foreground_reconciler.dart';
+import 'package:moneko/core/sync/ios_wallet_capture_sync_provider.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
@@ -148,6 +149,7 @@ Future<void> _syncThenRefreshMainShellData(
     ref.read(dashboardRefreshSignalProvider),
     ref.read(walletsRefreshSignalProvider),
     ref.read(walletsRecurringMutationSignalProvider),
+    ref.read(iosWalletCaptureSyncRevisionProvider),
   );
   Map<String, Object?> traceIdentity() => {
         'user': userId,
@@ -379,10 +381,19 @@ Future<void> _syncMobileTransactions(
           database,
           database?.transactionRevision ?? 0,
           ref.read(walletAuthHeadersProvider),
-          ref.read(transactionsFeedRefreshSignalProvider)
+          ref.read(transactionsFeedRefreshSignalProvider),
+          ref.read(iosWalletCaptureSyncRevisionProvider)
         ),
         isActive: () => guard.isActive,
         phases: [
+          () async {
+            try {
+              if (!guard.isActive) return;
+              await ref.read(iosWalletCaptureSyncProvider)(userId);
+            } catch (error) {
+              debugPrint('[WalletCapture] Foreground sync will retry: $error');
+            }
+          },
           () => _drainMobileOutbox(ref, guard),
           () => _syncCategoryRemaps(ref, userId, guard),
           () => _pullMobileDelta(ref, userId, guard),
@@ -443,6 +454,9 @@ class MainShell extends HookConsumerWidget {
     final hasNetworkAccess =
         ref.watch(networkReachabilityProvider).valueOrNull ?? true;
     final auth = ref.watch(authProvider);
+    ref.watch(iosWalletCaptureSyncProvider);
+    final iosCaptureSyncRevision =
+        ref.watch(iosWalletCaptureSyncRevisionProvider);
     final isUserDataCleanupInProgress =
         ref.watch(userFinancialCacheCleanupInProgressProvider);
     final walletAuthHeaders =
@@ -575,6 +589,7 @@ class MainShell extends HookConsumerWidget {
       auth.uid,
       hasNetworkAccess,
       isUserDataCleanupInProgress,
+      iosCaptureSyncRevision,
     ]);
 
     useEffect(() {

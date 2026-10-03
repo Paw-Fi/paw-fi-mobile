@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SiriShortcutAuthService {
   SiriShortcutAuthService._();
@@ -16,6 +17,9 @@ class SiriShortcutAuthService {
   _SiriShortcutAuthSyncRequest? _activeSyncRequest;
   _SiriShortcutAuthSyncRequest? _queuedSyncRequest;
   int _syncGeneration = 0;
+  final _walletCapturesSynced = StreamController<String>.broadcast();
+
+  Stream<String> get walletCapturesSynced => _walletCapturesSynced.stream;
 
   bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
@@ -120,7 +124,56 @@ class SiriShortcutAuthService {
       expiresAt: request.expiresAt,
     );
     if (generation != _syncGeneration) return const <String, dynamic>{};
-    return syncPendingWalletCaptures();
+    final result = await syncPendingWalletCaptures();
+    if (generation == _syncGeneration &&
+        (result['synced'] as num? ?? 0) > 0 &&
+        request.userId != null) {
+      _walletCapturesSynced.add(request.userId!);
+    }
+    return result;
+  }
+
+  /// Flutter remains the only refresh-token owner. Native capture can persist
+  /// offline, but replay must use a current session for the same account.
+  Future<Map<String, dynamic>> syncPendingWalletCapturesWithCurrentSession({
+    required GoTrueClient auth,
+    required String supabaseUrl,
+    required String supabaseAnonKey,
+    required String userId,
+  }) async {
+    if (!_isIOS) return const <String, dynamic>{};
+    final clearFuture = _clearAuthFuture;
+    if (clearFuture != null) await clearFuture;
+    final generation = _syncGeneration;
+    bool isCurrentUser() =>
+        generation == _syncGeneration && auth.currentSession?.user.id == userId;
+    if (!isCurrentUser()) return const <String, dynamic>{};
+
+    if (auth.currentSession!.isExpired) {
+      await auth.refreshSession();
+    }
+    if (!isCurrentUser() || auth.currentSession!.isExpired) {
+      return const <String, dynamic>{};
+    }
+
+    Future<Map<String, dynamic>> sync() {
+      final session = auth.currentSession!;
+      return syncAuthContextAndPendingWalletCaptures(
+        supabaseUrl: supabaseUrl,
+        supabaseAnonKey: supabaseAnonKey,
+        accessToken: session.accessToken,
+        userId: session.user.id,
+        expiresAt: session.expiresAt,
+      );
+    }
+
+    var result = await sync();
+    if (result['requiresSessionRefresh'] == true && isCurrentUser()) {
+      await auth.refreshSession();
+      if (!isCurrentUser() || auth.currentSession!.isExpired) return result;
+      result = await sync();
+    }
+    return result;
   }
 
   Future<Map<String, dynamic>> getStatus() async {

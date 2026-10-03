@@ -1484,6 +1484,10 @@ private func submitWalletCaptureRequestBody(
     return (true, false)
   }
 
+  if WalletCaptureRetryPolicy.isRetryable(statusCode: httpResponse.statusCode) {
+    throw SiriShortcutIntentError.retryableFailure(statusCode: httpResponse.statusCode)
+  }
+
   guard (200...299).contains(httpResponse.statusCode) else {
     NSLog("[MonekoCap] saveFailed — non-2xx status %d", httpResponse.statusCode)
     throw resolveWalletCaptureIntentError(
@@ -1535,7 +1539,7 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
     ]
   )
 
-  guard var context = SiriShortcutAuthContext.load(logFailure: false) else {
+  guard let context = SiriShortcutAuthContext.load(logFailure: false) else {
     SiriShortcutDiagnostics.record(
       source: "native",
       action: "wallet-pending-sync-missing-auth",
@@ -1556,11 +1560,13 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
       "attempted": 0,
       "synced": 0,
       "remaining": records.count,
+      "requiresSessionRefresh": true,
     ]
   }
 
   var attempted = 0
   var synced = 0
+  var requiresSessionRefresh = false
   var completedIdempotencyKeys = Set<String>()
   var updatedRecordsByIdempotencyKey: [String: [String: Any]] = [:]
 
@@ -1596,6 +1602,13 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
     } catch SiriShortcutIntentError.missingSession {
       let updated = updatedPendingWalletCaptureRecord(record, error: "missingSession")
       updatedRecordsByIdempotencyKey[idempotencyKey] = updated
+      requiresSessionRefresh = true
+      break
+    } catch SiriShortcutIntentError.retryableFailure(let statusCode) {
+      updatedRecordsByIdempotencyKey[idempotencyKey] = updatedPendingWalletCaptureRecord(
+        record,
+        error: "HTTP \(statusCode)"
+      )
       break
     } catch {
       let updated = updatedPendingWalletCaptureRecord(record, error: error.localizedDescription)
@@ -1635,6 +1648,7 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
     "attempted": attempted,
     "synced": synced,
     "remaining": remainingCount,
+    "requiresSessionRefresh": requiresSessionRefresh,
   ]
 }
 
@@ -1692,7 +1706,7 @@ private func performWalletPaymentIntegrationCapture(
     throw SiriShortcutIntentError.invalidInput
   }
 
-  guard var context = SiriShortcutAuthContext.load() else {
+  guard let context = SiriShortcutAuthContext.load() else {
     NSLog("[MonekoCap] notConfigured — SiriShortcutAuthContext.load() returned nil")
     SiriShortcutDiagnostics.record(
       source: "shortcut",
@@ -1771,7 +1785,7 @@ private func performWalletPaymentIntegrationCapture(
     if result.isDuplicate {
       return "That wallet transaction was already captured in Moneko."
     }
-  } catch SiriShortcutIntentError.networkFailure {
+  } catch let error as SiriShortcutIntentError where error.canQueueCapture {
     let wasQueued = enqueuePendingWalletCapture(
       body: body,
       idempotencyKey: idempotencyKey,
@@ -2212,7 +2226,7 @@ private func performNotificationTransactionCapture(
     return result.isIgnored
       ? "Moneko checked the notification and found no completed transaction to save."
       : "Moneko captured the transaction from this notification."
-  } catch SiriShortcutIntentError.networkFailure {
+  } catch let error as SiriShortcutIntentError where error.canQueueCapture {
     let sourceLabel = sourceAppName?.trimmingCharacters(in: .whitespacesAndNewlines)
     let queueLabel = sourceLabel.flatMap { $0.isEmpty ? nil : $0 } ?? "Notification"
     let wasQueued = enqueuePendingWalletCapture(
@@ -2792,6 +2806,12 @@ private final class SharedKeychainStore {
   }
 }
 
+enum WalletCaptureRetryPolicy {
+  static func isRetryable(statusCode: Int) -> Bool {
+    [408, 425, 429].contains(statusCode) || (500...599).contains(statusCode)
+  }
+}
+
 private enum SiriShortcutIntentError: LocalizedError {
   case notConfigured
   case missingSession
@@ -2800,10 +2820,20 @@ private enum SiriShortcutIntentError: LocalizedError {
   case duplicateRequest
   case noExpenseDetected
   case networkFailure
+  case retryableFailure(statusCode: Int)
   case offlineSaveFailed
   case saveFailed
   case requestFailed
   case backendError(message: String, code: String?)
+
+  var canQueueCapture: Bool {
+    switch self {
+    case .networkFailure, .missingSession, .retryableFailure:
+      return true
+    default:
+      return false
+    }
+  }
 
   var errorDescription: String? {
     switch self {
@@ -2821,6 +2851,8 @@ private enum SiriShortcutIntentError: LocalizedError {
       return "I could not detect an expense from that."
     case .networkFailure:
       return "I could not reach Moneko. Please try again."
+    case .retryableFailure:
+      return "Moneko is temporarily unavailable. Please try again."
     case .offlineSaveFailed:
       return "Moneko could not save this transaction offline. Please open the app and try again."
     case .saveFailed:

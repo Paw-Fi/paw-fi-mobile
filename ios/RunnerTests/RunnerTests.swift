@@ -5,6 +5,15 @@ import XCTest
 
 class RunnerTests: XCTestCase {
 
+  func testWalletCaptureRetainsTemporaryServerFailuresForRetry() {
+    for statusCode in [408, 425, 429, 500, 502, 503, 504, 599] {
+      XCTAssertTrue(WalletCaptureRetryPolicy.isRetryable(statusCode: statusCode))
+    }
+    for statusCode in [200, 400, 401, 403, 404, 409, 422] {
+      XCTAssertFalse(WalletCaptureRetryPolicy.isRetryable(statusCode: statusCode))
+    }
+  }
+
   func testNotificationShortcutPayloadMapsVisibleFields() {
     let notification = NotificationShortcutCapturePayload.makeNotification(
       title: "Card purchase",
