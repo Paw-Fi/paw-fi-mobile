@@ -8,6 +8,26 @@ class EmailImportSettingsService {
 
   final SupabaseClient _client;
 
+  Stream<void> watchSenders(String userId) => _client
+      .from('email_import_sender_whitelist')
+      .stream(primaryKey: ['id'])
+      .eq('user_id', userId)
+      .map((_) {});
+
+  Future<Map<String, dynamic>> verifySender(String token) async {
+    final response = await _client.functions.invoke(
+      'email-import-sender-verify',
+      body: {'token': token},
+    );
+    final body = response.data;
+    if (body is! Map<String, dynamic> ||
+        body['success'] != true ||
+        body['data'] is! Map<String, dynamic>) {
+      throw FunctionException(status: response.status, details: body);
+    }
+    return body['data'] as Map<String, dynamic>;
+  }
+
   Future<EmailImportSettings> getSettings() async {
     final response = await _invoke(
       action: 'get',
@@ -36,7 +56,7 @@ class EmailImportSettingsService {
   Future<EmailImportSettings> addWhitelistEmail(String email) async {
     final response = await _invoke(
       action: 'add_whitelist',
-      body: {'email': email},
+      body: {'email': email, 'senderVerificationVersion': 1},
     );
     return EmailImportSettings.fromJson(response);
   }
@@ -62,19 +82,16 @@ class EmailImportSettingsService {
     );
 
     final responseData = response.data;
-    if (response.status >= 400) {
-      final errorMessage = responseData is Map<String, dynamic>
-          ? responseData['error']?.toString()
-          : null;
-      throw Exception(errorMessage ?? 'Request failed with ${response.status}');
-    }
     if (responseData is! Map<String, dynamic>) {
-      throw Exception('Unexpected response payload');
+      throw const FormatException('Unexpected response payload');
     }
     final success = responseData['success'] == true;
+    if (response.status >= 400 || !success) {
+      throw FunctionException(status: response.status, details: responseData);
+    }
     final data = responseData['data'];
-    if (!success || data is! Map<String, dynamic>) {
-      throw Exception(responseData['error']?.toString() ?? 'Request failed');
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Unexpected response payload');
     }
     return data;
   }

@@ -20,6 +20,10 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/profile/domain/email_import_settings.dart';
+import 'package:moneko/features/profile/presentation/providers/email_import_settings_provider.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -38,6 +42,9 @@ class DeepLinkService {
   Uri? _pendingImportReview;
   bool _isImportReviewConsumptionScheduled = false;
   bool _isDisposed = false;
+  final Set<String> _pendingSenderTokens = {};
+  String? _activeSenderToken;
+  bool _isSenderVerificationRunning = false;
 
   /// Initialize the deep link listener
   Future<void> initialize(WidgetRef ref, BuildContext context) async {
@@ -78,6 +85,14 @@ class DeepLinkService {
   Future<void> _handleDeepLink(Uri uri, WidgetRef ref) async {
     // Only log deep link type, not sensitive parameters
     _debugPrint('🔗 Handling deep link');
+    final senderToken = DeepLinks.emailSenderVerificationToken(uri);
+    if (senderToken != null) {
+      if (senderToken != _activeSenderToken) {
+        _pendingSenderTokens.add(senderToken);
+      }
+      _consumeSenderVerification(ref);
+      return;
+    }
     if (kDebugMode) {
       _debugPrint(
           '🔗 Query parameters present: ${uri.queryParameters.isNotEmpty}');
@@ -323,6 +338,74 @@ class DeepLinkService {
     }
   }
 
+  Future<void> _consumeSenderVerification(WidgetRef ref) async {
+    if (_isDisposed ||
+        _isSenderVerificationRunning ||
+        _pendingSenderTokens.isEmpty) {
+      return;
+    }
+    final context = rootNavigatorKey.currentContext;
+    if (context == null || !context.mounted) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _consumeSenderVerification(ref));
+      WidgetsBinding.instance.ensureVisualUpdate();
+      return;
+    }
+    final token = _pendingSenderTokens.first;
+    _pendingSenderTokens.remove(token);
+    _activeSenderToken = token;
+    _isSenderVerificationRunning = true;
+    try {
+      final result = await ref
+          .read(emailImportSettingsServiceProvider)
+          .verifySender(token);
+      if (_isDisposed) return;
+      final userId = result['userId'];
+      final sender = result['sender'];
+      if (userId is! String ||
+          sender is! Map<String, dynamic> ||
+          sender['verified'] != true) {
+        throw const FormatException('Invalid sender verification response');
+      }
+      final currentContext = rootNavigatorKey.currentContext;
+      if (currentContext == null || !currentContext.mounted) return;
+      if (ref.read(authProvider).uid == userId) {
+        ref
+            .read(emailImportSettingsProvider(userId).notifier)
+            .acceptVerifiedSender(
+              EmailImportWhitelistEntry.fromJson(sender),
+            );
+        if (GoRouter.of(currentContext)
+                .routeInformationProvider
+                .value
+                .uri
+                .path !=
+            '/email-import-settings') {
+          currentContext.push('/email-import-settings');
+        }
+        AppToast.success(currentContext,
+            currentContext.l10n.emailSenderVerificationComplete);
+      } else {
+        AppToast.info(currentContext,
+            currentContext.l10n.emailSenderVerifiedOtherAccount);
+      }
+    } catch (error) {
+      final currentContext = rootNavigatorKey.currentContext;
+      if (!_isDisposed && currentContext != null && currentContext.mounted) {
+        AppToast.error(
+            currentContext,
+            ErrorHandler.getUserFriendlyMessage(error,
+                context: BackendErrorContext.emailImportSettings));
+      }
+    } finally {
+      _isSenderVerificationRunning = false;
+      _activeSenderToken = null;
+      if (!_isDisposed && _pendingSenderTokens.isNotEmpty) {
+        _consumeSenderVerification(ref);
+      }
+    }
+  }
+
   void _queueImportReview(Uri uri) {
     final reviewId = DeepLinks.importReviewId(uri);
     final secret = DeepLinks.importReviewSecret(uri);
@@ -397,6 +480,7 @@ class DeepLinkService {
   void dispose() {
     _isDisposed = true;
     _pendingImportReview = null;
+    _pendingSenderTokens.clear();
     _linkSubscription?.cancel();
   }
 }

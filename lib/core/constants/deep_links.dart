@@ -54,6 +54,19 @@ class DeepLinks {
   /// The OTP parameter contains the 6-digit verification code.
   static const String telegramVerification = '$appScheme://verify-telegram';
 
+  static String? emailSenderVerificationToken(Uri uri) {
+    if (uri.scheme != appScheme ||
+        uri.host != 'verify-email-sender' ||
+        uri.path.isNotEmpty ||
+        uri.hasQuery ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasPort ||
+        !_reviewTokenPattern.hasMatch(uri.fragment)) {
+      return null;
+    }
+    return uri.fragment;
+  }
+
   // ==================== Household Invitation Deep Links ====================
 
   /// Household invitation callback URL

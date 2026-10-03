@@ -10,6 +10,7 @@ enum BackendErrorContext {
   deleteExpense,
   saveRecurring,
   recording,
+  emailImportSettings,
 }
 
 class _NormalizedBackendError {
@@ -49,6 +50,11 @@ class ErrorHandler {
         return 'Scenario analysis timed out. Please try again.';
       }
       return 'Request timed out. Please try again.';
+    }
+
+    if (context == BackendErrorContext.emailImportSettings &&
+        error is FormatException) {
+      return 'We couldn\'t read your email import settings. Please try again.';
     }
 
     final errorString = error.toString().toLowerCase();
@@ -253,6 +259,12 @@ class ErrorHandler {
     final message = error.message?.toLowerCase() ?? '';
     final code = error.code ?? '';
 
+    if (context == BackendErrorContext.emailImportSettings &&
+        error.message?.trim().isNotEmpty == true &&
+        _isSafeUserMessage(error.message!)) {
+      return error.message!.trim();
+    }
+
     if (message.contains('timeout') ||
         message.contains('timed out') ||
         message.contains('bad gateway') ||
@@ -341,6 +353,13 @@ class ErrorHandler {
         return 'Could not analyze this scenario. Please try again.';
       }
       return 'Please check your input and try again.';
+    }
+
+    if ((code == 'DEFAULT_EMAIL_ALREADY_INCLUDED' ||
+            code == 'EMAIL_ALREADY_CLAIMED') &&
+        error.message?.trim().isNotEmpty == true &&
+        _isSafeUserMessage(error.message!)) {
+      return error.message!.trim();
     }
 
     if (error.status == 409 || code == 'CONFLICT') {

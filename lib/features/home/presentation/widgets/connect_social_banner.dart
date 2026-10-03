@@ -20,7 +20,7 @@ import 'package:moneko/features/profile/data/email_import_settings_service.dart'
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
-import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
+import 'package:go_router/go_router.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -422,13 +422,7 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
     );
     if (!hasAccess || !context.mounted) return;
 
-    Navigator.of(context)
-        .push(
-      MaterialPageRoute<void>(
-        builder: (_) => const EmailImportSettingsPage(),
-      ),
-    )
-        .then((_) {
+    context.push<void>('/email-import-settings').then((_) {
       ref.invalidate(emailImportEnabledProvider);
     });
   }
@@ -619,7 +613,7 @@ class _ChecklistStepCard extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Icon(
                     step.completed ? Icons.check_rounded : step.icon,
-                    size: 18  ,
+                    size: 18,
                     color: step.completed
                         ? colorScheme.mutedForeground
                         : colorScheme.foreground,

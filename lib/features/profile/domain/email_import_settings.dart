@@ -1,15 +1,26 @@
 const emailImportInboundAddress = 'files@inbound.moneko.io';
 
+enum EmailImportSenderConflict { accountEmail, alreadyAdded }
+
 class EmailImportWhitelistEntry {
   const EmailImportWhitelistEntry({
     required this.id,
     required this.email,
     required this.normalizedEmail,
+    this.isVerified = true,
   });
 
   final String id;
   final String email;
   final String normalizedEmail;
+  final bool isVerified;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'email': email,
+        'normalizedEmail': normalizedEmail,
+        'verified': isVerified,
+      };
 
   factory EmailImportWhitelistEntry.fromJson(Map<String, dynamic> json) {
     return EmailImportWhitelistEntry(
@@ -18,6 +29,7 @@ class EmailImportWhitelistEntry {
       normalizedEmail: (json['normalizedEmail'] as String?) ??
           (json['email'] as String?) ??
           '',
+      isVerified: json['verified'] as bool? ?? true,
     );
   }
 }
@@ -32,6 +44,7 @@ class EmailImportSettings {
     required this.whitelistEmails,
     this.accountId,
     this.accountName,
+    this.ownerUserId,
   });
 
   final bool enabled;
@@ -40,13 +53,46 @@ class EmailImportSettings {
   final bool isPortfolio;
   final String? accountId;
   final String? accountName;
+  final String? ownerUserId;
   final String defaultEmail;
   final List<EmailImportWhitelistEntry> whitelistEmails;
+
+  Map<String, dynamic> toJson() => {
+        'enabled': enabled,
+        'userId': ownerUserId,
+        'scopeId': scopeId,
+        'scopeName': scopeName,
+        'isPortfolio': isPortfolio,
+        'accountId': accountId,
+        'accountName': accountName,
+        'defaultEmail': defaultEmail,
+        'whitelistEmails':
+            whitelistEmails.map((entry) => entry.toJson()).toList(),
+      };
+
+  EmailImportSenderConflict? senderConflictFor(
+    String email, {
+    String? accountEmail,
+  }) {
+    final normalized = normalizeWhitelistEmail(email);
+    if (normalized == null) return null;
+    if (normalized == normalizeWhitelistEmail(defaultEmail) ||
+        normalized == normalizeWhitelistEmail(accountEmail ?? '')) {
+      return EmailImportSenderConflict.accountEmail;
+    }
+    if (whitelistEmails.any((entry) =>
+        normalized == normalizeWhitelistEmail(entry.normalizedEmail) ||
+        normalized == normalizeWhitelistEmail(entry.email))) {
+      return EmailImportSenderConflict.alreadyAdded;
+    }
+    return null;
+  }
 
   factory EmailImportSettings.fromJson(Map<String, dynamic> json) {
     final whitelist = json['whitelistEmails'];
     return EmailImportSettings(
       enabled: json['enabled'] as bool? ?? false,
+      ownerUserId: _optionalString(json['userId']),
       scopeId: (json['scopeId'] as String?) ?? 'personal',
       scopeName: (json['scopeName'] as String?) ?? 'Personal',
       isPortfolio: json['isPortfolio'] as bool? ?? false,
@@ -94,6 +140,7 @@ class EmailImportSettings {
   }) {
     return EmailImportSettings(
       enabled: enabled ?? this.enabled,
+      ownerUserId: ownerUserId,
       scopeId: scopeId ?? this.scopeId,
       scopeName: scopeName ?? this.scopeName,
       isPortfolio: isPortfolio ?? this.isPortfolio,

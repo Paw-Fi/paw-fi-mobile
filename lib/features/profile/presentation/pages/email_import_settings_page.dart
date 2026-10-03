@@ -7,10 +7,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/profile/data/email_import_settings_service.dart';
+import 'package:moneko/features/profile/presentation/providers/email_import_settings_provider.dart';
 import 'package:moneko/features/profile/domain/email_import_settings.dart';
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
@@ -27,10 +28,10 @@ class EmailImportSettingsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final authState = ref.watch(authProvider);
-    final service = useMemoized(() => EmailImportSettingsService());
-    final settings = useState<EmailImportSettings?>(
-        EmailImportSettings.disabled(defaultEmail: authState.email));
-    final isLoading = useState(true);
+    final settingsAsync = ref.watch(emailImportSettingsProvider(authState.uid));
+    final settings = settingsAsync.valueOrNull;
+    final controller =
+        ref.read(emailImportSettingsProvider(authState.uid).notifier);
     final isSaving = useState(false);
     final pendingDeleteEmail = useState<String?>(null);
 
@@ -38,29 +39,30 @@ class EmailImportSettingsPage extends HookConsumerWidget {
         ? ref.watch(userHouseholdsProvider(authState.uid))
         : const AsyncValue<List<Household>>.data([]);
     final selectedScopeHouseholdId =
-        settings.value?.scopeId == 'personal' ? null : settings.value?.scopeId;
+        settings?.scopeId == 'personal' ? null : settings?.scopeId;
     final walletsAsync =
         ref.watch(walletsByHouseholdIdProvider(selectedScopeHouseholdId));
     final hasWalletOptions = walletsAsync.valueOrNull?.isNotEmpty == true;
     final hasNoWalletOptions =
         walletsAsync.hasValue && walletsAsync.valueOrNull?.isEmpty == true;
 
-    useEffect(() {
-      Future<void> loadSettings() async {
-        try {
-          settings.value = await service.getSettings();
-        } catch (error) {
-          if (context.mounted) {
-            AppToast.error(context, error.toString());
-          }
-        } finally {
-          isLoading.value = false;
-        }
+    Future<void> showSettingsError(Object error) async {
+      if (!context.mounted) return;
+      if (ErrorHandler.isPlusFeatureLimitError(error)) {
+        await PlusLockedSheet.show(
+          context,
+          highlightedFeature: PlusFeature.emailReceiptImport,
+        );
+        return;
       }
-
-      loadSettings();
-      return null;
-    }, const []);
+      AppToast.error(
+        context,
+        ErrorHandler.getUserFriendlyMessage(
+          error,
+          context: BackendErrorContext.emailImportSettings,
+        ),
+      );
+    }
 
     String? resolveDefaultWalletId(List<WalletEntity> wallets) {
       for (final wallet in wallets) {
@@ -73,7 +75,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
       return walletsAsync.when(
         data: (wallets) {
           if (wallets.isEmpty) return context.l10n.noWallet;
-          final selectedId = settings.value?.accountId;
+          final selectedId = settings?.accountId;
           if (selectedId != null) {
             for (final wallet in wallets) {
               if (wallet.id == selectedId) return wallet.name;
@@ -100,16 +102,14 @@ class EmailImportSettingsPage extends HookConsumerWidget {
     }) async {
       isSaving.value = true;
       try {
-        settings.value = await service.updateSettings(
+        await controller.updateSettings(
           enabled: enabled,
           scopeId: scopeId,
           isPortfolio: isPortfolio,
           accountId: accountId,
         );
       } catch (error) {
-        if (context.mounted) {
-          AppToast.error(context, error.toString());
-        }
+        await showSettingsError(error);
       } finally {
         isSaving.value = false;
       }
@@ -125,7 +125,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
         if (!hasAccess || !context.mounted) return;
       }
 
-      final current = settings.value;
+      final current = settings;
       if (current == null) return;
       await persistSettings(
         enabled: enabled,
@@ -136,7 +136,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
     }
 
     Future<void> pickDestinationSpace() async {
-      final current = settings.value;
+      final current = settings;
       if (current == null) return;
 
       final households = householdsAsync.valueOrNull ?? [];
@@ -187,7 +187,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
     }
 
     Future<void> pickDestinationWallet() async {
-      final current = settings.value;
+      final current = settings;
       if (current == null) return;
 
       final wallets = walletsAsync.valueOrNull ?? const <WalletEntity>[];
@@ -222,10 +222,13 @@ class EmailImportSettingsPage extends HookConsumerWidget {
     }
 
     Future<void> addWhitelistEmail() async {
+      final hasAccess = await PlusLockedSheet.ensureAccess(context, ref,
+          feature: PlusFeature.emailReceiptImport);
+      if (!hasAccess || !context.mounted) return;
       final result = await MonekoAlertDialog.show(
         context: context,
         title: context.l10n.emailFileImportAddSenderTitle,
-        description: context.l10n.emailFileImportAddSenderDescription,
+        description: context.l10n.emailSenderVerificationDescription,
         confirmLabel: context.l10n.confirm,
         cancelLabel: context.l10n.cancel,
         inputConfig: MonekoAlertDialogInputConfig(
@@ -247,28 +250,39 @@ class EmailImportSettingsPage extends HookConsumerWidget {
         return;
       }
 
-      final current = settings.value;
-      if (current != null &&
-          (normalized == current.defaultEmail.toLowerCase() ||
-              current.whitelistEmails
-                  .map((entry) => entry.normalizedEmail)
-                  .contains(normalized))) {
+      final current = settings;
+      final conflict = current?.senderConflictFor(
+        normalized,
+        accountEmail: ref.read(authProvider).email,
+      );
+      if (conflict != null) {
         if (context.mounted) {
-          AppToast.info(context, context.l10n.emailFileImportEmailAlreadyAdded);
+          AppToast.info(
+            context,
+            conflict == EmailImportSenderConflict.accountEmail
+                ? context.l10n.emailFileImportAccountEmailAlreadyIncluded
+                : current!.whitelistEmails.any((entry) =>
+                        entry.normalizedEmail == normalized &&
+                        !entry.isVerified)
+                    ? context.l10n.emailSenderVerificationPendingMessage
+                    : context.l10n.emailFileImportEmailAlreadyAdded,
+          );
         }
         return;
       }
 
       isSaving.value = true;
       try {
-        settings.value = await service.addWhitelistEmail(normalized);
-        if (context.mounted) {
-          AppToast.success(context, context.l10n.emailFileImportEmailAdded);
+        final sent = await controller.requestVerification(normalized);
+        if (context.mounted && ref.read(authProvider).uid == authState.uid) {
+          AppToast.info(
+              context,
+              sent
+                  ? context.l10n.emailSenderVerificationSent
+                  : context.l10n.emailFileImportEmailAlreadyAdded);
         }
       } catch (error) {
-        if (context.mounted) {
-          AppToast.error(context, error.toString());
-        }
+        await showSettingsError(error);
       } finally {
         isSaving.value = false;
       }
@@ -288,16 +302,35 @@ class EmailImportSettingsPage extends HookConsumerWidget {
 
       pendingDeleteEmail.value = email;
       try {
-        settings.value = await service.removeWhitelistEmail(email);
+        await controller.removeSender(email);
         if (context.mounted) {
           AppToast.success(context, context.l10n.emailFileImportEmailRemoved);
         }
       } catch (error) {
-        if (context.mounted) {
-          AppToast.error(context, error.toString());
-        }
+        await showSettingsError(error);
       } finally {
         pendingDeleteEmail.value = null;
+      }
+    }
+
+    Future<void> resendVerification(String email) async {
+      final hasAccess = await PlusLockedSheet.ensureAccess(context, ref,
+          feature: PlusFeature.emailReceiptImport);
+      if (!hasAccess || !context.mounted) return;
+      isSaving.value = true;
+      try {
+        final sent = await controller.requestVerification(email);
+        if (context.mounted && ref.read(authProvider).uid == authState.uid) {
+          AppToast.info(
+              context,
+              sent
+                  ? context.l10n.emailSenderVerificationSent
+                  : context.l10n.emailFileImportEmailAlreadyAdded);
+        }
+      } catch (error) {
+        await showSettingsError(error);
+      } finally {
+        isSaving.value = false;
       }
     }
 
@@ -326,19 +359,38 @@ class EmailImportSettingsPage extends HookConsumerWidget {
       );
     }
 
-    if (isLoading.value || settings.value == null) {
+    if (settings == null) {
       return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
           appBar: AdaptiveAppBar(title: context.l10n.emailFileImport),
           body: Container(
             color: colorScheme.appBackground,
-            child: const AsyncDataSkeleton(rowCount: 6),
+            child: settingsAsync.hasError
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          ErrorHandler.getUserFriendlyMessage(
+                              settingsAsync.error,
+                              context: BackendErrorContext.emailImportSettings),
+                          textAlign: TextAlign.center,
+                        ),
+                        TextButton(
+                          onPressed: () => ref.invalidate(
+                              emailImportSettingsProvider(authState.uid)),
+                          child: Text(context.l10n.retry),
+                        ),
+                      ],
+                    ),
+                  )
+                : const AsyncDataSkeleton(rowCount: 6),
           ),
         ),
       );
     }
 
-    final current = settings.value!;
+    final current = settings;
     final senderEmails = [
       current.defaultEmail,
       ...current.whitelistEmails.map((entry) => entry.email),
@@ -359,7 +411,9 @@ class EmailImportSettingsPage extends HookConsumerWidget {
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: EdgeInsets.only(
-                  top: getSubPageTopPadding(context) - 20,
+                  top: (getSubPageTopPadding(context) - 20)
+                      .clamp(0.0, double.infinity)
+                      .toDouble(),
                   left: 20,
                   right: 20,
                   bottom: 40,
@@ -472,7 +526,10 @@ class EmailImportSettingsPage extends HookConsumerWidget {
                             emails: senderEmails,
                             removableEmails: current.whitelistEmails,
                             pendingDeleteEmail: pendingDeleteEmail.value,
-                            onRemoveEmail: removeWhitelistEmail,
+                            onRemoveEmail:
+                                isSaving.value ? null : removeWhitelistEmail,
+                            onResend:
+                                isSaving.value ? null : resendVerification,
                           ),
                           _AddSenderRow(
                             onPressed:
@@ -805,12 +862,14 @@ class _SenderEmailColumn extends StatelessWidget {
     required this.removableEmails,
     required this.pendingDeleteEmail,
     required this.onRemoveEmail,
+    required this.onResend,
   });
 
   final List<String> emails;
   final List<EmailImportWhitelistEntry> removableEmails;
   final String? pendingDeleteEmail;
-  final ValueChanged<String> onRemoveEmail;
+  final ValueChanged<String>? onRemoveEmail;
+  final ValueChanged<String>? onResend;
 
   @override
   Widget build(BuildContext context) {
@@ -826,7 +885,10 @@ class _SenderEmailColumn extends StatelessWidget {
             email: email,
             isBusy: pendingDeleteEmail == email,
             canRemove: removableLookup.containsKey(email),
-            onRemove: () => onRemoveEmail(email),
+            onRemove:
+                onRemoveEmail == null ? null : () => onRemoveEmail!(email),
+            isVerified: removableLookup[email]?.isVerified ?? true,
+            onResend: onResend == null ? null : () => onResend!(email),
           ),
           if (email != emails.last)
             Padding(
@@ -849,12 +911,16 @@ class _SenderEmailLine extends StatelessWidget {
     required this.canRemove,
     required this.isBusy,
     required this.onRemove,
+    required this.isVerified,
+    required this.onResend,
   });
 
   final String email;
   final bool canRemove;
   final bool isBusy;
-  final VoidCallback onRemove;
+  final VoidCallback? onRemove;
+  final bool isVerified;
+  final VoidCallback? onResend;
 
   @override
   Widget build(BuildContext context) {
@@ -865,15 +931,39 @@ class _SenderEmailLine extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              email,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.foreground,
-                height: 1.25,
-              ),
-            ),
+            child: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        email,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.foreground,
+                          height: 1.25,
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Text(
+                            isVerified
+                                ? context.l10n.emailSenderVerified
+                                : context.l10n.emailSenderPending,
+                            key: ValueKey(isVerified),
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: isVerified
+                                    ? colorScheme.success
+                                    : colorScheme.mutedForeground)),
+                      ),
+                      if (!isVerified)
+                        TextButton(
+                            onPressed: onResend,
+                            child: Text(context.l10n.emailSenderResend)),
+                    ])),
           ),
           if (canRemove)
             IconButton(

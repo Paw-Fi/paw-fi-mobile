@@ -74,7 +74,6 @@ import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
-import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/financial_month_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
@@ -1478,13 +1477,8 @@ class SettingsPage extends HookConsumerWidget {
                           );
                           return;
                         }
-                        Navigator.of(context)
-                            .push(
-                              MaterialPageRoute<void>(
-                                builder: (context) =>
-                                    const EmailImportSettingsPage(),
-                              ),
-                            )
+                        context
+                            .push<void>('/email-import-settings')
                             .then((_) => integrationStatusReloadKey.value++);
                       },
                     ),

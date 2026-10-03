@@ -28,6 +28,7 @@ import 'package:moneko/features/insights/presentation/pages/monthly_report_page.
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/features/import_review/presentation/pages/import_review_page.dart';
+import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_account_preparing_page.dart';
@@ -211,6 +212,13 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) => ImportReviewPage(
           reviewId: state.pathParameters['reviewId'] ?? '',
           token: state.extra is String ? state.extra! as String : '',
+        ),
+      ),
+      GoRoute(
+        path: '/email-import-settings',
+        builder: (context, state) => const PlusFeatureGuard(
+          feature: PlusFeature.emailReceiptImport,
+          child: EmailImportSettingsPage(),
         ),
       ),
 

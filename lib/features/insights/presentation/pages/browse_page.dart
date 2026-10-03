@@ -20,7 +20,6 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/features/insights/presentation/widgets/tabs/scenario_planning_tab.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
-import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
@@ -121,11 +120,7 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
       case _BrowseDestination.currencyConverter:
         if (context.mounted) context.push('/currency-rates');
       case _BrowseDestination.emailReceipt:
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const EmailImportSettingsPage(),
-          ),
-        );
+        await context.push<void>('/email-import-settings');
       case _BrowseDestination.telegram:
         await _openTelegram();
       case _BrowseDestination.whatsapp:

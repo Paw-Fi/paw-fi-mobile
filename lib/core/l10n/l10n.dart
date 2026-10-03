@@ -26,6 +26,24 @@ extension AiClarificationL10nX on AppLocalizations {
   String get aiClarificationCustomAnswer => 'Type your own answer';
 }
 
+extension EmailImportSettingsL10nX on AppLocalizations {
+  String get emailFileImportAccountEmailAlreadyIncluded =>
+      'Your Moneko account email is already an allowed sender. No need to add it again.';
+  String get emailSenderPending => 'Pending verification';
+  String get emailSenderVerified => 'Allowed sender';
+  String get emailSenderResend => 'Resend verification';
+  String get emailSenderVerificationSent =>
+      'Verification email sent. Open the link in your inbox to authorize this sender.';
+  String get emailSenderVerificationComplete =>
+      'Sender verified and added to your allowed senders.';
+  String get emailSenderVerifiedOtherAccount =>
+      'Sender verified for the account that requested it. Sign in to that account to manage its senders.';
+  String get emailSenderVerificationPendingMessage =>
+      'This sender is waiting for verification. Check your inbox or resend the verification email.';
+  String get emailSenderVerificationDescription =>
+      'We will email a verification link to this address. Receipts are imported only after the mailbox owner authorizes this account.';
+}
+
 extension HomeDashboardL10nX on AppLocalizations {}
 
 extension MerchantIdentityL10nX on AppLocalizations {

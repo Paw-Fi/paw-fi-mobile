@@ -2,6 +2,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/constants/deep_links.dart';
 
 void main() {
+  test(
+      'email sender verification accepts only the exact app link with a fragment secret',
+      () {
+    final token = 'A' * 43;
+    expect(
+        DeepLinks.emailSenderVerificationToken(
+            Uri.parse('moneko://verify-email-sender#$token')),
+        token);
+    expect(
+        DeepLinks.emailSenderVerificationToken(
+            Uri.parse('moneko://verify-email-sender?token=$token')),
+        isNull);
+    expect(
+        DeepLinks.emailSenderVerificationToken(
+            Uri.parse('https://evil.example/verify-email-sender#$token')),
+        isNull);
+    expect(
+        DeepLinks.emailSenderVerificationToken(
+            Uri.parse('moneko://verify-email-sender/extra#$token')),
+        isNull);
+  });
   group('DeepLinks - Constants', () {
     test('app scheme is correct', () {
       expect(DeepLinks.appScheme, 'moneko');
