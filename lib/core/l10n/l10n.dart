@@ -20,6 +20,12 @@ extension RecurrencePickerL10nX on AppLocalizations {
   String recurrenceYearsUnit(int count) => count == 1 ? 'year' : 'years';
 }
 
+extension AiClarificationL10nX on AppLocalizations {
+  String get aiClarificationNotSaved =>
+      'Nothing is saved until these details are confirmed.';
+  String get aiClarificationCustomAnswer => 'Type your own answer';
+}
+
 extension HomeDashboardL10nX on AppLocalizations {}
 
 extension MerchantIdentityL10nX on AppLocalizations {

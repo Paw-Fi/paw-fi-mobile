@@ -41,6 +41,8 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/services/interactive_ai_analysis.dart';
+import 'package:moneko/features/home/presentation/widgets/ai_correction_sheet.dart';
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
@@ -150,12 +152,14 @@ class _AiParsedItem {
   final String optimisticId;
   final ExpenseEntry optimisticEntry;
   final Map<String, dynamic> raw;
+  final AiAnalysisDestination? destination;
 
   const _AiParsedItem({
     required this.transaction,
     required this.optimisticId,
     required this.optimisticEntry,
     required this.raw,
+    this.destination,
   });
 }
 
@@ -987,7 +991,9 @@ Future<void> _persistAiTransactions(
         'merchantStructuredName': tx.merchantStructuredName,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
-      if ((autoSplitEnabled || explicitCustomSplits != null) &&
+      if ((item.destination != null ||
+              autoSplitEnabled ||
+              explicitCustomSplits != null) &&
           payerUserId != null)
         'payerUserId': payerUserId,
       if (effectiveCustomSplits != null) 'customSplits': effectiveCustomSplits,
@@ -2177,6 +2183,10 @@ Future<void> _processExpense(
   final hasImageInput = imagePath != null && imagePath.isNotEmpty;
   final hasAudioInput = audioBytes != null && audioBytes.isNotEmpty;
   final hasTextInput = text != null && text.trim().isNotEmpty;
+  final useInteractiveAnalysis = !preview.isActive &&
+      (hasTextInput || hasAudioInput) &&
+      !hasImageInput &&
+      !hasAttachments;
   final isPdfUpload = attachments?.any((a) =>
           a['contentType']?.toString().contains('pdf') == true ||
           a['filename']?.toString().toLowerCase().endsWith('.pdf') == true) ??
@@ -2191,6 +2201,7 @@ Future<void> _processExpense(
   Map<String, dynamic>? responseData;
   var analysisRequestBody = <String, dynamic>{};
   Future<bool> queueCurrentAiInputForRetry() {
+    if (useInteractiveAnalysis) return Future.value(false);
     return _queueAiInputForBackgroundRetry(
       providerContainer,
       userId: user.uid,
@@ -2322,6 +2333,11 @@ Future<void> _processExpense(
       };
     }
 
+    if (!context.mounted) {
+      processingOverlay?.dismiss();
+      return;
+    }
+
     // Update dialog for PDFs
     if (dialogController != null && isPdfUpload) {
       dialogController
@@ -2334,6 +2350,55 @@ Future<void> _processExpense(
       return;
     }
 
+    if (useInteractiveAnalysis) {
+      responseData = await runInteractiveAiAnalysis(
+        body: {
+          ...body,
+          if (inputTarget.accountId != null) 'accountId': inputTarget.accountId
+        },
+        isActive: () =>
+            context.mounted && ref.read(authProvider).uid == user.uid,
+        invoke: (request) async {
+          processingOverlay ??= showNonBlockingProcessingOverlay(
+            context: context,
+            message: context.l10n.analyzingExpense,
+            subMessage: context.l10n.aiProgressReviewingTransactions,
+            showElapsedTime: true,
+          );
+          final response = await supabase.functions
+              .invoke('analyze-expense', body: request)
+              .timeout(const Duration(seconds: 150));
+          return _asStringDynamicMap(response.data) ?? <String, dynamic>{};
+        },
+        ask: (question) async {
+          processingOverlay?.dismiss();
+          processingOverlay = null;
+          return showAiCorrectionSheet(context, question);
+        },
+        retry: (error) async {
+          processingOverlay?.dismiss();
+          processingOverlay = null;
+          final result = await MonekoAlertDialog.show(
+            context: context,
+            title: context.l10n.failedToAnalyze,
+            description:
+                '${ErrorHandler.getUserFriendlyMessage(error, context: BackendErrorContext.analyzeExpense)}\n${context.l10n.aiClarificationNotSaved}',
+            confirmLabel: context.l10n.retry,
+            cancelLabel: context.l10n.cancel,
+          );
+          return result?.confirmed == true;
+        },
+      );
+      if (responseData == null) {
+        processingOverlay?.dismiss();
+        return;
+      }
+    }
+
+    if (!context.mounted) {
+      processingOverlay?.dismiss();
+      return;
+    }
     final isOffline =
         ref.read(networkReachabilityProvider).valueOrNull == false;
     if (!preview.isActive && responseData == null && isOffline) {
@@ -2369,6 +2434,11 @@ Future<void> _processExpense(
         // Fall through to regular request
         responseData = null;
       }
+    }
+
+    if (!context.mounted) {
+      processingOverlay?.dismiss();
+      return;
     }
 
     // Regular request (fallback or non-PDF/small files)
@@ -2409,6 +2479,10 @@ Future<void> _processExpense(
 
     if (responseData != null && responseData['success'] == true) {
       final innerData = _asStringDynamicMap(responseData['data']);
+      final isInteractiveResult = innerData?['interactiveVersion'] == 1;
+      if (innerData?['requireCorrection'] == true) {
+        throw const FormatException('Unresolved analysis cannot be saved');
+      }
 
       if (innerData != null && innerData['items'] is List) {
         List items = List.from(innerData['items'] as List);
@@ -2427,7 +2501,7 @@ Future<void> _processExpense(
           wrapWidth: 1024,
         );
         // Safety filter: drop total/subtotal rows when multiple items exist
-        if (items.length > 1) {
+        if (!isInteractiveResult && items.length > 1) {
           bool isTotalLike(dynamic it) {
             final desc = (it is Map && it['description'] is String)
                 ? (it['description'] as String)
@@ -2462,13 +2536,36 @@ Future<void> _processExpense(
             return null;
           }
 
-          final optimisticAutoSplitContext =
-              householdId != null && householdId.isNotEmpty && !isPortfolio
-                  ? await _loadAutoSplitContext(
-                      providerContainer,
-                      householdId: householdId,
-                    )
-                  : null;
+          final defaultAutoSplitContext = !isInteractiveResult &&
+                  householdId != null &&
+                  householdId.isNotEmpty &&
+                  !isPortfolio
+              ? await _loadAutoSplitContext(
+                  providerContainer,
+                  householdId: householdId,
+                )
+              : null;
+          final resolvedSplitContexts = <String, _AutoSplitContext?>{};
+          if (isInteractiveResult) {
+            final groups = groupInteractiveAiItems(items
+                .map((item) => Map<String, dynamic>.from(item as Map))
+                .toList());
+            for (final destination in groups.keys) {
+              final id = destination.householdId;
+              if (id != null &&
+                  !destination.isPortfolio &&
+                  !resolvedSplitContexts.containsKey(id)) {
+                resolvedSplitContexts[id] = await _loadAutoSplitContext(
+                    providerContainer,
+                    householdId: id);
+              }
+            }
+          }
+          if (!context.mounted ||
+              (!preview.isActive && ref.read(authProvider).uid != user.uid)) {
+            processingOverlay?.dismiss();
+            return;
+          }
 
           // Parse ALL items and immediately optimistic-log them.
           final parsed = items
@@ -2557,6 +2654,18 @@ Future<void> _processExpense(
                                   : null,
                 );
 
+                final destination = isInteractiveResult
+                    ? AiAnalysisDestination.fromJson(
+                        item['destination'], transaction.currency)
+                    : null;
+                final householdId = destination == null
+                    ? inputTarget.householdId
+                    : destination.householdId;
+                final isPortfolio =
+                    destination?.isPortfolio ?? inputTarget.isPortfolio;
+                final optimisticAutoSplitContext = destination == null
+                    ? defaultAutoSplitContext
+                    : resolvedSplitContexts[householdId];
                 final optimisticId = makeOptimisticTransactionId();
                 final isRecurring = resolveAiIsRecurring(item);
                 final createdAt = resolveAiTransactionCreatedAt(
@@ -2595,9 +2704,9 @@ Future<void> _processExpense(
                   contactId: analyticsContactId,
                   householdId: householdId,
                   localReceiptImagePath: !isIncome ? imagePath : null,
-                  accountId: resolveScopedAccountIdForCurrency(
-                    transaction.currency,
-                  ),
+                  accountId: destination == null
+                      ? resolveScopedAccountIdForCurrency(transaction.currency)
+                      : destination.accountId,
                   type: isIncome ? 'income' : 'expense',
                   splitGroupId: optimisticSplitGroup?.id,
                   createdAt: createdAt,
@@ -2629,6 +2738,7 @@ Future<void> _processExpense(
                   optimisticId: optimisticId,
                   optimisticEntry: entry,
                   raw: item,
+                  destination: destination,
                 );
               })
               .whereType<_AiParsedItem>()
@@ -2648,11 +2758,16 @@ Future<void> _processExpense(
           }
 
           if (!context.mounted) return;
-          final optimisticTargetLabel = _resolveLogTargetLabelFromInputTarget(
-            context,
-            ref,
-            inputTarget: inputTarget,
-          );
+          final optimisticTargetLabel = isInteractiveResult
+              ? parsed
+                  .map((item) => item.destination!.spaceLabel)
+                  .toSet()
+                  .join(', ')
+              : _resolveLogTargetLabelFromInputTarget(
+                  context,
+                  ref,
+                  inputTarget: inputTarget,
+                );
 
           if (context.mounted) {
             processingOverlay?.complete(
@@ -2688,20 +2803,33 @@ Future<void> _processExpense(
           }
 
           if (!preview.isActive) {
-            unawaited(
-              _persistAiTransactions(
-                providerContainer,
-                userId: user.uid,
-                householdId: householdId,
-                isPortfolio: isPortfolio,
-                transactions: parsed,
-                accountId: scopedDefaultAccountId,
-                accountCurrency: inputTarget.accountCurrency,
-                localImagePath: imagePath,
-                requestReview: !isOnboarding,
-                candidateReviewContext: context,
-              ),
-            );
+            final groups = <AiAnalysisDestination?, List<_AiParsedItem>>{};
+            for (final item in parsed) {
+              groups.putIfAbsent(item.destination, () => []).add(item);
+            }
+            for (final group in groups.entries) {
+              final destination = group.key;
+              unawaited(
+                _persistAiTransactions(
+                  providerContainer,
+                  userId: user.uid,
+                  householdId: destination == null
+                      ? householdId
+                      : destination.householdId,
+                  isPortfolio: destination?.isPortfolio ?? isPortfolio,
+                  transactions: group.value,
+                  accountId: destination == null
+                      ? scopedDefaultAccountId
+                      : destination.accountId,
+                  accountCurrency: destination == null
+                      ? inputTarget.accountCurrency
+                      : destination.accountCurrency,
+                  localImagePath: imagePath,
+                  requestReview: !isOnboarding,
+                  candidateReviewContext: context,
+                ),
+              );
+            }
           }
         } else {
           processingOverlay?.complete(

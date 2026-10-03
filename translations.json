@@ -1,4 +1,12 @@
 {
+  "aiClarificationNotSaved": {
+    "en": "Nothing is saved until these details are confirmed.",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
+  "aiClarificationCustomAnswer": {
+    "en": "Type your own answer",
+    "de": "", "es": "", "fr": "", "it": "", "ja": "", "ko": "", "nl": "", "ur": "", "ru": "", "th": "", "uk": "", "zh": "", "zh_TW": "", "vi": ""
+  },
   "whatsappIsTemporarilyUnavailable": {
     "de": "WhatsApp ist vorübergehend nicht verfügbar",
     "en": "WhatsApp is temporarily unavailable",
