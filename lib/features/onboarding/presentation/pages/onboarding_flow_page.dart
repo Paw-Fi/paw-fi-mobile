@@ -2462,7 +2462,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _BenefitChip(
-                    icon: Icons.category_rounded,
+                    image: buildCustomCategoryImage('tag', size: 14),
                     label: context.l10n.pocketsIntroBenefitTrack,
                     colorScheme: colorScheme,
                   ),
@@ -2562,12 +2562,14 @@ class _PocketsIntroStep extends HookConsumerWidget {
 
 class _BenefitChip extends StatelessWidget {
   const _BenefitChip({
-    required this.icon,
+    this.icon,
+    this.image,
     required this.label,
     required this.colorScheme,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? image;
   final String label;
   final ColorScheme colorScheme;
 
@@ -2582,7 +2584,7 @@ class _BenefitChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: colorScheme.primary),
+          image ?? Icon(icon!, size: 14, color: colorScheme.primary),
           const SizedBox(width: 4),
           Text(
             label,

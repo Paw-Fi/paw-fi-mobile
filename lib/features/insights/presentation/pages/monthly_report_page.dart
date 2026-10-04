@@ -716,6 +716,9 @@ class MonthlyReportPage extends HookConsumerWidget {
               label: item.label,
               accent: _statusColor(item.status, colorScheme),
               icon: item.icon,
+              image: item.categoryName == null
+                  ? null
+                  : buildCategoryIcon(item.categoryName, size: 17),
               onTap: () => _openReportDetail(
                 context,
                 canOpenReportDetails,
@@ -745,7 +748,7 @@ class MonthlyReportPage extends HookConsumerWidget {
         title: context.l10n.categories,
         label: context.l10n.comparableSpendingWillAppearHere,
         accent: colorScheme.info,
-        icon: Icons.category_rounded,
+        image: buildCustomCategoryImage('tag', size: 17),
         onTap: () => _openReportDetail(
           context,
           canOpenReportDetails,
@@ -769,7 +772,7 @@ class MonthlyReportPage extends HookConsumerWidget {
             subtitle: _shortCategoryInsight(context, item),
             value: formatCurrency(item.currentSpent, report.currencyCode),
             accent: _statusColor(item.status, colorScheme),
-            icon: Icons.category_rounded,
+            image: buildCategoryIcon(item.name, size: 20),
             onTap: () => _openReportDetail(
               context,
               canOpenReportDetails,
@@ -927,7 +930,7 @@ class MonthlyReportPage extends HookConsumerWidget {
           title: context.l10n.categoryMovement,
           label: _shortCategoryInsight(context, mover),
           status: mover.status,
-          icon: Icons.category_rounded,
+          categoryName: mover.name,
           route:
               '$_monthlyReportCategoriesRoute?name=${Uri.encodeComponent(mover.name)}',
           chart: _MonthlyReportMiniBarChart(
@@ -2398,7 +2401,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               body:
                   '${_localizedCategoryTrendInsight(context, item)} ${context.l10n.currentSpendIs} ${formatCurrency(item.currentSpent, report.currencyCode)}.',
               accent: _detailStatusColor(item.status, colorScheme),
-              icon: Icons.category_rounded,
+              categoryImage: buildCategoryIcon(item.name, size: 17),
               onTap: item.sourceTransactionIds.isEmpty
                   ? null
                   : () => context.push(_monthlyReportDrillDownRouteFor(
@@ -2445,7 +2448,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                   value: formatCurrency(item.currentSpent, report.currencyCode),
                   subtitle: _detailCategoryCopy(context, item),
                   accent: _detailStatusColor(item.status, colorScheme),
-                  icon: Icons.category_rounded,
+                  image: buildCategoryIcon(item.name, size: 20),
                   onTap: () => context.push(_monthlyReportDrillDownRouteFor(
                     query: query,
                     title: getCategoryTranslation(context, item.name),
@@ -3443,7 +3446,7 @@ class _MonthlyMetricSpec {
     required this.value,
     required this.caption,
     required this.accent,
-    required this.icon,
+    this.icon,
     required this.route,
     required this.visual,
   });
@@ -3452,7 +3455,7 @@ class _MonthlyMetricSpec {
   final String value;
   final String caption;
   final Color accent;
-  final IconData icon;
+  final IconData? icon;
   final String route;
   final Widget visual;
 }
@@ -3462,17 +3465,19 @@ class _MonthlyHighlightItem {
     required this.title,
     required this.label,
     required this.status,
-    required this.icon,
+    this.icon,
     required this.route,
     this.chart,
+    this.categoryName,
   });
 
   final String title;
   final String label;
   final MonthlyReportStatus status;
-  final IconData icon;
+  final IconData? icon;
   final String route;
   final Widget? chart;
+  final String? categoryName;
 }
 
 class _MonthlyReportHeroCard extends StatelessWidget {
@@ -3589,18 +3594,20 @@ class _MonthlyReportInsightCard extends StatelessWidget {
     required this.title,
     required this.label,
     required this.accent,
-    required this.icon,
+    this.icon,
     required this.onTap,
     this.chart,
+    this.image,
   });
 
   final ColorScheme colorScheme;
   final String title;
   final String label;
   final Color accent;
-  final IconData icon;
+  final IconData? icon;
   final VoidCallback onTap;
   final Widget? chart;
+  final Widget? image;
 
   @override
   Widget build(BuildContext context) {
@@ -3619,6 +3626,7 @@ class _MonthlyReportInsightCard extends StatelessWidget {
                   label: context.l10n.insight,
                   accent: accent,
                   icon: icon,
+                  image: image,
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -3699,9 +3707,10 @@ class _MonthlyReportDisclosureRow extends StatelessWidget {
     required this.subtitle,
     required this.value,
     required this.accent,
-    required this.icon,
+    this.icon,
     required this.onTap,
     this.visual,
+    this.image,
   });
 
   final ColorScheme colorScheme;
@@ -3709,9 +3718,10 @@ class _MonthlyReportDisclosureRow extends StatelessWidget {
   final String subtitle;
   final String value;
   final Color accent;
-  final IconData icon;
+  final IconData? icon;
   final VoidCallback onTap;
   final Widget? visual;
+  final Widget? image;
 
   @override
   Widget build(BuildContext context) {
@@ -3729,6 +3739,7 @@ class _MonthlyReportDisclosureRow extends StatelessWidget {
                   colorScheme: colorScheme,
                   accent: accent,
                   icon: icon,
+                  image: image,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -4192,20 +4203,22 @@ class _MonthlyReportEyebrow extends StatelessWidget {
     required this.colorScheme,
     required this.label,
     required this.accent,
-    required this.icon,
+    this.icon,
+    this.image,
   });
 
   final ColorScheme colorScheme;
   final String label;
   final Color accent;
-  final IconData icon;
+  final IconData? icon;
+  final Widget? image;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 17, color: accent),
+        image ?? Icon(icon!, size: 17, color: accent),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
@@ -4244,12 +4257,14 @@ class _MonthlyReportIconChip extends StatelessWidget {
   const _MonthlyReportIconChip({
     required this.colorScheme,
     required this.accent,
-    required this.icon,
+    this.icon,
+    this.image,
   });
 
   final ColorScheme colorScheme;
   final Color accent;
-  final IconData icon;
+  final IconData? icon;
+  final Widget? image;
 
   @override
   Widget build(BuildContext context) {
@@ -4260,7 +4275,7 @@ class _MonthlyReportIconChip extends StatelessWidget {
         color: accent.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(11),
       ),
-      child: Icon(icon, size: 18, color: accent),
+      child: image ?? Icon(icon!, size: 18, color: accent),
     );
   }
 }

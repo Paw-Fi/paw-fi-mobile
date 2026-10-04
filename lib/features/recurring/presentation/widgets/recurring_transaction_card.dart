@@ -12,7 +12,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
 import 'package:moneko/features/recurring/presentation/utils/recurring_occurrence_schedule.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
-import 'package:moneko/shared/widgets/merchant_logo.dart';
+import 'package:moneko/shared/widgets/transaction_category_avatar.dart';
 
 /// Get localized frequency text for a recurring transaction
 String getLocalizedFrequencyText(
@@ -82,27 +82,6 @@ class RecurringTransactionCard extends StatelessWidget {
 
     final nextOccurrence =
         nextOccurrenceDate ?? transaction.getNextOccurrence(DateTime.now());
-
-    final categoryColor = getCategoryColor(transaction.category, context);
-    final adaptedCategoryColor =
-        AppTheme.adaptCategoryColorForTheme(categoryColor, colorScheme);
-    final categoryIcon = buildCategoryIcon(transaction.category, size: 22);
-    final hasMerchantLogo = buildMerchantLogoUrl(
-          logoUrl: transaction.merchantLogoUrl,
-          merchantId: transaction.merchantId,
-          domain: transaction.merchantDomain,
-          merchantStructuredName: transaction.merchantStructuredName,
-          merchantName: transaction.merchant,
-        ) !=
-        null;
-    final merchantLogo = MerchantLogo(
-      merchantId: transaction.merchantId,
-      domain: transaction.merchantDomain,
-      logoUrl: transaction.merchantLogoUrl,
-      merchantStructuredName: transaction.merchantStructuredName,
-      merchantName: transaction.merchant,
-      fallback: categoryIcon,
-    );
 
     // Format amount
     final sign = isIncome ? '+' : '-';
@@ -240,36 +219,17 @@ class RecurringTransactionCard extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Merchant logos stay rounded but are not placed on a
-                      // category-colored background. Category fallbacks retain
-                      // the existing background treatment.
-                      hasMerchantLogo
-                          ? ClipOval(
-                              child: SizedBox(
-                                width: 36,
-                                height: 36,
-                                child: merchantLogo,
-                              ),
-                            )
-                          : ClipOval(
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: adaptedCategoryColor.withValues(
-                                    alpha: 0.12,
-                                  ),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: adaptedCategoryColor.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: merchantLogo,
-                              ),
-                            ),
+                      TransactionCategoryAvatar(
+                        category: transaction.category,
+                        merchantId: transaction.merchantId,
+                        merchantDomain: transaction.merchantDomain,
+                        merchantLogoUrl: transaction.merchantLogoUrl,
+                        merchantStructuredName:
+                            transaction.merchantStructuredName,
+                        merchantName: transaction.merchant,
+                        useCustomCategoryStyleOverrides:
+                            transaction.householdId == null,
+                      ),
                       const SizedBox(
                         width: 16,
                       ),

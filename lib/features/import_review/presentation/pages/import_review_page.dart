@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/constants/deep_links.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/import_review/presentation/providers/import_review_provider.dart';
 import 'package:moneko/features/import_review/domain/import_review_models.dart';
 import 'package:moneko/features/import_review/presentation/widgets/import_review_completed_view.dart';
@@ -398,11 +399,7 @@ class _IssueSection extends ConsumerWidget {
                   color: scheme.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  _iconForField(issue.field),
-                  size: 16,
-                  color: scheme.primary,
-                ),
+                child: _iconForField(issue.field, scheme.primary),
               ),
               const SizedBox(width: 12),
               Text(
@@ -449,15 +446,16 @@ class _IssueSection extends ConsumerWidget {
     );
   }
 
-  IconData _iconForField(String field) {
+  Widget _iconForField(String field, Color color) {
     switch (field.toLowerCase()) {
       case 'account':
       case 'wallet':
-        return Icons.account_balance_wallet_rounded;
+        return Icon(Icons.account_balance_wallet_rounded,
+            size: 16, color: color);
       case 'category':
-        return Icons.category_rounded;
+        return buildCustomCategoryImage('tag', size: 16);
       default:
-        return Icons.help_outline_rounded;
+        return Icon(Icons.help_outline_rounded, size: 16, color: color);
     }
   }
 

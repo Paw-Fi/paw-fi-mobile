@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
@@ -19,14 +22,58 @@ void main() {
       });
 
       expect(getCategoryColor('groceries').toARGB32(), Colors.red.toARGB32());
-      expect(getCategoryIcon('groceries'), Icons.restaurant);
       expect(
         getSharedTransactionCategoryColor('groceries').toARGB32(),
         categoryColors['groceries']!.toARGB32(),
       );
-      expect(getSharedTransactionCategoryIcon('groceries'),
-          categoryIcons['groceries']);
+
+      final sharedImage =
+          buildCategoryIcon('groceries', useCustomStyleOverrides: false)
+              as Image;
+      final personalImage =
+          buildCategoryIcon('groceries', useCustomStyleOverrides: true)
+              as Image;
+      expect(
+        (sharedImage.image as AssetImage).assetName,
+        'lib/assets/images/category/life-home/groceries.png',
+      );
+      expect(
+        (personalImage.image as AssetImage).assetName,
+        'lib/assets/images/category/restaurant.png',
+      );
     });
+  });
+
+  test('every saved custom category key has a bundled image file', () {
+    expect(customCategoryIconKeys, hasLength(53));
+
+    for (final key in customCategoryIconKeys) {
+      final asset = getCustomCategoryIconImageAsset(key);
+      expect(asset, isNotNull, reason: 'No image path for $key');
+      expect(File(asset!).existsSync(), isTrue,
+          reason: 'Missing image for $key');
+    }
+  });
+
+  test('every built-in category resolves to an existing image file', () {
+    final categories = [...getExpenseCategories(), ...getIncomeCategories()];
+    expect(categories, hasLength(127));
+
+    for (final category in categories) {
+      final asset = getCategoryImageAsset(category);
+      expect(asset, isNotNull, reason: 'No image path for $category');
+      expect(File(asset!).existsSync(), isTrue,
+          reason: 'Missing image for $category');
+    }
+  });
+
+  test('custom categories use the generic tag image', () {
+    final image = buildCategoryIcon('custom category') as Image;
+
+    expect(
+      (image.image as AssetImage).assetName,
+      'lib/assets/images/category/tag.png',
+    );
   });
 
   group('normalizeCategory', () {

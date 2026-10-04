@@ -659,11 +659,9 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                 name)),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: Icon(
-                                        customCategoryIconForKey(
-                                            cat.iconKey ?? 'tag'),
-                                        color: colorScheme.primaryForeground,
-                                        size: 18,
+                                      child: buildCustomCategoryImage(
+                                        cat.iconKey ?? 'tag',
+                                        size: 20,
                                       ),
                                     ),
                                     title: Text(
@@ -1182,8 +1180,7 @@ class _CategoryUpsertSheet extends HookWidget {
     final selectedIconKey = useState(defaultIcon);
     final isSaving = useState(false);
 
-    final iconEntries =
-        customCategoryIconOptions.entries.toList(growable: false);
+    final iconKeys = customCategoryIconKeys.toList(growable: false);
 
     return Container(
       padding: EdgeInsets.only(
@@ -1372,18 +1369,18 @@ class _CategoryUpsertSheet extends HookWidget {
                     height: 52,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: iconEntries.length,
+                      itemCount: iconKeys.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 12),
                       itemBuilder: (context, index) {
-                        final entry = iconEntries[index];
-                        final isSelected = selectedIconKey.value == entry.key;
+                        final iconKey = iconKeys[index];
+                        final isSelected = selectedIconKey.value == iconKey;
                         final selectedColor = selectedColorArgb.value != null
                             ? Color(selectedColorArgb.value!)
                             : colorScheme.mutedForeground;
 
                         return GestureDetector(
                           onTap: () {
-                            selectedIconKey.value = entry.key;
+                            selectedIconKey.value = iconKey;
                           },
                           child: Container(
                             width: 52,
@@ -1407,14 +1404,8 @@ class _CategoryUpsertSheet extends HookWidget {
                                 width: isSelected ? 2 : 1,
                               ),
                             ),
-                            child: Icon(
-                              entry.value,
-                              color:
-                                  isSelected && selectedColorArgb.value != null
-                                      ? selectedColor
-                                      : isSelected
-                                          ? colorScheme.primary
-                                          : colorScheme.mutedForeground,
+                            child: buildCustomCategoryImage(
+                              iconKey,
                               size: 22,
                             ),
                           ),

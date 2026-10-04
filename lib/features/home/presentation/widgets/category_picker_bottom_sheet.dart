@@ -667,7 +667,11 @@ class _CategoryTile extends StatelessWidget {
                         ]
                       : null,
                 ),
-                child: buildCategoryIcon(categoryKey, size: 22),
+                child: buildCategoryIcon(
+                  categoryKey,
+                  size: 22,
+                  useCustomStyleOverrides: isCustomCategory,
+                ),
               ),
               const SizedBox(height: 6),
               SizedBox(

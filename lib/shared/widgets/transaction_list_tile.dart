@@ -12,7 +12,7 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
-import 'package:moneko/shared/widgets/merchant_logo.dart';
+import 'package:moneko/shared/widgets/transaction_category_avatar.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 
 class TransactionListTile extends StatelessWidget {
@@ -120,10 +120,6 @@ class TransactionListTile extends StatelessWidget {
   Widget _buildStyledContent(
       BuildContext context, bool shouldShowCurrencyFlag) {
     final colorScheme = Theme.of(context).colorScheme;
-    final categoryIcon = buildCategoryIcon(
-      category,
-      size: 20,
-    );
     final sign = isIncome ? '+' : '-';
     final normalizedAmount = double.parse(formatAmount(amount.abs()));
     final localizedNumber = formatLocalizedNumber(context, normalizedAmount);
@@ -134,22 +130,6 @@ class TransactionListTile extends StatelessWidget {
     final displayTitle = trimmedDescription.isNotEmpty
         ? trimmedDescription
         : (trimmedTitle.isNotEmpty ? trimmedTitle : category);
-    final hasMerchantLogo = buildMerchantLogoUrl(
-          logoUrl: merchantLogoUrl,
-          merchantId: merchantId,
-          domain: merchantDomain,
-          merchantStructuredName: merchantStructuredName,
-          merchantName: merchantName,
-        ) !=
-        null;
-    final merchantLogo = MerchantLogo(
-      merchantId: merchantId,
-      domain: merchantDomain,
-      logoUrl: merchantLogoUrl,
-      merchantStructuredName: merchantStructuredName,
-      merchantName: merchantName,
-      fallback: categoryIcon,
-    );
 
     // Build badge chips
     final chips = <Widget>[];
@@ -284,21 +264,15 @@ class TransactionListTile extends StatelessWidget {
       );
     }
 
-    final leading = hasMerchantLogo
-        ? ClipOval(
-            child: SizedBox(width: 36, height: 36, child: merchantLogo),
-          )
-        : ClipOval(
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: colorScheme.onSurface.withValues(alpha: 0.04),
-                shape: BoxShape.circle,
-              ),
-              child: merchantLogo,
-            ),
-          );
+    final leading = TransactionCategoryAvatar(
+      category: category,
+      merchantId: merchantId,
+      merchantDomain: merchantDomain,
+      merchantLogoUrl: merchantLogoUrl,
+      merchantStructuredName: merchantStructuredName,
+      merchantName: merchantName,
+      useCustomCategoryStyleOverrides: useCustomCategoryStyleOverrides,
+    );
     final amountNode = Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,

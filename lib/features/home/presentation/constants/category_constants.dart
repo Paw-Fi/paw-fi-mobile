@@ -316,155 +316,6 @@ final Map<String, Color> categoryColors = {
   ..._buildGroupColorMap(_misc, _miscPalette),
 };
 
-final Map<String, IconData> categoryIcons = {
-  // Life & Home
-  'groceries': Icons.local_grocery_store,
-  'food & drinks': Icons.fastfood,
-  'restaurants': Icons.restaurant,
-  'takeout & delivery': Icons.delivery_dining,
-  'coffee & tea': Icons.local_cafe,
-  'snacks': Icons.lunch_dining,
-  'household supplies': Icons.cleaning_services,
-  'cleaning supplies': Icons.clean_hands,
-  'home repairs': Icons.handyman,
-  'home services': Icons.home_repair_service,
-  'furniture': Icons.weekend,
-  'appliances': Icons.kitchen,
-  'home decor': Icons.style,
-  'rent': Icons.apartment,
-  'mortgage': Icons.house,
-  'insurance': Icons.policy,
-  'health insurance': Icons.health_and_safety,
-  'life insurance': Icons.favorite,
-  'home insurance': Icons.home,
-  'renters insurance': Icons.apartment,
-  'electricity': Icons.bolt,
-  'water': Icons.water_drop,
-  'heating & gas': Icons.local_fire_department,
-  'internet': Icons.wifi,
-  'phone bill': Icons.phone_iphone,
-  'trash & recycling': Icons.delete_outline,
-  'home security': Icons.security,
-  'laundry / dry cleaning': Icons.local_laundry_service,
-  'moving costs': Icons.local_shipping,
-  'storage': Icons.inventory_2,
-  'clothing & shoes': Icons.checkroom,
-
-  // Travel & Daily Transport
-  'public transport': Icons.directions_transit,
-  'taxi & ride apps': Icons.local_taxi,
-  'fuel / gas': Icons.local_gas_station,
-  'parking': Icons.local_parking,
-  'tolls': Icons.toll,
-  'car repairs': Icons.car_repair,
-  'car insurance': Icons.verified_user,
-  'car parts': Icons.build_circle,
-  'car rental': Icons.directions_car,
-  'bike / scooter': Icons.pedal_bike,
-  'travel': Icons.flight_takeoff,
-  'flights': Icons.flight,
-  'hotels': Icons.hotel,
-  'travel insurance': Icons.policy,
-  'travel activities': Icons.local_activity,
-  'luggage & travel gear': Icons.card_travel,
-  'passport & visa fees': Icons.assignment_ind,
-  'transportation': Icons.directions_bus,
-
-  // Health & Wellness
-  'medical care': Icons.medical_services,
-  'pharmacy': Icons.local_pharmacy,
-  'dental care': Icons.medical_services,
-  'eye care': Icons.visibility,
-  'mental health': Icons.self_improvement,
-  'therapy': Icons.support_agent,
-  'fitness & gym': Icons.fitness_center,
-  'sports & exercise': Icons.sports_soccer,
-  'supplements': Icons.medication,
-  'personal care': Icons.spa,
-  'beauty & cosmetics': Icons.brush,
-  'spa & massage': Icons.spa,
-
-  // Kids
-  'childcare': Icons.child_care,
-  'school supplies': Icons.backpack,
-  'kids activities': Icons.toys,
-  'kids clothing': Icons.checkroom,
-  'toys & games': Icons.sports_esports,
-  'baby supplies': Icons.child_friendly,
-
-  // Pets
-  'pet food': Icons.pets,
-  'pet treats': Icons.fastfood,
-  'vet visits': Icons.healing,
-  'pet medicine': Icons.medical_services,
-  'pet grooming': Icons.content_cut,
-  'pet supplies': Icons.shopping_bag,
-  'pet insurance': Icons.verified_user,
-  'pet boarding / sitting': Icons.house_siding,
-
-  // Work & Learning
-  'work supplies': Icons.work,
-  'home office': Icons.desktop_windows,
-  'software tools': Icons.apps,
-  'cloud storage': Icons.cloud,
-  'courses & classes': Icons.class_,
-  'books & study materials': Icons.menu_book,
-  'exams & certificates': Icons.verified,
-  'coworking space': Icons.meeting_room,
-  'professional services': Icons.design_services,
-  'business expenses': Icons.receipt_long,
-  'ads & marketing': Icons.campaign,
-  'licensing & fees': Icons.fact_check,
-
-  // Fun & Social
-  'movies & shows': Icons.movie,
-  'music & streaming': Icons.music_note,
-  'games & apps': Icons.sports_esports,
-  'hobbies': Icons.brush,
-  'crafts & art': Icons.palette,
-  'sports clubs': Icons.sports_basketball,
-  'concerts & events': Icons.event,
-  'bars & drinks': Icons.local_bar,
-  'dating': Icons.favorite,
-  'parties & hosting': Icons.celebration,
-  'gifts': Icons.card_giftcard,
-  'charity': Icons.volunteer_activism,
-  'collectibles': Icons.star,
-
-  // Money In / Money Out
-  'income': Icons.attach_money,
-  'salary': Icons.payments,
-  'bonus': Icons.card_giftcard,
-  'tips': Icons.local_atm,
-  'freelance income': Icons.computer,
-  'rental income': Icons.house_siding,
-  'interest income': Icons.ssid_chart,
-  'gift': Icons.card_giftcard,
-  'cashback': Icons.redeem,
-  'pension': Icons.account_balance,
-  'refunds': Icons.reply,
-  'transfers': Icons.swap_horiz,
-  'savings': Icons.savings,
-  'investments': Icons.trending_up,
-  'loan payments': Icons.account_balance,
-  'debt payments': Icons.receipt_long,
-  'bank fees': Icons.account_balance_wallet,
-  'taxes': Icons.receipt_long,
-  'fines': Icons.report,
-
-  // Community & Services
-  'government services': Icons.account_balance,
-  'post & delivery': Icons.local_shipping,
-  'religious & spiritual': Icons.self_improvement,
-  'community events': Icons.event_available,
-  'environmental / green': Icons.eco,
-
-  // Misc
-  'miscellaneous': Icons.widgets,
-  'other': Icons.category,
-  'uncategorized': Icons.help_outline,
-};
-
 /// Available category image filenames, grouped by asset folder.
 const Map<String, Set<String>> _categoryImageFilesByFolder = {
   'life-home': {
@@ -698,18 +549,24 @@ Color _getCategoryColor(
   return baseColor;
 }
 
-IconData getCategoryIcon(String? category) =>
-    _getCategoryIcon(category, useCustomStyleOverrides: true);
-
-IconData getSharedTransactionCategoryIcon(String? category) =>
-    _getCategoryIcon(category, useCustomStyleOverrides: false);
-
 /// Returns the bundled image for a built-in category, if available.
 String? getCategoryImageAsset(
   String? category,
 ) {
   final key = canonicalizeCategoryKey(category);
   final filename = key.replaceAll(_categoryImageFilenameSeparators, '-');
+  return _categoryImageAssetForFilename(filename);
+}
+
+String? getCustomCategoryIconImageAsset(String? iconKey) {
+  final key = iconKey?.trim().toLowerCase() ?? '';
+  if (key.isEmpty || !customCategoryIconKeys.contains(key)) return null;
+
+  final existingCategoryAsset = _categoryImageAssetForFilename(key);
+  return existingCategoryAsset ?? 'lib/assets/images/category/$key.png';
+}
+
+String? _categoryImageAssetForFilename(String filename) {
   for (final entry in _categoryImageFilesByFolder.entries) {
     if (entry.value.contains(filename)) {
       return 'lib/assets/images/category/${entry.key}/$filename.png';
@@ -721,50 +578,50 @@ String? getCategoryImageAsset(
 Widget buildCategoryIcon(
   String? category, {
   double size = 20,
+  bool useCustomStyleOverrides = false,
 }) {
-  final asset = getCategoryImageAsset(category);
+  final categoryKey = canonicalizeCategoryKey(category);
+  final customIconKey = useCustomStyleOverrides
+      ? getCustomCategoryStyleOverrides()[categoryKey]?.iconKey
+      : null;
+  final asset = customIconKey == null || customIconKey.isEmpty
+      ? getCategoryImageAsset(category)
+      : getCustomCategoryIconImageAsset(customIconKey) ??
+          getCategoryImageAsset(category);
+
+  return _buildCategoryImage(
+    asset ?? getCustomCategoryIconImageAsset('tag'),
+    size: size,
+    semanticLabel: category,
+  );
+}
+
+Widget buildCustomCategoryImage(
+  String? iconKey, {
+  double size = 20,
+}) {
+  return _buildCategoryImage(
+    getCustomCategoryIconImageAsset(iconKey),
+    size: size,
+  );
+}
+
+Widget _buildCategoryImage(
+  String? asset, {
+  required double size,
+  String? semanticLabel,
+}) {
   if (asset != null) {
     return Image.asset(
       asset,
       width: size,
       height: size,
       fit: BoxFit.contain,
-      semanticLabel: category,
+      semanticLabel: semanticLabel,
       errorBuilder: (_, __, ___) => SizedBox.square(dimension: size),
     );
   }
   return SizedBox.square(dimension: size);
-}
-
-IconData _getCategoryIcon(
-  String? category, {
-  required bool useCustomStyleOverrides,
-}) {
-  final directKey = canonicalizeCategoryKey(category);
-
-  final directOverride = useCustomStyleOverrides
-      ? getCustomCategoryStyleOverrides()[directKey]
-      : null;
-  final directIconKey = directOverride?.iconKey;
-  if (directIconKey is String && directIconKey.isNotEmpty) {
-    return customCategoryIconForKey(directIconKey);
-  }
-
-  final directMapped = categoryIcons[directKey];
-  if (directMapped != null) return directMapped;
-
-  final key = directKey.contains(' ')
-      ? directKey
-      : normalizeCategory(category ?? 'uncategorized');
-
-  final override =
-      useCustomStyleOverrides ? getCustomCategoryStyleOverrides()[key] : null;
-  final iconKey = override?.iconKey;
-  if (iconKey is String && iconKey.isNotEmpty) {
-    return customCategoryIconForKey(iconKey);
-  }
-
-  return categoryIcons[key] ?? Icons.sell;
 }
 
 Map<String, String> _categoryTranslationsFor(AppLocalizations l10n) {

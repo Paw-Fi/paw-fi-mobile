@@ -7,9 +7,10 @@ class _MonthlyReportAdviceCard extends StatelessWidget {
     required this.title,
     required this.body,
     required this.accent,
-    required this.icon,
+    this.icon,
     this.onTap,
     this.visual,
+    this.categoryImage,
   });
 
   final ColorScheme colorScheme;
@@ -17,9 +18,10 @@ class _MonthlyReportAdviceCard extends StatelessWidget {
   final String title;
   final String body;
   final Color accent;
-  final IconData icon;
+  final IconData? icon;
   final VoidCallback? onTap;
   final Widget? visual;
+  final Widget? categoryImage;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +36,7 @@ class _MonthlyReportAdviceCard extends StatelessWidget {
             label: label,
             accent: accent,
             icon: icon,
+            image: categoryImage,
           ),
           const SizedBox(height: 12),
           Text(
