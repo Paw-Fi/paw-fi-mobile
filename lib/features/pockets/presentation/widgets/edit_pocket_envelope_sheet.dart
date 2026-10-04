@@ -16,12 +16,12 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/core/utils/error_handler.dart';
-import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/pockets/data/pocket_month_mutation_service.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
@@ -209,13 +209,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       stepCents: allocationStepCents,
     );
     final maxBudgetCents = math.max(0, totalBudgetCents);
-    final viewedMonth = scopeParams.periodMonth ?? DateTime.now();
-    final monthStart = financialCycleStartForDate(
-      viewedMonth,
-      startDay: scopeParams.normalizedFinancialMonthStartDay,
-    );
-    final periodMonth =
-        '${monthStart.year}-${monthStart.month.toString().padLeft(2, '0')}-01';
     final previewAmountCents = quantizePocketBudgetAmountCents(
       (tryParseMoneyToCents(amountController.text) ??
               existingEnvelope?.budgetAmountCents ??
@@ -361,66 +354,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       return formatAmount(centsToAmount(normalizedCents));
     }
 
-    Future<void> persistPocketAmount({
-      required String envelopeId,
-      required int amountCents,
-      required String resolvedBudgetId,
-      required String nowIso,
-      bool includeDisplayFields = false,
-      String? resolvedName,
-      String? resolvedColor,
-      String? resolvedIcon,
-      String? resolvedLogoUrl,
-      bool includeLogoUrl = false,
-      bool includeRolloverFields = false,
-      bool rolloverEnabledValue = false,
-      bool rolloverNegativeValue = false,
-      int? rolloverCapCentsValue,
-      int openingRolloverCentsValue = 0,
-    }) async {
-      final payload = <String, dynamic>{
-        'budget_id': resolvedBudgetId,
-        'budget_amount_cents': amountCents,
-        'updated_at': nowIso,
-        'household_id': scopeParams.scope == PocketsScopeType.personal
-            ? null
-            : scopeParams.householdId,
-        'currency': selectedCurrency,
-      };
-
-      if (includeDisplayFields) {
-        payload['name'] = resolvedName;
-        payload['color'] = resolvedColor;
-        payload['icon'] = resolvedIcon;
-        if (includeLogoUrl) {
-          payload['logo_url'] = resolvedLogoUrl;
-        }
-      }
-
-      if (includeRolloverFields) {
-        payload['rollover_enabled'] = rolloverEnabledValue;
-        payload['rollover_negative'] = rolloverNegativeValue;
-        payload['rollover_cap_cents'] = rolloverCapCentsValue;
-        payload['opening_rollover_cents'] = openingRolloverCentsValue;
-      }
-
-      await supabase
-          .from('budget_envelopes')
-          .update(payload)
-          .eq('id', envelopeId);
-
-      await supabase.from('envelope_allocations').upsert(
-        <String, dynamic>{
-          'envelope_id': envelopeId,
-          'period_month': periodMonth,
-          'amount_cents': amountCents,
-          'carryover_policy': 'carryover',
-          'updated_at': nowIso,
-        },
-        onConflict: 'envelope_id,period_month',
-      );
-    }
-
     Future<void> handleSave() async {
       final l10n = context.l10n;
       FocusScope.of(context).unfocus();
@@ -551,8 +484,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
       PocketsMutationHandle? queuedMutation;
       try {
-        final nowIso = DateTime.now().toIso8601String();
-        final originalAmountCents = existingEnvelope?.budgetAmountCents ?? 0;
         final rebalancedSiblingAmounts =
             buildRebalancedSiblingAmounts(clampedAmountCents);
         final optimisticEnvelopeId = isEditing
@@ -655,130 +586,35 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             ),
         ];
         final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+        final normalizedCategories = selectedCategories.value
+            .map((category) => category.trim().toLowerCase())
+            .where((category) => category.isNotEmpty)
+            .toSet()
+            .toList(growable: false);
         pocketsNotifier.applyOptimisticPockets(
           pockets: optimisticPockets,
           totalBudget: totalBudget,
           budgetId: budgetId,
+          envelopeCategories: {
+            ...previousPocketsState.envelopeCategories,
+            optimisticEnvelopeId: normalizedCategories,
+          },
         );
         queuedMutation =
             await pocketsNotifier.queueCurrentPocketsSnapshotForSync(
           rollbackState: previousPocketsState,
         );
 
-        Future<void> persistSiblingAllocations() async {
-          for (var index = 0; index < siblingPockets.length; index++) {
-            final pocket = siblingPockets[index];
-            final rebalancedAmount = rebalancedSiblingAmounts[index];
-            if (pocket.budgetAmountCents == rebalancedAmount) {
-              continue;
-            }
-
-            await persistPocketAmount(
-              envelopeId: pocket.id,
-              amountCents: rebalancedAmount,
-              resolvedBudgetId: budgetId!,
-              nowIso: nowIso,
-            );
-          }
+        final writeResult = await pocketsNotifier
+            .persistQueuedPocketsSnapshotNow(queuedMutation);
+        final envelopeId = isEditing
+            ? existingEnvelope!.id
+            : writeResult.canonicalPocketIds[optimisticEnvelopeId];
+        if (envelopeId == null || envelopeId.isEmpty) {
+          throw StateError(
+              'The saved Pocket ID was not returned by the server');
         }
-
-        String envelopeId;
-        if (isEditing) {
-          envelopeId = existingEnvelope!.id;
-
-          if (clampedAmountCents > originalAmountCents) {
-            await persistSiblingAllocations();
-          }
-
-          await persistPocketAmount(
-            envelopeId: envelopeId,
-            amountCents: clampedAmountCents,
-            resolvedBudgetId: budgetId!,
-            nowIso: nowIso,
-            includeDisplayFields: true,
-            resolvedName: name,
-            resolvedColor: selectedColor.value,
-            resolvedIcon: selectedIcon.value,
-            resolvedLogoUrl: selectedLogoUrl.value,
-            includeLogoUrl: true,
-            includeRolloverFields: shouldWriteRolloverFields,
-            rolloverEnabledValue: rolloverEnabledValue,
-            rolloverNegativeValue: rolloverNegativeValue,
-            rolloverCapCentsValue: rolloverCapCentsValue,
-            openingRolloverCentsValue: openingRolloverCentsValue,
-          );
-
-          if (clampedAmountCents < originalAmountCents) {
-            await persistSiblingAllocations();
-          }
-
-          await supabase
-              .from('envelope_category_links')
-              .delete()
-              .eq('envelope_id', envelopeId);
-        } else {
-          final insertPayload = <String, dynamic>{
-            'user_id': user.uid,
-            'budget_id': budgetId,
-            'name': name,
-            'budget_amount_cents': 0,
-            'household_id': scopeParams.scope == PocketsScopeType.personal
-                ? null
-                : householdId,
-            'currency': selectedCurrency,
-            'color': selectedColor.value,
-            'icon': selectedIcon.value,
-            'logo_url': selectedLogoUrl.value,
-          };
-          if (shouldWriteRolloverFields) {
-            insertPayload.addAll(<String, dynamic>{
-              'rollover_enabled': rolloverEnabledValue,
-              'rollover_negative': rolloverNegativeValue,
-              'rollover_cap_cents': rolloverCapCentsValue,
-              'opening_rollover_cents': openingRolloverCentsValue,
-            });
-          }
-
-          final insertRes = await supabase
-              .from('budget_envelopes')
-              .insert(insertPayload)
-              .select('id')
-              .maybeSingle();
-
-          final id = insertRes != null ? insertRes['id'] as String? : null;
-          if (id == null) {
-            throw Exception(l10n.failedToCreateEnvelope);
-          }
-          envelopeId = id;
-          queuedMutation = await pocketsNotifier.rebindOptimisticPocketId(
-            optimisticId: optimisticEnvelopeId,
-            canonicalId: envelopeId,
-            rollbackState: previousPocketsState,
-          );
-
-          await persistSiblingAllocations();
-          await persistPocketAmount(
-            envelopeId: envelopeId,
-            amountCents: clampedAmountCents,
-            resolvedBudgetId: budgetId!,
-            nowIso: nowIso,
-          );
-        }
-
-        final linksPayload = selectedCategories.value
-            .map((category) => <String, dynamic>{
-                  'envelope_id': envelopeId,
-                  'category': category,
-                })
-            .toList();
-
-        if (linksPayload.isNotEmpty) {
-          await supabase.from('envelope_category_links').insert(linksPayload);
-        }
-
-        await ref
-            .read(pocketsProvider(scopeParams).notifier)
-            .markQueuedPocketsSnapshotSynced(queuedMutation);
+        await pocketsNotifier.markQueuedPocketsSnapshotSynced(queuedMutation);
 
         if (isScopedToHousehold && householdId != null) {
           ref
@@ -788,9 +624,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
         // Keep the active page on its optimistic SQLite-backed state while the
         // backend response reconciles in place.
-        unawaited(ref
-            .read(pocketsProvider(scopeParams).notifier)
-            .load(bypassCache: true));
+        await pocketsNotifier.load(bypassCache: true);
 
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -799,6 +633,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, message);
         }
       } catch (e) {
+        if (queuedMutation != null && e is PocketMonthRevisionConflict) {
+          await ref
+              .read(pocketsProvider(scopeParams).notifier)
+              .handlePocketRevisionConflict(queuedMutation, e);
+          if (context.mounted) {
+            AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
+          }
+          return;
+        }
         if (queuedMutation != null && shouldKeepQueuedPocketsMutation(e)) {
           if (context.mounted) {
             Navigator.of(context).pop();
@@ -892,43 +735,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           rollbackState: previousPocketsState,
         );
 
-        final deleteResult = await supabase.rpc(
-          'delete_pocket_envelope_with_allocations',
-          params: <String, dynamic>{
-            'p_envelope_id': existingEnvelope!.id,
-            'p_budget_id': budgetId,
-            'p_period_month': periodMonth,
-            'p_sibling_allocations': [
-              for (var index = 0; index < remainingPockets.length; index++)
-                {
-                  'id': remainingPockets[index].id,
-                  'amountCents': rebalancedRemainingAmounts[index],
-                },
-            ],
-          },
-        );
-        if (deleteResult is Map && deleteResult['success'] == false) {
-          throw Exception(
-            deleteResult['error']?.toString() ?? l10n.failedToDeletePocket,
-          );
-        }
-        final deleteData = deleteResult is Map ? deleteResult['data'] : null;
-        final logoStoragePath = deleteData is Map
-            ? deleteData['logoStoragePath']?.toString().trim()
-            : null;
-        if (logoStoragePath != null && logoStoragePath.isNotEmpty) {
-          try {
-            await supabase.storage
-                .from(StorageConfig.publicBucket)
-                .remove([logoStoragePath]);
-          } catch (error) {
-            debugPrint('[Pockets] pocket logo cleanup skipped: $error');
-          }
-        }
-
-        await ref
-            .read(pocketsProvider(scopeParams).notifier)
-            .markQueuedPocketsSnapshotSynced(queuedMutation);
+        final writeNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+        await writeNotifier.persistQueuedPocketsSnapshotNow(queuedMutation);
+        await writeNotifier.markQueuedPocketsSnapshotSynced(queuedMutation);
 
         final isScopedToHousehold =
             scopeParams.scope != PocketsScopeType.personal;
@@ -941,9 +750,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
         // Keep the active page on its optimistic SQLite-backed state while the
         // backend response reconciles in place.
-        unawaited(ref
-            .read(pocketsProvider(scopeParams).notifier)
-            .load(bypassCache: true));
+        await writeNotifier.load(bypassCache: true);
 
         if (context.mounted) {
           Navigator.of(context).pop(); // close sheet
@@ -951,6 +758,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, l10n.pocketDeleted);
         }
       } catch (e) {
+        if (queuedMutation != null && e is PocketMonthRevisionConflict) {
+          await ref
+              .read(pocketsProvider(scopeParams).notifier)
+              .handlePocketRevisionConflict(queuedMutation, e);
+          if (context.mounted) {
+            AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
+          }
+          return;
+        }
         if (queuedMutation != null && shouldKeepQueuedPocketsMutation(e)) {
           if (context.mounted) {
             Navigator.of(context).pop();

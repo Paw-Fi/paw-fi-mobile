@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/sync/sync_coordinator.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -15,6 +18,141 @@ void main() {
 
   tearDown(() async {
     await database.close();
+  });
+
+  test(
+      'a Pocket review survives SQLite reopen and an explicit discard remains retired',
+      () async {
+    final directory = await Directory.systemTemp.createTemp('pocket-review-');
+    final path = '${directory.path}/outbox.sqlite';
+    var disk =
+        MonekoDatabase.fromExistingDatabaseForTesting(sqlite3.open(path));
+    try {
+      await disk.enqueueMutation(
+          clientMutationId: 'month',
+          entityType: 'pockets_month',
+          entityId: 'month',
+          operation: 'save_pockets_month',
+          payload: {'mutationRevision': '1'});
+      final row = (await disk.getOutboxMutations()).single;
+      await disk.markMutationNeedsReviewIfPayloadMatches(
+          clientMutationId: row.clientMutationId,
+          expectedPayloadJson: row.payloadJson,
+          error: 'conflict');
+      await disk.close();
+      disk = MonekoDatabase.fromExistingDatabaseForTesting(sqlite3.open(path));
+      final restored = (await disk.getOutboxMutations()).single;
+      expect(restored.status, localMutationStatusNeedsReview);
+      expect(restored.payloadJson, row.payloadJson);
+      expect(await disk.nextRetryableMutation(DateTime.now()), isNull);
+      await disk.discardMutationReviewIfPayloadMatches(
+          clientMutationId: restored.clientMutationId,
+          expectedPayloadJson: restored.payloadJson);
+      await disk.close();
+      disk = MonekoDatabase.fromExistingDatabaseForTesting(sqlite3.open(path));
+      expect((await disk.getOutboxMutations()).single.status,
+          localMutationStatusCancelled);
+    } finally {
+      await disk.close();
+      await directory.delete(recursive: true);
+    }
+  });
+
+  test('a superseded conflict cannot hold or annotate the newer Pocket intent',
+      () async {
+    await database.enqueueMutation(
+        clientMutationId: 'month',
+        entityType: 'pockets_month',
+        entityId: 'month',
+        operation: 'save_pockets_month',
+        payload: {'mutationRevision': '1'});
+    var reviews = 0;
+    final coordinator = SyncCoordinator(
+        database: database,
+        onMutationNeedsReview: (_, error) async {
+          reviews++;
+        },
+        dispatchMutation: (_) async {
+          await database.enqueueMutation(
+              clientMutationId: 'month',
+              entityType: 'pockets_month',
+              entityId: 'month',
+              operation: 'save_pockets_month',
+              payload: {'mutationRevision': '2'});
+          throw const ManualReviewLocalMutationException('stale request');
+        });
+    await coordinator.drainOutbox(maxMutations: 1);
+    final latest = (await database.getOutboxMutations()).single;
+    expect(latest.status, localMutationStatusQueued);
+    expect(latest.lastError, isNull);
+    expect(reviews, 0);
+  });
+
+  for (final operation in ['save_pockets_month', 'assign_pocket_category']) {
+    test('$operation survives retry exhaustion and later reconciles', () async {
+      var now = DateTime.now().toUtc();
+      await database.enqueueMutation(
+          clientMutationId: 'durable',
+          entityType: 'pockets_month',
+          entityId: 'month',
+          operation: operation,
+          payload: {'mutationRevision': '1'});
+      var online = false;
+      final coordinator = SyncCoordinator(
+          database: database,
+          now: () => now,
+          dispatchMutation: (_) async {
+            if (!online) throw StateError('offline');
+          });
+      for (var i = 0; i < 10; i++) {
+        now = now.add(const Duration(minutes: 10));
+        await coordinator.drainOutbox(maxMutations: 1);
+      }
+      final held = (await database.getOutboxMutations()).single;
+      expect(held.status, localMutationStatusFailed);
+      expect(held.attemptCount, 10);
+      online = true;
+      now = now.add(const Duration(minutes: 10));
+      expect(await coordinator.drainOutbox(), 1);
+      expect((await database.getOutboxMutations()).single.status,
+          localMutationStatusSynced);
+    });
+  }
+
+  test('discarding a review checks the payload and cannot cancel a replacement',
+      () async {
+    await database.enqueueMutation(
+        clientMutationId: 'month',
+        entityType: 'pockets_month',
+        entityId: 'month',
+        operation: 'save_pockets_month',
+        payload: {'mutationRevision': '1'});
+    final original = (await database.getOutboxMutations()).single;
+    await database.markMutationNeedsReviewIfPayloadMatches(
+        clientMutationId: 'month',
+        expectedPayloadJson: original.payloadJson,
+        error: 'conflict');
+    await database.enqueueMutation(
+        clientMutationId: 'month',
+        entityType: 'pockets_month',
+        entityId: 'month',
+        operation: 'save_pockets_month',
+        payload: {'mutationRevision': '2'});
+    expect(
+        await database.discardMutationReviewIfPayloadMatches(
+            clientMutationId: 'month',
+            expectedPayloadJson: original.payloadJson),
+        isFalse);
+    final latest = (await database.getOutboxMutations()).single;
+    await database.markMutationNeedsReviewIfPayloadMatches(
+        clientMutationId: 'month',
+        expectedPayloadJson: latest.payloadJson,
+        error: 'conflict');
+    expect(
+        await database.discardMutationReviewIfPayloadMatches(
+            clientMutationId: 'month', expectedPayloadJson: latest.payloadJson),
+        isTrue);
+    expect(await database.nextRetryableMutation(DateTime.now()), isNull);
   });
 
   test('drainOutbox dispatches retryable mutations in creation order',
@@ -85,6 +223,39 @@ void main() {
     final mutation = (await database.getOutboxMutations()).single;
     expect(mutation.status, localMutationStatusQueued);
     expect(mutation.payloadJson, contains('"mutationRevision":"2"'));
+  });
+
+  test('stale pocket writes remain durable for explicit review', () async {
+    final now = DateTime.utc(2026, 9, 22, 12);
+    await database.enqueueMutation(
+      clientMutationId: 'pockets-month',
+      entityType: 'pockets_month',
+      entityId: 'personal:2026-09-01:EUR',
+      operation: 'save_pockets_month',
+      payload: const {'mutationRevision': '1'},
+      createdAt: now,
+    );
+    final reviewRequired = <String>[];
+    final coordinator = SyncCoordinator(
+      database: database,
+      now: () => now,
+      onMutationNeedsReview: (mutation, _) async {
+        reviewRequired.add(mutation.clientMutationId);
+      },
+      dispatchMutation: (_) async {
+        throw const ManualReviewLocalMutationException(
+          'Pocket plan changed on another device.',
+        );
+      },
+    );
+
+    expect(await coordinator.drainOutbox(maxMutations: 1), 0);
+    final mutation = (await database.getOutboxMutations()).single;
+    expect(mutation.status, localMutationStatusNeedsReview);
+    expect(mutation.attemptCount, 0);
+    expect(mutation.lastError, contains('changed on another device'));
+    expect(reviewRequired, ['pockets-month']);
+    expect(await database.nextRetryableMutation(now), isNull);
   });
 
   test('an older terminal failure cannot cancel a replacement payload',

@@ -78,6 +78,19 @@ extension PocketsAiSuggestionsL10nX on AppLocalizations {
       'Your pockets changed while your plan was being prepared. Please try again.';
 }
 
+/// English fallback until the normal translation catalog export.
+extension PocketsPlanReviewL10nX on AppLocalizations {
+  String get pocketPlanNeedsReview => 'Saved Pocket plan needs review';
+  String get pocketPlanReviewDescription =>
+      'Compare your saved changes with the current plan before reapplying them.';
+  String get pocketPlanDiscardDescription =>
+      'Discard these saved changes and keep the current server plan?';
+  String get pocketPlanReapply => 'Reapply saved changes';
+  String get pocketPlanDiscard => 'Discard saved changes';
+  String get pocketPlanCurrent => 'Current plan';
+  String get pocketPlanSaved => 'Saved changes';
+}
+
 extension SharedWidgetsL10nX on AppLocalizations {
   String workingForElapsed(String elapsed) => 'Working for $elapsed';
 }

@@ -21,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
+import 'package:moneko/features/pockets/presentation/widgets/pockets_plan_review_banner.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_ai_budget_intro_sheet.dart';
 import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -828,7 +829,7 @@ class PocketsPage extends HookConsumerWidget {
                                         if (isResettingChanges.value) return;
                                         isResettingChanges.value = true;
                                         try {
-                                          currentPocketsNotifier
+                                          await currentPocketsNotifier
                                               .revertChanges();
                                           if (context.mounted) {
                                             AppToast.info(
@@ -1039,6 +1040,14 @@ class _PocketsMonthView extends HookConsumerWidget {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          SliverToBoxAdapter(
+            child: PocketsPlanReviewBanner(
+              reviews: pocketsState.reviewMutations,
+              prepare: pocketsNotifier.preparePocketReview,
+              resolve: (review, reapply) =>
+                  pocketsNotifier.resolvePocketReview(review, reapply: reapply),
+            ),
+          ),
           SliverToBoxAdapter(
             child: AnimatedSize(
               duration: const Duration(milliseconds: 300),

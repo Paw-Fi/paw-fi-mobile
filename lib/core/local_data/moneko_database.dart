@@ -16,6 +16,7 @@ const String localMutationStatusSyncing = 'syncing';
 const String localMutationStatusFailed = 'failed';
 const String localMutationStatusSynced = 'synced';
 const String localMutationStatusCancelled = 'cancelled';
+const String localMutationStatusNeedsReview = 'needs_review';
 const String localHouseholdSettlementMutationEntityType =
     'household_settlement';
 const String localHouseholdSettlementMutationOperation =
@@ -4500,6 +4501,33 @@ class MonekoDatabase {
     return _lastStatementChangedRow();
   }
 
+  Future<bool> markMutationNeedsReviewIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required Object error,
+  }) async {
+    _db.execute(
+      '''
+      UPDATE local_mutation_outbox
+      SET status = ?, last_error = ?, retry_after = NULL, updated_at = ?
+      WHERE client_mutation_id = ?
+        AND payload_json = ?
+        AND status IN (?, ?, ?)
+      ''',
+      [
+        localMutationStatusNeedsReview,
+        error.toString(),
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing,
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
   Future<void> markMutationCancelled({
     required String clientMutationId,
     required Object error,
@@ -4508,6 +4536,48 @@ class MonekoDatabase {
       clientMutationId: clientMutationId,
       error: error,
     );
+  }
+
+  Future<bool> discardMutationReviewIfPayloadMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+  }) async {
+    _db.execute(
+      '''UPDATE local_mutation_outbox
+         SET status = ?, last_error = NULL, retry_after = NULL, updated_at = ?
+         WHERE client_mutation_id = ? AND payload_json = ? AND status = ?''',
+      [
+        localMutationStatusCancelled,
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusNeedsReview
+      ],
+    );
+    return _lastStatementChangedRow();
+  }
+
+  Future<bool> replacePendingMutationPayloadIfMatches({
+    required String clientMutationId,
+    required String expectedPayloadJson,
+    required Map<String, dynamic> payload,
+  }) async {
+    _db.execute(
+      '''UPDATE local_mutation_outbox
+         SET payload_json = ?, status = ?, last_error = NULL, retry_after = NULL, updated_at = ?
+         WHERE client_mutation_id = ? AND payload_json = ? AND status IN (?, ?, ?)''',
+      [
+        jsonEncode(payload),
+        localMutationStatusQueued,
+        _instant(DateTime.now()),
+        clientMutationId,
+        expectedPayloadJson,
+        localMutationStatusQueued,
+        localMutationStatusFailed,
+        localMutationStatusSyncing
+      ],
+    );
+    return _lastStatementChangedRow();
   }
 
   Future<bool> markMutationCancelledIfPayloadMatches({

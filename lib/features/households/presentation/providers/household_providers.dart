@@ -27,6 +27,7 @@ import '../utils/pending_settlement_payment.dart';
 import '../../domain/repositories/household_repository.dart';
 import '../../data/repositories/household_repository_impl.dart';
 import '../../data/services/household_service.dart';
+import '../../data/services/shared_budget_identity.dart';
 import '../../data/services/device_registration_service.dart';
 import '../../../home/presentation/models/expense_entry.dart';
 import '../../../home/presentation/state/home_debug_tracing.dart';
@@ -715,30 +716,41 @@ class HouseholdBudgetsNotifier
       (budget) => budget.toJson(),
     ));
 
-    final mutationId =
-        'mobile:shared_budget_${_householdId}_${currency}_$period'
-            .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+    final actorUserId = _ref?.read(authProvider).uid ?? '';
+    final mutationId = actorUserId.isEmpty
+        ? null
+        : sharedBudgetMutationId(
+            householdId: _householdId,
+            userId: actorUserId,
+            budgetType: budgetType,
+            currency: currency,
+            period: period,
+          );
+    String? queuedPayloadJson;
     try {
       final ref = _ref;
-      if (ref != null) {
+      if (ref != null && mutationId != null) {
         final database = await ref.read(localDatabaseProvider.future);
+        final payload = {
+          'userId': actorUserId,
+          'householdId': _householdId,
+          'name': name,
+          'period': period,
+          'currency': currency,
+          'amountCents': amountCents,
+          'warnThreshold': warnThreshold,
+          'alertThreshold': alertThreshold,
+          'budgetType': budgetType,
+          'countSplitPortionOnly': countSplitPortionOnly,
+        };
         await database.enqueueMutation(
           clientMutationId: mutationId,
           entityType: 'shared_budget',
           entityId: optimisticId,
           operation: 'save_shared_budget',
-          payload: {
-            'householdId': _householdId,
-            'name': name,
-            'period': period,
-            'currency': currency,
-            'amountCents': amountCents,
-            'warnThreshold': warnThreshold,
-            'alertThreshold': alertThreshold,
-            'budgetType': budgetType,
-            'countSplitPortionOnly': countSplitPortionOnly,
-          },
+          payload: payload,
         );
+        queuedPayloadJson = jsonEncode(payload);
       }
     } catch (_) {}
 
@@ -755,9 +767,12 @@ class HouseholdBudgetsNotifier
         countSplitPortionOnly: countSplitPortionOnly,
       );
       final ref = _ref;
-      if (ref != null) {
+      if (ref != null && mutationId != null && queuedPayloadJson != null) {
         final database = await ref.read(localDatabaseProvider.future);
-        await database.markMutationSynced(mutationId);
+        await database.markMutationSyncedIfPayloadMatches(
+          clientMutationId: mutationId,
+          expectedPayloadJson: queuedPayloadJson,
+        );
       }
       if (!mounted) return;
       await load();

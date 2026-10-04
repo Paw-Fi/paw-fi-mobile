@@ -1,5 +1,6 @@
 import 'package:moneko/core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'shared_budget_identity.dart';
 import 'dart:async';
 
 /// Supabase service for household operations
@@ -518,30 +519,35 @@ class HouseholdService {
     // If a budget already exists for that tuple, update it instead of failing insert.
     // Note: We intentionally do NOT change period/currency when updating to avoid
     // violating the unique index again.
-    final existing = await _supabase
-        .from('shared_budgets')
-        .select('id')
-        .eq('household_id', householdId)
+    final scopeFilters = sharedBudgetIdentityFilters(
+      householdId: householdId,
+      budgetType: budgetType,
+      userId: userId,
+    );
+    var existingQuery = _supabase.from('shared_budgets').select('id');
+    for (final entry in scopeFilters.entries) {
+      existingQuery = existingQuery.eq(entry.key, entry.value);
+    }
+    existingQuery = existingQuery
         .eq('currency', currency)
         .eq('period', period)
-        .eq('is_active', true)
-        .maybeSingle();
+        .eq('is_active', true);
+    final existing = await existingQuery.maybeSingle();
 
     if (existing != null && existing['id'] != null) {
       // Update existing active budget for this (household, currency, period)
-      final response = await _supabase
-          .from('shared_budgets')
-          .update({
-            'name': name,
-            'amount_cents': amountCents,
-            'warn_threshold': warnThreshold ?? 0.8,
-            'alert_threshold': alertThreshold ?? 1.0,
-            'count_split_portion_only': countSplitPortionOnly ?? false,
-            // Keep budget_type/user_id unchanged to respect existing record semantics
-          })
-          .eq('id', existing['id'] as String)
-          .select()
-          .single();
+      var updateQuery = _supabase.from('shared_budgets').update({
+        'name': name,
+        'amount_cents': amountCents,
+        'warn_threshold': warnThreshold ?? 0.8,
+        'alert_threshold': alertThreshold ?? 1.0,
+        'count_split_portion_only': countSplitPortionOnly ?? false,
+        // Keep budget_type/user_id unchanged to respect existing record semantics
+      }).eq('id', existing['id'] as String);
+      for (final entry in scopeFilters.entries) {
+        updateQuery = updateQuery.eq(entry.key, entry.value);
+      }
+      final response = await updateQuery.select().single();
       return response;
     }
 

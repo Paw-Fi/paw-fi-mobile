@@ -8,6 +8,7 @@ import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/sync/household_settlement_outbox_dispatcher.dart';
+import 'package:moneko/features/households/data/services/shared_budget_identity.dart';
 import 'package:moneko/core/sync/sync_coordinator.dart';
 import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
@@ -26,6 +27,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart'
     show recurringTransactionsProvider;
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
+import 'package:moneko/features/pockets/data/pocket_month_mutation_service.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
@@ -46,6 +48,17 @@ final mobileOutboxSyncCoordinatorProvider =
         _dispatchMobileMutation(ref, database, mutation),
     onMutationCancelled: (mutation, _) =>
         _handleCancelledMobileMutation(ref, database, mutation),
+    onMutationNeedsReview: (mutation, _) async {
+      if (mutation.entityType != 'pockets_month' &&
+          mutation.entityType != 'pocket_category') {
+        return;
+      }
+      ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
+        id: mutation.clientMutationId,
+        feature: 'pockets',
+      );
+      ref.read(pocketsRefreshSignalProvider.notifier).state++;
+    },
   );
 });
 
@@ -342,7 +355,7 @@ Future<void> _dispatchMobileMutation(
       }
       return;
     case 'save_pockets_month':
-      await _savePocketsMonth(payload);
+      await _savePocketsMonth(payload, mutation, database);
       return;
     case 'save_scenario_history':
       await _saveScenarioHistory(payload);
@@ -351,7 +364,16 @@ Future<void> _dispatchMobileMutation(
       await _deleteScenarioHistory(payload);
       return;
     case 'assign_pocket_category':
-      await _assignPocketCategory(payload);
+      // This is an additive, idempotent link, never a month replacement.
+      // RLS checks the envelope and the server trigger advances its revision.
+      try {
+        await _assignPocketCategory(payload);
+      } catch (error) {
+        if (isTerminalPocketDatabaseError(error)) {
+          throw NonRetryableLocalMutationException(error.toString());
+        }
+        rethrow;
+      }
       return;
     case 'save_shared_budget':
       await _saveSharedBudget(payload);
@@ -1115,13 +1137,18 @@ Map<String, dynamic> _metadataFromPayload(Map<String, dynamic> payload) {
   };
 }
 
-Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
+Future<void> _savePocketsMonth(
+  Map<String, dynamic> payload,
+  LocalMutationOutboxData mutation,
+  MonekoDatabase database,
+) async {
   final userId = payload['userId']?.toString();
   final scope = payload['scope']?.toString() ?? 'personal';
   final householdId = payload['householdId']?.toString();
   final rawPeriodMonth = payload['periodMonth']?.toString();
   final currency = payload['currency']?.toString();
-  final totalBudgetCents = (payload['totalBudgetCents'] as num?)?.toInt() ?? 0;
+  final expectedRevision = (payload['expectedServerRevision'] as num?)?.toInt();
+  final revision = payload['mutationRevision']?.toString();
   if (userId == null || userId.isEmpty) {
     throw ArgumentError('Missing userId for pockets sync');
   }
@@ -1132,213 +1159,43 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
   if (parsedPeriodMonth == null) {
     throw ArgumentError('Invalid periodMonth for pockets sync');
   }
+  if (currency == null || currency.isEmpty) {
+    throw ArgumentError('Missing currency for pockets sync');
+  }
+  if (revision == null || revision.isEmpty || expectedRevision == null) {
+    throw const ManualReviewLocalMutationException(
+      'This saved Pocket plan needs a fresh server read before reapplying.',
+    );
+  }
   final periodMonth = DateTime(
     parsedPeriodMonth.year,
     parsedPeriodMonth.month,
     1,
   ).toIso8601String().substring(0, 10);
-  if (currency == null || currency.isEmpty) {
-    throw ArgumentError('Missing currency for pockets sync');
-  }
-
-  String? budgetId = payload['budgetId']?.toString();
-  dynamic query = supabase
-      .from('budgets')
-      .select('id')
-      .eq('period_month', periodMonth)
-      .eq('currency', currency);
-  if (scope == 'personal') {
-    query = query.eq('user_id', userId).isFilter('household_id', null);
-  } else {
-    if (householdId == null || householdId.isEmpty) {
-      throw ArgumentError('Missing householdId for scoped pockets sync');
-    }
-    query = query.eq('household_id', householdId);
-    if (scope == 'portfolio') {
-      query = query.eq('user_id', userId);
-    }
-  }
-  final row = await query.limit(1).maybeSingle();
-  if (row != null) {
-    budgetId = row?['id']?.toString();
-  }
-
-  final nowIso = DateTime.now().toUtc().toIso8601String();
-  final budgetPayload = <String, dynamic>{
-    'user_id': userId,
-    'household_id': scope == 'personal' ? null : householdId,
-    'currency': currency,
-    'period_month': periodMonth,
-    'total_budget_cents': totalBudgetCents,
-    'updated_at': nowIso,
-  };
-
-  if (budgetId == null || budgetId.isEmpty) {
-    final inserted = await supabase
-        .from('budgets')
-        .insert(budgetPayload)
-        .select('id')
-        .maybeSingle();
-    budgetId = inserted?['id']?.toString();
-  } else {
-    await supabase.from('budgets').update(budgetPayload).eq('id', budgetId);
-  }
-
-  if (budgetId == null || budgetId.isEmpty) {
-    throw StateError('Unable to resolve budget id for pockets sync');
-  }
-
-  final pockets = (payload['pockets'] as List?) ?? const [];
-  final deletedPocketIds = ((payload['deletedPocketIds'] as List?) ?? const [])
-      .map((id) => id.toString().trim())
-      .where((id) => id.isNotEmpty && !id.startsWith('optimistic-'))
-      .toSet();
-  final siblingAllocations = [
-    for (final item in pockets)
-      if (item is Map)
-        {
-          'id': item['id']?.toString(),
-          'amountCents': (item['budgetAmountCents'] as num?)?.toInt() ?? 0,
-        },
-  ].where((item) {
-    final id = item['id']?.toString().trim();
-    return id != null && id.isNotEmpty && !id.startsWith('optimistic-');
-  }).toList(growable: false);
-  for (final deletedPocketId in deletedPocketIds) {
-    final deleteResult = await supabase.rpc(
-      'delete_pocket_envelope_with_allocations',
-      params: <String, dynamic>{
-        'p_envelope_id': deletedPocketId,
-        'p_budget_id': budgetId,
-        'p_period_month': periodMonth,
-        'p_sibling_allocations': siblingAllocations,
-      },
+  try {
+    final result = await savePocketMonthSnapshot(
+      userId: userId,
+      scope: scope,
+      householdId: householdId,
+      periodMonth: periodMonth,
+      currency: currency,
+      expectedRevision: expectedRevision,
+      mutationId: '${mutation.clientMutationId}:$revision',
+      snapshot: payload,
     );
-    if (deleteResult is Map && deleteResult['success'] == false) {
-      throw StateError(
-        deleteResult['error']?.toString() ?? 'Failed to delete pocket',
-      );
-    }
-    final deleteData = deleteResult is Map ? deleteResult['data'] : null;
-    final logoStoragePath = deleteData is Map
-        ? deleteData['logoStoragePath']?.toString().trim()
-        : null;
-    if (logoStoragePath != null && logoStoragePath.isNotEmpty) {
-      try {
-        await supabase.storage
-            .from(StorageConfig.publicBucket)
-            .remove([logoStoragePath]);
-      } catch (_) {}
-    }
-  }
-  final replaceMissingPockets = payload['replaceMissingPockets'] == true &&
-      payload['allowReplaceMissingPockets'] == true;
-  final replaceCategories = payload['replaceCategories'] == true;
-  if (replaceMissingPockets) {
-    final keptEnvelopeIds = pockets
-        .whereType<Map>()
-        .map((item) => item['id']?.toString())
-        .whereType<String>()
-        .where((id) => id.isNotEmpty && !id.startsWith('optimistic-'))
-        .toSet();
-    final existingRows = await supabase
-        .from('budget_envelopes')
-        .select('id')
-        .eq('budget_id', budgetId);
-    for (final row in (existingRows as List?) ?? const []) {
-      if (row is! Map) continue;
-      final id = row['id']?.toString();
-      if (id == null || id.isEmpty || keptEnvelopeIds.contains(id)) continue;
-      await supabase.from('budget_envelopes').delete().eq('id', id);
-    }
-  }
-  for (final item in pockets) {
-    if (item is! Map) continue;
-    final pocket = Map<String, dynamic>.from(item);
-    final id = pocket['id']?.toString();
-    if (id == null || id.isEmpty) continue;
-    final amountCents = (pocket['budgetAmountCents'] as num?)?.toInt() ?? 0;
-    final envelopePayload = <String, dynamic>{
-      'budget_amount_cents': amountCents,
-      'budget_id': budgetId,
-      'household_id': scope == 'personal' ? null : householdId,
-      'currency': pocket['currency']?.toString() ?? currency,
-      'updated_at': nowIso,
-      if (pocket['name'] != null) 'name': pocket['name'].toString(),
-      if (pocket['icon'] != null) 'icon': pocket['icon'].toString(),
-      if (pocket['color'] != null) 'color': pocket['color'].toString(),
-      'logo_url': _nullableString(pocket['logoUrl']),
-      'user_id': userId,
-    };
-    if (pocket.containsKey('rolloverEnabled')) {
-      envelopePayload['rollover_enabled'] = pocket['rolloverEnabled'] == true;
-    }
-    if (pocket.containsKey('rolloverNegative')) {
-      envelopePayload['rollover_negative'] = pocket['rolloverNegative'] == true;
-    }
-    if (pocket.containsKey('rolloverCapCents')) {
-      envelopePayload['rollover_cap_cents'] =
-          (pocket['rolloverCapCents'] as num?)?.toInt();
-    }
-    if (pocket.containsKey('openingRolloverCents')) {
-      envelopePayload['opening_rollover_cents'] =
-          (pocket['openingRolloverCents'] as num?)?.toInt() ?? 0;
-    }
-    if (pocket.containsKey('rolloverGroupId')) {
-      final rolloverGroupId = pocket['rolloverGroupId']?.toString();
-      if (rolloverGroupId != null && rolloverGroupId.isNotEmpty) {
-        envelopePayload['rollover_group_id'] = rolloverGroupId;
-      }
-    }
-    String envelopeId = id;
-    final replayConflictTarget = pocketEnvelopeReplayConflictTarget(id);
-    if (replayConflictTarget != null) {
-      final inserted = await supabase
-          .from('budget_envelopes')
-          .upsert(envelopePayload, onConflict: replayConflictTarget)
-          .select('id')
-          .maybeSingle();
-      envelopeId = inserted?['id']?.toString() ?? id;
-    } else {
-      await supabase
-          .from('budget_envelopes')
-          .update(envelopePayload)
-          .eq('id', id);
-    }
-    if (replaceCategories) {
-      await supabase
-          .from('envelope_category_links')
-          .delete()
-          .eq('envelope_id', envelopeId);
-    }
-    await supabase.from('envelope_allocations').upsert(
-      <String, dynamic>{
-        'envelope_id': envelopeId,
-        'period_month': periodMonth,
-        'amount_cents': amountCents,
-        'carryover_policy': 'carryover',
-        'updated_at': nowIso,
-      },
-      onConflict: 'envelope_id,period_month',
-    );
-    final categories = (pocket['categories'] as List?)
-            ?.map((value) => value.toString().trim().toLowerCase())
-            .where((value) => value.isNotEmpty)
-            .toSet()
-            .toList(growable: false) ??
-        const <String>[];
-    if (categories.isNotEmpty) {
-      await supabase.from('envelope_category_links').upsert(
-            categories
-                .map((category) => {
-                      'envelope_id': envelopeId,
-                      'category': category,
-                      'created_at': nowIso,
-                    })
-                .toList(growable: false),
-            onConflict: 'envelope_id,category',
-          );
-    }
+    await reconcilePocketsMonthWriteResult(
+        database: database, completed: mutation, result: result);
+  } on PocketMonthWriteRejected catch (error) {
+    throw NonRetryableLocalMutationException(error.toString());
+  } on PocketMonthRevisionConflict catch (error) {
+    throw ManualReviewLocalMutationException(pocketMonthReviewError(error));
+  } on PocketMonthRevisionUnavailable catch (error) {
+    throw ManualReviewLocalMutationException(pocketMonthReviewError(error));
+  } on PocketMonthRevisionResponseError catch (error) {
+    // The server may have applied the idempotent snapshot before returning an
+    // incomplete acknowledgement. Stop automatic replay and reconcile from a
+    // fresh Pocket read instead of reporting success or rolling back blindly.
+    throw ManualReviewLocalMutationException(pocketMonthReviewError(error));
   }
 }
 
@@ -1383,10 +1240,26 @@ Future<void> _saveSharedBudget(Map<String, dynamic> payload) async {
     throw ArgumentError('Missing amountCents for shared budget sync');
   }
 
-  final existing = await supabase
-      .from('shared_budgets')
-      .select('id')
-      .eq('household_id', householdId)
+  final budgetType = payload['budgetType']?.toString() ?? 'household';
+  final currentUserId = supabase.auth.currentUser?.id;
+  final actorUserId = payload['userId']?.toString();
+  if (actorUserId != null && actorUserId != currentUserId) {
+    throw const DeferredLocalMutationException();
+  }
+  if (budgetType == 'personal' && currentUserId == null) {
+    throw StateError('A signed-in user is required to sync a personal budget');
+  }
+  final scopeFilters = sharedBudgetIdentityFilters(
+    householdId: householdId,
+    budgetType: budgetType,
+    userId: currentUserId,
+  );
+  final existingQuery = supabase.from('shared_budgets').select('id');
+  var scopedQuery = existingQuery;
+  for (final entry in scopeFilters.entries) {
+    scopedQuery = scopedQuery.eq(entry.key, entry.value);
+  }
+  final existing = await scopedQuery
       .eq('currency', currency)
       .eq('period', period)
       .eq('is_active', true)
@@ -1401,10 +1274,14 @@ Future<void> _saveSharedBudget(Map<String, dynamic> payload) async {
   };
 
   if (existing != null && existing['id'] != null) {
-    await supabase
+    var updateQuery = supabase
         .from('shared_budgets')
         .update(updates)
         .eq('id', existing['id'] as String);
+    for (final entry in scopeFilters.entries) {
+      updateQuery = updateQuery.eq(entry.key, entry.value);
+    }
+    await updateQuery;
     return;
   }
 
@@ -1412,14 +1289,9 @@ Future<void> _saveSharedBudget(Map<String, dynamic> payload) async {
     'household_id': householdId,
     'period': period,
     'currency': currency,
-    'budget_type': payload['budgetType']?.toString() ?? 'household',
+    'budget_type': budgetType,
+    if (budgetType == 'personal') 'user_id': currentUserId,
     'is_active': true,
     ...updates,
   });
-}
-
-String? _nullableString(dynamic value) {
-  if (value == null) return null;
-  final trimmed = value.toString().trim();
-  return trimmed.isEmpty ? null : trimmed;
 }

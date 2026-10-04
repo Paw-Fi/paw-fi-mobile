@@ -6,6 +6,7 @@ import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/pockets/data/pocket_month_mutation_service.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -13,6 +14,14 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
+  test('cached pocket state preserves the server revision', () {
+    final state = PocketsState.initial().copyWith(serverRevision: 7);
+
+    final restored = PocketsState.fromCacheJson(state.toCacheJson());
+
+    expect(restored.serverRevision, 7);
+  });
+
   group('authoritative pocket scope identity', () {
     test('keeps the requested currency when RPC returns a stale currency', () {
       expect(
@@ -161,7 +170,189 @@ void main() {
       currentDeletedPocketIds: const ['second-pocket', 'deleted-pocket'],
     );
 
-    expect(deletedPocketIds, ['deleted-pocket', 'second-pocket']);
+    expect(deletedPocketIds,
+        ['deleted-pocket', 'optimistic-pocket', 'second-pocket']);
+  });
+
+  group('in-flight Pocket creation reconciliation', () {
+    late MonekoDatabase database;
+    late PocketsState baseline;
+    late PocketEnvelope created;
+    late Map<String, dynamic> firstPayload;
+    late LocalMutationOutboxData completed;
+    const result = PocketMonthWriteResult(
+      budgetId: 'canonical-budget',
+      revision: 1,
+      canonicalPocketIds: {'optimistic-new': 'canonical-pocket'},
+    );
+
+    setUp(() async {
+      database = MonekoDatabase.inMemory();
+      baseline = PocketsState.initial().copyWith(
+        isLoading: false,
+        currency: 'EUR',
+        serverRevision: 0,
+        periodMonth: DateTime(2026, 10, 1),
+        totalBudget: 100,
+        savedTotalBudget: 100,
+      );
+      created = PocketEnvelope(
+        id: 'optimistic-new',
+        name: 'First name',
+        budgetAmountCents: 2000,
+        spent: 0,
+        currency: 'EUR',
+        lastUpdated: DateTime(2026, 10, 4),
+      );
+      firstPayload = buildPocketsMonthMutationPayload(
+        userId: 'actor',
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        periodMonth: '2026-10-01',
+        currency: 'EUR',
+        budgetId: null,
+        totalBudgetCents: 10000,
+        pockets: [created],
+        envelopeCategories: const {
+          'optimistic-new': ['groceries']
+        },
+        mutationRevision: 'first',
+        expectedServerRevision: 0,
+        rollbackState: baseline,
+      );
+      await database.enqueueMutation(
+        clientMutationId: 'month',
+        entityType: 'pockets_month',
+        entityId: 'month',
+        operation: 'save_pockets_month',
+        payload: firstPayload,
+      );
+      completed = (await database.getOutboxMutations()).single;
+    });
+    tearDown(() async => database.close());
+
+    Future<void> replace(Map<String, dynamic> payload) =>
+        database.enqueueMutation(
+          clientMutationId: 'month',
+          entityType: 'pockets_month',
+          entityId: 'month',
+          operation: 'save_pockets_month',
+          payload: payload,
+        );
+
+    test('keeps the newer edit and rolls back only to the confirmed creation',
+        () async {
+      final newer = buildPocketsMonthMutationPayload(
+        userId: 'actor',
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        periodMonth: '2026-10-01',
+        currency: 'EUR',
+        budgetId: null,
+        totalBudgetCents: 12000,
+        pockets: [
+          PocketEnvelope.fromJson({
+            ...created.toJson(),
+            'name': 'Latest name',
+            'budget_amount_cents': 3000
+          })
+        ],
+        envelopeCategories: const {
+          'optimistic-new': ['transport']
+        },
+        mutationRevision: 'second',
+        expectedServerRevision: 0,
+        rollbackState: baseline,
+      );
+      await replace(newer);
+      expect(
+          await reconcilePocketsMonthWriteResult(
+              database: database, completed: completed, result: result),
+          isTrue);
+      final latest = (await database.getOutboxMutations()).single;
+      final payload = jsonDecode(latest.payloadJson) as Map;
+      final pocket = (payload['pockets'] as List).single as Map;
+      expect(latest.status, localMutationStatusQueued);
+      expect(payload['mutationRevision'], 'second');
+      expect(payload['expectedServerRevision'], 1);
+      expect(payload['budgetId'], 'canonical-budget');
+      expect(pocket['id'], 'canonical-pocket');
+      expect(pocket['name'], 'Latest name');
+      expect(pocket['budgetAmountCents'], 3000);
+      expect(pocket['categories'], ['transport']);
+      final rollback = PocketsState.fromCacheJson(
+          Map<String, dynamic>.from(payload['rollbackState'] as Map));
+      expect(rollback.saved.single.id, 'canonical-pocket');
+      expect(rollback.saved.single.name, 'First name');
+      expect(rollback.saved.single.budgetAmountCents, 2000);
+      expect(
+          rollback.savedEnvelopeCategories['canonical-pocket'], ['groceries']);
+      expect(rollback.totalBudget, 100);
+      expect(rollback.serverRevision, 1);
+    });
+
+    test('retargets a later deletion without resurrecting the created Pocket',
+        () async {
+      await replace({
+        ...firstPayload,
+        'mutationRevision': 'second',
+        'pockets': [],
+        'deletedPocketIds': ['optimistic-new']
+      });
+      expect(
+          await reconcilePocketsMonthWriteResult(
+              database: database, completed: completed, result: result),
+          isTrue);
+      final latest = (await database.getOutboxMutations()).single;
+      final payload = jsonDecode(latest.payloadJson) as Map;
+      expect(payload['pockets'], isEmpty);
+      expect(payload['deletedPocketIds'], ['canonical-pocket']);
+      expect(payload['expectedServerRevision'], 1);
+      expect(
+          await database.markMutationNeedsReviewIfPayloadMatches(
+              clientMutationId: 'month',
+              expectedPayloadJson: completed.payloadJson,
+              error: 'old conflict'),
+          isFalse);
+    });
+
+    test('does not rebase a held conflict or a newer server baseline',
+        () async {
+      await replace({...firstPayload, 'mutationRevision': 'second'});
+      final held = (await database.getOutboxMutations()).single;
+      await database.markMutationNeedsReviewIfPayloadMatches(
+          clientMutationId: 'month',
+          expectedPayloadJson: held.payloadJson,
+          error: 'other device');
+      expect(
+          await reconcilePocketsMonthWriteResult(
+              database: database, completed: completed, result: result),
+          isFalse);
+      expect((await database.getOutboxMutations()).single.payloadJson,
+          held.payloadJson);
+      await replace({
+        ...firstPayload,
+        'mutationRevision': 'third',
+        'expectedServerRevision': 2
+      });
+      expect(
+          await reconcilePocketsMonthWriteResult(
+              database: database, completed: completed, result: result),
+          isFalse);
+    });
+
+    test('does not let an old actor acknowledgement advance another actor',
+        () async {
+      await replace({
+        ...firstPayload,
+        'mutationRevision': 'second',
+        'userId': 'other-actor'
+      });
+      expect(
+          await reconcilePocketsMonthWriteResult(
+              database: database, completed: completed, result: result),
+          isFalse);
+    });
   });
 
   test('restores only the latest unpersisted or cancelled pocket mutation', () {
@@ -995,6 +1186,77 @@ void main() {
   });
 
   group('buildPocketsMonthMutationPayload', () {
+    test('restores a reviewed draft without losing native spend or old links',
+        () {
+      final currentPocket = PocketEnvelope(
+        id: 'pocket-food',
+        name: 'Food',
+        budgetAmountCents: 10000,
+        spent: 12.34,
+        currency: 'EUR',
+        icon: 'food',
+        budgetId: 'budget-1',
+        lastUpdated: DateTime(2026, 5, 1),
+      );
+      final removedPocket = PocketEnvelope(
+        id: 'pocket-rent',
+        name: 'Rent',
+        budgetAmountCents: 50000,
+        spent: 0,
+        currency: 'EUR',
+        budgetId: 'budget-1',
+        lastUpdated: DateTime(2026, 5, 1),
+      );
+      final current = PocketsState(
+        isLoading: false,
+        saved: [currentPocket, removedPocket],
+        editing: [currentPocket, removedPocket],
+        budgetId: 'budget-1',
+        serverRevision: 8,
+        periodMonth: DateTime(2026, 5),
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'EUR',
+        totalBudget: 60000,
+        savedTotalBudget: 60000,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+        envelopeCategories: const {
+          'pocket-food': ['groceries'],
+          'pocket-rent': ['rent'],
+        },
+        savedEnvelopeCategories: const {
+          'pocket-food': ['groceries'],
+          'pocket-rent': ['rent'],
+        },
+      );
+
+      final reviewDraft = buildPocketReviewDraft(
+        current: current,
+        rawPockets: const [
+          {
+            'id': 'pocket-food',
+            'name': 'Food',
+            'budgetAmountCents': 20000,
+            'currency': 'EUR',
+            'categories': ['Dining'],
+          },
+        ],
+        deletedPocketIds: const ['pocket-rent'],
+        replaceCategories: false,
+        replaceMissingPockets: false,
+        householdId: null,
+      );
+
+      expect(reviewDraft.pockets, hasLength(1));
+      expect(reviewDraft.pockets.single.id, 'pocket-food');
+      expect(reviewDraft.pockets.single.budgetAmountCents, 20000);
+      expect(reviewDraft.pockets.single.spent, 12.34);
+      expect(reviewDraft.categories['pocket-food'], ['groceries', 'dining']);
+      expect(reviewDraft.categories.containsKey('pocket-rent'), isFalse);
+    });
+
     test('does not delete server pockets missing from a stale local snapshot',
         () {
       final payload = buildPocketsMonthMutationPayload(
@@ -1033,6 +1295,43 @@ void main() {
       );
     });
 
+    test(
+        'can add categories without deleting links omitted from a partial read',
+        () {
+      final payload = buildPocketsMonthMutationPayload(
+        userId: 'user-1',
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        periodMonth: '2026-05-01',
+        currency: 'USD',
+        budgetId: 'budget-1',
+        totalBudgetCents: 100000,
+        pockets: [
+          PocketEnvelope(
+            id: 'pocket-food',
+            name: 'Food',
+            budgetAmountCents: 60000,
+            spent: 0,
+            currency: 'USD',
+            icon: 'food',
+            color: '#111111',
+            budgetId: 'budget-1',
+            lastUpdated: DateTime(2026, 5, 1),
+          ),
+        ],
+        envelopeCategories: const {
+          'pocket-food': ['Dining'],
+        },
+        replaceCategories: false,
+      );
+
+      expect(payload['replaceCategories'], isFalse);
+      expect(
+        (payload['pockets'] as List).single,
+        containsPair('categories', ['dining']),
+      );
+    });
+
     test('serializes only explicit deleted pocket ids for delete replays', () {
       final payload = buildPocketsMonthMutationPayload(
         userId: 'user-1',
@@ -1053,7 +1352,7 @@ void main() {
       );
 
       expect(payload['replaceMissingPockets'], isFalse);
-      expect(payload['deletedPocketIds'], ['pocket-food']);
+      expect(payload['deletedPocketIds'], ['pocket-food', 'optimistic-temp']);
     });
 
     test('preserves rollover settings in authoritative snapshots', () {
