@@ -28,9 +28,166 @@ void main() {
   const channel = MethodChannel('moneko/siri_shortcut_auth');
 
   tearDown(() {
+    channel.setMethodCallHandler(null);
     debugDefaultTargetPlatformOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+  });
+
+  group('native wallet capture session bridge', () {
+    late _MockAuth auth;
+    Session? current;
+    final service = SiriShortcutAuthService.instance;
+
+    Future<Map<Object?, Object?>> request({
+      String userId = 'user-1',
+      bool forceRefresh = false,
+    }) async {
+      final response = Completer<Map<Object?, Object?>>();
+      ServicesBinding.instance.channelBuffers.push(
+        channel.name,
+        channel.codec.encodeMethodCall(MethodCall(
+          'getCurrentSessionForWalletCapture',
+          {'userId': userId, 'forceRefresh': forceRefresh},
+        )),
+        (data) {
+          try {
+            response.complete(Map<Object?, Object?>.from(
+                channel.codec.decodeEnvelope(data!) as Map));
+          } catch (error, stackTrace) {
+            response.completeError(error, stackTrace);
+          }
+        },
+      );
+      return response.future;
+    }
+
+    setUp(() {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      auth = _MockAuth();
+      current = _session();
+      when(() => auth.currentSession).thenAnswer((_) => current);
+      when(() => auth.refreshSession()).thenAnswer((_) async {
+        current = _session();
+        return AuthResponse(session: current);
+      });
+      service.initializeSessionBridge(authReady: () async => auth);
+    });
+
+    test('returns a usable access token without exporting a refresh token',
+        () async {
+      expect(await request(), {
+        'accessToken': 'fresh-token',
+        'userId': 'user-1',
+        'expiresAt': current!.expiresAt,
+      });
+      verifyNever(() => auth.refreshSession());
+    });
+
+    test('refreshes an expired token without app-shell replay', () async {
+      current = _session(expired: true);
+      expect(await request(), containsPair('accessToken', 'fresh-token'));
+      verify(() => auth.refreshSession()).called(1);
+    });
+
+    test('refreshes a near-expiry token using the native safety window',
+        () async {
+      current!.expiresAt = DateTime.now().millisecondsSinceEpoch ~/ 1000 + 20;
+      await request();
+      verify(() => auth.refreshSession()).called(1);
+    });
+
+    test('server rejection forces refresh even before expiry', () async {
+      await request(forceRefresh: true);
+      verify(() => auth.refreshSession()).called(1);
+    });
+
+    test('cold engine requests wait for SDK session initialization', () async {
+      final ready = Completer<GoTrueClient>();
+      service.initializeSessionBridge(authReady: () => ready.future);
+      var completed = false;
+      final pending = request().then((value) {
+        completed = true;
+        return value;
+      });
+      await pumpEventQueue();
+      expect(completed, isFalse);
+      ready.complete(auth);
+      expect(await pending, containsPair('userId', 'user-1'));
+    });
+
+    test('concurrent expired-token requests share one refresh', () async {
+      current = _session(expired: true);
+      final refreshed = Completer<AuthResponse>();
+      when(() => auth.refreshSession()).thenAnswer((_) => refreshed.future);
+      final first = request();
+      final second = request();
+      await pumpEventQueue();
+      verify(() => auth.refreshSession()).called(1);
+      current = _session();
+      refreshed.complete(AuthResponse(session: current));
+      expect(await first, containsPair('accessToken', 'fresh-token'));
+      expect(await second, containsPair('accessToken', 'fresh-token'));
+    });
+
+    for (final session in [null, _session(userId: 'user-2')]) {
+      test('rejects unavailable or different-account session $session',
+          () async {
+        current = session;
+        await expectLater(
+          request(),
+          throwsA(isA<PlatformException>().having(
+              (error) => error.code, 'code', 'capture_session_unavailable')),
+        );
+        verifyNever(() => auth.refreshSession());
+      });
+    }
+
+    test('does not return another actor after refresh', () async {
+      current = _session(expired: true);
+      when(() => auth.refreshSession()).thenAnswer((_) async {
+        current = _session(userId: 'user-2');
+        return AuthResponse(session: current);
+      });
+      await expectLater(request(), throwsA(isA<PlatformException>()));
+    });
+
+    test('logout invalidates an outstanding refresh', () async {
+      current = _session(expired: true);
+      final refreshed = Completer<AuthResponse>();
+      when(() => auth.refreshSession()).thenAnswer((_) => refreshed.future);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (_) async => null);
+      final pending = request();
+      final expectation =
+          expectLater(pending, throwsA(isA<PlatformException>()));
+      await pumpEventQueue();
+      await service.clearAuthContext();
+      current = _session();
+      refreshed.complete(AuthResponse(session: current));
+      await expectation;
+    });
+
+    test('offline refresh failure returns an error and permits a later retry',
+        () async {
+      current = _session(expired: true);
+      var attempts = 0;
+      when(() => auth.refreshSession()).thenAnswer((_) async {
+        if (++attempts == 1) throw const AuthException('Offline');
+        current = _session();
+        return AuthResponse(session: current);
+      });
+      await expectLater(request(), throwsA(isA<PlatformException>()));
+      expect(await request(), containsPair('accessToken', 'fresh-token'));
+      expect(attempts, 2);
+    });
+
+    test('an unsuccessful refresh cannot return an expired token', () async {
+      current = _session(expired: true);
+      when(() => auth.refreshSession())
+          .thenAnswer((_) async => AuthResponse(session: current));
+      await expectLater(request(), throwsA(isA<PlatformException>()));
+    });
   });
 
   test(

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,7 +24,7 @@ initApp() async {
 
   await _migrateToSingleOwnerAuthSession();
 
-  await Supabase.initialize(
+  final initialization = Supabase.initialize(
     url: Constants.supabaseUrl,
     anonKey: Constants.supabaseAnon,
     authOptions: const FlutterAuthClientOptions(
@@ -31,6 +32,11 @@ initApp() async {
           AuthFlowType.pkce, // Use PKCE flow for proper OAuth handling
     ),
   );
+  SiriShortcutAuthService.instance.initializeSessionBridge(authReady: () async {
+    await initialization;
+    return Supabase.instance.client.auth;
+  });
+  await initialization;
 }
 
 Future<void> _migrateToSingleOwnerAuthSession() async {

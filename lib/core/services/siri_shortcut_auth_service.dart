@@ -14,6 +14,8 @@ class SiriShortcutAuthService {
 
   Future<Map<String, dynamic>>? _syncAuthAndCaptureFuture;
   Future<void>? _clearAuthFuture;
+  Future<void>? _sessionRefreshFuture;
+  GoTrueClient? _sessionRefreshAuth;
   _SiriShortcutAuthSyncRequest? _activeSyncRequest;
   _SiriShortcutAuthSyncRequest? _queuedSyncRequest;
   int _syncGeneration = 0;
@@ -22,6 +24,76 @@ class SiriShortcutAuthService {
   Stream<String> get walletCapturesSynced => _walletCapturesSynced.stream;
 
   bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// Available during engine startup, without waiting for a mounted app shell.
+  /// Refresh-token rotation and persistence stay with the existing GoTrue client.
+  void initializeSessionBridge({
+    required Future<GoTrueClient> Function() authReady,
+  }) {
+    if (!_isIOS) return;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method != 'getCurrentSessionForWalletCapture') {
+        throw MissingPluginException();
+      }
+      final arguments = Map<Object?, Object?>.from(call.arguments as Map);
+      final userId = arguments['userId'] as String?;
+      if (userId == null || userId.isEmpty) {
+        throw PlatformException(code: 'capture_session_unavailable');
+      }
+      final auth = await authReady();
+      final clearFuture = _clearAuthFuture;
+      if (clearFuture != null) await clearFuture;
+      final generation = _syncGeneration;
+      void checkOwner() {
+        if (generation != _syncGeneration ||
+            auth.currentSession?.user.id != userId) {
+          throw PlatformException(code: 'capture_session_unavailable');
+        }
+      }
+
+      checkOwner();
+      if (arguments['forceRefresh'] == true ||
+          !_hasUsableAccessToken(auth.currentSession!)) {
+        await _refreshSession(auth);
+      }
+      checkOwner();
+      final session = auth.currentSession!;
+      if (!_hasUsableAccessToken(session)) {
+        throw PlatformException(code: 'capture_session_unavailable');
+      }
+      return <String, dynamic>{
+        'accessToken': session.accessToken,
+        'userId': session.user.id,
+        'expiresAt': session.expiresAt,
+      };
+    });
+  }
+
+  bool _hasUsableAccessToken(Session session) =>
+      session.accessToken.isNotEmpty &&
+      !session.isExpired &&
+      (session.expiresAt == null ||
+          session.expiresAt! >
+              DateTime.now().millisecondsSinceEpoch ~/ 1000 + 30);
+
+  Future<void> _refreshSession(GoTrueClient auth) {
+    final existing = _sessionRefreshFuture;
+    if (existing != null && identical(_sessionRefreshAuth, auth)) {
+      return existing;
+    }
+    final refresh = auth.refreshSession().then<void>((_) {});
+    _sessionRefreshFuture = refresh;
+    _sessionRefreshAuth = auth;
+    void clear() {
+      if (identical(_sessionRefreshFuture, refresh)) {
+        _sessionRefreshFuture = null;
+        _sessionRefreshAuth = null;
+      }
+    }
+
+    refresh.then<void>((_) => clear(), onError: (_) => clear());
+    return refresh;
+  }
 
   Future<void> syncAuthContext({
     required String supabaseUrl,
@@ -150,7 +222,7 @@ class SiriShortcutAuthService {
     if (!isCurrentUser()) return const <String, dynamic>{};
 
     if (auth.currentSession!.isExpired) {
-      await auth.refreshSession();
+      await _refreshSession(auth);
     }
     if (!isCurrentUser() || auth.currentSession!.isExpired) {
       return const <String, dynamic>{};
@@ -169,7 +241,7 @@ class SiriShortcutAuthService {
 
     var result = await sync();
     if (result['requiresSessionRefresh'] == true && isCurrentUser()) {
-      await auth.refreshSession();
+      await _refreshSession(auth);
       if (!isCurrentUser() || auth.currentSession!.isExpired) return result;
       result = await sync();
     }

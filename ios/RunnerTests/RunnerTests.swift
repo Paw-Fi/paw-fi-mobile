@@ -7,6 +7,182 @@ import firebase_messaging
 
 class RunnerTests: XCTestCase {
 
+  private func captureContext(expired: Bool = false, userId: String = "user-1") -> SiriShortcutAuthContext {
+    SiriShortcutAuthContext(
+      supabaseUrl: "https://example.supabase.co", supabaseAnonKey: "anon-key",
+      accessToken: expired ? "expired-token" : "fresh-token", userId: userId,
+      expiresAt: Int(Date().timeIntervalSince1970) + (expired ? -3600 : 3600)
+    )
+  }
+
+  func testExpiredOnlineCaptureRefreshesThenSavesWithoutQueuing() async throws {
+    var events: [String] = []
+    let result = try await WalletCaptureOnlineDispatcher.submit(
+      context: captureContext(expired: true),
+      refresh: { force in
+        XCTAssertFalse(force)
+        events.append("refresh")
+        return self.captureContext()
+      },
+      save: { context in
+        XCTAssertEqual(context.accessToken, "fresh-token")
+        events.append("save")
+        return (false, false)
+      }
+    )
+    XCTAssertEqual(events, ["refresh", "save"])
+    XCTAssertFalse(result.isDuplicate)
+  }
+
+  func testFreshCaptureSavesWithoutRefresh() async throws {
+    _ = try await WalletCaptureOnlineDispatcher.submit(
+      context: captureContext(),
+      refresh: { _ in XCTFail("Fresh token must not refresh"); return self.captureContext() },
+      save: { _ in (false, false) }
+    )
+  }
+
+  func testRejectedTokenRetriesOnlyOnceWithSameCapture() async throws {
+    var attempts = 0
+    var refreshes = 0
+    let body: [String: Any] = ["idempotencyKey": "original-key", "merchant": "旅行", "amount": 24.1]
+    var dispatchedBodies: [[String: Any]] = []
+    do {
+      _ = try await WalletCaptureOnlineDispatcher.submit(
+        context: captureContext(),
+        refresh: { force in
+          XCTAssertTrue(force)
+          refreshes += 1
+          return self.captureContext()
+        },
+        save: { _ in
+          attempts += 1
+          dispatchedBodies.append(body)
+          throw SiriShortcutIntentError.missingSession
+        }
+      )
+      XCTFail("Persistent rejection must remain queueable")
+    } catch let error as SiriShortcutIntentError {
+      XCTAssertTrue(error.canQueueCapture)
+    }
+    XCTAssertEqual(attempts, 2)
+    XCTAssertEqual(refreshes, 1)
+    XCTAssertTrue(NSDictionary(dictionary: dispatchedBodies[0]).isEqual(to: dispatchedBodies[1]))
+  }
+
+  func testAuthRejectionRecoversWithCurrentSession() async throws {
+    var attempts = 0
+    _ = try await WalletCaptureOnlineDispatcher.submit(
+      context: captureContext(),
+      refresh: { force in XCTAssertTrue(force); return self.captureContext() },
+      save: { _ in
+        attempts += 1
+        if attempts == 1 { throw SiriShortcutIntentError.missingSession }
+        return (false, false)
+      }
+    )
+    XCTAssertEqual(attempts, 2)
+  }
+
+  func testFailedRefreshRetainsQueueableFailureWithoutSending() async throws {
+    do {
+      _ = try await WalletCaptureOnlineDispatcher.submit(
+        context: captureContext(expired: true),
+        refresh: { _ in throw SiriShortcutIntentError.networkFailure },
+        save: { _ in XCTFail("Cannot save without current credentials"); return (false, false) }
+      )
+      XCTFail("Offline refresh must fail")
+    } catch let error as SiriShortcutIntentError {
+      XCTAssertTrue(error.canQueueCapture)
+    }
+  }
+
+  func testRefreshCannotDispatchAnotherUserOrExpiredSession() async throws {
+    for candidate in [captureContext(userId: "user-2"), captureContext(expired: true)] {
+      do {
+        _ = try await WalletCaptureOnlineDispatcher.submit(
+          context: captureContext(expired: true),
+          refresh: { _ in candidate },
+          save: { _ in XCTFail("Invalid refresh must not dispatch"); return (false, false) }
+        )
+        XCTFail("Invalid refresh must fail")
+      } catch let error as SiriShortcutIntentError {
+        XCTAssertTrue(error.canQueueCapture)
+      }
+    }
+  }
+
+  @MainActor
+  func testColdEngineSessionRequestRetriesUntilDartHandlerIsReady() async throws {
+    let context = captureContext()
+    var attempts = 0
+    let current: SiriShortcutAuthContext = try await withCheckedThrowingContinuation { continuation in
+      let request = WalletCaptureSessionRequest(
+        context: context, forceRefresh: false,
+        invoke: { arguments, reply in
+          XCTAssertEqual(arguments["userId"] as? String, "user-1")
+          attempts += 1
+          if attempts == 1 { return false }
+          if attempts == 2 { reply(FlutterMethodNotImplemented) }
+          else { reply(["accessToken": "fresh-token", "userId": "user-1", "expiresAt": context.expiresAt]) }
+          return true
+        },
+        completion: { continuation.resume(with: $0) }
+      )
+      request.start()
+    }
+    XCTAssertEqual(current.userId, "user-1")
+    XCTAssertEqual(attempts, 3)
+  }
+
+  @MainActor
+  func testSessionRequestRejectsInvalidDartCredentialsAndRefreshErrors() async throws {
+    let context = captureContext()
+    let replies: [Any] = [
+      ["accessToken": "fresh-token", "userId": "user-2", "expiresAt": context.expiresAt],
+      ["accessToken": "fresh-token", "userId": "user-1", "expiresAt": 1],
+      ["accessToken": "", "userId": "user-1", "expiresAt": context.expiresAt],
+      FlutterError(code: "capture_session_unavailable", message: nil, details: nil),
+      FlutterError(code: "error", message: "Offline", details: nil),
+    ]
+    for reply in replies {
+      do {
+        let _: SiriShortcutAuthContext = try await withCheckedThrowingContinuation { continuation in
+          let request = WalletCaptureSessionRequest(
+            context: context, forceRefresh: false,
+            invoke: { _, completion in completion(reply); return true },
+            completion: { continuation.resume(with: $0) }
+          )
+          request.start()
+        }
+        XCTFail("Invalid Dart credentials must remain queueable")
+      } catch let error as SiriShortcutIntentError {
+        XCTAssertTrue(error.canQueueCapture)
+      }
+    }
+  }
+
+  @MainActor
+  func testSessionRequestTimeoutCompletesOnceAndIgnoresLateReply() async throws {
+    var reply: FlutterResult?
+    var completions = 0
+    let completed = expectation(description: "bounded session request")
+    let context = captureContext()
+    let request = WalletCaptureSessionRequest(
+      context: context, forceRefresh: false,
+      invoke: { _, callback in reply = callback; return true }, timeout: 0.01,
+      completion: { result in
+        completions += 1
+        if case .success = result { XCTFail("Unavailable Dart must time out") }
+        completed.fulfill()
+      }
+    )
+    request.start()
+    await fulfillment(of: [completed], timeout: 1)
+    reply?(["accessToken": "fresh-token", "userId": "user-1", "expiresAt": context.expiresAt])
+    XCTAssertEqual(completions, 1)
+  }
+
   func testSceneUsesTheEngineRegisteredAtApplicationLaunch() throws {
     let appDelegate = try XCTUnwrap(UIApplication.shared.delegate as? AppDelegate)
     let engine = try XCTUnwrap(appDelegate.flutterEngine)

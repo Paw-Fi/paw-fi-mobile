@@ -1397,6 +1397,26 @@ private func submitWalletCaptureRequestBody(
   context: SiriShortcutAuthContext,
   endpoint: String = "save-wallet-transaction"
 ) async throws -> (isDuplicate: Bool, isIgnored: Bool) {
+  try await WalletCaptureOnlineDispatcher.submit(
+    context: context,
+    refresh: { forceRefresh in
+      try await WalletCaptureSessionBridge.shared.currentContext(
+        for: context,
+        forceRefresh: forceRefresh
+      )
+    },
+    save: { currentContext in
+      try await submitWalletCaptureRequestBodyOnce(body, context: currentContext, endpoint: endpoint)
+    }
+  )
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func submitWalletCaptureRequestBodyOnce(
+  _ body: [String: Any],
+  context: SiriShortcutAuthContext,
+  endpoint: String = "save-wallet-transaction"
+) async throws -> (isDuplicate: Bool, isIgnored: Bool) {
   let allowedEndpoints = ["save-wallet-transaction", "classify-notification-capture"]
   guard
     allowedEndpoints.contains(endpoint),
@@ -1588,7 +1608,7 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
     attempted += 1
     do {
       let endpoint = (record["endpoint"] as? String) ?? "save-wallet-transaction"
-      _ = try await submitWalletCaptureRequestBody(
+      _ = try await submitWalletCaptureRequestBodyOnce(
         body,
         context: context,
         endpoint: endpoint
@@ -1767,19 +1787,6 @@ private func performWalletPaymentIntegrationCapture(
   )
 
   do {
-    if context.isAccessTokenExpired {
-      NSLog("[MonekoCap] Access token expired, queueing for app sync")
-      SiriShortcutDiagnostics.record(
-        source: "shortcut",
-        action: "wallet-queue-auth-expired",
-        message: "Wallet shortcut queued because the app access token expired.",
-        details: [
-          "expiresAt": context.expiresAt,
-        ]
-      )
-      throw SiriShortcutIntentError.networkFailure
-    }
-
     let result = try await submitWalletCaptureRequestBody(body, context: context)
     shouldKeepIdempotencySlot = true
     if result.isDuplicate {
@@ -2211,9 +2218,6 @@ private func performNotificationTransactionCapture(
   }
 
   do {
-    if context.isAccessTokenExpired {
-      throw SiriShortcutIntentError.networkFailure
-    }
     let result = try await submitWalletCaptureRequestBody(
       body,
       context: context,
@@ -2586,7 +2590,149 @@ private func fallbackSiriLanguageCode() -> String {
   return "en"
 }
 
-private struct SiriShortcutAuthContext {
+enum WalletCaptureOnlineDispatcher {
+  static func submit(
+    context: SiriShortcutAuthContext,
+    refresh: (Bool) async throws -> SiriShortcutAuthContext,
+    save: (SiriShortcutAuthContext) async throws -> (isDuplicate: Bool, isIgnored: Bool)
+  ) async throws -> (isDuplicate: Bool, isIgnored: Bool) {
+    func validate(_ candidate: SiriShortcutAuthContext) throws -> SiriShortcutAuthContext {
+      guard candidate.userId == context.userId,
+            !candidate.accessToken.isEmpty,
+            !candidate.isAccessTokenExpired else {
+        throw SiriShortcutIntentError.missingSession
+      }
+      return candidate
+    }
+
+    let current = context.isAccessTokenExpired ? try await validate(refresh(false)) : context
+    do {
+      return try await save(current)
+    } catch SiriShortcutIntentError.missingSession {
+      // The server can reject a token before its locally recorded expiry.
+      let refreshed = try await validate(refresh(true))
+      return try await save(refreshed)
+    }
+  }
+}
+
+@MainActor
+private final class WalletCaptureSessionBridge {
+  static let shared = WalletCaptureSessionBridge()
+  var channel: FlutterMethodChannel?
+
+  func currentContext(
+    for context: SiriShortcutAuthContext,
+    forceRefresh: Bool
+  ) async throws -> SiriShortcutAuthContext {
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-session-request-start",
+      message: "Requesting a current access token from Flutter's auth owner.",
+      details: ["forceRefresh": forceRefresh, "expiresAt": context.expiresAt]
+    )
+    return try await withCheckedThrowingContinuation { continuation in
+      let request = WalletCaptureSessionRequest(
+        context: context,
+        forceRefresh: forceRefresh,
+        invoke: { arguments, reply in
+          guard let channel = self.channel else { return false }
+          channel.invokeMethod("getCurrentSessionForWalletCapture", arguments: arguments, result: reply)
+          return true
+        },
+        completion: { continuation.resume(with: $0) }
+      )
+      request.start()
+    }
+  }
+}
+
+/// All completion and timeout paths run on the platform thread. A cold engine
+/// may not have registered Dart's handler yet; retry only that startup condition.
+@MainActor
+final class WalletCaptureSessionRequest {
+  let context: SiriShortcutAuthContext
+  let forceRefresh: Bool
+  let invoke: ([String: Any], @escaping FlutterResult) -> Bool
+  let timeout: TimeInterval
+  var completion: ((Result<SiriShortcutAuthContext, Error>) -> Void)?
+
+  init(
+    context: SiriShortcutAuthContext,
+    forceRefresh: Bool,
+    invoke: @escaping ([String: Any], @escaping FlutterResult) -> Bool,
+    timeout: TimeInterval = 12,
+    completion: @escaping (Result<SiriShortcutAuthContext, Error>) -> Void
+  ) {
+    self.context = context
+    self.forceRefresh = forceRefresh
+    self.invoke = invoke
+    self.timeout = timeout
+    self.completion = completion
+  }
+
+  func start() {
+    DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+      self.finish(.failure(SiriShortcutIntentError.networkFailure))
+    }
+    attempt()
+  }
+
+  func attempt() {
+    guard completion != nil else { return }
+    let invoked = invoke(["userId": context.userId, "forceRefresh": forceRefresh]) { result in
+      guard self.completion != nil else { return }
+      if let value = result as? NSObject, value == FlutterMethodNotImplemented {
+        self.retryAfterStartup()
+      } else if let error = result as? FlutterError {
+        self.finish(.failure(error.code == "capture_session_unavailable"
+          ? SiriShortcutIntentError.missingSession : SiriShortcutIntentError.networkFailure))
+      } else if let payload = result as? [String: Any],
+                let token = payload["accessToken"] as? String,
+                let userId = payload["userId"] as? String,
+                let expiresAt = payload["expiresAt"] as? Int {
+        let current = SiriShortcutAuthContext(
+          supabaseUrl: self.context.supabaseUrl,
+          supabaseAnonKey: self.context.supabaseAnonKey,
+          accessToken: token,
+          userId: userId,
+          expiresAt: expiresAt
+        )
+        guard userId == self.context.userId, !token.isEmpty, !current.isAccessTokenExpired else {
+          self.finish(.failure(SiriShortcutIntentError.missingSession))
+          return
+        }
+        self.finish(.success(current))
+      } else {
+        self.finish(.failure(SiriShortcutIntentError.missingSession))
+      }
+    }
+    if !invoked { retryAfterStartup() }
+  }
+
+  func retryAfterStartup() {
+    guard completion != nil else { return }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { self.attempt() }
+  }
+
+  func finish(_ result: Result<SiriShortcutAuthContext, Error>) {
+    guard let completion else { return }
+    self.completion = nil
+    let succeeded: Bool
+    switch result {
+    case .success: succeeded = true
+    case .failure: succeeded = false
+    }
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: succeeded ? "wallet-session-request-ready" : "wallet-session-request-failed",
+      message: succeeded ? "Flutter supplied a current access token." : "A current session was unavailable; capture can be queued."
+    )
+    completion(result)
+  }
+}
+
+struct SiriShortcutAuthContext {
   let supabaseUrl: String
   let supabaseAnonKey: String
   let accessToken: String
@@ -2812,7 +2958,7 @@ enum WalletCaptureRetryPolicy {
   }
 }
 
-private enum SiriShortcutIntentError: LocalizedError {
+enum SiriShortcutIntentError: LocalizedError {
   case notConfigured
   case missingSession
   case invalidInput
@@ -3590,6 +3736,7 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
 
   private func setupSiriShortcutAuthChannel(binaryMessenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: SiriShortcutChannel.name, binaryMessenger: binaryMessenger)
+    WalletCaptureSessionBridge.shared.channel = channel
     channel.setMethodCallHandler { call, result in
       switch call.method {
       case SiriShortcutChannel.syncAuthContext:
