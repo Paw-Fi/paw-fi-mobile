@@ -319,7 +319,7 @@ class SettingsPage extends HookConsumerWidget {
           return;
         }
 
-        AppBadgePlus.updateBadge(0);
+        await AppBadgePlus.updateBadge(0);
         if (context.mounted) {
           AppToast.success(context, context.l10n.appIconBadgeCleared);
         }

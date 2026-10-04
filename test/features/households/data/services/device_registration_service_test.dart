@@ -1,9 +1,15 @@
 import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+// Inject the same platform event stream used by FirebaseMessaging's tap API.
+// ignore: depend_on_referenced_packages
+import 'package:firebase_messaging_platform_interface/firebase_messaging_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/notifications/notification_badge_service.dart';
+import 'package:moneko/core/notifications/notification_dispatcher.dart';
+import 'package:moneko/core/notifications/notification_intent.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,6 +37,12 @@ class _MockUser extends Mock implements User {}
 
 class _MockNotificationSettings extends Mock implements NotificationSettings {}
 
+class _MockNotificationBadgeService extends Mock
+    implements NotificationBadgeService {}
+
+class _MockNotificationDispatcher extends Mock
+    implements NotificationDispatcher {}
+
 const _authorizedSettings = NotificationSettings(
   authorizationStatus: AuthorizationStatus.authorized,
   alert: AppleNotificationSetting.enabled,
@@ -47,6 +59,13 @@ const _authorizedSettings = NotificationSettings(
 );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() {
+    registerFallbackValue(const InitializationSettings());
+    registerFallbackValue(const NotificationIntent(
+      action: NotificationIntentAction.unknown,
+    ));
+  });
   setUp(() {
     SharedPreferences.setMockInitialValues({
       'households:splits:v1:household-1:all': 'splits',
@@ -91,6 +110,88 @@ void main() {
         'splits');
   });
 
+  test('notification launches and taps clear badges without delaying routing',
+      () async {
+    final ref = _MockRef();
+    final messaging = _MockFirebaseMessaging();
+    final local = _MockLocalNotifications();
+    final gateway = _MockDeviceRegistrationGateway();
+    final badge = _MockNotificationBadgeService();
+    final dispatcher = _MockNotificationDispatcher();
+    final pendingClear = Completer<void>();
+    when(() => ref.read(notificationBadgeServiceProvider)).thenReturn(badge);
+    when(() => badge.clear()).thenAnswer((_) => pendingClear.future);
+    when(() => ref.read(notificationDispatcherProvider)).thenReturn(dispatcher);
+    when(() => dispatcher.enqueueIntent(any(), source: any(named: 'source')))
+        .thenAnswer((_) async {});
+    void Function(NotificationResponse)? onTap;
+    when(() => local.initialize(any(),
+            onDidReceiveNotificationResponse:
+                any(named: 'onDidReceiveNotificationResponse')))
+        .thenAnswer((invocation) async {
+      onTap = invocation.namedArguments[#onDidReceiveNotificationResponse]
+          as void Function(NotificationResponse)?;
+      return true;
+    });
+    when(() => local.getNotificationAppLaunchDetails()).thenAnswer(
+      (_) async => const NotificationAppLaunchDetails(true,
+          notificationResponse: NotificationResponse(
+            notificationResponseType:
+                NotificationResponseType.selectedNotification,
+            payload: '{"event_type":"log_expense_reminder"}',
+          )),
+    );
+    when(() => messaging.getInitialMessage()).thenAnswer(
+      (_) async => const RemoteMessage(
+        data: {'event_type': 'log_expense_reminder'},
+      ),
+    );
+    when(() => gateway.currentUserId).thenReturn('user-1');
+    when(() => gateway.hasActiveSession).thenReturn(true);
+    when(() => gateway.isAndroid).thenReturn(false);
+    when(() => gateway.isIOS).thenReturn(false);
+    final deniedSettings = _MockNotificationSettings();
+    when(() => deniedSettings.authorizationStatus)
+        .thenReturn(AuthorizationStatus.denied);
+    when(() => gateway.requestMessagingPermission())
+        .thenAnswer((_) => Future<NotificationSettings>.value(deniedSettings));
+    final service = DeviceRegistrationService(
+      ref,
+      _MockSupabaseClient(),
+      messaging,
+      local,
+      gateway: gateway,
+    );
+    // Permission denial after handler setup avoids token registration. Badge
+    // acknowledgement must work independently of registration success.
+    expect(await service.initialize(bypassPromptGate: true),
+        DeviceRegistrationResult.permissionDenied);
+    verify(() => badge.clear()).called(2);
+    verify(() => dispatcher.enqueueIntent(any(), source: 'local_launch'))
+        .called(1);
+    verify(() => dispatcher.enqueueIntent(any(), source: 'fcm_tap')).called(1);
+
+    onTap!(const NotificationResponse(
+      notificationResponseType: NotificationResponseType.selectedNotification,
+      payload: '{"event_type":"log_expense_reminder"}',
+    ));
+    verify(() => badge.clear()).called(1);
+    verify(() => dispatcher.enqueueIntent(any(), source: 'local_tap'))
+        .called(1);
+    onTap!(const NotificationResponse(
+      notificationResponseType: NotificationResponseType.selectedNotification,
+    ));
+    verify(() => badge.clear()).called(1);
+
+    FirebaseMessagingPlatform.onMessageOpenedApp.add(const RemoteMessage(
+      data: {'event_type': 'log_expense_reminder'},
+    ));
+    await pumpEventQueue();
+    verify(() => badge.clear()).called(1);
+    verify(() => dispatcher.enqueueIntent(any(), source: 'fcm_tap')).called(1);
+    pendingClear.complete();
+  });
+
   group('Firebase registration backend contract', () {
     late _MockSupabaseClient supabase;
     late _MockGoTrueClient auth;
@@ -118,6 +219,18 @@ void main() {
               headers: any(named: 'headers'),
               body: any(named: 'body'))).thenAnswer(
           (_) async => FunctionResponse(status: 200, data: {'success': true}));
+    });
+
+    test('foreground banners and sound do not reapply the iOS badge', () async {
+      final messaging = _MockFirebaseMessaging();
+      when(() => messaging.setForegroundNotificationPresentationOptions(
+          alert: any(named: 'alert'),
+          badge: any(named: 'badge'),
+          sound: any(named: 'sound'))).thenAnswer((_) async {});
+      final gateway = FirebaseDeviceRegistrationGateway(supabase, messaging);
+      await gateway.configureForegroundPresentation();
+      verify(() => messaging.setForegroundNotificationPresentationOptions(
+          alert: true, badge: false, sound: true)).called(1);
     });
 
     test('registration and deletion use the captured authenticated session',

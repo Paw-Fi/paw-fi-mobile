@@ -14,6 +14,7 @@ import 'package:moneko/core/app/fallback_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
+import 'package:moneko/core/notifications/notification_badge_service.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
@@ -47,6 +48,7 @@ class _AppState extends ConsumerState<App> {
   @override
   void initState() {
     super.initState();
+    ref.read(notificationBadgeServiceProvider).start();
     _appLifecycleListener = AppLifecycleListener(
       onStateChange: (state) {
         debugPrint('[OnboardingAnalytics] app lifecycle state=$state');

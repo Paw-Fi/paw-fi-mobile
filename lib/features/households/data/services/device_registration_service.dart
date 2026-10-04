@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
+import 'package:moneko/core/notifications/notification_badge_service.dart';
 import 'package:moneko/core/notifications/notification_intent_parser.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -137,7 +138,7 @@ class FirebaseDeviceRegistrationGateway implements DeviceRegistrationGateway {
   Future<void> configureForegroundPresentation() {
     return _messaging.setForegroundNotificationPresentationOptions(
       alert: true,
-      badge: true,
+      badge: false,
       sound: true,
     );
   }
@@ -552,10 +553,11 @@ class DeviceRegistrationService {
         await _localNotifications.getNotificationAppLaunchDetails();
     final launchResponse = launchDetails?.notificationResponse;
     final launchPayload = launchResponse?.payload;
-    if ((launchDetails?.didNotificationLaunchApp ?? false) &&
-        launchPayload != null &&
-        launchPayload.isNotEmpty) {
-      _dispatchPayloadString(launchPayload, source: 'local_launch');
+    if (launchDetails?.didNotificationLaunchApp ?? false) {
+      unawaited(_ref.read(notificationBadgeServiceProvider).clear());
+      if (launchPayload != null && launchPayload.isNotEmpty) {
+        _dispatchPayloadString(launchPayload, source: 'local_launch');
+      }
     }
 
     // Create notification channel for Android
@@ -758,6 +760,7 @@ class DeviceRegistrationService {
   /// Handle background message opened (user tapped notification)
   void _handleBackgroundMessage(RemoteMessage message) {
     _debugPrint('🔔 Background message opened');
+    unawaited(_ref.read(notificationBadgeServiceProvider).clear());
     unawaited(_refreshHouseholdMutationData(message.data));
 
     _dispatchDataMap(message.data, source: 'fcm_tap');
@@ -782,7 +785,7 @@ class DeviceRegistrationService {
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
-      presentBadge: true,
+      presentBadge: false,
       presentSound: true,
     );
 
@@ -834,6 +837,7 @@ class DeviceRegistrationService {
   /// Handle notification tap (for local notifications shown in foreground)
   void _onNotificationTapped(NotificationResponse response) {
     _debugPrint('🔔 Notification tapped');
+    unawaited(_ref.read(notificationBadgeServiceProvider).clear());
 
     if (response.payload != null && response.payload!.isNotEmpty) {
       _dispatchPayloadString(response.payload!, source: 'local_tap');
