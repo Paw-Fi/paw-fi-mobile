@@ -78,6 +78,7 @@ final walletsByHouseholdIdProvider =
   );
   final authHeaders = ref.watch(walletAuthHeadersProvider);
   final scopeQuery = ref.watch(walletsScopeQueryProvider);
+  final userId = ref.watch(authProvider.select((user) => user.uid));
   if (authHeaders == null) {
     // Avoid caching a transient unauthorized fetch during the post-login
     // handoff before auth state is ready in Riverpod.
@@ -88,14 +89,18 @@ final walletsByHouseholdIdProvider =
 
   try {
     trace.mark('wallets-fetch-start');
-    final response = await supabase.functions.invoke(
-      'list-wallets',
-      headers: authHeaders,
-      body: _listWalletsFunctionBody(
-        householdId: householdId,
-        selectedCurrency: scopeQuery.selectedCurrency,
-        selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
-        currentMonthStart: scopeQuery.currentMonthStart,
+    final response = await runAuthenticatedWalletRead(
+      auth: supabase.auth,
+      userId: userId,
+      invoke: (headers) => supabase.functions.invoke(
+        'list-wallets',
+        headers: headers,
+        body: _listWalletsFunctionBody(
+          householdId: householdId,
+          selectedCurrency: scopeQuery.selectedCurrency,
+          selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
+          currentMonthStart: scopeQuery.currentMonthStart,
+        ),
       ),
     );
 
@@ -122,15 +127,20 @@ final shortcutDestinationWalletsByHouseholdIdProvider =
     FutureProvider.family<List<WalletEntity>, String?>(
         (ref, householdId) async {
   final authHeaders = ref.watch(walletAuthHeadersProvider);
+  final userId = ref.watch(authProvider.select((user) => user.uid));
   if (authHeaders == null) return const <WalletEntity>[];
 
-  final response = await supabase.functions.invoke(
-    'list-wallets',
-    headers: authHeaders,
-    body: {
-      if (householdId != null && householdId.trim().isNotEmpty)
-        'householdId': householdId,
-    },
+  final response = await runAuthenticatedWalletRead(
+    auth: supabase.auth,
+    userId: userId,
+    invoke: (headers) => supabase.functions.invoke(
+      'list-wallets',
+      headers: headers,
+      body: {
+        if (householdId != null && householdId.trim().isNotEmpty)
+          'householdId': householdId,
+      },
+    ),
   );
   final payload = response.data as Map<String, dynamic>?;
   if (payload == null || payload['success'] != true) {

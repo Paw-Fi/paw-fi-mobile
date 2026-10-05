@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:moneko/features/auth/domain/app_user.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
@@ -20,6 +24,8 @@ class _TestAuth extends Auth {
   @override
   AppUser build() => _user;
 }
+
+Future<http.Response>? _pendingAccountRead;
 
 Future<void> pumpPage(
   WidgetTester tester, {
@@ -52,7 +58,34 @@ void main() {
     await Supabase.initialize(
       url: 'http://localhost',
       anonKey: 'test-anon-key',
+      httpClient: MockClient((request) async {
+        final pending = _pendingAccountRead;
+        return pending != null ? await pending : http.Response('[]', 200);
+      }),
     );
+  });
+
+  testWidgets('closing during account preparation skips later widget reads',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    _pendingAccountRead = pending.future;
+    addTearDown(() => _pendingAccountRead = null);
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        authProvider.overrideWith(() => _TestAuth(
+              const AppUser(uid: 'u1', email: 'u1@example.com'),
+            )),
+      ],
+      child: const MaterialApp(home: OnboardingAccountPreparingPage()),
+    ));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    pending.complete(http.Response('[]', 200));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Continue stays hidden while setup is still in progress',

@@ -87,6 +87,7 @@ class PocketDetailsPage extends HookConsumerWidget {
       }
 
       Future.microtask(() {
+        if (!context.mounted) return;
         ref
             .read(recurringTransactionsProvider(recurringScopeHouseholdId)
                 .notifier)
@@ -327,8 +328,10 @@ class PocketDetailsPage extends HookConsumerWidget {
         (detailScopeParams.normalizedSelectedCurrencies?.length ?? 0) > 1;
 
     Future<void> refreshPocketDetails(List<String> linkedCategories) async {
+      if (!context.mounted) return;
       final feedQuery = buildFeedQuery(linkedCategories);
       await ref.read(transactionsFeedProvider(feedQuery).notifier).refresh();
+      if (!context.mounted) return;
       ref.invalidate(pocketDetailsProvider(pocketDetailsParams));
     }
 
@@ -350,6 +353,7 @@ class PocketDetailsPage extends HookConsumerWidget {
               currentUserId,
               forceRefresh: true,
             );
+        if (!context.mounted) return;
         final refreshedTransactions = ref
                 .read(recurringTransactionsProvider(recurringScopeHouseholdId))
                 .data

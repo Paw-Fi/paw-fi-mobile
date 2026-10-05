@@ -482,6 +482,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       }
 
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
+      final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+      final cacheInvalidator = ref.read(cacheInvalidatorProvider);
       PocketsMutationHandle? queuedMutation;
       try {
         final rebalancedSiblingAmounts =
@@ -585,7 +587,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               lastUpdated: DateTime.now(),
             ),
         ];
-        final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
         final normalizedCategories = selectedCategories.value
             .map((category) => category.trim().toLowerCase())
             .where((category) => category.isNotEmpty)
@@ -617,9 +618,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         await pocketsNotifier.markQueuedPocketsSnapshotSynced(queuedMutation);
 
         if (isScopedToHousehold && householdId != null) {
-          ref
-              .read(cacheInvalidatorProvider)
-              .invalidateHouseholdData(householdId);
+          cacheInvalidator.invalidateHouseholdData(householdId);
         }
 
         // Keep the active page on its optimistic SQLite-backed state while the
@@ -634,9 +633,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         }
       } catch (e) {
         if (queuedMutation != null && e is PocketMonthRevisionConflict) {
-          await ref
-              .read(pocketsProvider(scopeParams).notifier)
-              .handlePocketRevisionConflict(queuedMutation, e);
+          await pocketsNotifier.handlePocketRevisionConflict(queuedMutation, e);
           if (context.mounted) {
             AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
           }
@@ -650,16 +647,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           return;
         }
         if (queuedMutation != null) {
-          await ref
-              .read(pocketsProvider(scopeParams).notifier)
-              .cancelQueuedPocketsSnapshot(queuedMutation, e);
+          await pocketsNotifier.cancelQueuedPocketsSnapshot(queuedMutation, e);
         }
-        await ref
-            .read(pocketsProvider(scopeParams).notifier)
-            .restoreOptimisticPockets(
-              previousPocketsState,
-              mutation: queuedMutation,
-            );
+        await pocketsNotifier.restoreOptimisticPockets(
+          previousPocketsState,
+          mutation: queuedMutation,
+        );
         if (context.mounted) {
           AppToast.error(
             context,
@@ -701,6 +694,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         isLoading.value = true;
       }
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
+      final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+      final cacheInvalidator = ref.read(cacheInvalidatorProvider);
       PocketsMutationHandle? queuedMutation;
       try {
         final remainingPockets = allPockets
@@ -723,7 +718,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               budgetId: budgetId,
             ),
         ];
-        final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
         pocketsNotifier.applyOptimisticPockets(
           pockets: optimisticRemaining,
           totalBudget: totalBudget,
@@ -735,22 +729,19 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           rollbackState: previousPocketsState,
         );
 
-        final writeNotifier = ref.read(pocketsProvider(scopeParams).notifier);
-        await writeNotifier.persistQueuedPocketsSnapshotNow(queuedMutation);
-        await writeNotifier.markQueuedPocketsSnapshotSynced(queuedMutation);
+        await pocketsNotifier.persistQueuedPocketsSnapshotNow(queuedMutation);
+        await pocketsNotifier.markQueuedPocketsSnapshotSynced(queuedMutation);
 
         final isScopedToHousehold =
             scopeParams.scope != PocketsScopeType.personal;
         final householdId = scopeParams.householdId;
         if (isScopedToHousehold && householdId != null) {
-          ref
-              .read(cacheInvalidatorProvider)
-              .invalidateHouseholdData(householdId);
+          cacheInvalidator.invalidateHouseholdData(householdId);
         }
 
         // Keep the active page on its optimistic SQLite-backed state while the
         // backend response reconciles in place.
-        await writeNotifier.load(bypassCache: true);
+        await pocketsNotifier.load(bypassCache: true);
 
         if (context.mounted) {
           Navigator.of(context).pop(); // close sheet
@@ -759,9 +750,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         }
       } catch (e) {
         if (queuedMutation != null && e is PocketMonthRevisionConflict) {
-          await ref
-              .read(pocketsProvider(scopeParams).notifier)
-              .handlePocketRevisionConflict(queuedMutation, e);
+          await pocketsNotifier.handlePocketRevisionConflict(queuedMutation, e);
           if (context.mounted) {
             AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
           }
@@ -776,16 +765,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           return;
         }
         if (queuedMutation != null) {
-          await ref
-              .read(pocketsProvider(scopeParams).notifier)
-              .cancelQueuedPocketsSnapshot(queuedMutation, e);
+          await pocketsNotifier.cancelQueuedPocketsSnapshot(queuedMutation, e);
         }
-        await ref
-            .read(pocketsProvider(scopeParams).notifier)
-            .restoreOptimisticPockets(
-              previousPocketsState,
-              mutation: queuedMutation,
-            );
+        await pocketsNotifier.restoreOptimisticPockets(
+          previousPocketsState,
+          mutation: queuedMutation,
+        );
         if (context.mounted) {
           AppToast.error(context, l10n.failedToDeletePocket);
         }

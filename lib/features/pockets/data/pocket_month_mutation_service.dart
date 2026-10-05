@@ -73,6 +73,13 @@ class PocketMonthWriteRejected implements Exception {
   String toString() => message;
 }
 
+class PocketMonthWriteDeferred implements Exception {
+  const PocketMonthWriteDeferred();
+
+  @override
+  String toString() => 'Pocket save is queued for its original account.';
+}
+
 String pocketMonthReviewError(Object error) => jsonEncode({
       'code': error is PocketMonthRevisionConflict
           ? 'REVISION_CONFLICT'

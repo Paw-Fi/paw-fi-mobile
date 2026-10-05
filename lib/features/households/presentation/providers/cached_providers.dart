@@ -9,10 +9,11 @@ import '../../domain/entities/expense_split.dart';
 import '../../domain/entities/household.dart';
 import '../../data/services/device_registration_service.dart';
 import 'package:moneko/core/monitoring/performance_monitor.dart';
+import 'package:moneko/features/auth/auth.dart';
 
 /// Request deduplication helper to prevent multiple simultaneous requests
 class RequestDeduplicator<T> {
-  final Map<String, Completer<T>> _pending = {};
+  final Map<String, Future<T>> _pending = {};
   final Map<String, (T, DateTime)> _cache = {};
   final Duration cacheDuration;
 
@@ -46,48 +47,32 @@ class RequestDeduplicator<T> {
 
     // Check if request is already pending
     final pending = _pending[key];
-    if (pending != null && !pending.isCompleted) {
+    if (pending != null) {
       debugPrint('⏳ [DEDUP] Request already pending for $key, waiting...');
-      return pending.future;
+      return pending;
     }
 
     // Start new request
     debugPrint('🔄 [FETCH] Starting new request for $key');
-    final completer = Completer<T>();
-    _pending[key] = completer;
-
-    try {
-      final result = await fetch();
-      final isCurrent = _pending[key] == completer;
+    // Every caller observes the same future, including the initiating caller.
+    // An invalidation changes cache ownership, not whether existing reads settle.
+    late final Future<T> request;
+    request = Future<T>.sync(fetch).then((result) {
+      final isCurrent = _pending[key] == request;
       if (isCurrent) {
         _cache[key] = (result, DateTime.now());
         debugPrint('✅ [FETCH SUCCESS] Cached result for $key');
       } else {
         debugPrint('⚠️ [FETCH STALE] Ignoring stale result for $key');
       }
-      completer.complete(result);
       return result;
-    } catch (e) {
-      final isCurrent = _pending[key] == completer;
-      if (isCurrent) {
-        // Current request failed — propagate the error to any dedup
-        // waiters and rethrow so the provider reports the error.
-        debugPrint('❌ [FETCH ERROR] Failed to fetch $key: $e');
-        completer.completeError(e);
-        rethrow;
-      }
-      // Request was invalidated while in-flight — the provider that
-      // started this fetch has already been disposed/rebuilt.  Swallow
-      // the error to avoid unhandled zone exceptions and return a
-      // never-completing future (the caller is abandoned anyway).
-      debugPrint(
-          '⚠️ [FETCH STALE ERROR] Ignoring error for invalidated request $key: $e');
-      return Completer<T>().future;
-    } finally {
-      if (_pending[key] == completer) {
+    }).whenComplete(() {
+      if (_pending[key] == request) {
         _pending.remove(key);
       }
-    }
+    });
+    _pending[key] = request;
+    return request;
   }
 
   void invalidate(String key) {
@@ -142,16 +127,17 @@ final _splitsDeduplicator = RequestDeduplicator<List<ExpenseSplitGroup>>(
 final cachedHouseholdExpensesProvider =
     FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
+    final userId = ref.watch(authProvider.select((user) => user.uid));
     final remoteGeneration = ref.watch(
         householdRemoteMutationRefreshSignalProvider(params.householdId));
     final feedGeneration = ref.watch(transactionsFeedRefreshSignalProvider);
-    if (!isBackendHouseholdId(params.householdId)) {
+    if (userId.isEmpty || !isBackendHouseholdId(params.householdId)) {
       return const <ExpenseEntry>[];
     }
     final key = 'expenses_${params.householdId}_${params.limit}_'
         '${params.startDate?.millisecondsSinceEpoch}_'
         '${params.endDate?.millisecondsSinceEpoch}_'
-        '${remoteGeneration}_$feedGeneration';
+        '${remoteGeneration}_${feedGeneration}_$userId';
 
     debugPrint('📊 [CACHED_EXPENSES] Provider called for key: $key');
 
@@ -159,21 +145,22 @@ final cachedHouseholdExpensesProvider =
       householdOptimisticExpensesProvider
           .select((state) => state[params.householdId] ?? const []),
     );
+    // Keep the auto-disposed base read subscribed while its future is pending.
+    final expensesFuture = ref.watch(householdExpensesProvider(params).future);
+    final deletedIdsFuture = ref.watch(
+      householdDeletedExpenseIdsProvider(params.householdId).future,
+    );
 
     final result = await _expensesDeduplicator.deduplicate(
       key,
       () {
         debugPrint(
             '🌐 [CACHED_EXPENSES] Fetching from base provider for: $key');
-        return ref
-            .read(householdExpensesProvider(params).future)
-            .trackPerformance('household_expenses',
-                details: 'household=${params.householdId}');
+        return expensesFuture.trackPerformance('household_expenses',
+            details: 'household=${params.householdId}');
       },
     );
-    final deletedIds = await ref.watch(
-      householdDeletedExpenseIdsProvider(params.householdId).future,
-    );
+    final deletedIds = await deletedIdsFuture;
 
     final merged = mergeHouseholdExpenses(
       result.where((entry) => !entry.isRecurring).toList(growable: false),
@@ -199,14 +186,15 @@ final cachedHouseholdExpensesProvider =
 final cachedHouseholdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
+    final userId = ref.watch(authProvider.select((user) => user.uid));
     final remoteGeneration = ref.watch(
         householdRemoteMutationRefreshSignalProvider(params.householdId));
     final feedGeneration = ref.watch(transactionsFeedRefreshSignalProvider);
-    if (!isBackendHouseholdId(params.householdId)) {
+    if (userId.isEmpty || !isBackendHouseholdId(params.householdId)) {
       return const <ExpenseSplitGroup>[];
     }
     final key = 'splits_${params.householdId}_${params.dateRange}_'
-        '${remoteGeneration}_$feedGeneration';
+        '${remoteGeneration}_${feedGeneration}_$userId';
 
     debugPrint('📊 [CACHED_SPLITS] Provider called for key: $key');
 
@@ -215,19 +203,20 @@ final cachedHouseholdSplitsProvider =
           .select((state) => state[params.householdId] ?? const []),
     );
 
+    final splitsFuture = ref.watch(householdSplitsProvider(params).future);
+    final deletedIdsFuture = ref.watch(
+      householdDeletedExpenseIdsProvider(params.householdId).future,
+    );
+
     final result = await _splitsDeduplicator.deduplicate(
       key,
       () {
         debugPrint('🌐 [CACHED_SPLITS] Fetching from base provider for: $key');
-        return ref
-            .read(householdSplitsProvider(params).future)
-            .trackPerformance('household_splits',
-                details: 'household=${params.householdId}');
+        return splitsFuture.trackPerformance('household_splits',
+            details: 'household=${params.householdId}');
       },
     );
-    final deletedIds = await ref.watch(
-      householdDeletedExpenseIdsProvider(params.householdId).future,
-    );
+    final deletedIds = await deletedIdsFuture;
 
     final merged = mergeHouseholdSplits(result, optimistic)
         .where((split) => !deletedIds.contains(split.expenseId))

@@ -2743,6 +2743,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
   final Ref ref;
   final PocketsScopeParams params;
+  Future<MonekoDatabase>? _mutationDatabase;
+
+  Future<MonekoDatabase> _readMutationDatabase() {
+    final existing = _mutationDatabase;
+    if (existing != null) return existing;
+    final database = ref.read(localDatabaseProvider.future);
+    _mutationDatabase = database;
+    return database;
+  }
 
   _CacheKey? _lastCacheKey;
 
@@ -3168,6 +3177,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   ///
   /// No polling required - just use what's available.
   Future<void> load({bool bypassCache = false}) async {
+    if (!mounted) return;
     // Avoid duplicate loads if already loading
     if (state.isLoading && _hasLoadedOnce) return;
     _hasLoadedOnce = true;
@@ -5177,8 +5187,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     PocketsMutationHandle mutation,
     PocketMonthRevisionConflict error,
   ) async {
+    if (!mounted) return;
     final localDraft = state;
-    final database = await ref.read(localDatabaseProvider.future);
+    final database = await _readMutationDatabase();
     final queued = await _currentQueuedPocketsMutation(mutation);
     if (queued != null &&
         (jsonDecode(queued.payloadJson) as Map)['expectedServerRevision'] !=
@@ -5223,6 +5234,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         );
       }
     }
+    if (!mounted) return;
     final userId = ref.read(authProvider).uid;
     if (userId.isNotEmpty) {
       ref.read(analyticsProvider.notifier).refresh(userId);
@@ -5475,7 +5487,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   Future<LocalMutationOutboxData?> _currentPocketsMutation(
     PocketsMutationHandle mutation,
   ) async {
-    final database = await ref.read(localDatabaseProvider.future);
+    if (!mounted && _mutationDatabase == null) return null;
+    final database = await _readMutationDatabase();
     final rows = await database.getOutboxMutations();
     for (final row in rows) {
       if (row.clientMutationId == mutation.clientMutationId) return row;
@@ -5504,7 +5517,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   ) async {
     final current = await _currentQueuedPocketsMutation(mutation);
     if (current == null) return;
-    final database = await ref.read(localDatabaseProvider.future);
+    final database = await _readMutationDatabase();
     await database.markMutationSyncedIfPayloadMatches(
       clientMutationId: mutation.clientMutationId,
       expectedPayloadJson: current.payloadJson,
@@ -5517,7 +5530,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   ) async {
     final current = await _currentQueuedPocketsMutation(mutation);
     if (current == null) return;
-    final database = await ref.read(localDatabaseProvider.future);
+    final database = await _readMutationDatabase();
     await database.markMutationCancelledIfPayloadMatches(
       clientMutationId: mutation.clientMutationId,
       expectedPayloadJson: current.payloadJson,
@@ -5532,6 +5545,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (!mounted) return;
     final currentMutation =
         mutation == null ? null : await _currentPocketsMutation(mutation);
+    if (!mounted) return;
+    if (currentMutation != null &&
+        (jsonDecode(currentMutation.payloadJson) as Map)['userId'] !=
+            ref.read(authProvider).uid) {
+      return;
+    }
     if (mutation != null &&
         !shouldRestoreOptimisticPockets(
           latestMutationRevision: _latestPocketsMutationRevision,
@@ -5552,6 +5571,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency: previousState.currency,
       );
     }
+    if (!mounted || ref.read(authProvider).uid != authUser.uid) return;
     ref.read(pocketsRefreshSignalProvider.notifier).state++;
     if (mutation != null) {
       ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
@@ -6245,6 +6265,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   Future<PocketMonthWriteResult> persistQueuedPocketsSnapshotNow(
     PocketsMutationHandle mutation,
   ) async {
+    if (!mounted) throw const PocketMonthWriteDeferred();
+    final database = await _readMutationDatabase();
     final queued = await _currentQueuedPocketsMutation(mutation);
     if (queued == null) {
       throw StateError('Pocket save was replaced before server dispatch');
@@ -6264,6 +6286,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency == null) {
       throw StateError('Queued Pocket snapshot is missing its scope');
     }
+    if (!mounted || ref.read(authProvider).uid != userId) {
+      throw const PocketMonthWriteDeferred();
+    }
     final expectedRevision =
         _parseOptionalInt(payload['expectedServerRevision']);
     PocketMonthWriteResult result;
@@ -6281,16 +6306,26 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     } catch (error) {
       if (error is PocketMonthRevisionUnavailable ||
           error is PocketMonthRevisionResponseError) {
-        final database = await ref.read(localDatabaseProvider.future);
         final held = await database.markMutationNeedsReviewIfPayloadMatches(
             clientMutationId: queued.clientMutationId,
             expectedPayloadJson: queued.payloadJson,
             error: pocketMonthReviewError(error));
         if (held &&
             mounted &&
+            ref.read(authProvider).uid == userId &&
             _latestPocketsMutationRevision == mutation.revision) {
-          state = await _withNeedsReviewPocketDraft(state, userId: userId);
+          final reviewed =
+              await _withNeedsReviewPocketDraft(state, userId: userId);
+          if (mounted &&
+              ref.read(authProvider).uid == userId &&
+              _latestPocketsMutationRevision == mutation.revision) {
+            state = state.copyWith(reviewMutations: reviewed.reviewMutations);
+          }
         }
+      } else if (!mounted || ref.read(authProvider).uid != userId) {
+        // The request may have acquired a new session while dispatching. Let
+        // the original actor's outbox establish authority before cancellation.
+        throw const PocketMonthWriteDeferred();
       }
       rethrow;
     }
@@ -6309,7 +6344,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         serverRevision: result.revision,
       );
     } else {
-      final database = await ref.read(localDatabaseProvider.future);
       final advanced = await reconcilePocketsMonthWriteResult(
           database: database, completed: queued, result: result);
       if (advanced &&
@@ -6325,6 +6359,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             budgetId: result.budgetId, serverRevision: result.revision);
       }
     }
+    await database.markMutationSyncedIfPayloadMatches(
+      clientMutationId: queued.clientMutationId,
+      expectedPayloadJson: queued.payloadJson,
+    );
     return result;
   }
 
@@ -6421,6 +6459,7 @@ bool _shouldKeepQueuedLocalMutation(Object error) {
     return false;
   }
   return error is PocketMonthRevisionUnavailable ||
+      error is PocketMonthWriteDeferred ||
       error is PocketMonthRevisionResponseError ||
       ErrorHandler.isRetryable(error);
 }

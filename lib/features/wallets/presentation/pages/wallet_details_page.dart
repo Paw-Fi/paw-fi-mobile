@@ -75,6 +75,7 @@ class WalletDetailsPage extends HookConsumerWidget {
           '[AccountDetails] providerAccount accountId=${providerAccount.id} name=${providerAccount.name} color=${providerAccount.color} opening=${providerAccount.openingBalanceCents} current=${providerAccount.currentBalanceCents}',
         );
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
           final latestServerAccount =
               ref.read(serverWalletByIdProvider(wallet.id));
           if (latestServerAccount == null) {
@@ -431,18 +432,22 @@ class WalletDetailsPage extends HookConsumerWidget {
     final net = totalIncome - totalSpent;
 
     Future<void> refreshWalletDetails() async {
+      if (!context.mounted) return;
       await ref
           .read(transactionsFeedProvider(walletFeedQuery).notifier)
           .refresh();
+      if (!context.mounted) return;
       await ref
           .read(transactionsFeedProvider(monthFeedQuery).notifier)
           .refresh();
+      if (!context.mounted) return;
       await ref
           .read(recurringTransactionsProvider(effectiveHouseholdId).notifier)
           .loadRecurringTransactions(
             currentUserId,
             forceRefresh: true,
           );
+      if (!context.mounted) return;
       // CRITICAL: recurring edits must refresh the recurring source list, not
       // only the generic feed.
       // STRICT REQUIREMENT: otherwise projected recurring tiles stay stale
@@ -451,6 +456,7 @@ class WalletDetailsPage extends HookConsumerWidget {
     }
 
     Future<void> refreshWalletsAfterPlaidFlow() async {
+      if (!context.mounted) return;
       ref.invalidate(bankConnectionsProvider);
       ref.invalidate(bankAccountsProvider);
       await Future.wait([
@@ -636,7 +642,7 @@ class WalletDetailsPage extends HookConsumerWidget {
           );
         }
       } finally {
-        isManualSyncingState.value = false;
+        if (context.mounted) isManualSyncingState.value = false;
       }
     }
 
@@ -652,6 +658,7 @@ class WalletDetailsPage extends HookConsumerWidget {
             occurrenceResolution.recurringIdsByActualTransactionId[expense.id],
         transferWallets: currencyScopedAccounts,
         onTransferUpdated: (transfer) {
+          if (!context.mounted) return;
           didUpdateTransfer = true;
           final entries = buildWalletTransferFeedEntriesForTransfer(
             transfer: transfer,
@@ -672,6 +679,7 @@ class WalletDetailsPage extends HookConsumerWidget {
               .applyOptimisticEntries(entries);
         },
         onTransferDeleted: (transfer) {
+          if (!context.mounted) return;
           didUpdateTransfer = true;
           final ids = walletTransferFeedEntryIds(transfer.id);
           ref

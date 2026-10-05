@@ -247,114 +247,123 @@ class _CurrencyRatesPageState extends ConsumerState<CurrencyRatesPage> {
               child: child,
             ),
             onReorder: (int oldIndex, int newIndex) async {
+              if (!mounted ||
+                  oldIndex < 0 ||
+                  oldIndex >= orderedCodes.length ||
+                  newIndex < 0 ||
+                  newIndex > orderedCodes.length) {
+                return;
+              }
+              final reorderedCodes = List<String>.of(orderedCodes);
               HapticFeedback.lightImpact();
               setState(() {
                 if (oldIndex < newIndex) {
                   newIndex -= 1;
                 }
-                final item = orderedCodes.removeAt(oldIndex);
-                orderedCodes.insert(newIndex, item);
-                _orderedCurrencies = orderedCodes;
+                final item = reorderedCodes.removeAt(oldIndex);
+                reorderedCodes.insert(newIndex, item);
+                _orderedCurrencies = reorderedCodes;
               });
 
               // Save to SharedPreferences
               final prefs = await SharedPreferences.getInstance();
-              await prefs.setStringList(_orderedCurrenciesKey, orderedCodes);
+              await prefs.setStringList(_orderedCurrenciesKey, reorderedCodes);
             },
-            children: [
-              for (int i = 0; i < orderedCodes.length; i++) ...[
-                ReorderableDelayedDragStartListener(
-                  key: ValueKey(orderedCodes[i]),
-                  index: i,
-                  child: _CurrencyExchangeTile(
-                    code: orderedCodes[i],
-                    symbol: resolveCurrencySymbol(orderedCodes[i]),
-                    amountLabel: resolveCurrencySymbol(orderedCodes[i]) +
-                        formatLocalizedNumber(
-                            context,
-                            table.convert(
-                                _baseAmount, resolvedBase, orderedCodes[i])),
-                    onTap: () => _showAmountEditor(
-                      context,
-                      code: orderedCodes[i],
-                      initialAmount: table.convert(
-                          _baseAmount, resolvedBase, orderedCodes[i]),
-                    ),
-                  ),
-                ),
-                if (i < orderedCodes.length - 1)
-                  Padding(
-                    key: ValueKey('divider_$i'),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: colorScheme.listDivider,
-                    ),
-                  ),
-              ],
-              // Updated time footer as the last item (not reorderable)
-              Padding(
-                key: const ValueKey('updated_time_footer'),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (lastUpdatedStr.isNotEmpty)
-                      Row(
+            footer: Padding(
+              key: const ValueKey('updated_time_footer'),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (lastUpdatedStr.isNotEmpty)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.history_rounded,
+                          size: 14,
+                          color: colorScheme.mutedForeground,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          lastUpdatedStr,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.mutedForeground,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  if (table.isStale) ...[
+                    if (lastUpdatedStr.isNotEmpty) const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.warning.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
                         children: [
                           Icon(
-                            Icons.history_rounded,
-                            size: 14,
-                            color: colorScheme.mutedForeground,
+                            Icons.warning_amber_rounded,
+                            size: 12,
+                            color: colorScheme.warning,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 4),
                           Text(
-                            lastUpdatedStr,
+                            context.l10n.noData,
                             style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.mutedForeground,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.warning,
                             ),
                           ),
                         ],
-                      )
-                    else
-                      const SizedBox.shrink(),
-                    if (table.isStale) ...[
-                      if (lastUpdatedStr.isNotEmpty) const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.warning.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              size: 12,
-                              color: colorScheme.warning,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              context.l10n.noData,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.warning,
-                              ),
-                            ),
-                          ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            children: [
+              for (int i = 0; i < orderedCodes.length; i++)
+                Column(
+                  key: ValueKey(orderedCodes[i]),
+                  children: [
+                    ReorderableDelayedDragStartListener(
+                      index: i,
+                      child: _CurrencyExchangeTile(
+                        code: orderedCodes[i],
+                        symbol: resolveCurrencySymbol(orderedCodes[i]),
+                        amountLabel: resolveCurrencySymbol(orderedCodes[i]) +
+                            formatLocalizedNumber(
+                                context,
+                                table.convert(_baseAmount, resolvedBase,
+                                    orderedCodes[i])),
+                        onTap: () => _showAmountEditor(
+                          context,
+                          code: orderedCodes[i],
+                          initialAmount: table.convert(
+                              _baseAmount, resolvedBase, orderedCodes[i]),
                         ),
                       ),
-                    ],
+                    ),
+                    if (i < orderedCodes.length - 1)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: colorScheme.listDivider,
+                        ),
+                      ),
                   ],
                 ),
-              ),
             ],
           ),
         ),

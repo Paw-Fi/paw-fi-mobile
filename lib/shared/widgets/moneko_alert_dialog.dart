@@ -226,6 +226,7 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
   }
 
   void _handleCancel() {
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     Navigator.of(context).pop(
       const MonekoAlertDialogResult(
         confirmed: false,
@@ -236,6 +237,7 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
   }
 
   void _handleSecondary() {
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     Navigator.of(context).pop(
       MonekoAlertDialogResult(
         confirmed: false,
@@ -247,6 +249,7 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
   }
 
   void _handleConfirm() {
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     if (!_canConfirm) {
       setState(() {
         _touched = true;

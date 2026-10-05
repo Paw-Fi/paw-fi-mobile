@@ -154,14 +154,20 @@ class AccountsPage extends HookConsumerWidget {
         isPreviewMode ? null : ref.watch(walletsPageStateProvider(scopeQuery));
 
     Future<void> onRefresh() async {
-      if (isPreviewMode) {
+      if (isPreviewMode || !context.mounted) {
         return;
       }
 
-      await Future.wait([
-        ref.read(scopedWalletsProvider.notifier).refreshFromNetwork(),
-        ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh(),
-      ]);
+      try {
+        await Future.wait([
+          ref.read(scopedWalletsProvider.notifier).refreshFromNetwork(),
+          ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh(),
+        ]);
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+        }
+      }
     }
 
     final walletsPageState = walletsPageStateAsync?.valueOrNull;

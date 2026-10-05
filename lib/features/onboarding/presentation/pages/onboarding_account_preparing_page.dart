@@ -187,6 +187,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             ref.read(currencyPreferenceServiceProvider);
         final storedSelectedCurrencies =
             await currencyPreferenceService.getSelectedCurrencies();
+        if (!context.mounted) return;
         final seenCurrencies = <String>{};
         final normalizedSelectedCurrencies = <String>[];
         for (final value in [selectedCurrency, ...?storedSelectedCurrencies]) {
@@ -472,16 +473,19 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     }
 
     Future<bool> restoreAppStoreSubscriptionIfAvailable() async {
+      if (!context.mounted) return false;
       if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return false;
 
       try {
         await ref
             .read(subscriptionProductsProvider.future)
             .timeout(_kSubscriptionRefreshTimeout);
+        if (!context.mounted) return false;
 
         final iapState = await ref
             .read(iapControllerProvider.future)
             .timeout(_kSubscriptionRefreshTimeout);
+        if (!context.mounted) return false;
         if (!iapState.storeAvailable) {
           debugPrint(
             '[OnboardingPrep] App Store restore skipped because StoreKit is unavailable',
@@ -490,27 +494,34 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         }
 
         return await restoreAndWaitForIapSubscription(
-          restorePurchases: () => ref
-              .read(iapControllerProvider.notifier)
-              .restorePurchases()
-              .timeout(_kAppStoreRestoreTimeout),
+          restorePurchases: () async {
+            if (!context.mounted) return;
+            await ref
+                .read(iapControllerProvider.notifier)
+                .restorePurchases()
+                .timeout(_kAppStoreRestoreTimeout);
+          },
           refreshSubscription: () async {
+            if (!context.mounted) return;
             await ref
                 .read(subscriptionManagementProvider.notifier)
                 .refresh()
                 .timeout(_kSubscriptionRefreshTimeout);
+            if (!context.mounted) return;
             await ref
                 .read(subscriptionNotifierProvider.notifier)
                 .refresh()
                 .timeout(_kSubscriptionRefreshTimeout);
           },
           hasActiveSubscription: () {
+            if (!context.mounted) return false;
             final subscriptionDetails =
                 ref.read(subscriptionManagementProvider).valueOrNull;
             return subscriptionDetails?.hasActiveSubscription ?? false;
           },
-          restoreError: () =>
-              ref.read(iapControllerProvider).valueOrNull?.lastError ?? '',
+          restoreError: () => context.mounted
+              ? ref.read(iapControllerProvider).valueOrNull?.lastError ?? ''
+              : 'Onboarding closed',
         );
       } catch (error, stackTrace) {
         debugPrint(
@@ -529,13 +540,14 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         bool? done,
       }) setProgressState,
     }) async {
-      if (isGrantingOnboardingTrial.value) return false;
+      if (!context.mounted || isGrantingOnboardingTrial.value) return false;
 
       final prefs = ref.read(sharedPreferencesProvider);
       final alreadyGrantedLocally =
           prefs.getBool(paywallReturnTrialGrantedKey(userId)) ?? false;
 
       await restoreAppStoreSubscriptionIfAvailable();
+      if (!context.mounted) return false;
 
       await ref
           .read(subscriptionManagementProvider.notifier)
@@ -545,6 +557,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           '[OnboardingPrep] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
         );
       });
+      if (!context.mounted) return false;
       await ref
           .read(subscriptionNotifierProvider.notifier)
           .refresh()
@@ -553,6 +566,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           '[OnboardingPrep] subscriptionNotifier refresh timed out after $_kSubscriptionRefreshTimeout',
         );
       });
+      if (!context.mounted) return false;
 
       final subscriptionDetails =
           ref.read(subscriptionManagementProvider).valueOrNull;
@@ -566,6 +580,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
 
       final hasSubscriptionNow = await hasSubscriptionRow(userId);
+      if (!context.mounted) return false;
       if (hasSubscriptionNow == null) {
         debugPrint(
           '[OnboardingPrep] Subscription row check unavailable; skipping onboarding trial bootstrap',
@@ -585,6 +600,10 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         );
         await prefs.remove(paywallReturnTrialGrantedKey(userId));
       }
+      if (!context.mounted) return false;
+
+      final subscriptionManagement =
+          ref.read(subscriptionManagementProvider.notifier);
 
       isGrantingOnboardingTrial.value = true;
       try {
@@ -596,20 +615,22 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         debugPrint(
           '[OnboardingPrep] No subscription detected; activating onboarding free trial',
         );
-        await ref
-            .read(subscriptionManagementProvider.notifier)
+        await subscriptionManagement
             .grantPaywallReturnTrial()
             .timeout(_kTrialGrantTimeout);
 
         try {
-          await ref
-              .read(subscriptionManagementProvider.notifier)
-              .refresh()
-              .timeout(_kPostGrantRefreshTimeout);
-          await ref
-              .read(subscriptionNotifierProvider.notifier)
-              .refresh()
-              .timeout(_kPostGrantRefreshTimeout);
+          if (context.mounted) {
+            await subscriptionManagement
+                .refresh()
+                .timeout(_kPostGrantRefreshTimeout);
+          }
+          if (context.mounted) {
+            await ref
+                .read(subscriptionNotifierProvider.notifier)
+                .refresh()
+                .timeout(_kPostGrantRefreshTimeout);
+          }
         } catch (refreshError, refreshStackTrace) {
           debugPrint(
             '[OnboardingPrep] Post-grant refresh failed: $refreshError\n$refreshStackTrace',
@@ -702,6 +723,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       late final bool hasRequiredSubscription;
       try {
         existingState = await loadExistingAccountState(user.uid);
+        if (!context.mounted) return;
         hasRequiredSubscription = await ensureOnboardingSubscription(
           userId: user.uid,
           existingState: existingState,
@@ -710,6 +732,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       } finally {
         subscriptionPreparationTimer.cancel();
       }
+      if (!context.mounted) return;
       if (!hasRequiredSubscription) {
         setProgressState(
           progressValue: 0.1,
@@ -755,6 +778,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       if (createdHouseholdId != null && createdHouseholdId.isNotEmpty) {
         try {
           await ref.read(userHouseholdsProvider(user.uid).notifier).load();
+          if (!context.mounted) return;
           final households =
               ref.read(userHouseholdsProvider(user.uid)).valueOrNull ??
                   const [];
@@ -786,6 +810,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             }
           }
 
+          if (!context.mounted) return;
           final repository = ref.read(householdRepositoryProvider);
           final createdHousehold = await repository.createHousehold(
             name: draft.spaceName.trim(),
@@ -794,19 +819,22 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             isPortfolio: false,
           );
 
-          // Refresh households first so Home header/pill can resolve
-          // and display the newly created shared space immediately.
-          ref.invalidate(userHouseholdsProvider(user.uid));
-          await ref.read(userHouseholdsProvider(user.uid).notifier).load();
-
-          await ref
-              .read(selectedHouseholdProvider.notifier)
-              .selectHousehold(createdHousehold.id);
           createdHouseholdId = createdHousehold.id;
           await prefs.setString(
             '$_kCreatedHouseholdPrefix${user.uid}',
             createdHousehold.id,
           );
+          if (!context.mounted) return;
+          // Refresh households first so Home header/pill can resolve
+          // and display the newly created shared space immediately.
+          ref.invalidate(userHouseholdsProvider(user.uid));
+          await ref.read(userHouseholdsProvider(user.uid).notifier).load();
+          if (!context.mounted) return;
+
+          await ref
+              .read(selectedHouseholdProvider.notifier)
+              .selectHousehold(createdHousehold.id);
+          if (!context.mounted) return;
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
 
           final inviteEmail = draft.inviteEmail.trim();
@@ -842,6 +870,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           await ref
               .read(selectedHouseholdProvider.notifier)
               .selectHousehold(createdHouseholdId);
+          if (!context.mounted) return;
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
         }
       } catch (error) {
@@ -902,6 +931,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             currency: selectedCurrency,
             householdId: null,
           );
+          if (!context.mounted) return;
           if (shouldApplyStarterSync &&
               shouldCreateStarterBudget(
                 forceSync: !wasAlreadySynced,
@@ -925,6 +955,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               currency: selectedCurrency,
               householdId: createdHouseholdId,
             );
+            if (!context.mounted) return;
             if (shouldApplyStarterSync &&
                 shouldCreateStarterBudget(
                   forceSync: !wasAlreadySynced,
@@ -998,6 +1029,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 : l10n.onboardingPreparingProgressErrorRetry,
             done: false,
           );
+          if (!context.mounted) return;
           setupError.value = canUseDashboardFallback
               ? 'budget_validation_failed'
               : 'budget_setup_failed';

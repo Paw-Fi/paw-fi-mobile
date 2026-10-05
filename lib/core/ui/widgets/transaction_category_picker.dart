@@ -91,6 +91,10 @@ Future<String?> showCategoryPicker({
         selectedCategories: initialSelected,
         isSingleSelect: true,
         onChanged: (value) {
+          if (!sheetContext.mounted ||
+              ModalRoute.of(sheetContext)?.isCurrent != true) {
+            return;
+          }
           final next = value.isNotEmpty ? value.first : null;
           Navigator.of(sheetContext).pop(next);
         },

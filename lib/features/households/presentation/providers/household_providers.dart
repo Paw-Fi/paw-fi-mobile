@@ -62,11 +62,12 @@ String _householdMembersCacheKey(String householdId) =>
 String _householdBudgetsCacheKey(String householdId) =>
     'households:budgets:v1:$householdId';
 
-String _householdSplitsCacheKey(HouseholdSplitsParams params) =>
-    'households:splits:v1:${params.householdId}:${params.dateRange ?? '<all>'}';
+String _householdSplitsCacheKey(HouseholdSplitsParams params, String userId) =>
+    'households:splits:v2:${params.householdId}:$userId:${params.dateRange ?? '<all>'}';
 
-String _householdExpensesCacheKey(HouseholdExpensesParams params) =>
-    'households:expenses:v1:${params.householdId}:${params.limit}:${params.startDate?.toIso8601String() ?? '<none>'}:${params.endDate?.toIso8601String() ?? '<none>'}';
+String _householdExpensesCacheKey(
+        HouseholdExpensesParams params, String userId) =>
+    'households:expenses:v2:${params.householdId}:$userId:${params.limit}:${params.startDate?.toIso8601String() ?? '<none>'}:${params.endDate?.toIso8601String() ?? '<none>'}';
 
 String _householdSummaryCacheKey(HouseholdSummaryParams params) =>
     'households:summary:v1:${params.householdId}:${params.currency}:${params.startDate}:${params.endDate}';
@@ -156,11 +157,13 @@ Future<void> _writeHouseholdCachedList<T>(
 }
 
 Future<void> cacheHouseholdSplitsSnapshot({
+  required String userId,
   required HouseholdSplitsParams params,
   required List<ExpenseSplitGroup> splits,
 }) {
+  if (userId.trim().isEmpty) return Future<void>.value();
   return _writeHouseholdCachedList(
-    _householdSplitsCacheKey(params),
+    _householdSplitsCacheKey(params, userId),
     splits,
     (split) => split.toJson(),
   );
@@ -176,6 +179,8 @@ Future<void> clearHouseholdPersistentCacheForHousehold(
     'households:budgets:v1:$householdId',
     'households:splits:v1:$householdId:',
     'households:expenses:v1:$householdId:',
+    'households:splits:v2:$householdId:',
+    'households:expenses:v2:$householdId:',
     'households:summary:v1:$householdId:',
     'households:settlement-payments:v1:$householdId:',
   ];
@@ -199,6 +204,8 @@ Future<void> clearHouseholdTransactionPersistentCacheForHousehold(
   final prefixes = [
     'households:splits:v1:$householdId:',
     'households:expenses:v1:$householdId:',
+    'households:splits:v2:$householdId:',
+    'households:expenses:v2:$householdId:',
     'households:summary:v1:$householdId:',
     'households:settlement-payments:v1:$householdId:',
   ];
@@ -1315,11 +1322,15 @@ final householdHomeSplitGroupsProvider = FutureProvider.autoDispose
 final householdSplitsProvider =
     FutureProvider.family<List<ExpenseSplitGroup>, HouseholdSplitsParams>(
   (ref, params) async {
+    final userId = ref.watch(authProvider.select((user) => user.uid));
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    bool ownsRead() => !disposed && ref.read(authProvider).uid == userId;
     ref.watch(
       householdRemoteMutationRefreshSignalProvider(params.householdId),
     );
     ref.watch(transactionsFeedRefreshSignalProvider);
-    if (!isBackendHouseholdId(params.householdId)) {
+    if (userId.isEmpty || !isBackendHouseholdId(params.householdId)) {
       return const <ExpenseSplitGroup>[];
     }
     final repository = ref.watch(householdRepositoryProvider);
@@ -1332,11 +1343,13 @@ final householdSplitsProvider =
     final deletedIds = await ref.watch(
       householdDeletedExpenseIdsProvider(params.householdId).future,
     );
-    final cacheKey = _householdSplitsCacheKey(params);
+    if (!ownsRead()) return const <ExpenseSplitGroup>[];
+    final cacheKey = _householdSplitsCacheKey(params, userId);
     final cached = await _readHouseholdCachedList<ExpenseSplitGroup>(
       cacheKey,
       ExpenseSplitGroup.fromJson,
     );
+    if (!ownsRead()) return const <ExpenseSplitGroup>[];
     if (cached != null) {
       final cachedMerged = mergeHouseholdSplits(cached.items, optimistic)
           .where((split) => !deletedIds.contains(split.expenseId))
@@ -1344,9 +1357,11 @@ final householdSplitsProvider =
       if (!_isFresh(cached.cachedAt, _householdEntityCacheTtl)) {
         _runHouseholdBackgroundRefresh(cacheKey, () async {
           try {
+            if (!ownsRead()) return;
             final refreshed = await repository.getHouseholdSplits(
               householdId: params.householdId,
             );
+            if (!ownsRead()) return;
             await _writeHouseholdCachedList(
               cacheKey,
               refreshed,
@@ -1366,6 +1381,7 @@ final householdSplitsProvider =
     final splits = await repository.getHouseholdSplits(
       householdId: params.householdId,
     );
+    if (!ownsRead()) return const <ExpenseSplitGroup>[];
     unawaited(_writeHouseholdCachedList(
       cacheKey,
       splits,
@@ -1430,11 +1446,15 @@ class HouseholdExpensesParams {
 final householdExpensesProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
+    final userId = ref.watch(authProvider.select((user) => user.uid));
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    bool ownsRead() => !disposed && ref.read(authProvider).uid == userId;
     ref.watch(
       householdRemoteMutationRefreshSignalProvider(params.householdId),
     );
     ref.watch(transactionsFeedRefreshSignalProvider);
-    if (!isBackendHouseholdId(params.householdId)) {
+    if (userId.isEmpty || !isBackendHouseholdId(params.householdId)) {
       return const <ExpenseEntry>[];
     }
     final supabase = ref.watch(supabaseClientProvider);
@@ -1447,11 +1467,13 @@ final householdExpensesProvider = FutureProvider.autoDispose
     final deletedIds = await ref.watch(
       householdDeletedExpenseIdsProvider(params.householdId).future,
     );
-    final cacheKey = _householdExpensesCacheKey(params);
+    if (!ownsRead()) return const <ExpenseEntry>[];
+    final cacheKey = _householdExpensesCacheKey(params, userId);
     final cached = await _readHouseholdCachedList<ExpenseEntry>(
       cacheKey,
       ExpenseEntry.fromJson,
     );
+    if (!ownsRead()) return const <ExpenseEntry>[];
     if (cached != null &&
         _isFresh(cached.cachedAt, _householdTransactionCacheTtl)) {
       return mergeHouseholdExpenses(
@@ -1502,6 +1524,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
           var reachedMaxPages = true;
 
           for (var page = 0; page < maxPages; page++) {
+            if (!ownsRead()) return const <Map<String, dynamic>>[];
             final response = await buildExpensesQuery(selectFields)
                 .order('date', ascending: false)
                 .order('created_at', ascending: false)
@@ -1546,8 +1569,10 @@ final householdExpensesProvider = FutureProvider.autoDispose
         expensesList = await fetchExpenses(_householdExpenseSelectFields);
       } on PostgrestException catch (error) {
         if (!isMissingRecurringOccurrenceColumnError(error)) rethrow;
+        if (!ownsRead()) return const <ExpenseEntry>[];
         expensesList = await fetchExpenses(_legacyHouseholdExpenseSelectFields);
       }
+      if (!ownsRead()) return const <ExpenseEntry>[];
 
       if (expensesList.isEmpty) {
         unawaited(_writeHouseholdCachedList<ExpenseEntry>(
@@ -1577,6 +1602,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
         try {
           const chunkSize = 200;
           for (var i = 0; i < userIds.length; i += chunkSize) {
+            if (!ownsRead()) return const <ExpenseEntry>[];
             final end = (i + chunkSize < userIds.length)
                 ? i + chunkSize
                 : userIds.length;
@@ -1611,6 +1637,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
       }
 
       final entries = expensesList.map(ExpenseEntry.fromJson).toList();
+      if (!ownsRead()) return const <ExpenseEntry>[];
       unawaited(_writeHouseholdCachedList(
         cacheKey,
         entries,
@@ -1627,6 +1654,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
         deletedIds: deletedIds,
       );
     } on TimeoutException catch (e, st) {
+      if (!ownsRead()) return const <ExpenseEntry>[];
       FirebaseCrashlytics.instance.log(
         '⚠️ householdExpensesProvider timeout for '
         '${params.householdId} (limit=${params.limit}): $e',
@@ -1643,6 +1671,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
       // Bubble up to UI to show consistent error state
       rethrow;
     } catch (e, st) {
+      if (!ownsRead()) return const <ExpenseEntry>[];
       FirebaseCrashlytics.instance
           .log('❌ Error loading household expenses: $e\n$st');
       if (cached != null) {

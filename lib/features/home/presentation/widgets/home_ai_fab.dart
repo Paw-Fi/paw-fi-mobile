@@ -808,6 +808,8 @@ Future<void> _persistAiTransactions(
   Future<Map<String, ExpenseEntry>> attachOptimisticSplitsForSavedExpenses(
     Map<String, ExpenseEntry> savedExpensesById,
   ) async {
+    bool ownsCapture() => container.read(authProvider).uid == userId;
+    if (!ownsCapture()) return const <String, ExpenseEntry>{};
     if (savedExpensesById.isEmpty) return const <String, ExpenseEntry>{};
     final targetHouseholdId = householdId?.trim();
     if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
@@ -825,9 +827,11 @@ Future<void> _persistAiTransactions(
           const <String, ExpenseSplitGroup>{};
 
       for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+        if (!ownsCapture()) return const <String, ExpenseEntry>{};
         splits = await repository.getHouseholdSplits(
           householdId: targetHouseholdId,
         );
+        if (!ownsCapture()) return const <String, ExpenseEntry>{};
 
         splitsByExpenseId = {
           for (final group in splits) group.expenseId: group,
@@ -843,9 +847,11 @@ Future<void> _persistAiTransactions(
 
       if (splitsByExpenseId.isEmpty) return const <String, ExpenseEntry>{};
       await cacheHouseholdSplitsSnapshot(
+        userId: userId,
         params: HouseholdSplitsParams(householdId: targetHouseholdId),
         splits: splits,
       );
+      if (!ownsCapture()) return const <String, ExpenseEntry>{};
 
       final splitsNotifier =
           container.read(householdOptimisticSplitsProvider.notifier);

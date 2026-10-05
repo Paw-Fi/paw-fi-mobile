@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -26,12 +25,19 @@ Future<DateTime?> showTransactionDatePicker({
   final minDate = firstDate ?? DateTime(2020);
   final maxDate = lastDate ?? DateTime(2030);
 
-  if (Platform.isIOS) {
+  if (Theme.of(context).platform == TargetPlatform.iOS) {
+    var tempDate = currentDate;
     // Use Cupertino date picker for iOS
     return await showCupertinoModalPopup<DateTime>(
       context: context,
       builder: (context) {
-        DateTime tempDate = currentDate;
+        void complete(DateTime? value) {
+          if (!context.mounted || ModalRoute.of(context)?.isCurrent != true) {
+            return;
+          }
+          Navigator.of(context).pop<DateTime>(value);
+        }
+
         return Container(
           height: 300,
           color: CupertinoColors.systemBackground.resolveFrom(context),
@@ -54,12 +60,12 @@ Future<DateTime?> showTransactionDatePicker({
                   children: [
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => complete(null),
                       child: Text(context.l10n.cancel),
                     ),
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop(context, tempDate),
+                      onPressed: () => complete(tempDate),
                       child: Text(context.l10n.done),
                     ),
                   ],

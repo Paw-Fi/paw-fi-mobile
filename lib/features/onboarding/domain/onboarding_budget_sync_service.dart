@@ -161,6 +161,7 @@ class OnboardingBudgetSyncService {
           );
     }
 
+    if (!ref.context.mounted) return;
     ref.invalidate(pocketsProvider(scopeParams));
     ref.read(analyticsProvider.notifier).refresh(userId);
     ref.read(widgetSyncVersionProvider.notifier).state++;

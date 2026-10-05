@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
@@ -64,6 +65,24 @@ void main() {
       expect(asset, isNotNull, reason: 'No image path for $category');
       expect(File(asset!).existsSync(), isTrue,
           reason: 'Missing image for $category');
+    }
+  });
+
+  testWidgets('every category image is present in the Flutter asset bundle',
+      (tester) async {
+    final assets = (await AssetManifest.loadFromAssetBundle(rootBundle))
+        .listAssets()
+        .toSet();
+    for (final category in [
+      ...getExpenseCategories(),
+      ...getIncomeCategories()
+    ]) {
+      expect(assets, contains(getCategoryImageAsset(category)),
+          reason: category);
+    }
+    for (final key in customCategoryIconKeys) {
+      expect(assets, contains(getCustomCategoryIconImageAsset(key)),
+          reason: key);
     }
   });
 

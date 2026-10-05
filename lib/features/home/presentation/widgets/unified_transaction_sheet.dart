@@ -3144,6 +3144,8 @@ class _UnifiedTransactionSheetV2State
   Future<String?> _resolveSplitGroupIdForExistingExpense({
     bool loadSplitConfig = false,
   }) async {
+    final cacheOwnerId = ref.read(authProvider).uid;
+    bool ownsRead() => mounted && ref.read(authProvider).uid == cacheOwnerId;
     final expense = widget.existingExpense;
     if (expense == null) return null;
 
@@ -3185,22 +3187,25 @@ class _UnifiedTransactionSheetV2State
 
       try {
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-          if (!mounted) return null;
+          if (!ownsRead()) return null;
 
           final params = HouseholdSplitsParams(householdId: householdId);
           final List<household_split.ExpenseSplitGroup> splits;
           if (attempt > 1) {
             if (isRecentlyCreated) {
               await Future.delayed(const Duration(milliseconds: 500));
-              if (!mounted) return null;
+              if (!ownsRead()) return null;
             }
             final remoteSplits = await ref
                 .read(householdRepositoryProvider)
                 .getHouseholdSplits(householdId: householdId);
+            if (!ownsRead()) return null;
             await cacheHouseholdSplitsSnapshot(
+              userId: cacheOwnerId,
               params: params,
               splits: remoteSplits,
             );
+            if (!ownsRead()) return null;
             ref.invalidate(householdSplitsProvider(params));
             final optimisticSplits =
                 ref.read(householdOptimisticSplitsProvider)[householdId] ??
@@ -3209,6 +3214,7 @@ class _UnifiedTransactionSheetV2State
           } else {
             splits = await ref.read(householdSplitsProvider(params).future);
           }
+          if (!ownsRead()) return null;
 
           household_split.ExpenseSplitGroup? match;
           for (final group in splits) {
@@ -3433,6 +3439,8 @@ class _UnifiedTransactionSheetV2State
 
   /// Load existing split configuration from database
   Future<void> _loadExistingSplitConfiguration(String splitGroupId) async {
+    final cacheOwnerId = ref.read(authProvider).uid;
+    bool ownsRead() => mounted && ref.read(authProvider).uid == cacheOwnerId;
     debugPrint('🔄 [LOAD SPLIT] Loading existing split configuration');
 
     try {
@@ -3446,6 +3454,7 @@ class _UnifiedTransactionSheetV2State
       final params = HouseholdSplitsParams(householdId: householdId);
       final cachedSplits =
           await ref.read(householdSplitsProvider(params).future);
+      if (!ownsRead()) return;
       List<household_split.ExpenseSplitGroup> splitsAsync =
           mergeHouseholdSplits(cachedSplits, optimisticSplits);
       final hasCachedMatch = splitsAsync.any(
@@ -3459,15 +3468,19 @@ class _UnifiedTransactionSheetV2State
           final remoteSplits = await ref
               .read(householdRepositoryProvider)
               .getHouseholdSplits(householdId: householdId);
+          if (!ownsRead()) return;
           unawaited(cacheHouseholdSplitsSnapshot(
+            userId: cacheOwnerId,
             params: params,
             splits: remoteSplits,
           ));
           splitsAsync = mergeHouseholdSplits(remoteSplits, optimisticSplits);
         } catch (_) {
+          if (!ownsRead()) return;
           splitsAsync = await ref.read(householdSplitsProvider(params).future);
         }
       }
+      if (!ownsRead()) return;
 
       // Find the split group for this expense
       final splitGroup = splitsAsync.firstWhere(
@@ -3500,6 +3513,7 @@ class _UnifiedTransactionSheetV2State
           return;
         }
         await Future.delayed(const Duration(milliseconds: 100));
+        if (!ownsRead()) return;
       }
 
       if (_householdMembers == null) {
