@@ -6,6 +6,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:video_player/video_player.dart';
 
 class WalletSyncSetupSheet extends StatelessWidget {
@@ -167,7 +168,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
     final l10n = context.l10n;
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Flex(
         direction: isLargeText ? Axis.vertical : Axis.horizontal,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,9 +199,9 @@ class WalletSyncSetupSheet extends StatelessWidget {
           if (isLargeText) const SizedBox(height: 4),
           Align(
             alignment: AlignmentDirectional.topEnd,
-            child: IconButton(
-              icon: Icon(Icons.close_rounded,
-                  color: colorScheme.foreground, size: 24),
+            child: MonekoSheetCloseButton(
+              icon: Icons.close_rounded,
+              iconSize: 20,
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),

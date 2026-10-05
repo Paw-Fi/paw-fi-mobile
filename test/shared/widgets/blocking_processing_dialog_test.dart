@@ -3,6 +3,32 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 void main() {
+  testWidgets('completion before the first frame does not leave analyzing',
+      (tester) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(
+      navigatorKey: navigatorKey,
+      home: const SizedBox(),
+    ));
+    final overlay = showNonBlockingProcessingOverlay(
+      context: navigatorKey.currentContext!,
+      message: 'Analyzing',
+    );
+    overlay.complete(
+      message: 'Saved for later',
+      outcome: ProcessingOverlayOutcome.info,
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Saved for later'), findsOneWidget);
+    expect(find.text('Analyzing'), findsNothing);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(overlay.isVisible, isFalse);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('non-blocking overlay tolerates a context without an Overlay',
       (tester) async {
     late BuildContext context;

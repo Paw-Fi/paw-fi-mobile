@@ -1152,27 +1152,12 @@ class _UnifiedTransactionSheetV2State
                 physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),
                 slivers: [
-                  SliverAppBar(
+                  MonekoSheetSliverAppBar(
                     expandedHeight: 280,
-                    pinned: true,
-                    stretch: true,
-                    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
-                    elevation: 0,
-                    leading: IconButton(
-                      icon: Icon(Icons.close, color: colorScheme.onSurface),
-                      onPressed:
-                          _isSaving || _isDeleting ? null : _requestCloseSheet,
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.onSurface.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    actions: [
-                      MonekoSheetConfirmButton(
-                        onPressed: _handleSave,
-                        isLoading: _isSaving,
-                      ),
-                    ],
+                    onClose:
+                        _isSaving || _isDeleting ? null : _requestCloseSheet,
+                    onConfirm: _handleSave,
+                    isConfirmLoading: _isSaving,
                     flexibleSpace: FlexibleSpaceBar(
                       stretchModes: const [
                         StretchMode.zoomBackground,
@@ -1192,9 +1177,11 @@ class _UnifiedTransactionSheetV2State
                                   key: ValueKey(
                                     '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|$displayCategory',
                                   ),
+                                  width: 80,
+                                  height: 80,
                                   padding: hasResolvableMerchantLogo
                                       ? EdgeInsets.zero
-                                      : const EdgeInsets.all(16),
+                                      : const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: textColor.withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
@@ -1219,24 +1206,18 @@ class _UnifiedTransactionSheetV2State
                                           );
                                         }
                                       },
-                                      child: SizedBox(
-                                        width:
-                                            hasResolvableMerchantLogo ? 68 : 36,
-                                        height:
-                                            hasResolvableMerchantLogo ? 68 : 36,
-                                        child: ClipOval(
-                                          child: MerchantLogo(
-                                            merchantId: merchantId,
-                                            domain: merchantDomain,
-                                            logoUrl: merchantLogoUrl,
-                                            merchantStructuredName:
-                                                merchantStructuredName,
-                                            merchantName: displayMerchant,
-                                            fallback: Center(
-                                              child: buildCategoryIcon(
-                                                displayCategory,
-                                                size: 36,
-                                              ),
+                                      child: ClipOval(
+                                        child: MerchantLogo(
+                                          merchantId: merchantId,
+                                          domain: merchantDomain,
+                                          logoUrl: merchantLogoUrl,
+                                          merchantStructuredName:
+                                              merchantStructuredName,
+                                          merchantName: displayMerchant,
+                                          fallback: Center(
+                                            child: buildCategoryIcon(
+                                              displayCategory,
+                                              size: 64,
                                             ),
                                           ),
                                         ),

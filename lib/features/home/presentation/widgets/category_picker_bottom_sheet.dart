@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 class CategoryPickerBottomSheet extends StatelessWidget {
   const CategoryPickerBottomSheet({
@@ -172,7 +173,7 @@ class CategoryPicker extends HookWidget {
                   child: Center(child: ModalSheetHandle()),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -493,32 +494,8 @@ class _CategoryPickerHeader extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
           ),
-          InkWell(
-            onTap: onClose,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Theme.of(context)
-                    .colorScheme
-                    .surface
-                    .withValues(alpha: 0.8),
-                border: Border.all(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .outline
-                      .withValues(alpha: 0.2),
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                Icons.check,
-                color: Theme.of(context).colorScheme.onSurface,
-                size: 20,
-              ),
-            ),
+          MonekoSheetConfirmButton(
+            onPressed: onClose,
           ),
         ],
       ),

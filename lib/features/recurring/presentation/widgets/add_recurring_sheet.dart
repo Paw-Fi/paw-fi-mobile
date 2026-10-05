@@ -1817,30 +1817,13 @@ class AddRecurringSheet extends HookConsumerWidget {
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
                 slivers: [
-                  SliverAppBar(
-                    expandedHeight: kToolbarHeight,
-                    pinned: true,
-                    stretch: true,
-                    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+                  MonekoSheetSliverAppBar(
                     forceMaterialTransparency: true,
-                    elevation: 0,
-                    leading: IconButton(
-                      icon: Icon(Icons.close, color: colorScheme.onSurface),
-                      onPressed: isLoading.value
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            colorScheme.onSurface.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    actions: [
-                      MonekoSheetConfirmButton(
-                        onPressed: handleSave,
-                        isLoading: isLoading.value,
-                      ),
-                    ],
-                    flexibleSpace: const SizedBox.shrink(),
+                    onClose: isLoading.value
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    onConfirm: handleSave,
+                    isConfirmLoading: isLoading.value,
                   ),
                   SliverToBoxAdapter(
                     child: Container(

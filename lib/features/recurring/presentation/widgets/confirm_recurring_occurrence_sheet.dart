@@ -984,7 +984,15 @@ class _OccurrenceIdentityHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final category = recurringTransaction.category;
-    final categoryIcon = buildCategoryIcon(category, size: 32);
+    final hasResolvableMerchantLogo = buildMerchantLogoUrl(
+          logoUrl: recurringTransaction.merchantLogoUrl,
+          merchantId: recurringTransaction.merchantId,
+          domain: recurringTransaction.merchantDomain,
+          merchantStructuredName: recurringTransaction.merchantStructuredName,
+          merchantName: recurringTransaction.merchant,
+        ) !=
+        null;
+    final categoryIcon = buildCategoryIcon(category, size: 64);
 
     return Column(
       children: [
@@ -995,9 +1003,11 @@ class _OccurrenceIdentityHeader extends StatelessWidget {
               '${recurringTransaction.merchantId ?? ''}|'
               '${recurringTransaction.merchantDomain ?? ''}|$category',
             ),
-            width: 64,
-            height: 64,
-            padding: const EdgeInsets.all(12),
+            width: 80,
+            height: 80,
+            padding: hasResolvableMerchantLogo
+                ? EdgeInsets.zero
+                : const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: colorScheme.onSurface.withValues(alpha: 0.08),
               shape: BoxShape.circle,

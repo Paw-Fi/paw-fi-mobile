@@ -819,7 +819,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                 Align(
                   alignment: Alignment.centerRight,
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 16),
+                    padding: const EdgeInsets.only(
+                      right: 20,
+                      top: 4,
+                      bottom: 4,
+                    ),
                     child: MonekoSheetConfirmButton(
                       onPressed: handleSave,
                       isLoading: isLoading.value,

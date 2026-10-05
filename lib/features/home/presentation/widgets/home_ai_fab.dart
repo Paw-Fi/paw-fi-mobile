@@ -2521,6 +2521,7 @@ Future<void> _processExpense(
             processingOverlay?.complete(
                 message: context.l10n.aiInputSavedForLater,
                 outcome: ProcessingOverlayOutcome.info);
+            processingOverlay = null;
             return false;
           }
           processingOverlay?.dismiss();

@@ -86,6 +86,13 @@ class NonBlockingProcessingOverlay {
     ProcessingOverlayOutcome outcome = ProcessingOverlayOutcome.success,
   }) {
     if (_entry == null) return;
+    if (_bannerKey.currentState == null) {
+      // An inserted overlay is not built until the next frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        complete(message: message, subMessage: subMessage, outcome: outcome);
+      });
+      return;
+    }
     _bannerKey.currentState?.complete(
       message: message,
       subMessage: subMessage,

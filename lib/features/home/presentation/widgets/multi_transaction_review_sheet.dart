@@ -28,6 +28,7 @@ import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 String _formatRelativeDate(DateTime date, BuildContext context) {
   final now = DateTime.now();
@@ -667,17 +668,13 @@ class _MultiTransactionReviewSheetState
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(
-                    left: 8, top: 4, bottom: 8, right: 16),
+                padding: MonekoBottomSheet.headerRowPadding,
                 child: Row(
                   children: [
-                    IconButton(
-                      icon: Icon(Icons.chevron_left,
-                          color: colorScheme.foreground, size: 28),
+                    MonekoSheetCloseButton(
+                      icon: Icons.chevron_left,
                       onPressed:
                           _isSaving ? null : () => Navigator.pop(context),
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(),
                     ),
                     Expanded(
                       child: Text(
@@ -690,26 +687,9 @@ class _MultiTransactionReviewSheetState
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    IconButton(
-                      icon: _isSaving
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.foreground,
-                                ),
-                              ),
-                            )
-                          : Icon(
-                              Icons.check_rounded,
-                              color: colorScheme.foreground,
-                              size: 28,
-                            ),
+                    MonekoSheetConfirmButton(
                       onPressed: _isSaving ? null : _handleSave,
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(),
+                      isLoading: _isSaving,
                     ),
                   ],
                 ),

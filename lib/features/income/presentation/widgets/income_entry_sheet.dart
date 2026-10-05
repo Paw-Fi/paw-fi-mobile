@@ -16,6 +16,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 void showIncomeEntrySheet(BuildContext context) {
   showModalBottomSheet(
@@ -247,7 +248,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
 
           // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: MonekoBottomSheet.headerRowPadding,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -259,8 +260,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     color: colorScheme.foreground,
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.close, color: colorScheme.mutedForeground),
+                MonekoSheetCloseButton(
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -287,21 +287,28 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                     Builder(
                       builder: (context) => GestureDetector(
                         onTap: () async {
-                          final currencyCode = ref.read(selectedCurrencyProvider);
+                          final currencyCode =
+                              ref.read(selectedCurrencyProvider);
                           final symbol = resolveCurrencySymbol(currencyCode);
                           final displaySource = _sourceController.text.trim();
-                          final displayDescription = _descriptionController.text.trim();
+                          final displayDescription =
+                              _descriptionController.text.trim();
                           final effectiveTitle = displaySource.isNotEmpty
                               ? displaySource
-                              : (displayDescription.isNotEmpty ? displayDescription : context.l10n.income);
+                              : (displayDescription.isNotEmpty
+                                  ? displayDescription
+                                  : context.l10n.income);
 
                           final header = Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
-                              color: colorScheme.success.withValues(alpha: 0.12),
+                              color:
+                                  colorScheme.success.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(100),
                               border: Border.all(
-                                color: colorScheme.success.withValues(alpha: 0.25),
+                                color:
+                                    colorScheme.success.withValues(alpha: 0.25),
                                 width: 1,
                               ),
                             ),
