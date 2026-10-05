@@ -17,7 +17,6 @@ import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/insights/presentation/widgets/tabs/scenario_planning_tab.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/bank_connections_page.dart';
@@ -586,7 +585,6 @@ class _BrowseTool {
     required this.destination,
     this.plusFeature,
     this.customIcon,
-    this.isCategoryTool = false,
     this.isLocked = false,
   });
 
@@ -597,7 +595,6 @@ class _BrowseTool {
   final _BrowseDestination destination;
   final PlusFeature? plusFeature;
   final MessagingAppLogoType? customIcon;
-  final bool isCategoryTool;
   final bool isLocked;
 
   String get category => switch (destination) {
@@ -673,9 +670,9 @@ List<_BrowseTool> _browseTools(
       _BrowseTool(
         title: context.l10n.categories,
         description: 'Customize categories for your transactions.',
+        icon: Icons.category_rounded,
         accent: (scheme) => scheme.tertiaryContainer,
         destination: _BrowseDestination.categories,
-        isCategoryTool: true,
       ),
       if (Platform.isIOS)
         _BrowseTool(
@@ -881,19 +878,17 @@ class _BrowseToolCardState extends State<_BrowseToolCard> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Center(
-                            child: widget.tool.isCategoryTool
-                                ? buildCustomCategoryImage('tag', size: 22)
-                                : widget.tool.customIcon == null
-                                    ? Icon(
-                                        widget.tool.icon!,
-                                        color: colorScheme.foreground,
-                                        size: 22,
-                                      )
-                                    : MessagingAppLogo(
-                                        type: widget.tool.customIcon!,
-                                        color: colorScheme.foreground,
-                                        size: 22,
-                                      ),
+                            child: widget.tool.customIcon == null
+                                ? Icon(
+                                    widget.tool.icon!,
+                                    color: colorScheme.foreground,
+                                    size: 22,
+                                  )
+                                : MessagingAppLogo(
+                                    type: widget.tool.customIcon!,
+                                    color: colorScheme.foreground,
+                                    size: 22,
+                                  ),
                           ),
                         ),
                         if (widget.tool.isLocked)

@@ -46,7 +46,35 @@ extension EmailImportSettingsL10nX on AppLocalizations {
       'We will email a verification link to this address. Receipts are imported only after the mailbox owner authorizes this account.';
 }
 
-extension HomeDashboardL10nX on AppLocalizations {}
+/// English fallback until these translation-catalog entries are exported.
+extension HomeDashboardL10nX on AppLocalizations {
+  String spendingDailyPerDay(String amount) => '$amount/day';
+  String spendingDailyVsLastMonth(String percent) =>
+      '$percent% from last month';
+  String get spendingDailyNoComparison => 'No previous-month comparison';
+  String budgetCompanionSpentOf(String amount) => 'spent of $amount';
+  String budgetCompanionLeft(String amount) => '$amount left';
+  String budgetCompanionOver(String amount) => '$amount over budget';
+  String get budgetCompanionHappy => 'Looking good!';
+  String get budgetCompanionEncouraging => "Nice! You're on track.";
+  String get budgetCompanionConcerned => 'Getting close!';
+  String get budgetCompanionOops => 'Oops! We went over this month.';
+  String get budgetCompanionPlanning => "Let's make a plan!";
+  String get budgetCompanionNoBudget => 'No budget configured';
+  String get budgetCompanionSpentThisDay => 'spent this day';
+  String get budgetCompanionNoComparison => 'No previous-period comparison';
+  String get budgetCompanionNoCategories => 'No category spending available';
+  String budgetCompanionLess(String percent) =>
+      '$percent% less than last month';
+  String budgetCompanionMore(String percent) =>
+      '$percent% more than last month';
+  String budgetCompanionLessDay(String percent) =>
+      '$percent% less than the previous day';
+  String budgetCompanionMoreDay(String percent) =>
+      '$percent% more than the previous day';
+  String get budgetCompanionSame => 'Same spending as last month';
+  String get budgetCompanionSameDay => 'Same spending as the previous day';
+}
 
 /// English fallback until the notification processing catalog is exported.
 extension NotificationRepairL10nX on AppLocalizations {
@@ -69,6 +97,11 @@ extension MerchantIdentityL10nX on AppLocalizations {
 }
 
 extension PocketsAiSuggestionsL10nX on AppLocalizations {
+  String get pocketsCopyPreviousPlanTitle => 'Copy your previous plan?';
+  String get pocketsCopyPreviousPlanDescription =>
+      'Copy the pockets and monthly budget from your most recent setup. '
+      'Pocket names, icons, colors, categories, and budget amounts are preserved. '
+      'You can edit everything afterwards.';
   String get win => 'Win';
   String get strategy => 'Strategy';
   String get mindset => 'Mindset';

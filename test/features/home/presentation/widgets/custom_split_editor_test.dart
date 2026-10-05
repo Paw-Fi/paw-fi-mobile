@@ -22,6 +22,58 @@ HouseholdMember _member(String userId, String name) {
 }
 
 void main() {
+  testWidgets('long payer names leave space for the label on narrow screens',
+      (tester) async {
+    const longName = 'mpvzhgtm7m@privaterelay.appleid.com';
+    final members = [_member('u1', longName), _member('u2', 'Alice')];
+    await tester.binding.setSurfaceSize(const Size(320, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final scale in [1.0, 2.0]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: GroupSplitEditorSection(
+                members: members,
+                selectedPayerUserId: 'u1',
+                onPayerChanged: (_) {},
+                totalAmount: 10,
+                currencySymbol: '\$',
+                initialSplitType: SplitType.equal,
+                initialSplits: null,
+                showEqualOption: true,
+                onSplitChanged: (_, __) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final label = find.text('Who paid?');
+      final dropdown = find.byType(DropdownButton<String>);
+      expect(tester.getSize(label).width, greaterThan(60));
+      expect(
+          tester.getRect(label).right, lessThan(tester.getRect(dropdown).left));
+      expect(tester.getRect(dropdown).right, lessThanOrEqualTo(300));
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alice').last);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets(
       'historical payer remains selected until the user chooses a current member',
       (tester) async {

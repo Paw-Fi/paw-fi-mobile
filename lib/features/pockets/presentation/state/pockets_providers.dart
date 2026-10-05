@@ -6417,6 +6417,58 @@ TransactionsFeedQuery buildPocketsTransactionsRefreshQuery({
   );
 }
 
+Future<DateTime?> loadLatestPreviousPocketMonth({
+  required SupabaseClient client,
+  required String userId,
+  required PocketsScopeParams params,
+}) async {
+  if (userId.isEmpty ||
+      (params.scope != PocketsScopeType.personal &&
+          params.householdId == null)) {
+    return null;
+  }
+  final target = params.normalizedPeriodMonth;
+  if (target == null) throw ArgumentError('A destination month is required');
+  final currencies = params.normalizedSelectedCurrencies ??
+      [if (params.normalizedCurrency != null) params.normalizedCurrency!];
+  if (currencies.isEmpty) throw ArgumentError('A currency is required');
+  // The inner relation excludes budget-only/empty months before limiting the
+  // result, so gaps of any length do not hide the nearest usable setup.
+  var query = client
+      .from('budgets')
+      .select('period_month,budget_envelopes!inner(id,currency)')
+      .lt('period_month', _formatBudgetMonth(target))
+      .inFilter('currency', currencies)
+      .inFilter('budget_envelopes.currency', currencies);
+  query = switch (params.scope) {
+    PocketsScopeType.personal =>
+      query.eq('user_id', userId).isFilter('household_id', null),
+    PocketsScopeType.portfolio =>
+      query.eq('user_id', userId).eq('household_id', params.householdId!),
+    PocketsScopeType.household => query.eq('household_id', params.householdId!),
+  };
+  final rows = await query.order('period_month', ascending: false).limit(1);
+  if (rows.isEmpty) return null;
+  final source = DateTime.parse(rows.first['period_month'] as String);
+  return addFinancialCycles(
+    target,
+    (source.year - target.year) * 12 + source.month - target.month,
+    startDay: params.normalizedFinancialMonthStartDay,
+  );
+}
+
+final latestPreviousPocketMonthProvider = FutureProvider.autoDispose
+    .family<DateTime?, PocketsScopeParams>((ref, params) {
+  final userId = ref.watch(authProvider).uid;
+  ref.watch(pocketsRefreshSignalProvider);
+  if (ref.watch(previewModeProvider).isActive) return null;
+  return loadLatestPreviousPocketMonth(
+    client: supabase,
+    userId: userId,
+    params: params,
+  );
+});
+
 final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
     PocketsState, PocketsScopeParams>((ref, params) {
   // Ensure we always have the latest selected household id when in household scope

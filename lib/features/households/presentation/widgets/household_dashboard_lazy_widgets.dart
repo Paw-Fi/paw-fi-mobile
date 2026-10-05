@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -16,14 +17,12 @@ import 'package:moneko/features/home/presentation/state/financial_month_start_pr
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection_provider.dart';
-import 'package:moneko/features/home/presentation/utils/dashboard_synthetic_entries.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/home/presentation/widgets/recent_transactions_card.dart';
 import 'package:moneko/features/home/presentation/widgets/upcoming_transactions_card.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:moneko/features/home/presentation/widgets/spending_breakdown_chart.dart';
-import 'package:moneko/features/home/presentation/widgets/spending_card.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -34,7 +33,6 @@ import 'package:moneko/features/households/presentation/widgets/group_fairness_m
 import 'package:moneko/features/households/presentation/widgets/household_budget_overview_card.dart';
 import 'package:moneko/features/households/presentation/widgets/household_member_spending_card.dart';
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
-import 'package:moneko/features/households/presentation/utils/member_spending_attribution.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -113,99 +111,13 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final range = _selectedHomePeriodRange(ref, userId);
-    final selectedCurrencyFilters = _selectedCurrencies(ref);
-    final query = DashboardScopeQuery(
-      userId: userId,
+    return LazyDashboardSpendingSummaryCard(
+      config: config,
+      colorScheme: Theme.of(context).colorScheme,
+      contact: null,
+      userNow: referenceNow,
       householdId: household.id,
-      selectedCurrency: selectedCurrency,
-      selectedCurrencies: selectedCurrencyFilters,
-      startDate: range.start,
-      endDate: range.end,
     );
-    final projectionAsync = ref.watch(
-      householdDashboardProjectionProvider(query),
-    );
-    Widget child;
-
-    if (!projectionAsync.hasValue && !projectionAsync.hasError) {
-      child = _buildSpentByYouSkeleton(
-        context,
-        selectedCurrency,
-        config.dateRange,
-        referenceNow,
-        key: const ValueKey('spent_by_you_skeleton'),
-      );
-    } else if (projectionAsync.hasError && !projectionAsync.hasValue) {
-      child = _buildDashboardErrorCard(
-        context,
-        Theme.of(context).colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () {
-          ref.invalidate(householdDashboardProjectionProvider(query));
-        },
-        key: const ValueKey('spent_by_you_error_1'),
-      );
-    } else {
-      final projection = projectionAsync.valueOrNull!;
-      final totals = computeSplitAwareMemberSpendingTotals(
-        transactions: projection.expensesWithRecurring,
-        from: range['from']!,
-        to: range['to']!,
-        splits: projection.splits,
-        selectedCurrency: selectedCurrency,
-        currencyRates: (selectedCurrencyFilters?.length ?? 0) > 1
-            ? _currencyRates(ref)
-            : null,
-      );
-      final spentByUser = totals.totalForUser(userId);
-
-      final syntheticExpense = buildSyntheticSpentByUserExpense(
-        userId: userId,
-        totalSpentCents: spentByUser,
-        anchorDate: range['to']!,
-        currency: selectedCurrency,
-        householdId: household.id,
-      );
-
-      child = GestureDetector(
-        key: ValueKey(
-            'spent_by_you_data_${household.id}_${config.id}_$selectedCurrency'),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TransactionsPage(
-                householdId: household.id,
-                enableDateFilter: true,
-                initialDateFilter: DateRangeFilter.custom,
-                initialStartDate: range.start,
-                initialEndDate: range.end,
-              ),
-            ),
-          );
-        },
-        child: buildSpendingCard(
-          context,
-          Theme.of(context).colorScheme,
-          [syntheticExpense],
-          null,
-          // The dashboard period picker owns the query range. Passing the
-          // widget's saved display setting here would filter the already
-          // scoped synthetic entry a second time (and could turn it into $0
-          // after a restart).
-          DateRangeFilter.custom,
-          referenceNow: referenceNow,
-          selectedCurrency: selectedCurrency,
-          customStartDate: range.start,
-          customEndDate: range.end,
-          headerLabel: context.l10n.spendByYou,
-          animationStorageKey:
-              'household_spent_by_you:${household.id}:${config.id}:$selectedCurrency:${config.dateRange.name}:${config.viewMode.name}:${config.customStartDate?.microsecondsSinceEpoch ?? ''}:${config.customEndDate?.microsecondsSinceEpoch ?? ''}',
-        ),
-      );
-    }
-
-    return _buildDashboardSwitcher(child);
   }
 }
 
@@ -701,41 +613,6 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
 
     return _buildDashboardSwitcher(child);
   }
-}
-
-Widget _buildSpentByYouSkeleton(
-  BuildContext context,
-  String currency,
-  dateFilter,
-  DateTime referenceNow, {
-  Key? key,
-}) {
-  return Skeletonizer(
-    key: key,
-    effect: ShimmerEffect(
-      baseColor: Theme.of(context).colorScheme.skeletonBase,
-      highlightColor: Theme.of(context).colorScheme.skeletonHighlight,
-    ),
-    child: buildSpendingCard(
-      context,
-      Theme.of(context).colorScheme,
-      [
-        ExpenseEntry(
-          id: 'spent-skeleton',
-          date: DateTime.now(),
-          amountCents: 0,
-          createdAt: DateTime.now(),
-          userId: 'skeleton',
-          currency: currency,
-        ),
-      ],
-      null,
-      dateFilter,
-      referenceNow: referenceNow,
-      selectedCurrency: currency,
-      headerLabel: context.l10n.spendByYou,
-    ),
-  );
 }
 
 Widget _buildRecentTransactionsSkeleton(

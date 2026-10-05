@@ -1,11 +1,158 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/pockets/presentation/state/monthly_intro_insights.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_ai_budget_intro_sheet.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+
+class _CopyPockets extends StateNotifier<PocketsState>
+    implements PocketsNotifier {
+  _CopyPockets() : super(PocketsState.initial().copyWith(isLoading: false));
+
+  final pending = Completer<Map<String, String>>();
+  final copiedMonths = <DateTime>[];
+
+  @override
+  Future<Map<String, String>> copyPocketsFromMonth(DateTime sourceMonth) {
+    copiedMonths.add(sourceMonth);
+    return pending.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
+  final scope = PocketsScopeParams(
+    scope: PocketsScopeType.personal,
+    currency: 'EUR',
+    periodMonth: DateTime(2026, 10),
+  );
+  final insight = MonthlyIntroState(
+    primaryInsight: const MonthlyIntroInsight(
+      type: MonthlyInsightType.freshStart,
+      priority: 10,
+      badge: 'WELCOME',
+      headline: 'Fresh start',
+      description: 'Plan your month.',
+      sentiment: MonthlyInsightSentiment.positive,
+    ),
+    currentMonth: DateTime(2026, 10),
+    previousMonth: DateTime(2026, 9),
+    currentMonthName: 'October',
+    previousMonthName: 'September',
+  );
+
+  Future<void> openCopySheet(WidgetTester tester, _CopyPockets notifier,
+      Future<DateTime?> history) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        pocketsProvider(scope).overrideWith((ref) => notifier),
+        latestPreviousPocketMonthProvider(scope).overrideWith((ref) => history),
+        monthlyIntroInsightsProvider(MonthlyIntroInsightsParams(
+          scopeParams: scope,
+          currency: 'EUR',
+        )).overrideWithValue(insight),
+      ],
+      child: MaterialApp(
+          home: Scaffold(
+              body: Consumer(
+        builder: (context, ref, _) => TextButton(
+          onPressed: () => PocketsAiBudgetIntroSheet.show(
+            context: context,
+            ref: ref,
+            scopeParams: scope,
+            currency: 'EUR',
+          ),
+          child: const Text('Open'),
+        ),
+      ))),
+    ));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('history lookup reserves copy action space until it resolves',
+      (tester) async {
+    final history = Completer<DateTime?>();
+    await openCopySheet(tester, _CopyPockets(), history.future);
+    expect(find.byKey(const ValueKey('previous-plan-loading')), findsOneWidget);
+    expect(find.byKey(const ValueKey('copy-previous-plan')), findsNothing);
+    history.complete(DateTime(2026, 7));
+    await tester.pumpAndSettle();
+    expect(find.text("Copy last month's pockets"), findsOneWidget);
+    expect(tester.widget(find.byKey(const ValueKey('copy-previous-plan'))),
+        isA<PrimaryAdaptiveButton>());
+    expect(find.byKey(const ValueKey('previous-plan-loading')), findsNothing);
+  });
+
+  testWidgets('production intro sheet has no header or close button',
+      (tester) async {
+    await openCopySheet(
+        tester, _CopyPockets(), Future.value(DateTime(2026, 7)));
+    expect(find.byType(MonekoSheetCloseButton), findsNothing);
+    expect(tester.getSize(find.byType(MonekoSheetHeader)), Size.zero);
+    await tester.ensureVisible(find.text('Set up manually'));
+    await tester.tap(find.text('Set up manually'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PocketsAiBudgetIntroSheet), findsNothing);
+  });
+
+  testWidgets(
+      'copy confirmation names the actual source and cancellation does not copy',
+      (tester) async {
+    final notifier = _CopyPockets();
+    await openCopySheet(tester, notifier, Future.value(DateTime(2026, 7)));
+    await tester.ensureVisible(find.text("Copy last month's pockets"));
+    await tester.tap(find.text("Copy last month's pockets"));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('July 2026 -> October 2026'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(notifier.copiedMonths, isEmpty);
+    expect(find.byType(PocketsAiBudgetIntroSheet), findsOneWidget);
+  });
+
+  for (final succeeds in [true, false]) {
+    testWidgets(
+        'copy uses nearest setup, prevents duplicates, and handles ${succeeds ? 'success' : 'failure'}',
+        (tester) async {
+      final notifier = _CopyPockets();
+      await openCopySheet(tester, notifier, Future.value(DateTime(2026, 7)));
+      await tester.ensureVisible(find.text("Copy last month's pockets"));
+      await tester.tap(find.text("Copy last month's pockets"));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copy pockets'));
+      await tester.pumpAndSettle();
+      expect(notifier.copiedMonths, [DateTime(2026, 7)]);
+      expect(find.text('Copying...'), findsOneWidget);
+      expect(
+          tester
+              .widget<PrimaryAdaptiveButton>(
+                  find.byKey(const ValueKey('copy-previous-plan')))
+              .onPressed,
+          isNull);
+      if (succeeds) {
+        notifier.pending.complete({'source': 'destination'});
+      } else {
+        notifier.pending.completeError(StateError('Copy failed'));
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(PocketsAiBudgetIntroSheet),
+          succeeds ? findsNothing : findsOneWidget);
+      if (!succeeds) {
+        expect(find.text("Copy last month's pockets"), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 8));
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets(
       'PocketsAiBudgetIntroSheet renders hero insight card and CTA buttons',
       (tester) async {
@@ -43,6 +190,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          latestPreviousPocketMonthProvider(scopeParams)
+              .overrideWith((ref) async => DateTime(2026, 7)),
           monthlyIntroInsightsProvider(insightParams)
               .overrideWithValue(testState),
         ],
@@ -84,6 +233,14 @@ void main() {
 
     // Verify CTAs
     expect(find.text('Build My September Plan'), findsOneWidget);
+    expect(find.text("Copy last month's pockets"), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('copy-previous-plan'))),
+      tester.getSize(find.ancestor(
+        of: find.text('Build My September Plan'),
+        matching: find.byType(PrimaryAdaptiveButton),
+      )),
+    );
     expect(find.text('Set up manually'), findsOneWidget);
   });
 
@@ -122,6 +279,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          latestPreviousPocketMonthProvider(scopeParams)
+              .overrideWith((ref) async => null),
           monthlyIntroInsightsProvider(insightParams)
               .overrideWithValue(testState),
         ],
@@ -184,6 +343,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          latestPreviousPocketMonthProvider(scopeParams)
+              .overrideWith((ref) async => null),
           monthlyIntroInsightsProvider(insightParams)
               .overrideWithValue(testState),
         ],

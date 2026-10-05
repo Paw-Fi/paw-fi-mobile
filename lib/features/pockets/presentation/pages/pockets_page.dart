@@ -24,8 +24,6 @@ import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_sectio
 import 'package:moneko/features/pockets/presentation/widgets/pockets_plan_review_banner.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_ai_budget_intro_sheet.dart';
 import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
-import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -34,7 +32,6 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
-import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -988,24 +985,25 @@ class _PocketsMonthView extends HookConsumerWidget {
       await pocketsNotifier.refresh();
     }
 
-    // When a new month starts, users often have zero budget and no pockets yet.
-    // If there are no pockets and no budget amount set, show an onboarding CTA.
-    // Priority: copy previous month pockets (if any) > create from template.
     final shouldShowEmptyMonthCta = !pocketsState.isLoading &&
+        pocketsState.error == null &&
         pocketsState.editing.isEmpty &&
         pocketsState.totalBudget == 0;
-    final showCopyPocketsFromPreviousMonth =
-        shouldShowEmptyMonthCta && pocketsState.hasPreviousMonthPockets;
-    final showCreateFromTemplate =
-        shouldShowEmptyMonthCta && !pocketsState.hasPreviousMonthPockets;
+    final previousSetup =
+        pocketsState.editing.isEmpty && !pocketsState.isLoading
+            ? ref.watch(latestPreviousPocketMonthProvider(scopeParams))
+            : const AsyncData<DateTime?>(null);
+    final showCreateFromTemplate = shouldShowEmptyMonthCta &&
+        previousSetup.hasValue &&
+        previousSetup.valueOrNull == null;
 
-    final isCopyingPockets = useState(false);
     final hasAutoOpenedAiSuggestions = useState(false);
     final shouldAutoOpenAiSuggestions = isActiveMonth &&
         currentTabIndex == 2 &&
         !pocketsState.isLoading &&
-        pocketsState.totalBudget == 0 &&
-        pocketsState.hasPreviousMonthPockets;
+        pocketsState.error == null &&
+        pocketsState.editing.isEmpty &&
+        previousSetup.valueOrNull != null;
 
     useEffect(() {
       if (currentTabIndex != 2) {
@@ -1015,9 +1013,15 @@ class _PocketsMonthView extends HookConsumerWidget {
       if (!shouldAutoOpenAiSuggestions || hasAutoOpenedAiSuggestions.value) {
         return null;
       }
-      hasAutoOpenedAiSuggestions.value = true;
+      var cancelled = false;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!context.mounted) return;
+        if (cancelled ||
+            !context.mounted ||
+            ref.read(mainShellTabIndexProvider) != 2 ||
+            ref.read(pocketsProvider(scopeParams)).editing.isNotEmpty) {
+          return;
+        }
+        hasAutoOpenedAiSuggestions.value = true;
         await PocketsAiBudgetIntroSheet.show(
           context: context,
           ref: ref,
@@ -1027,7 +1031,7 @@ class _PocketsMonthView extends HookConsumerWidget {
               : pocketsState.currency.trim(),
         );
       });
-      return null;
+      return () => cancelled = true;
     }, [
       shouldAutoOpenAiSuggestions,
       currentTabIndex,
@@ -1054,120 +1058,31 @@ class _PocketsMonthView extends HookConsumerWidget {
               curve: Curves.easeInOut,
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
-                child: showCopyPocketsFromPreviousMonth
+                child: showCreateFromTemplate
                     ? Padding(
                         key: ValueKey(
-                            'copy_budget_banner_${scopeParams.periodMonth?.year}_${scopeParams.periodMonth?.month}'),
+                            'create_template_banner_${scopeParams.periodMonth?.year}_${scopeParams.periodMonth?.month}'),
                         padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                        child: _CopyBudgetBanner(
-                          previousBudget: pocketsState.previousBudget,
-                          currency:
-                              scopeParams.currency?.trim().isNotEmpty == true
-                                  ? scopeParams.currency!.trim()
-                                  : pocketsState.currency.trim(),
-                          onCopy: () async {
-                            try {
-                              pocketsNotifier.reusePreviousBudget(
-                                  pocketsState.previousBudget);
-                              if (context.mounted) {
-                                AppToast.success(
-                                  context,
-                                  context.l10n.budgetUpdated,
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                AppToast.error(
-                                  context,
-                                  ErrorHandler.getUserFriendlyMessage(e),
-                                );
-                              }
-                            }
-                          },
-                          onCopyPockets: () async {
-                            if (isCopyingPockets.value) return;
-
-                            final destinationMonth =
-                                scopeParams.periodMonth ?? DateTime.now();
-                            final previousMonth = previousPocketsScopeParams(
-                              scopeParams.copyWith(
-                                periodMonth: destinationMonth,
-                              ),
-                            ).periodMonth!;
-                            final monthFormatter =
-                                MaterialLocalizations.of(context);
-                            final currency =
-                                scopeParams.currency?.trim().toUpperCase() ??
-                                    pocketsState.currency.trim().toUpperCase();
-                            final copyDetails =
-                                '${context.l10n.pocketsCopyDialogDesc}\n\n'
-                                '${monthFormatter.formatMonthYear(previousMonth)} -> '
-                                '${monthFormatter.formatMonthYear(destinationMonth)}'
-                                '${currency.isEmpty ? '' : ' ($currency)'}';
-
-                            final result = await MonekoAlertDialog.show(
-                              context: context,
-                              title: context.l10n.pocketsCopyDialogTitle,
-                              description: copyDetails,
-                              confirmLabel: context.l10n.pocketsCopyConfirm,
-                              cancelLabel: context.l10n.cancel,
-                            );
-                            final confirmed = result?.confirmed ?? false;
-
-                            if (confirmed != true || !context.mounted) return;
-
-                            isCopyingPockets.value = true;
-                            try {
-                              await pocketsNotifier
-                                  .copyPocketsFromMonth(previousMonth);
-                              if (context.mounted) {
-                                AppToast.success(
-                                  context,
-                                  context.l10n.budgetCreatedSuccessfully,
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                AppToast.error(
-                                  context,
-                                  ErrorHandler.getUserFriendlyMessage(e),
-                                );
-                              }
-                            } finally {
-                              if (context.mounted) {
-                                isCopyingPockets.value = false;
-                              }
-                            }
-                          },
-                          isCopying: isCopyingPockets.value,
+                        child: _CreateFromTemplateBanner(
                           colorScheme: colorScheme,
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              useSafeArea: true,
+                              isDismissible: false,
+                              enableDrag: true,
+                              backgroundColor:
+                                  colorScheme.surface.withValues(alpha: 0.0),
+                              builder: (context) =>
+                                  CreateBudgetFromTemplateSheet(
+                                scopeParams: scopeParams,
+                              ),
+                            );
+                          },
                         ),
                       )
-                    : showCreateFromTemplate
-                        ? Padding(
-                            key: ValueKey(
-                                'create_template_banner_${scopeParams.periodMonth?.year}_${scopeParams.periodMonth?.month}'),
-                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                            child: _CreateFromTemplateBanner(
-                              colorScheme: colorScheme,
-                              onTap: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  useSafeArea: true,
-                                  isDismissible: false,
-                                  enableDrag: true,
-                                  backgroundColor: colorScheme.surface
-                                      .withValues(alpha: 0.0),
-                                  builder: (context) =>
-                                      CreateBudgetFromTemplateSheet(
-                                    scopeParams: scopeParams,
-                                  ),
-                                );
-                              },
-                            ),
-                          )
-                        : const SizedBox.shrink(),
+                    : const SizedBox.shrink(),
               ),
             ),
           ),
@@ -1237,89 +1152,6 @@ class _PocketsMonthPlaceholder extends StatelessWidget {
 
 String _pocketsMonthSwipeHintDismissedKey(String userId) {
   return 'pockets_month_swipe_hint_dismissed:$userId';
-}
-
-class _CopyBudgetBanner extends StatelessWidget {
-  const _CopyBudgetBanner({
-    required this.previousBudget,
-    required this.currency,
-    required this.onCopy,
-    required this.onCopyPockets,
-    required this.isCopying,
-    required this.colorScheme,
-  });
-
-  final double previousBudget;
-  final String currency;
-  final VoidCallback onCopy;
-  final VoidCallback onCopyPockets;
-  final bool isCopying;
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    final formattedAmount =
-        '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, previousBudget)}';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            context.l10n.pocketsNewMonthBannerTitle,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            context.l10n.pocketsNewMonthBannerSubtitle,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryAdaptiveButton(
-              onPressed: isCopying ? null : onCopyPockets,
-              child: Text(
-                isCopying
-                    ? context.l10n.pocketsCopyingAction
-                    : context.l10n.pocketsCopyLastMonthAction,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (previousBudget > 0)
-            SizedBox(
-              width: double.infinity,
-              child: PlainAdaptiveButton(
-                onPressed: onCopy,
-                child: Text(
-                  context.l10n.pocketsUseLastMonthBudgetAction(formattedAmount),
-                  style: TextStyle(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _CreateFromTemplateBanner extends StatelessWidget {

@@ -231,6 +231,23 @@ extension AppColorScheme on ColorScheme {
   Color get success =>
       brightness == Brightness.dark ? AppTheme.darkSuccess : AppTheme.success;
 
+  /// Readable semantic text on the budgeting companion's softly tinted card.
+  Color get budgetSuccessForeground => brightness == Brightness.dark
+      ? AppTheme.darkSuccess
+      : const Color(0xFF007A5C);
+
+  Color get budgetWarningForeground => brightness == Brightness.dark
+      ? AppTheme.darkWarning
+      : const Color(0xFF895500);
+
+  Color get budgetDangerForeground => brightness == Brightness.dark
+      ? AppTheme.darkDanger
+      : const Color(0xFFB92D37);
+
+  Color get budgetInfoForeground => brightness == Brightness.dark
+      ? const Color(0xFFCCBFFF)
+      : const Color(0xFF5030B8);
+
   /// Warning color
   Color get warning =>
       brightness == Brightness.dark ? AppTheme.darkWarning : AppTheme.warning;

@@ -309,49 +309,56 @@ class GroupSplitEditorSection extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            MonekoInput(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: effectivePayerId,
-                                  isDense: true,
-                                  icon: Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.5),
-                                    size: 20,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                  items: [
-                                    if (hasHistoricalPayer)
-                                      DropdownMenuItem<String>(
-                                        value: selectedPayerUserId,
-                                        child: Text(
-                                          context.l10n.unknownMember,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ...members.map(
-                                      (m) => DropdownMenuItem<String>(
-                                        value: m.userId,
-                                        child: Text(
-                                          m.userName ??
-                                              m.userEmail ??
-                                              context.l10n.member,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: MonekoInput(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: effectivePayerId,
+                                    isDense: true,
+                                    isExpanded: true,
+                                    icon: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
+                                      size: 20,
                                     ),
-                                  ],
-                                  onChanged: onPayerChanged,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                    items: [
+                                      if (hasHistoricalPayer)
+                                        DropdownMenuItem<String>(
+                                          value: selectedPayerUserId,
+                                          child: Text(
+                                            context.l10n.unknownMember,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ...members.map(
+                                        (m) => DropdownMenuItem<String>(
+                                          value: m.userId,
+                                          child: Text(
+                                            m.userName ??
+                                                m.userEmail ??
+                                                context.l10n.member,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: onPayerChanged,
+                                  ),
                                 ),
                               ),
                             ),

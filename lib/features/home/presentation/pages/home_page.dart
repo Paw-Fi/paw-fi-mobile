@@ -386,6 +386,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       physics: const AlwaysScrollableScrollPhysics(),
       cacheExtent: _dashboardScrollCacheExtent,
       slivers: [
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: LazyDashboardBudgetCompanionCard(),
+          ),
+        ),
         if (householdScope.isHouseholdView) ...[
           const HouseholdHomeContent(),
           SliverToBoxAdapter(

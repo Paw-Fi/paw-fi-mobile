@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -14,7 +15,8 @@ import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
-import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
+import 'package:moneko/features/home/presentation/state/spending_daily_overview_provider.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/home/presentation/widgets/multi_currency_total_breakdown_sheet.dart';
 
 /// Interactive spending card with swipeable chart and current point highlight
@@ -43,6 +45,7 @@ class SpendingCard extends StatefulWidget {
   final int financialMonthStartDay;
   final String? animationStorageKey;
   final String? headerLabel;
+  final SpendingDailyOverview? overview;
   final VoidCallback? onTap;
 
   const SpendingCard({
@@ -60,6 +63,7 @@ class SpendingCard extends StatefulWidget {
     this.financialMonthStartDay = 1,
     this.animationStorageKey,
     this.headerLabel,
+    this.overview,
     this.onTap,
   });
 
@@ -148,8 +152,6 @@ class _SpendingCardState extends State<SpendingCard> {
       'signature=${_expenseListSignature(widget.expenses)}',
     );
 
-    final currencyCode = widget.selectedCurrency ?? 'USD';
-    final symbol = resolveCurrencySymbol(currencyCode);
     final currencyTypeTotals = _currencyTypeTotalsFor(now);
     final shouldShowBreakdownIcon = currencyTypeTotals.length > 1 &&
         (widget.selectedCurrencies?.length ?? 0) > 1 &&
@@ -206,6 +208,8 @@ class _SpendingCardState extends State<SpendingCard> {
     if (animationDuration != Duration.zero) {
       _persistEntranceAnimationStarted();
     }
+    final header = _buildHeader(
+        context, derivedData, currencyTypeTotals, shouldShowBreakdownIcon);
 
     final card = Container(
       decoration: BoxDecoration(
@@ -238,58 +242,7 @@ class _SpendingCardState extends State<SpendingCard> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          (widget.headerLabel ?? context.l10n.spent)
-                              .toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.0,
-                            color: widget.colorScheme.mutedForeground,
-                          ),
-                        ),
-                        if (shouldShowBreakdownIcon) ...[
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _showBreakdownSheet(
-                              currencyTypeTotals,
-                              totalSpent,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.info_outline_rounded,
-                                size: 14,
-                                color: widget.colorScheme.mutedForeground,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    RepaintBoundary(
-                      child: AnimatedAmountText(
-                        value: totalSpent,
-                        symbol: symbol,
-                        style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -1.0,
-                          color: widget.colorScheme.foreground,
-                          height: 1.1,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                if (isLargeText) header else Expanded(child: header),
                 if (sortedDates.length > _windowSize)
                   _buildNavigationControls(maxWindowStart),
               ],
@@ -551,6 +504,62 @@ class _SpendingCardState extends State<SpendingCard> {
     );
   }
 
+  Widget _buildHeader(
+    BuildContext context,
+    _SpendingCardDerivedData data,
+    List<TransactionsFeedCurrencyTypeTotal> currencyTypeTotals,
+    bool showBreakdown,
+  ) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Flexible(
+            child: Text(
+          (widget.headerLabel ?? context.l10n.averageDailySpend).toUpperCase(),
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+              color: widget.colorScheme.mutedForeground),
+        )),
+        if (showBreakdown) ...[
+          const SizedBox(width: 4),
+          GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () =>
+                  _showBreakdownSheet(currencyTypeTotals, data.totalSpent),
+              child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.info_outline_rounded,
+                      size: 14, color: widget.colorScheme.mutedForeground))),
+        ],
+      ]),
+      const SizedBox(height: 8),
+      AnimatedSwitcher(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 200),
+        child: FittedBox(
+          key: ValueKey(widget.overview?.dailyAverage ?? data.dailyAverage),
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+              context.l10n.spendingDailyPerDay(formatCurrency(
+                  widget.overview?.dailyAverage ?? data.dailyAverage,
+                  widget.selectedCurrency ?? 'USD',
+                  context: context)),
+              style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -1,
+                  color: widget.colorScheme.foreground,
+                  height: 1.1)),
+        ),
+      ),
+      const SizedBox(height: 8),
+      _DailySpendingComparison(overview: widget.overview),
+    ]);
+  }
+
   void _showBreakdownSheet(
     List<TransactionsFeedCurrencyTypeTotal> currencyTypeTotals,
     double totalSpent,
@@ -585,8 +594,7 @@ class _SpendingCardState extends State<SpendingCard> {
     for (final expense in widget.expenses) {
       if (expense.effectiveSpendingMultiplier == 0) continue;
 
-      final date =
-          DateTime(expense.date.year, expense.date.month, expense.date.day);
+      final date = recurringOccurrenceReportingDate(expense);
       if (date.isBefore(from) || date.isAfter(to)) continue;
 
       final currency = (expense.currency ?? widget.selectedCurrency ?? 'USD')
@@ -661,29 +669,38 @@ class _SpendingCardState extends State<SpendingCard> {
     final selectedCode = widget.selectedCurrency?.trim().toUpperCase();
     final selectedCurrencies =
         _normalizedCurrencySet(widget.selectedCurrencies);
-    final shouldConvertCurrencies =
-        widget.currencyRates != null && (selectedCurrencies?.length ?? 0) > 1;
+    final selectedExpenses = widget.expenses.where((entry) {
+      final source =
+          (entry.currency ?? selectedCode ?? 'USD').trim().toUpperCase();
+      return selectedCurrencies == null || selectedCurrencies.contains(source);
+    }).toList(growable: false);
+    final shouldConvertCurrencies = widget.currencyRates != null;
     final sourceExpenses = shouldConvertCurrencies
         ? convertTransactionsToCurrency(
-            widget.expenses,
+            selectedExpenses,
             targetCurrency: widget.selectedCurrency ?? 'USD',
             rates: widget.currencyRates!,
           )
-        : widget.expenses;
+        : selectedExpenses;
 
     final filteredExpenses = <ExpenseEntry>[];
     double directTotal = 0;
     for (final expense in sourceExpenses) {
+      final reportingDate = recurringOccurrenceReportingDate(expense);
       final date =
-          DateTime(expense.date.year, expense.date.month, expense.date.day);
+          DateTime(reportingDate.year, reportingDate.month, reportingDate.day);
       final dateOk = !date.isBefore(from) && !date.isAfter(to);
       final rawCode = (expense.currency ?? '').trim().toUpperCase();
       final currencyOk = shouldConvertCurrencies ||
           selectedCode == null ||
           rawCode.isEmpty ||
           rawCode == selectedCode;
-      if (dateOk && currencyOk && expense.effectiveSpendingMultiplier != 0) {
-        filteredExpenses.add(expense);
+      if (dateOk &&
+          currencyOk &&
+          expense.effectiveSpendingMultiplier != 0 &&
+          !expense.isRecurring &&
+          !expense.id.startsWith('transfer:')) {
+        filteredExpenses.add(expense.copyWith(date: date));
         directTotal += expense.spendingEffect;
       }
     }
@@ -709,6 +726,9 @@ class _SpendingCardState extends State<SpendingCard> {
       sortedDates: sortedDates,
       allCumulativeData: allCumulativeData,
       totalSpent: totalSpent,
+      dailyAverage: widget.overview?.dailyAverage ??
+          calculateDailySpendingAverage(filteredExpenses,
+              start: from, end: to, now: now),
     );
   }
 
@@ -769,16 +789,75 @@ class _SpendingCardState extends State<SpendingCard> {
   }
 }
 
+class _DailySpendingComparison extends StatelessWidget {
+  const _DailySpendingComparison({required this.overview});
+  final SpendingDailyOverview? overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final change = overview?.changePercent;
+    if (change == null) {
+      if (overview?.previousAverage.isLoading == true &&
+          overview?.previousAverage.hasValue != true) {
+        return SizedBox(
+            height: 20,
+            child: Skeletonizer(
+              effect: ShimmerEffect(
+                  baseColor: colors.skeletonBase,
+                  highlightColor: colors.skeletonHighlight),
+              child: const Bone.text(words: 4, fontSize: 12),
+            ));
+      }
+      return SizedBox(
+          height: 20,
+          child: Text(context.l10n.spendingDailyNoComparison,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: colors.mutedForeground)));
+    }
+    final color = change == 0
+        ? colors.mutedForeground
+        : change < 0
+            ? colors.budgetSuccessForeground
+            : colors.budgetDangerForeground;
+    return Row(children: [
+      Icon(
+          change == 0
+              ? Icons.drag_handle_rounded
+              : change < 0
+                  ? Icons.arrow_downward_rounded
+                  : Icons.arrow_upward_rounded,
+          size: 16,
+          color: color,
+          semanticLabel: change == 0
+              ? null
+              : change < 0
+                  ? context.l10n.lower
+                  : context.l10n.higher),
+      const SizedBox(width: 4),
+      Expanded(
+          child: Text(
+              context.l10n.spendingDailyVsLastMonth(
+                  formatLocalizedNumber(context, change.abs().round())),
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: color))),
+    ]);
+  }
+}
+
 class _SpendingCardDerivedData {
   const _SpendingCardDerivedData({
     required this.sortedDates,
     required this.allCumulativeData,
     required this.totalSpent,
+    required this.dailyAverage,
   });
 
   final List<DateTime> sortedDates;
   final List<FlSpot> allCumulativeData;
   final double totalSpent;
+  final double dailyAverage;
 }
 
 class _CurrencyTypeTotalAccumulator {
@@ -908,6 +987,7 @@ Widget buildSpendingCard(
   int financialMonthStartDay = 1,
   String? animationStorageKey,
   String? headerLabel,
+  SpendingDailyOverview? overview,
   VoidCallback? onTap,
 }) {
   return SpendingCard(
@@ -925,6 +1005,7 @@ Widget buildSpendingCard(
     financialMonthStartDay: financialMonthStartDay,
     animationStorageKey: animationStorageKey,
     headerLabel: headerLabel,
+    overview: overview,
     onTap: onTap,
   );
 }
@@ -956,6 +1037,10 @@ int _expenseListSignature(List<ExpenseEntry> expenses) {
       expense.analyticsIsFinal,
       expense.analyticsSpendingMultiplier,
       expense.analyticsCountsTowardIncome,
+      expense.id,
+      expense.isRecurring,
+      expense.parentRecurringId,
+      expense.scheduledOccurrenceDate?.millisecondsSinceEpoch,
     );
   }
   return hash;

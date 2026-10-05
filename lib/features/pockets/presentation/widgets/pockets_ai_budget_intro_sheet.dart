@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
+import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_ai_budget_suggestions_page.dart';
 import 'package:moneko/features/pockets/presentation/state/monthly_intro_insights.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
-class PocketsAiBudgetIntroSheet extends ConsumerWidget {
+class PocketsAiBudgetIntroSheet extends HookConsumerWidget {
   const PocketsAiBudgetIntroSheet({
     super.key,
     required this.scopeParams,
@@ -25,16 +29,23 @@ class PocketsAiBudgetIntroSheet extends ConsumerWidget {
     required WidgetRef ref,
     required PocketsScopeParams scopeParams,
     required String currency,
-  }) =>
-      MonekoBottomSheet.show<void>(
-        context: context,
-        isScrollControlled: true,
-        onClose: () => Navigator.of(context).pop(),
-        builder: (_) => PocketsAiBudgetIntroSheet(
-          scopeParams: scopeParams,
-          currency: currency,
-        ),
-      );
+  }) async {
+    final buildWithAi = await MonekoBottomSheet.show<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => PocketsAiBudgetIntroSheet(
+        scopeParams: scopeParams,
+        currency: currency,
+      ),
+    );
+    if (buildWithAi != true || !context.mounted) return;
+    await PocketsAiBudgetSuggestionsPage.openIfEntitled(
+      context,
+      ref,
+      scopeParams: scopeParams,
+      currency: currency,
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,6 +65,10 @@ class PocketsAiBudgetIntroSheet extends ConsumerWidget {
     );
     final introState = ref.watch(monthlyIntroInsightsProvider(insightParams));
     final insight = introState.primaryInsight;
+    final previousSetup =
+        ref.watch(latestPreviousPocketMonthProvider(scopeParams));
+    final sourceMonth = previousSetup.valueOrNull;
+    final isCopying = useState(false);
 
     return SafeArea(
       top: false,
@@ -140,23 +155,86 @@ class PocketsAiBudgetIntroSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
             PrimaryAdaptiveButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                if (!context.mounted) return;
-                await PocketsAiBudgetSuggestionsPage.openIfEntitled(
-                  context,
-                  ref,
-                  scopeParams: scopeParams,
-                  currency: currency,
-                );
-              },
+              onPressed: isCopying.value
+                  ? null
+                  : () => Navigator.of(context).pop(true),
               child: Text(context.l10n.buildMyMonthPlan(monthLabel)),
             ),
             const SizedBox(height: 8),
-            PlainAdaptiveButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(context.l10n.setUpManually),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: sourceMonth != null
+                    ? PrimaryAdaptiveButton.outlined(
+                        key: const ValueKey('copy-previous-plan'),
+                        onPressed: isCopying.value
+                            ? null
+                            : () async {
+                                if (isCopying.value) return;
+                                isCopying.value = true;
+                                final notifier = ref.read(
+                                    pocketsProvider(scopeParams).notifier);
+                                final formatter =
+                                    MaterialLocalizations.of(context);
+                                try {
+                                  final result = await MonekoAlertDialog.show(
+                                    context: context,
+                                    title: context
+                                        .l10n.pocketsCopyPreviousPlanTitle,
+                                    description:
+                                        '${context.l10n.pocketsCopyPreviousPlanDescription}\n\n'
+                                        '${formatter.formatMonthYear(sourceMonth)} -> '
+                                        '${formatter.formatMonthYear(targetMonth)} ($currency)',
+                                    confirmLabel:
+                                        context.l10n.pocketsCopyConfirm,
+                                    cancelLabel: context.l10n.cancel,
+                                  );
+                                  if (result?.confirmed != true ||
+                                      !context.mounted) {
+                                    return;
+                                  }
+                                  await notifier
+                                      .copyPocketsFromMonth(sourceMonth);
+                                  if (!context.mounted) return;
+                                  AppToast.success(context,
+                                      context.l10n.budgetCreatedSuccessfully);
+                                  Navigator.of(context).pop();
+                                } catch (error) {
+                                  if (context.mounted) {
+                                    AppToast.error(
+                                        context,
+                                        ErrorHandler.getUserFriendlyMessage(
+                                            error));
+                                  }
+                                } finally {
+                                  if (context.mounted) isCopying.value = false;
+                                }
+                              },
+                        child: Text(isCopying.value
+                            ? context.l10n.pocketsCopyingAction
+                            : context.l10n.pocketsCopyLastMonthAction),
+                      )
+                    : previousSetup.isLoading
+                        ? Container(
+                            key: const ValueKey('previous-plan-loading'),
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: colorScheme.sheetElementBackground,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          )
+                        : previousSetup.hasError
+                            ? PlainAdaptiveButton(
+                                onPressed: () => ref.invalidate(
+                                    latestPreviousPocketMonthProvider(
+                                        scopeParams)),
+                                child: Text(context.l10n.tryAgain),
+                              )
+                            : const SizedBox.shrink(),
+              ),
             ),
+         
           ],
         ),
       ),
