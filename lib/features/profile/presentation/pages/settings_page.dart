@@ -141,6 +141,14 @@ String _membershipTileValue(
   };
 }
 
+Future<void> _copyEmailToClipboard(BuildContext context, String email) async {
+  if (email.trim().isEmpty) return;
+  await Clipboard.setData(ClipboardData(text: email));
+  if (context.mounted) {
+    AppToast.success(context, context.l10n.emailAddressCopied);
+  }
+}
+
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
 
@@ -1143,6 +1151,8 @@ class SettingsPage extends HookConsumerWidget {
                         icon: Icons.email_rounded,
                         label: context.l10n.email,
                         value: authState.email,
+                        onTap: () =>
+                            _copyEmailToClipboard(context, authState.email),
                         showChevron: false,
                       ),
                     ],
@@ -3254,14 +3264,18 @@ class _ProfileHeader extends ConsumerWidget {
             letterSpacing: -0.5,
           ),
         ),
-        Text(
-          authState.email,
-          style: TextStyle(
-            fontSize: 12,
-            color: colorScheme.onSurface.withValues(alpha: 0.6),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _copyEmailToClipboard(context, authState.email),
+          child: Text(
+            authState.email,
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
         ),
       ],
     );
