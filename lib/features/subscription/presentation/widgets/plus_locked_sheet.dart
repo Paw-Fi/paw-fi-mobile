@@ -315,12 +315,7 @@ class PlusLockedSheet extends HookConsumerWidget {
                                       child: yearlyOption != null &&
                                               !priceLoading
                                           ? Text(
-                                              context.l10n.plusIntroYearlyPrice(
-                                                yearlyOption
-                                                        .totalCommitmentPrice ??
-                                                    yearlyOption
-                                                        .upfrontYearlyPrice ??
-                                                    yearlyOption.priceDisplay,
+                                              context.l10n.monthlyMonth(
                                                 yearlyOption.priceDisplay,
                                               ),
                                               key: const ValueKey(
@@ -422,7 +417,7 @@ class PlusLockedSheet extends HookConsumerWidget {
                                       disabledForegroundColor:
                                           foreground.withValues(alpha: 0.5),
                                       minimumSize: const Size(48, 48)),
-                                  child: Text(context.l10n.plusIntroSeeAllPlans,
+                                  child: Text(context.l10n.seeAllPlans,
                                       style: TextStyle(
                                           decoration: TextDecoration.underline,
                                           decorationColor: foreground,
@@ -531,7 +526,7 @@ class _PlusIntroHero extends StatelessWidget {
       Image.asset('${_introAssetPath}paywall-plane.png',
           width: 145, height: 121, excludeFromSemantics: true),
       const SizedBox(height: 16),
-      Text(context.l10n.plusIntroTitle,
+      Text(context.l10n.unlockMonekoPlus,
           textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 24,
@@ -539,7 +534,7 @@ class _PlusIntroHero extends StatelessWidget {
               color: foreground,
               letterSpacing: -0.5)),
       const SizedBox(height: 8),
-      Text(context.l10n.plusIntroFamily,
+      Text(context.l10n.paywallBenefit0,
           textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 15, fontWeight: FontWeight.w500, color: foreground)),
@@ -562,16 +557,16 @@ class _PremiumFeaturesList extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final features = [
-      _PremiumFeature(context.l10n.plusIntroAiCapture, 'paywall-chart'),
-      _PremiumFeature(context.l10n.plusIntroSpacesWallets, 'paywall-wallets',
+      _PremiumFeature(context.l10n.unlimitedAiExpenseCapture, 'paywall-chart'),
+      _PremiumFeature(context.l10n.unlimitedSpacesWallets, 'paywall-wallets',
           [PlusFeature.spaceCreation, PlusFeature.walletCreation]),
-      _PremiumFeature(context.l10n.plusIntroMessaging, 'paywall-wa',
+      _PremiumFeature(context.l10n.whatsAppTelegramTracking, 'paywall-wa',
           [PlusFeature.messagingAppCapture]),
       _PremiumFeature(context.l10n.plusLockedEmailReceiptImport,
           'paywall-receipt', [PlusFeature.emailReceiptImport]),
-      _PremiumFeature(context.l10n.plusIntroBankSync, 'paywall-bank',
+      _PremiumFeature(context.l10n.bankSyncUsCanada, 'paywall-bank',
           [PlusFeature.bankSync]),
-      _PremiumFeature(context.l10n.plusIntroCurrency, 'paywall-currency', [
+      _PremiumFeature(context.l10n.multiCurrencyLiveRates, 'paywall-currency', [
         PlusFeature.multipleCurrencies,
         PlusFeature.currencyConverter,
         PlusFeature.liveExchangeRates

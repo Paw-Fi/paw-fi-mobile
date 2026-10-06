@@ -317,7 +317,8 @@ void main() {
       (tester) => _runOnIos(() async {
             final controller = _TestIapController();
             await _showLockedSheet(tester, controller: controller);
-            expect(find.text(r'$29.88 per year ($2.49/month)'), findsOneWidget);
+            expect(find.text(r'$2.49/month'), findsOneWidget);
+            expect(find.textContaining('per year'), findsNothing);
             expect(find.text('Monthly'), findsNothing);
             expect(find.text('Lifetime'), findsNothing);
             await _tapCheckout(tester);
@@ -385,7 +386,7 @@ void main() {
             controller.state = const AsyncLoading<IapState>()
                 .copyWithPrevious(AsyncData(controller.loadedState()));
             await tester.pumpAndSettle();
-            expect(find.text(r'$29.88 per year ($2.49/month)'), findsOneWidget);
+            expect(find.text(r'$2.49/month'), findsOneWidget);
             expect(find.byKey(const ValueKey('plus-intro-price-loading')),
                 findsNothing);
           }));
@@ -407,7 +408,7 @@ void main() {
             final controller =
                 _TestIapController(withPrices: false, outcome: 'canceled');
             await _showLockedSheet(tester, controller: controller);
-            expect(find.text(r'$29.88 per year ($2.49/month)'), findsOneWidget);
+            expect(find.text(r'$2.49/month'), findsOneWidget);
             await _tapCheckout(tester);
             expect(controller.purchasedProductId, 'yearly');
             expect(controller.usedCommitment, true);
@@ -420,7 +421,8 @@ void main() {
             final controller =
                 _TestIapController(withCommitment: false, outcome: 'canceled');
             await _showLockedSheet(tester, controller: controller);
-            expect(find.text(r'$99.99 per year ($8.33/month)'), findsOneWidget);
+            expect(find.text(r'$8.33/month'), findsOneWidget);
+            expect(find.textContaining('per year'), findsNothing);
             await _tapCheckout(tester);
             expect(controller.purchasedProductId, 'yearly');
             expect(controller.usedCommitment, false);
@@ -428,7 +430,7 @@ void main() {
           }));
 
   testWidgets(
-      'initial price skeleton becomes the real annual and monthly price',
+      'initial price skeleton becomes the real monthly price',
       (tester) => _runOnIos(() async {
             final controller = _TestIapController(loading: true);
             await _showLockedSheet(tester, controller: controller);
@@ -438,7 +440,7 @@ void main() {
             expect(controller.purchasedProductId, isNull);
             controller.completer.complete(controller.loadedState());
             await tester.pumpAndSettle();
-            expect(find.text(r'$29.88 per year ($2.49/month)'), findsOneWidget);
+            expect(find.text(r'$2.49/month'), findsOneWidget);
           }));
 
   testWidgets(

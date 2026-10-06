@@ -64,7 +64,7 @@ class PlanSelectionLayout extends StatelessWidget {
                                         fit: BoxFit.contain)),
                               ),
                               const SizedBox(height: 16),
-                              Text(context.l10n.planSelectionTitle,
+                              Text(context.l10n.moneySmarterWithMonekoPlus,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                       fontSize: 22,

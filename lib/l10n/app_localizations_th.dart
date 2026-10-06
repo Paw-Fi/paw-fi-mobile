@@ -9954,7 +9954,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get friendOrFamily => 'เพื่อนหรือครอบครัว';
 
   @override
-  String get comparePlans => 'Compare plans';
+  String get comparePlans => 'เปรียบเทียบแพ็กเกจ';
 
   @override
   String get spendByYou => 'ค่าใช้จ่ายของคุณในพื้นที่นี้';
@@ -10362,4 +10362,192 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get useTelegram => 'ใช้ Telegram';
+
+  @override
+  String get siriLogExpensePrompt => 'คุณใช้จ่ายอะไรไปบ้าง? คุณสามารถระบุสกุลเงิน ร้านค้า วันที่ เวลา Space และกระเป๋าเงินได้';
+
+  @override
+  String get siriLogIncomePrompt => 'คุณได้รับรายรับอะไร? คุณสามารถระบุสกุลเงิน แหล่งที่มา วันที่ เวลา Space และกระเป๋าเงินได้';
+
+  @override
+  String get siriLogExpenseDescription => 'บอกจำนวนเงิน สกุลเงิน ร้านค้า วันที่ เวลา Space และกระเป๋าเงินในประโยคเดียว';
+
+  @override
+  String get siriLogIncomeDescription => 'บอกจำนวนเงิน สกุลเงิน แหล่งที่มา วันที่ เวลา Space และกระเป๋าเงินในประโยคเดียว';
+
+  @override
+  String get spendingDailyNoComparison => 'ไม่มีข้อมูลเปรียบเทียบกับเดือนที่แล้ว';
+
+  @override
+  String spendingDailyPerDay(Object amount) {
+    return '$amount/วัน';
+  }
+
+  @override
+  String spendingDailyVsLastMonth(Object percent) {
+    return '$percent% เทียบกับเดือนที่แล้ว';
+  }
+
+  @override
+  String get pocketsCopyPreviousPlanTitle => 'คัดลอกแผนก่อนหน้าหรือไม่?';
+
+  @override
+  String get pocketsCopyPreviousPlanDescription => 'คัดลอก Pockets และงบประมาณรายเดือนจากการตั้งค่าล่าสุดของคุณ ชื่อ ไอคอน สี หมวดหมู่ และจำนวนงบประมาณของ Pocket จะยังคงเดิม และคุณสามารถแก้ไขทุกอย่างได้ภายหลัง';
+
+  @override
+  String get budgetCompanionNoCategories => 'ยังไม่มีข้อมูลการใช้จ่ายตามหมวดหมู่';
+
+  @override
+  String budgetCompanionSpentOf(Object amount) {
+    return 'ใช้ไปจากทั้งหมด $amount';
+  }
+
+  @override
+  String budgetCompanionLeft(Object amount) {
+    return 'เหลือ $amount';
+  }
+
+  @override
+  String budgetCompanionOver(Object amount) {
+    return 'เกินงบ $amount';
+  }
+
+  @override
+  String get budgetCompanionHappy => 'ดูดีเลย!';
+
+  @override
+  String get budgetCompanionEncouraging => 'เยี่ยม! ยังเป็นไปตามแผน';
+
+  @override
+  String get budgetCompanionConcerned => 'ใกล้ถึงงบแล้ว!';
+
+  @override
+  String get budgetCompanionOops => 'อุ๊ปส์! เดือนนี้เราใช้เกินงบแล้ว';
+
+  @override
+  String get budgetCompanionPlanning => 'มาวางแผนกัน!';
+
+  @override
+  String get budgetCompanionNoBudget => 'ยังไม่ได้ตั้งงบประมาณ';
+
+  @override
+  String get budgetCompanionSpentThisDay => 'ใช้จ่ายวันนี้';
+
+  @override
+  String get budgetCompanionNoComparison => 'ไม่มีช่วงก่อนหน้าให้เปรียบเทียบ';
+
+  @override
+  String budgetCompanionLess(Object percent) {
+    return 'น้อยกว่าเดือนที่แล้ว $percent%';
+  }
+
+  @override
+  String budgetCompanionMore(Object percent) {
+    return 'มากกว่าเดือนที่แล้ว $percent%';
+  }
+
+  @override
+  String budgetCompanionLessDay(Object percent) {
+    return 'น้อยกว่าวันก่อนหน้า $percent%';
+  }
+
+  @override
+  String budgetCompanionMoreDay(Object percent) {
+    return 'มากกว่าวันก่อนหน้า $percent%';
+  }
+
+  @override
+  String get budgetCompanionSame => 'ใช้จ่ายเท่ากับเดือนที่แล้ว';
+
+  @override
+  String get budgetCompanionSameDay => 'ใช้จ่ายเท่ากับวันก่อนหน้า';
+
+  @override
+  String get pocketPlanNeedsReview => 'ตรวจสอบแผน Pocket ที่บันทึกไว้';
+
+  @override
+  String get pocketPlanReviewDescription => 'เปรียบเทียบการเปลี่ยนแปลงที่บันทึกไว้กับแผนปัจจุบันก่อนนำไปใช้อีกครั้ง';
+
+  @override
+  String get pocketPlanDiscardDescription => 'ลบการเปลี่ยนแปลงที่บันทึกไว้และใช้แผนปัจจุบันจากเซิร์ฟเวอร์ต่อหรือไม่?';
+
+  @override
+  String get pocketPlanReapply => 'นำการเปลี่ยนแปลงที่บันทึกไว้มาใช้อีกครั้ง';
+
+  @override
+  String get pocketPlanDiscard => 'ลบการเปลี่ยนแปลงที่บันทึกไว้';
+
+  @override
+  String get pocketPlanCurrent => 'แผนปัจจุบัน';
+
+  @override
+  String get pocketPlanSaved => 'การเปลี่ยนแปลงที่บันทึกไว้';
+
+  @override
+  String get emailSenderPending => 'รอการยืนยัน';
+
+  @override
+  String get emailSenderVerified => 'ผู้ส่งที่ได้รับอนุญาต';
+
+  @override
+  String get emailSenderResend => 'ส่งอีเมลยืนยันอีกครั้ง';
+
+  @override
+  String get emailSenderVerificationSent => 'ส่งอีเมลยืนยันแล้ว เปิดลิงก์ในกล่องจดหมายเพื่ออนุญาตผู้ส่งรายนี้';
+
+  @override
+  String get emailSenderVerificationComplete => 'ยืนยันผู้ส่งเรียบร้อยและเพิ่มไว้ในรายชื่อผู้ส่งที่อนุญาตแล้ว';
+
+  @override
+  String get emailSenderVerifiedOtherAccount => 'ยืนยันผู้ส่งสำหรับบัญชีที่ส่งคำขอแล้ว โปรดเข้าสู่ระบบบัญชีนั้นเพื่อจัดการผู้ส่ง';
+
+  @override
+  String get emailSenderVerificationPendingMessage => 'ผู้ส่งรายนี้กำลังรอการยืนยัน ตรวจสอบกล่องจดหมายหรือส่งอีเมลยืนยันอีกครั้ง';
+
+  @override
+  String get emailSenderVerificationDescription => 'เราจะส่งลิงก์ยืนยันไปยังอีเมลนี้ ระบบจะนำเข้าใบเสร็จหลังจากเจ้าของกล่องจดหมายอนุญาตบัญชีนี้แล้ว';
+
+  @override
+  String get notificationRepairProcessing => 'กำลังตรวจสอบการแจ้งเตือนแบบพุช…';
+
+  @override
+  String get emailFileImportAccountEmailAlreadyIncluded => 'อีเมลบัญชี Moneko ของคุณอยู่ในรายชื่อผู้ส่งที่อนุญาตแล้ว ไม่ต้องเพิ่มอีกครั้ง';
+
+  @override
+  String get aiClarificationNotSaved => 'รายละเอียดเหล่านี้จะถูกบันทึกหลังจากคุณยืนยัน';
+
+  @override
+  String get aiClarificationCustomAnswer => 'พิมพ์คำตอบของคุณเอง';
+
+  @override
+  String get aiInputSavedForLater => 'บันทึกข้อมูลไว้ในอุปกรณ์นี้แล้ว การวิเคราะห์จะดำเนินต่อเมื่อคุณเปิด Moneko ขณะเชื่อมต่ออินเทอร์เน็ต';
+
+  @override
+  String get unlockMonekoPlus => 'ปลดล็อก Moneko Plus';
+
+  @override
+  String get unlimitedAiExpenseCapture => 'บันทึกรายจ่ายด้วย AI ได้ไม่จำกัด';
+
+  @override
+  String get unlimitedSpacesWallets => 'Space และกระเป๋าเงินไม่จำกัด';
+
+  @override
+  String get multiCurrencyLiveRates => 'รองรับหลายสกุลเงินและอัตราแลกเปลี่ยนแบบเรียลไทม์';
+
+  @override
+  String get bankSyncUsCanada => 'ซิงค์ธนาคาร (สหรัฐฯ และแคนาดา)';
+
+  @override
+  String get seeAllPlans => 'ดูแพ็กเกจทั้งหมด';
+
+  @override
+  String monthlyMonth(Object monthly) {
+    return '$monthly/เดือน';
+  }
+
+  @override
+  String get whatsAppTelegramTracking => 'บันทึกผ่าน WhatsApp และ Telegram';
+
+  @override
+  String get moneySmarterWithMonekoPlus => 'จัดการเงินได้ฉลาดยิ่งขึ้นด้วย\nMoneko Plus';
 }
