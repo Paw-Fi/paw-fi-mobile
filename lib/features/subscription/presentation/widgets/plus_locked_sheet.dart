@@ -1,4 +1,8 @@
-import 'dart:ui';
+import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -7,22 +11,27 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
-import 'package:moneko/features/subscription/presentation/paywall_plan_selection.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/subscription_checkout_shared.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
-import 'package:moneko/features/subscription/presentation/widgets/plan_selection_card_row.dart';
-import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 String formatPlusYearlyMonthlyEquivalent(double yearlyPrice) {
   final monthlyPrice = yearlyPrice / 12;
   return r'$' + monthlyPrice.toStringAsFixed(2);
+}
+
+PlanOption? resolvePlusIntroYearlyPlan(List<PlanOption> plans) {
+  for (final option in plans) {
+    if (option.serverPlanId == 'plus' && option.billingInterval == 'yearly') {
+      return option;
+    }
+  }
+  return null;
 }
 
 enum PlusFeature {
@@ -91,15 +100,12 @@ class PlusLockedSheet extends HookConsumerWidget {
     BuildContext context, {
     PlusFeature? highlightedFeature,
   }) {
-    return MonekoBottomSheet.show(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Theme.of(context).colorScheme.sheetBackground,
-      builder: (context) => PlusLockedSheet(
-        highlightedFeature: highlightedFeature,
-      ),
-    );
+    return context.push<void>(Uri(
+      path: '/plus-locked',
+      queryParameters: {
+        if (highlightedFeature != null) 'feature': highlightedFeature.name,
+      },
+    ).toString());
   }
 
   static Future<bool> ensureAccess(
@@ -136,17 +142,12 @@ class PlusLockedSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
     final subscriptionDetailsAsync = ref.watch(subscriptionManagementProvider);
     final productsAsync = ref.watch(subscriptionProductsProvider);
     final iapStateAsync = ref.watch(iapControllerProvider);
-    final content = _LockedSheetContent.resolve(context, subscription);
     final currentSubscription =
         subscriptionDetailsAsync.valueOrNull?.subscription;
-    final currentPlanId = currentSubscription?.plan ?? 'free';
-    final currentInterval = currentSubscription?.billingInterval;
     final currentStatus = currentSubscription?.status?.toLowerCase();
-    final selectedPlanId = useState<String?>(null);
     final isCheckoutProcessing = useState(false);
 
     final useIap = shouldUseAppStoreCheckout(
@@ -158,45 +159,10 @@ class PlusLockedSheet extends HookConsumerWidget {
       productsAsync: productsAsync,
       iapStateAsync: iapStateAsync,
     );
-    final visiblePlans = sortPlanOptions(plans);
+    final yearlyOption = resolvePlusIntroYearlyPlan(plans);
     final isStoreReady =
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
-
-    useEffect(() {
-      if (visiblePlans.isEmpty) {
-        selectedPlanId.value = null;
-        return null;
-      }
-
-      final nextSelection = selectPaywallPlanId(
-        currentPlanId: currentPlanId,
-        currentInterval: currentInterval,
-        plans: visiblePlans,
-        currentSelection: selectedPlanId.value,
-        preferredPlanId: 'plus',
-        preferredBillingInterval: 'yearly',
-      );
-      if (nextSelection != selectedPlanId.value) {
-        selectedPlanId.value = nextSelection;
-      }
-      return null;
-    }, [
-      currentPlanId,
-      currentInterval,
-      visiblePlans.length,
-    ]);
-
-    PlanOption? activePlanOption;
-    for (final option in visiblePlans) {
-      if (option.id == selectedPlanId.value) {
-        activePlanOption = option;
-        break;
-      }
-    }
-
-    final effectiveActivePlanOption = activePlanOption ??
-        (visiblePlans.isNotEmpty ? visiblePlans.first : null);
-
+    final isProcessing = isCheckoutProcessing.value;
     bool isCurrentPlan(PlanOption option) {
       final shouldBlockSamePlan =
           (currentSubscription?.isSubscribed ?? false) &&
@@ -208,7 +174,7 @@ class PlusLockedSheet extends HookConsumerWidget {
     }
 
     Future<void> onCheckoutPressed() async {
-      final selectedOption = effectiveActivePlanOption;
+      final selectedOption = yearlyOption;
       if (selectedOption == null || isCheckoutProcessing.value) {
         return;
       }
@@ -294,114 +260,196 @@ class PlusLockedSheet extends HookConsumerWidget {
       }
     }
 
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.92;
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final priceLoading = useIap &&
+        ((!productsAsync.hasValue && productsAsync.isLoading) ||
+            (!iapStateAsync.hasValue && iapStateAsync.isLoading));
+    final canCheckout = yearlyOption != null &&
+        isStoreReady &&
+        !isProcessing &&
+        !isCurrentPlan(yearlyOption);
+    final foreground = colorScheme.plusIntroForeground;
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
-      child: Container(
-        key: ValueKey(content.mode),
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Stack(
-          children: [
-            // Scrollable Content
-            Positioned.fill(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(24, 24, 24, bottomPadding + 240),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SheetHero(content: content),
-                    const SizedBox(height: 32),
-                    _PremiumFeaturesList(
-                      features: content.features,
-                      highlightedFeature: highlightedFeature,
-                    ),
-                  ],
-                ),
-              ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: colorScheme.surface.withValues(alpha: 0),
+        systemNavigationBarColor: colorScheme.plusIntroBottom,
+      ),
+      child: Scaffold(
+        backgroundColor: colorScheme.plusIntroTop,
+        body: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [colorScheme.plusIntroTop, colorScheme.plusIntroBottom],
             ),
-
-            // Floating Bottom Card (Half cutted card)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: ClipRRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding + 8),
-                    decoration: BoxDecoration(
-                      color: colorScheme.sheetBackground.withValues(alpha: 0.8),
-                      border: Border(
-                        top: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.5),
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (content.note != null) ...[
-                          _SheetNote(text: content.note!),
-                          const SizedBox(height: 12),
-                        ],
-                        SizedBox(
-                          width: double.infinity,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              PlanSelectionCardRow(
-                                plans: visiblePlans,
-                                selectedPlanId: selectedPlanId.value ?? '',
-                                onPlanSelected: (id) =>
-                                    selectedPlanId.value = id,
-                                isCurrentPlan: isCurrentPlan,
-                                isNewUser: currentSubscription == null,
-                              ),
-                              const SizedBox(height: 12),
-                              if (effectiveActivePlanOption != null)
-                                PaywallCheckoutActionButton(
-                                  option: effectiveActivePlanOption,
-                                  isProcessing: isCheckoutProcessing.value,
-                                  isStoreReady: isStoreReady,
-                                  canConfirmAutoRenew: true,
-                                  isCurrentPlan:
-                                      isCurrentPlan(effectiveActivePlanOption),
-                                  trialMode: false,
-                                  includePrice: true,
-                                  centerText: true,
-                                  onPressed: onCheckoutPressed,
+          ),
+          child: SafeArea(
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  key: const ValueKey('plus-intro-scroll'),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const _PlusIntroHero(),
+                                const SizedBox(height: 24),
+                                _PremiumFeaturesList(
+                                    highlightedFeature: highlightedFeature),
+                                const SizedBox(height: 16),
+                                ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(minHeight: 36),
+                                  child: Center(
+                                    child: AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 180),
+                                      child: yearlyOption != null &&
+                                              !priceLoading
+                                          ? Text(
+                                              context.l10n.plusIntroYearlyPrice(
+                                                yearlyOption
+                                                        .totalCommitmentPrice ??
+                                                    yearlyOption
+                                                        .upfrontYearlyPrice ??
+                                                    yearlyOption.priceDisplay,
+                                                yearlyOption.priceDisplay,
+                                              ),
+                                              key: const ValueKey(
+                                                  'plus-intro-price'),
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: foreground),
+                                            )
+                                          : priceLoading
+                                              ? Container(
+                                                  key: const ValueKey(
+                                                      'plus-intro-price-loading'),
+                                                  width: 220,
+                                                  height: 14,
+                                                  decoration: BoxDecoration(
+                                                      color:
+                                                          foreground.withValues(
+                                                              alpha: 0.2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              7)),
+                                                )
+                                              : Text(
+                                                  context.l10n
+                                                      .paywallErrorStoreUnavailableShort,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: foreground),
+                                                ),
+                                    ),
+                                  ),
                                 ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: TextButton.styleFrom(
-                            foregroundColor: colorScheme.mutedForeground,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: Text(
-                            context.l10n.plusLockedMaybeLaterCta,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                                const SizedBox(height: 8),
+                                Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: colorScheme.copyWith(
+                                      primary: colorScheme.plusIntroButton,
+                                      onPrimary:
+                                          colorScheme.plusIntroButtonForeground,
+                                    ),
+                                  ),
+                                  child: PrimaryAdaptiveButton(
+                                    key: const ValueKey('plus-intro-continue'),
+                                    onPressed:
+                                        canCheckout ? onCheckoutPressed : null,
+                                    child: AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 180),
+                                      child: isProcessing
+                                          ? Row(
+                                              key: const ValueKey('processing'),
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CupertinoActivityIndicator(
+                                                    color: colorScheme
+                                                        .plusIntroButtonForeground,
+                                                    radius: 8,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Flexible(
+                                                    child: Text(context.l10n
+                                                        .paywallProcessing)),
+                                              ],
+                                            )
+                                          : Row(
+                                              key: const ValueKey('continue'),
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Flexible(
+                                                    child: Text(context
+                                                        .l10n.continueButton)),
+                                                const SizedBox(width: 8),
+                                                SvgPicture.asset(
+                                                    'lib/assets/images/paywall/intro/stars.svg',
+                                                    width: 19,
+                                                    height: 15),
+                                              ],
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextButton(
+                                  key: const ValueKey('plus-intro-all-plans'),
+                                  onPressed: () => context.push(
+                                      '/plan-selection?mode=resubscribe&plan=plus&interval=yearly'),
+                                  style: TextButton.styleFrom(
+                                      foregroundColor: foreground,
+                                      disabledForegroundColor:
+                                          foreground.withValues(alpha: 0.5),
+                                      minimumSize: const Size(48, 48)),
+                                  child: Text(context.l10n.plusIntroSeeAllPlans,
+                                      style: TextStyle(
+                                          decoration: TextDecoration.underline,
+                                          decorationColor: foreground,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 48),
+                          const _PlusIntroReviews(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+                PositionedDirectional(
+                  top: 0,
+                  end: 12,
+                  child: IconButton(
+                    tooltip: context.l10n.close,
+                    onPressed: () => context.pop(),
+                    icon: Icon(Icons.close_rounded, color: foreground),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -471,374 +519,150 @@ class _PlusFeatureGuardState extends ConsumerState<PlusFeatureGuard> {
   }
 }
 
-enum _LockedSheetMode { freeToPlus, trialToPlus }
+const _introAssetPath = 'lib/assets/images/paywall/intro/';
 
-class _LockedSheetContent {
-  const _LockedSheetContent({
-    required this.mode,
-    required this.eyebrow,
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.iconBackground,
-    required this.iconForeground,
-    required this.features,
-    required this.ctaLabel,
-    this.note,
-  });
+class _PlusIntroHero extends StatelessWidget {
+  const _PlusIntroHero();
 
-  final _LockedSheetMode mode;
-  final String eyebrow;
-  final String title;
-  final String description;
-  final IconData icon;
-  final Color Function(ColorScheme) iconBackground;
-  final Color Function(ColorScheme) iconForeground;
-  final List<_PremiumFeature> features;
-  final String ctaLabel;
-  final String? note;
-
-  static _LockedSheetContent resolve(
-      BuildContext context, Subscription? subscription) {
-    if (isTrialingPlan(subscription)) {
-      return _trialPlus(context);
-    }
-    return _freePlus(context);
-  }
-
-  static _LockedSheetContent _freePlus(BuildContext context) {
-    return _LockedSheetContent(
-      mode: _LockedSheetMode.freeToPlus,
-      eyebrow: context.l10n.plus,
-      title: context.l10n.plusPlan,
-      description: context.l10n.plusLockedDescription,
-      icon: Icons.auto_awesome_rounded,
-      iconBackground: (scheme) => scheme.primary.withValues(alpha: 0.12),
-      iconForeground: (scheme) => scheme.primary,
-      features: _plusOnlyFeatures(context),
-      ctaLabel: context.l10n.subscribeForPricePeriod(
-        context.l10n.plusPlan,
-        '',
-      ),
-    );
-  }
-
-  static _LockedSheetContent _trialPlus(BuildContext context) {
-    return _LockedSheetContent(
-      mode: _LockedSheetMode.trialToPlus,
-      eyebrow: context.l10n.plusLockedTrialEyebrow,
-      title: context.l10n.plusPlan,
-      description: context.l10n.plusLockedTrialDescription,
-      icon: Icons.auto_awesome_rounded,
-      iconBackground: (scheme) => scheme.warningSurface,
-      iconForeground: (scheme) => scheme.warning,
-      features: _plusOnlyFeatures(context),
-      ctaLabel: context.l10n.subscribeForPricePeriod(
-        context.l10n.plusPlan,
-        '',
-      ),
-      note: context.l10n.plusLockedTrialReviewPlansNote,
-    );
-  }
-
-  static List<_PremiumFeature> _plusOnlyFeatures(BuildContext context) {
-    return [
-      _PremiumFeature(
-        icon: Icons.monitor_heart_rounded,
-        title: context.l10n.plusLockedHealthDetails,
-        featureKey: PlusFeature.healthDetails,
-      ),
-      _PremiumFeature(
-        icon: Icons.insights_rounded,
-        title: context.l10n.plusLockedAiScenarios,
-        featureKey: PlusFeature.aiScenarios,
-      ),
-      _PremiumFeature(
-        icon: Icons.auto_awesome_rounded,
-        title: context.l10n.plusLockedAiMonthlyBudgetSuggestions,
-        featureKey: PlusFeature.aiMonthlyBudgetSuggestions,
-      ),
-      _PremiumFeature(
-        icon: Icons.chat_bubble_rounded,
-        title: context.l10n.plusLockedMessagingAppCapture,
-        featureKey: PlusFeature.messagingAppCapture,
-      ),
-      _PremiumFeature(
-        icon: Icons.receipt_long_rounded,
-        title: context.l10n.plusLockedEmailReceiptImport,
-        featureKey: PlusFeature.emailReceiptImport,
-      ),
-      _PremiumFeature(
-        icon: Icons.group_rounded,
-        title: "${context.l10n.plusLockedSharedBudgets} ∞",
-        value: context.l10n.unlimited,
-        featureKey: PlusFeature.spaceCreation,
-      ),
-      _PremiumFeature(
-        icon: Icons.account_balance_wallet_rounded,
-        title: "${context.l10n.walletCreation} ∞",
-        value: context.l10n.unlimited,
-        featureKey: PlusFeature.walletCreation,
-      ),
-      _PremiumFeature(
-        icon: Icons.account_balance_rounded,
-        title: context.l10n.plusLockedBankSync,
-        featureKey: PlusFeature.bankSync,
-      ),
-      _PremiumFeature(
-        icon: Icons.public_rounded,
-        title: context.l10n.multipleCurrencies,
-        featureKey: PlusFeature.multipleCurrencies,
-      ),
-      _PremiumFeature(
-        icon: Icons.currency_exchange_rounded,
-        title: context.l10n.currencyConverter,
-        featureKey: PlusFeature.currencyConverter,
-      ),
-      _PremiumFeature(
-        icon: Icons.trending_up_rounded,
-        title: context.l10n.plusLockedLiveExchangeRates,
-        featureKey: PlusFeature.liveExchangeRates,
-      ),
-      _PremiumFeature(
-        icon: Icons.lock_rounded,
-        title: context.l10n.appLock,
-        featureKey: PlusFeature.appLock,
-      ),
-      _PremiumFeature(
-        icon: Icons.support_agent_rounded,
-        title: context.l10n.customerSupport,
-        value: context.l10n.plusLockedPrioritySupport,
-        featureKey: PlusFeature.customerSupport,
-      ),
-    ];
+  @override
+  Widget build(BuildContext context) {
+    final foreground = Theme.of(context).colorScheme.plusIntroForeground;
+    return Column(children: [
+      Image.asset('${_introAssetPath}paywall-plane.png',
+          width: 145, height: 121, excludeFromSemantics: true),
+      const SizedBox(height: 16),
+      Text(context.l10n.plusIntroTitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: foreground,
+              letterSpacing: -0.5)),
+      const SizedBox(height: 8),
+      Text(context.l10n.plusIntroFamily,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w500, color: foreground)),
+    ]);
   }
 }
 
 class _PremiumFeature {
-  const _PremiumFeature({
-    required this.icon,
-    required this.title,
-    this.value,
-    this.featureKey,
-  });
-
-  final IconData icon;
+  const _PremiumFeature(this.title, this.asset, [this.keys = const []]);
   final String title;
-  final String? value;
-  final PlusFeature? featureKey;
-}
-
-class _SheetHero extends StatelessWidget {
-  const _SheetHero({required this.content});
-
-  final _LockedSheetContent content;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          content.title,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.8,
-            color: colorScheme.foreground,
-            height: 1.1,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          content.description,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            color: colorScheme.mutedForeground,
-            height: 1.4,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SheetNote extends StatelessWidget {
-  const _SheetNote({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.infoSurface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.infoBorder),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline_rounded, size: 18, color: colorScheme.info),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.35,
-                color: colorScheme.foreground,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  final String asset;
+  final List<PlusFeature> keys;
 }
 
 class _PremiumFeaturesList extends StatelessWidget {
-  const _PremiumFeaturesList({
-    required this.features,
-    this.highlightedFeature,
-  });
-
-  final List<_PremiumFeature> features;
+  const _PremiumFeaturesList({this.highlightedFeature});
   final PlusFeature? highlightedFeature;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final sortedFeatures = List<_PremiumFeature>.from(features);
-    if (highlightedFeature != null) {
-      final index =
-          sortedFeatures.indexWhere((f) => f.featureKey == highlightedFeature);
-      if (index > 0) {
-        final item = sortedFeatures.removeAt(index);
-        sortedFeatures.insert(0, item);
-      }
+    final scheme = Theme.of(context).colorScheme;
+    final features = [
+      _PremiumFeature(context.l10n.plusIntroAiCapture, 'paywall-chart'),
+      _PremiumFeature(context.l10n.plusIntroSpacesWallets, 'paywall-wallets',
+          [PlusFeature.spaceCreation, PlusFeature.walletCreation]),
+      _PremiumFeature(context.l10n.plusIntroMessaging, 'paywall-wa',
+          [PlusFeature.messagingAppCapture]),
+      _PremiumFeature(context.l10n.plusLockedEmailReceiptImport,
+          'paywall-receipt', [PlusFeature.emailReceiptImport]),
+      _PremiumFeature(context.l10n.plusIntroBankSync, 'paywall-bank',
+          [PlusFeature.bankSync]),
+      _PremiumFeature(context.l10n.plusIntroCurrency, 'paywall-currency', [
+        PlusFeature.multipleCurrencies,
+        PlusFeature.currencyConverter,
+        PlusFeature.liveExchangeRates
+      ]),
+      _PremiumFeature(
+          context.l10n.appLock, 'paywall-lock', [PlusFeature.appLock]),
+      _PremiumFeature(context.l10n.prioritySupport, 'paywall-support',
+          [PlusFeature.customerSupport]),
+    ];
+    // Retain a visible highlighted benefit for gates outside the core eight.
+    switch (highlightedFeature) {
+      case PlusFeature.healthDetails:
+        features.insert(
+            0,
+            _PremiumFeature(context.l10n.plusLockedHealthDetails,
+                'paywall-chart', [PlusFeature.healthDetails]));
+      case PlusFeature.aiScenarios:
+        features.insert(
+            0,
+            _PremiumFeature(context.l10n.plusLockedAiScenarios, 'paywall-chart',
+                [PlusFeature.aiScenarios]));
+      case PlusFeature.aiMonthlyBudgetSuggestions:
+        features.insert(
+            0,
+            _PremiumFeature(context.l10n.plusLockedAiMonthlyBudgetSuggestions,
+                'paywall-chart', [PlusFeature.aiMonthlyBudgetSuggestions]));
+      default:
+        break;
     }
-
-    return ShaderMask(
-      shaderCallback: (Rect bounds) {
-        return const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black,
-            Colors.black,
-            Colors.transparent,
-          ],
-          stops: [0.0, 0.85, 1.0],
-        ).createShader(bounds);
-      },
-      blendMode: BlendMode.dstIn,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.sheetElementBackground,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(32),
-            topRight: Radius.circular(32),
-          ),
-          border: Border(
-            top: BorderSide(color: colorScheme.border.withValues(alpha: 0.5)),
-            left: BorderSide(color: colorScheme.border.withValues(alpha: 0.5)),
-            right: BorderSide(color: colorScheme.border.withValues(alpha: 0.5)),
-          ),
-        ),
-        padding: const EdgeInsets.only(top: 0, bottom: 0),
-        child: Column(
-          children: sortedFeatures.map((feature) {
-            final isHighlighted = highlightedFeature != null &&
-                feature.featureKey == highlightedFeature;
-            return Container(
-              decoration: isHighlighted
-                  ? BoxDecoration(
-                      color: colorScheme.primary.withValues(alpha: 0.08),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(32),
-                        topRight: Radius.circular(32),
-                      ))
-                  : null,
-              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-              child: Row(
-                children: [
-                  Icon(
-                    feature.icon,
-                    size: 16,
-                    color: isHighlighted
-                        ? colorScheme.primary
-                        : colorScheme.foreground,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          feature.title,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isHighlighted
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            color: isHighlighted
-                                ? colorScheme.primary
-                                : colorScheme.foreground,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isHighlighted) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        context.l10n.plusLockedIncludedInPlus,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: colorScheme.primaryForeground,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  IconButton(
-                    onPressed: () => showFreeVsPlusComparisonDialog(
-                      context,
-                      highlightedFeature: highlightedFeature,
-                    ),
-                    icon: Icon(
-                      Icons.info_outline_rounded,
-                      size: 22,
-                      color: colorScheme.mutedForeground.withValues(alpha: 0.6),
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
+    final index = features
+        .indexWhere((feature) => feature.keys.contains(highlightedFeature));
+    if (index > 0) features.insert(0, features.removeAt(index));
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: scheme.plusIntroSurface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: scheme.plusIntroForeground.withValues(alpha: 0.3)),
       ),
+      child: Column(
+          children: features.map((feature) {
+        final highlighted = feature.keys.contains(highlightedFeature);
+        return Container(
+          key: ValueKey(
+              'plus-intro-feature-${feature.asset}-${feature.keys.join('-')}'),
+          color: highlighted
+              ? scheme.plusIntroForeground.withValues(alpha: 0.14)
+              : null,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(children: [
+            Image.asset('$_introAssetPath${feature.asset}.png',
+                width: 28, height: 28, excludeFromSemantics: true),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Text(feature.title,
+                    style: TextStyle(
+                        fontSize: 13,
+                        height: 1.3,
+                        fontWeight:
+                            highlighted ? FontWeight.w800 : FontWeight.w600,
+                        color: scheme.plusIntroForeground))),
+            const SizedBox(width: 8),
+            Icon(Icons.check_rounded,
+                size: 20, color: scheme.plusIntroForeground),
+          ]),
+        );
+      }).toList()),
     );
+  }
+}
+
+class _PlusIntroReviews extends StatelessWidget {
+  const _PlusIntroReviews();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(children: [
+      Positioned.fill(
+          child: SvgPicture.asset('${_introAssetPath}bg-cloud.svg',
+              fit: BoxFit.fill)),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(28, 0, 28, 48),
+        child: Column(children: [
+          Image.asset('${_introAssetPath}plus-review-couple.png',
+              height: 210, fit: BoxFit.contain, excludeFromSemantics: true),
+          const SizedBox(height: 20),
+          const PaywallReviewsSection(plusIntro: true),
+        ]),
+      ),
+    ]);
   }
 }
 

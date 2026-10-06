@@ -77,6 +77,32 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 
 /// Additional semantic colors mapped onto Material [ColorScheme]
 extension AppColorScheme on ColorScheme {
+  // The branded Plus introduction uses the same palette in both themes.
+  Color get plusIntroTop => const Color(0xFF7953FF);
+  Color get plusIntroBottom => const Color(0xFFB561F4);
+  Color get plusIntroForeground => const Color(0xFFFFFFFF);
+  Color get plusIntroSurface => const Color(0xFF7950DE);
+  Color get plusIntroButton => const Color(0xFFFFFFFF);
+  Color get plusIntroButtonForeground => const Color(0xFF242424);
+  Color get plusIntroAccent => const Color(0xFF7953FF);
+
+  Color get planSelectionBackground => brightness == Brightness.dark
+      ? const Color(0xFF101014)
+      : const Color(0xFFFFFFFF);
+  Color get planSelectionCard => brightness == Brightness.dark
+      ? const Color(0xFF101014)
+      : const Color(0xFFF9F8FC);
+  Color get planSelectionAccent => const Color(0xFF7953FF);
+  Color get planSelectionRatingAccent => brightness == Brightness.dark
+      ? const Color(0xFFCC72AB)
+      : const Color(0xFFFFAE43);
+  String get planSelectionHeroAsset => brightness == Brightness.dark
+      ? 'lib/assets/images/paywall/plan_selection/plus-dark.png'
+      : 'lib/assets/images/paywall/plan_selection/plus-light.png';
+  String get planSelectionBackgroundAsset => brightness == Brightness.dark
+      ? 'lib/assets/images/paywall/plan_selection/bg-dark.svg'
+      : 'lib/assets/images/paywall/plan_selection/bg-light.svg';
+
   /// Background for cards/surfaces
   Color get card => brightness == Brightness.dark
       ? AppTheme.darkCardBg

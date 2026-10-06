@@ -7,6 +7,47 @@ import 'package:moneko/features/subscription/presentation/widgets/unified_plan_c
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
+  testWidgets('vertical commitment keeps the monthly price and details action',
+      (tester) async {
+    const plan = PlanOption(
+      id: 'plus_yearly',
+      serverPlanId: 'plus',
+      billingInterval: 'yearly',
+      name: 'Annual',
+      storePrice: null,
+      regionalPrice: r'$6.67',
+      tagline: '',
+      isCommitment: true,
+      totalCommitmentPrice: r'$80.04',
+    );
+    String? selected;
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.lightTheme(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+          body: UnifiedPlanCard(
+        plans: const [plan],
+        selectedPlanId: '',
+        vertical: true,
+        onPlanSelected: (id) => selected = id,
+      )),
+    ));
+    expect(find.text(r'$6.67/month'), findsOneWidget);
+    expect(find.text('Billed monthly'), findsOneWidget);
+    expect(find.text('Family sharing included'), findsOneWidget);
+    await tester.tap(find.text('Annual'));
+    expect(selected, plan.id);
+    await tester
+        .tap(find.byTooltip('Learn how Annual Plan monthly payments work'));
+    await tester.pumpAndSettle();
+    expect(
+        find.textContaining(
+            "You'll be charged \$6.67 each month for 12 months"),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'Yearly and Monthly cards use concise supporting text and equal heights',
       (tester) async {

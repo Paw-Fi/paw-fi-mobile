@@ -76,6 +76,7 @@ class PaywallAutoRenewCheckbox extends StatelessWidget {
     required this.option,
     required this.trialMode,
     this.bottomPadding = 24,
+    this.compact = false,
   });
 
   final bool value;
@@ -84,6 +85,7 @@ class PaywallAutoRenewCheckbox extends StatelessWidget {
   final PlanOption option;
   final bool trialMode;
   final double bottomPadding;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +109,7 @@ class PaywallAutoRenewCheckbox extends StatelessWidget {
         controlAffinity: ListTileControlAffinity.leading,
         contentPadding: EdgeInsets.zero,
         dense: true,
+        visualDensity: compact ? VisualDensity.compact : null,
         title: Text(
           paywallAutoRenewTerms(
             context,
@@ -188,11 +191,13 @@ class PaywallFooterLinks extends StatelessWidget {
     required this.isProcessing,
     required this.onRestorePurchases,
     this.centered = false,
+    this.wrap = false,
   });
 
   final bool isProcessing;
   final VoidCallback onRestorePurchases;
   final bool centered;
+  final bool wrap;
 
   @override
   Widget build(BuildContext context) {
@@ -215,23 +220,34 @@ class PaywallFooterLinks extends StatelessWidget {
       ),
     );
 
-    if (centered) {
+    if (!wrap) {
       return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: centered
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.spaceBetween,
         children: [
           restoreLink,
-          Text('|', style: linkStyle),
-          const PaywallLegalLinks(),
+          if (centered) Text('|', style: linkStyle),
+          const PaywallLegalLinks()
         ],
       );
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        restoreLink,
-        const PaywallLegalLinks(),
-      ],
+    if (centered) {
+      return Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [restoreLink, const PaywallLegalLinks()],
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [restoreLink, const PaywallLegalLinks()],
+      ),
     );
   }
 }
@@ -297,7 +313,9 @@ class PaywallHeroIcon extends StatelessWidget {
 }
 
 class PaywallAppRatingBadge extends StatelessWidget {
-  const PaywallAppRatingBadge({super.key});
+  const PaywallAppRatingBadge({super.key, this.planSelection = false});
+
+  final bool planSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -313,6 +331,7 @@ class PaywallAppRatingBadge extends StatelessWidget {
             Image.asset(
               'lib/assets/images/paywall/laurel-wreath.png',
               width: 170,
+              color: planSelection ? scheme.planSelectionRatingAccent : null,
             ),
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -341,8 +360,11 @@ class PaywallAppRatingBadge extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     for (int i = 0; i < 4; i++)
-                      const Icon(Icons.star_rounded,
-                          color: Color(0xFFFCB860), size: 16),
+                      Icon(Icons.star_rounded,
+                          color: planSelection
+                              ? scheme.planSelectionRatingAccent
+                              : const Color(0xFFFCB860),
+                          size: 16),
                     Stack(
                       children: [
                         Icon(
@@ -352,9 +374,11 @@ class PaywallAppRatingBadge extends StatelessWidget {
                         ),
                         ClipRect(
                           clipper: _FractionalClipper(0.8),
-                          child: const Icon(
+                          child: Icon(
                             Icons.star_rounded,
-                            color: Color(0xFFFCB860),
+                            color: planSelection
+                                ? scheme.planSelectionRatingAccent
+                                : const Color(0xFFFCB860),
                             size: 16,
                           ),
                         ),
@@ -434,7 +458,9 @@ class PaywallBenefitsChecklist extends StatelessWidget {
 }
 
 class PaywallReviewsSection extends StatelessWidget {
-  const PaywallReviewsSection({super.key});
+  const PaywallReviewsSection({super.key, this.plusIntro = false});
+
+  final bool plusIntro;
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +478,7 @@ class PaywallReviewsSection extends StatelessWidget {
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
+            color: plusIntro ? scheme.plusIntroForeground : scheme.onSurface,
             letterSpacing: -0.5,
           ),
         ),
@@ -461,6 +487,7 @@ class PaywallReviewsSection extends StatelessWidget {
             .map(
               (review) => AppStoreReviewCard(
                 review: review,
+                plusIntro: plusIntro,
                 margin: const EdgeInsets.only(bottom: 16),
               ),
             )

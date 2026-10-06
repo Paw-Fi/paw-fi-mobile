@@ -13,6 +13,7 @@ class UnifiedPlanCard extends StatelessWidget {
   final ValueChanged<String> onPlanSelected;
   final bool Function(PlanOption)? isCurrentPlan;
   final bool isNewUser;
+  final bool vertical;
 
   const UnifiedPlanCard({
     super.key,
@@ -21,10 +22,27 @@ class UnifiedPlanCard extends StatelessWidget {
     required this.onPlanSelected,
     this.isCurrentPlan,
     this.isNewUser = false,
+    this.vertical = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (vertical) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < plans.length; index++) ...[
+            if (index > 0) const SizedBox(height: 10),
+            _VerticalPlanOption(
+              plan: plans[index],
+              selected: selectedPlanId == plans[index].id,
+              disabled: isCurrentPlan?.call(plans[index]) ?? false,
+              onSelected: () => onPlanSelected(plans[index].id),
+            ),
+          ],
+        ],
+      );
+    }
     final scheme = Theme.of(context).colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
@@ -260,6 +278,129 @@ class UnifiedPlanCard extends StatelessWidget {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+}
+
+class _VerticalPlanOption extends StatelessWidget {
+  const _VerticalPlanOption({
+    required this.plan,
+    required this.selected,
+    required this.disabled,
+    required this.onSelected,
+  });
+
+  final PlanOption plan;
+  final bool selected;
+  final bool disabled;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final largeText = MonekoTextScale.isAtLeast(context, 1.5);
+    final annualUpfront =
+        plan.billingInterval == 'yearly' && !plan.isCommitment;
+    final price = annualUpfront
+        ? plan.upfrontYearlyPrice ?? plan.priceDisplay
+        : plan.priceDisplay;
+    final period = annualUpfront
+        ? context.l10n.perYear
+        : plan.billingInterval != null
+            ? context.l10n.perMonth
+            : '';
+    final priceLabel = Text(
+      '$price$period',
+      style: TextStyle(
+          fontSize: 14, fontWeight: FontWeight.w700, color: scheme.onSurface),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(plan.name,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface)),
+            if (disabled || plan.badgeText != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: disabled ? scheme.muted : scheme.planSelectionAccent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(disabled ? context.l10n.current : plan.badgeText!,
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: disabled
+                            ? scheme.mutedForeground
+                            : scheme.plusIntroForeground)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(context.l10n.paywallFamilySharing,
+            style: TextStyle(fontSize: 11, color: scheme.mutedForeground)),
+        if (plan.isCommitment)
+          Row(children: [
+            Expanded(
+                child: Text(_resolveSupportingText(context, plan, disabled),
+                    style: TextStyle(
+                        fontSize: 11, color: scheme.mutedForeground))),
+            IconButton(
+              tooltip: context.l10n.paywallCommitmentHowItWorksSemantics,
+              onPressed: () => _showCommitmentDetails(context, plan),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: Icon(Icons.info_outline,
+                  size: 16, color: scheme.mutedForeground),
+            ),
+          ]),
+        if (largeText) ...[const SizedBox(height: 8), priceLabel],
+      ],
+    );
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: !disabled,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: scheme.planSelectionCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected && !disabled
+                ? scheme.planSelectionAccent
+                : scheme.outlineVariant.withValues(alpha: 0.5),
+            width: selected && !disabled ? 1.5 : 1,
+          ),
+        ),
+        child: Material(
+          color: scheme.surface.withValues(alpha: 0),
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: disabled ? null : onSelected,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: largeText
+                  ? details
+                  : Row(children: [
+                      Expanded(child: details),
+                      const SizedBox(width: 12),
+                      Flexible(child: priceLabel),
+                    ]),
+            ),
+          ),
+        ),
       ),
     );
   }

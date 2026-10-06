@@ -169,6 +169,8 @@ flutter:
     - lib/assets/images/category/travel/
     - lib/assets/images/category/work-learning/
     - lib/assets/images/paywall/
+    - lib/assets/images/paywall/intro/
+    - lib/assets/images/paywall/plan_selection/
     - lib/assets/images/wallet_sync/
     - lib/assets/images/whatsapp/text.png
     - lib/assets/images/audio-message.png

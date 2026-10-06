@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:go_router/go_router.dart';
+import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,23 +88,49 @@ class _TestProducts extends SubscriptionProductsNotifier {
 }
 
 class _TestIapController extends IapController {
-  _TestIapController({this.outcome = 'waiting'});
+  _TestIapController(
+      {this.outcome = 'waiting',
+      this.withPrices = true,
+      this.withCommitment = true,
+      this.loading = false});
+  final bool withPrices;
+  final bool withCommitment;
+  final bool loading;
+  final completer = Completer<IapState>();
 
   final String outcome;
+  int purchaseCount = 0;
   String? purchasedProductId;
   bool? usedCommitment;
 
   @override
-  Future<IapState> build() async => const IapState(
+  Future<IapState> build() async {
+    if (loading) return completer.future;
+    return loadedState();
+  }
+
+  IapState loadedState() => IapState(
         storeAvailable: true,
-        productDetailsById: {},
-        commitmentTermsByProductId: {
-          'yearly': AppStoreCommitmentTerms(
-            monthlyPrice: r'$2.49',
-            totalCommitmentPrice: r'$29.88',
-            totalCommitmentPriceValue: 29.88,
-          ),
-        },
+        productDetailsById: withPrices
+            ? {
+                'yearly': ProductDetails(
+                    id: 'yearly',
+                    title: 'Yearly',
+                    description: '',
+                    price: r'$99.99',
+                    rawPrice: 99.99,
+                    currencyCode: 'USD',
+                    currencySymbol: r'$'),
+              }
+            : {},
+        commitmentTermsByProductId: withCommitment
+            ? const {
+                'yearly': AppStoreCommitmentTerms(
+                    monthlyPrice: r'$2.49',
+                    totalCommitmentPrice: r'$29.88',
+                    totalCommitmentPriceValue: 29.88),
+              }
+            : const {},
         lastError: null,
       );
 
@@ -110,6 +139,7 @@ class _TestIapController extends IapController {
     SubscriptionProduct product, {
     bool useMonthlyCommitment = false,
   }) async {
+    purchaseCount += 1;
     purchasedProductId = product.storeProductId;
     usedCommitment = useMonthlyCommitment;
     final current = state.requireValue;
@@ -142,7 +172,28 @@ Future<_TestIapController> _showLockedSheet(
   WidgetTester tester, {
   required _TestIapController controller,
   Subscription? subscription,
+  PlusFeature? feature,
+  double textScale = 1,
+  bool dark = false,
 }) async {
+  final router = GoRouter(routes: [
+    GoRoute(
+        path: '/',
+        builder: (context, state) => Scaffold(
+            body: TextButton(
+                onPressed: () =>
+                    PlusLockedSheet.show(context, highlightedFeature: feature),
+                child: const Text('Open locked sheet')))),
+    GoRoute(
+        path: '/plus-locked',
+        builder: (context, state) =>
+            PlusLockedSheet(highlightedFeature: feature)),
+    GoRoute(
+        path: '/plan-selection',
+        builder: (context, state) =>
+            const Scaffold(body: Text('All plans destination'))),
+  ]);
+  addTearDown(router.dispose);
   await tester.pumpWidget(ProviderScope(
     overrides: [
       subscriptionNotifierProvider.overrideWith(
@@ -154,18 +205,16 @@ Future<_TestIapController> _showLockedSheet(
       subscriptionProductsProvider.overrideWith(_TestProducts.new),
       iapControllerProvider.overrideWith(() => controller),
     ],
-    child: MaterialApp(
-      theme: AppTheme.lightTheme(),
+    child: MaterialApp.router(
+      routerConfig: router,
+      theme: dark ? AppTheme.darkTheme() : AppTheme.lightTheme(),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(
-        body: Builder(builder: (context) {
-          return TextButton(
-            onPressed: () => PlusLockedSheet.show(context),
-            child: const Text('Open locked sheet'),
-          );
-        }),
-      ),
     ),
   ));
   await tester.tap(find.text('Open locked sheet'));
@@ -175,7 +224,7 @@ Future<_TestIapController> _showLockedSheet(
 }
 
 Future<void> _tapCheckout(WidgetTester tester) async {
-  final button = find.byType(PaywallCheckoutActionButton);
+  final button = find.byKey(const ValueKey('plus-intro-continue'));
   await tester.ensureVisible(button);
   await tester.tap(button);
   await tester.pump();
@@ -263,33 +312,149 @@ void main() {
     );
   });
 
-  for (final scenario in [
-    (product: 'yearly', commitment: true),
-    (product: 'monthly', commitment: false),
-    (product: 'lifetime_earlybird', commitment: false),
-  ]) {
+  testWidgets(
+      'Continue selects yearly and preserves existing monthly commitment terms',
+      (tester) => _runOnIos(() async {
+            final controller = _TestIapController();
+            await _showLockedSheet(tester, controller: controller);
+            expect(find.text(r'$29.88 per year ($2.49/month)'), findsOneWidget);
+            expect(find.text('Monthly'), findsNothing);
+            expect(find.text('Lifetime'), findsNothing);
+            await _tapCheckout(tester);
+            expect(controller.purchasedProductId, 'yearly');
+            expect(controller.usedCommitment, true);
+            await _tapCheckout(tester);
+            expect(controller.purchaseCount, 1);
+            expect(find.byType(PlusLockedSheet), findsOneWidget);
+            controller.complete();
+            await tester.pump(const Duration(milliseconds: 500));
+            await tester.pumpAndSettle();
+            expect(find.byType(PlusLockedSheet), findsNothing);
+            await tester.pump(const Duration(seconds: 8));
+          }));
+
+  testWidgets(
+      'phone layout keeps actions reachable and reviews scrollable',
+      (tester) => _runOnIos(() async {
+            tester.view.physicalSize = const Size(393, 852);
+            await _showLockedSheet(tester, controller: _TestIapController());
+            expect(tester.takeException(), isNull);
+            final link = find.byKey(const ValueKey('plus-intro-all-plans'));
+            await tester.ensureVisible(link);
+            await tester.pumpAndSettle();
+
+            await tester.ensureVisible(find.byType(PaywallReviewsSection));
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          }));
+
+  testWidgets(
+      'large text in dark mode remains scrollable without overflow',
+      (tester) => _runOnIos(() async {
+            tester.view.physicalSize = const Size(320, 640);
+            await _showLockedSheet(tester,
+                controller: _TestIapController(), textScale: 2, dark: true);
+            await tester.ensureVisible(
+                find.byKey(const ValueKey('plus-intro-all-plans')));
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          }));
+
+  for (final dark in [false, true]) {
     testWidgets(
-        'locked sheet starts ${scenario.product} with matching terms',
+        'intro reviews and actions remain accessible at 3x text $dark',
         (tester) => _runOnIos(() async {
-              final controller = _TestIapController();
-              await _showLockedSheet(tester, controller: controller);
-              if (scenario.product == 'monthly') {
-                await tester.tap(find.text('Monthly').first);
-                await tester.pumpAndSettle();
-              } else if (scenario.product == 'lifetime_earlybird') {
-                await tester.tap(find.text('Lifetime').first);
-                await tester.pumpAndSettle();
-              }
-              expect(find.byType(PaywallAutoRenewCheckbox), findsNothing);
-              await _tapCheckout(tester);
-              expect(controller.purchasedProductId, scenario.product);
-              expect(controller.usedCommitment, scenario.commitment);
-              expect(find.byType(PlusLockedSheet), findsOneWidget);
-              controller.complete();
-              await tester.pump(const Duration(milliseconds: 500));
-              await tester.pump(const Duration(seconds: 8));
+              tester.view.physicalSize = const Size(320, 568);
+              await _showLockedSheet(tester,
+                  controller: _TestIapController(), textScale: 3, dark: dark);
+              await tester.ensureVisible(
+                  find.byKey(const ValueKey('plus-intro-all-plans')));
+              await tester.pumpAndSettle();
+              expect(tester.takeException(), isNull);
+              await tester.ensureVisible(find.byType(PaywallReviewsSection));
+              await tester.pumpAndSettle();
+              expect(tester.takeException(), isNull);
             }));
   }
+
+  testWidgets(
+      'cached store price stays visible during refresh',
+      (tester) => _runOnIos(() async {
+            final controller = _TestIapController();
+            await _showLockedSheet(tester, controller: controller);
+            controller.state = const AsyncLoading<IapState>()
+                .copyWithPrevious(AsyncData(controller.loadedState()));
+            await tester.pumpAndSettle();
+            expect(find.text(r'$29.88 per year ($2.49/month)'), findsOneWidget);
+            expect(find.byKey(const ValueKey('plus-intro-price-loading')),
+                findsNothing);
+          }));
+
+  testWidgets(
+      'See all plans routes to plan selection',
+      (tester) => _runOnIos(() async {
+            await _showLockedSheet(tester, controller: _TestIapController());
+            final link = find.byKey(const ValueKey('plus-intro-all-plans'));
+            await tester.ensureVisible(link);
+            await tester.tap(link);
+            await tester.pumpAndSettle();
+            expect(find.text('All plans destination'), findsOneWidget);
+          }));
+
+  testWidgets(
+      'catalog billing terms and existing checkout readiness are preserved',
+      (tester) => _runOnIos(() async {
+            final controller =
+                _TestIapController(withPrices: false, outcome: 'canceled');
+            await _showLockedSheet(tester, controller: controller);
+            expect(find.text(r'$29.88 per year ($2.49/month)'), findsOneWidget);
+            await _tapCheckout(tester);
+            expect(controller.purchasedProductId, 'yearly');
+            expect(controller.usedCommitment, true);
+            await tester.pump(const Duration(seconds: 8));
+          }));
+
+  testWidgets(
+      'upfront yearly catalog keeps its existing upfront checkout',
+      (tester) => _runOnIos(() async {
+            final controller =
+                _TestIapController(withCommitment: false, outcome: 'canceled');
+            await _showLockedSheet(tester, controller: controller);
+            expect(find.text(r'$99.99 per year ($8.33/month)'), findsOneWidget);
+            await _tapCheckout(tester);
+            expect(controller.purchasedProductId, 'yearly');
+            expect(controller.usedCommitment, false);
+            await tester.pump(const Duration(seconds: 8));
+          }));
+
+  testWidgets(
+      'initial price skeleton becomes the real annual and monthly price',
+      (tester) => _runOnIos(() async {
+            final controller = _TestIapController(loading: true);
+            await _showLockedSheet(tester, controller: controller);
+            expect(find.byKey(const ValueKey('plus-intro-price-loading')),
+                findsOneWidget);
+            await _tapCheckout(tester);
+            expect(controller.purchasedProductId, isNull);
+            controller.completer.complete(controller.loadedState());
+            await tester.pumpAndSettle();
+            expect(find.text(r'$29.88 per year ($2.49/month)'), findsOneWidget);
+          }));
+
+  testWidgets(
+      'highlighted grouped benefit appears first with the new reviews',
+      (tester) => _runOnIos(() async {
+            await _showLockedSheet(tester,
+                controller: _TestIapController(),
+                feature: PlusFeature.walletCreation);
+            final wallets =
+                tester.getTopLeft(find.text('Unlimited Spaces & Wallets'));
+            final capture =
+                tester.getTopLeft(find.text('Unlimited AI expense capture'));
+            expect(wallets.dy, lessThan(capture.dy));
+            expect(find.byType(PaywallReviewsSection), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          }));
 
   for (final outcome in ['canceled', 'pending', 'failed']) {
     testWidgets(

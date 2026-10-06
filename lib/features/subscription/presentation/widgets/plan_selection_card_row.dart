@@ -13,7 +13,8 @@ int _planSortRank(PlanOption plan) {
 }
 
 List<PlanOption> sortPlanOptions(List<PlanOption> plans) {
-  return plans.toList()..sort((a, b) => _planSortRank(a).compareTo(_planSortRank(b)));
+  return plans.toList()
+    ..sort((a, b) => _planSortRank(a).compareTo(_planSortRank(b)));
 }
 
 class PlanSelectionCardRow extends StatelessWidget {
@@ -24,6 +25,7 @@ class PlanSelectionCardRow extends StatelessWidget {
     required this.onPlanSelected,
     this.isCurrentPlan,
     this.isNewUser = false,
+    this.vertical = false,
   });
 
   final List<PlanOption> plans;
@@ -31,6 +33,7 @@ class PlanSelectionCardRow extends StatelessWidget {
   final ValueChanged<String> onPlanSelected;
   final bool Function(PlanOption)? isCurrentPlan;
   final bool isNewUser;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +63,7 @@ class PlanSelectionCardRow extends StatelessWidget {
       onPlanSelected: onPlanSelected,
       isCurrentPlan: isCurrentPlan,
       isNewUser: isNewUser,
+      vertical: vertical,
     );
   }
 }

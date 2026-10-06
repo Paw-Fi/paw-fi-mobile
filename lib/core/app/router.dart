@@ -224,6 +224,31 @@ GoRouter router(RouterRef ref) {
 
       // Subscription / Paywall
       GoRoute(
+        path: '/plus-locked',
+        pageBuilder: (context, state) {
+          final featureName = state.uri.queryParameters['feature'];
+          PlusFeature? highlightedFeature;
+          for (final feature in PlusFeature.values) {
+            if (feature.name == featureName) highlightedFeature = feature;
+          }
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            fullscreenDialog: true,
+            child: PlusLockedSheet(highlightedFeature: highlightedFeature),
+            transitionDuration: const Duration(milliseconds: 250),
+            reverseTransitionDuration: const Duration(milliseconds: 200),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) =>
+                    SlideTransition(
+              position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+                  .chain(CurveTween(curve: Curves.easeOutCubic))
+                  .animate(animation),
+              child: child,
+            ),
+          );
+        },
+      ),
+      GoRoute(
         path: '/paywall',
         builder: (context, state) {
           final modeStr = state.uri.queryParameters['mode'];

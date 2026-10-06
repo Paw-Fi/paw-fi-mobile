@@ -52,6 +52,7 @@ const _kHeardAboutOtherValue = 'other';
 const _heardAboutSourceOptions = [
   (value: 'tiktok', label: 'TikTok'),
   (value: 'instagram', label: 'Instagram'),
+  (value: 'threads', label: 'Threads'),
   (value: 'youtube', label: 'YouTube'),
   (value: 'chatgpt', label: 'ChatGPT'),
   (value: 'reddit', label: 'Reddit'),

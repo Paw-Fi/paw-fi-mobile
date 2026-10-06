@@ -1,3 +1,5 @@
+import '../../../helpers/paywall_test_fonts.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ import 'package:moneko/features/subscription/data/models/subscription.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
+import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
@@ -125,6 +128,7 @@ class _FakeIapController extends IapController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(loadPaywallTestFonts);
 
   final inactiveSubscription = SubscriptionDetails(
     subscription: null,
@@ -162,6 +166,35 @@ void main() {
     sortOrder: 0,
   );
 
+  const yearlyProduct = SubscriptionProduct(
+    id: 'plus_yearly',
+    platform: 'ios',
+    plan: 'plus',
+    billingInterval: 'yearly',
+    storeProductId: 'yearly',
+    displayName: 'Annual',
+    tagline: '',
+    badgeText: '44% OFF',
+    isPopular: true,
+    displayPriceUsd: 99.99,
+    originalPriceUsd: null,
+    sortOrder: 1,
+  );
+  const lifetimeProduct = SubscriptionProduct(
+    id: 'lifetime',
+    platform: 'ios',
+    plan: 'lifetime',
+    billingInterval: null,
+    storeProductId: 'lifetime',
+    displayName: 'Lifetime',
+    tagline: '',
+    badgeText: null,
+    isPopular: false,
+    displayPriceUsd: 149.99,
+    originalPriceUsd: null,
+    sortOrder: 2,
+  );
+
   setUp(() {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     final view =
@@ -177,6 +210,144 @@ void main() {
     view.resetPhysicalSize();
     view.resetDevicePixelRatio();
   });
+
+  for (final dark in [false, true]) {
+    for (final configuration in [
+      (size: const Size(393, 852), scale: 1.0),
+      (size: const Size(320, 568), scale: 1.0),
+      (size: const Size(320, 568), scale: 2.0),
+      (size: const Size(320, 568), scale: 3.0),
+    ]) {
+      testWidgets(
+          'stacked plans remain scrollable with fixed artwork $dark $configuration',
+          (tester) async {
+        tester.view.physicalSize = configuration.size;
+        final fakeIap = _FakeIapController(const IapState(
+          storeAvailable: true,
+          productDetailsById: {},
+          lastError: null,
+        ));
+        final router = GoRouter(
+          navigatorKey: rootNavigatorKey,
+          routes: [
+            GoRoute(
+                path: '/',
+                builder: (_, __) => const PlanSelectionPage(
+                    preferredPlanId: 'plus',
+                    preferredBillingInterval: 'yearly'))
+          ],
+        );
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            subscriptionManagementProvider.overrideWith(() =>
+                _FakeSubscriptionManagementNotifier(
+                    initialValue: inactiveSubscription,
+                    refreshedValue: inactiveSubscription)),
+            subscriptionProductsProvider.overrideWith(() =>
+                _FakeSubscriptionProductsNotifier(
+                    const [monthlyProduct, lifetimeProduct, yearlyProduct])),
+            iapControllerProvider.overrideWith(() => fakeIap),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            theme: dark ? AppTheme.darkTheme() : AppTheme.lightTheme(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(configuration.scale),
+                padding: configuration.size.width == 393
+                    ? const EdgeInsets.only(top: 44, bottom: 34)
+                    : const EdgeInsets.only(top: 20),
+              ),
+              child: child!,
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(const ValueKey('plan-selection-floating-actions')),
+            findsNothing);
+        expect(find.byType(PaywallCheckoutActionButton), findsNothing);
+        expect(find.byType(CheckboxListTile), findsNothing);
+        final annual = find.text('Yearly');
+        final monthly = find.text('Monthly');
+        final lifetime = find.text('Lifetime');
+        expect(tester.getTopLeft(annual).dy,
+            lessThan(tester.getTopLeft(monthly).dy));
+        expect(tester.getTopLeft(monthly).dy,
+            lessThan(tester.getTopLeft(lifetime).dy));
+        expect(
+            find.byWidgetPredicate((widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal),
+            findsNothing);
+        for (final plan in [annual, monthly, lifetime]) {
+          await tester.ensureVisible(plan);
+          await tester.pumpAndSettle();
+          await tester.tap(plan);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          if (find.byType(CheckboxListTile).evaluate().isNotEmpty) {
+            await tester.ensureVisible(find.byType(CheckboxListTile));
+            await tester.pumpAndSettle();
+          }
+          await tester.ensureVisible(find.byType(PaywallCheckoutActionButton));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final panel =
+              find.byKey(const ValueKey('plan-selection-floating-actions'));
+          expect(panel, findsOneWidget);
+          final initialPanelRect = tester.getRect(panel);
+          expect(initialPanelRect.bottom,
+              lessThanOrEqualTo(configuration.size.height));
+          await tester.drag(
+              find.byKey(const ValueKey('plan-selection-viewport')),
+              const Offset(0, -120));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(panel), initialPanelRect,
+              reason: 'Checkout stays fixed while the plans scroll.');
+          final action = tester.widget<PaywallCheckoutActionButton>(
+              find.byType(PaywallCheckoutActionButton));
+          final container = ProviderScope.containerOf(
+              tester.element(find.byType(PlanSelectionPage)));
+          await container
+              .read(subscriptionManagementProvider.notifier)
+              .refresh();
+          await tester.pumpAndSettle();
+          expect(
+              tester
+                  .widget<PaywallCheckoutActionButton>(
+                      find.byType(PaywallCheckoutActionButton))
+                  .option
+                  .id,
+              action.option.id);
+          expect(
+              tester
+                  .getSize(find.byKey(const ValueKey('plan-selection-hero')))
+                  .height,
+              220);
+          expect(
+              tester
+                  .getSize(find.byKey(const ValueKey('plan-selection-rating')))
+                  .height,
+              90);
+          final viewport = tester.widget<SingleChildScrollView>(
+              find.byKey(const ValueKey('plan-selection-viewport')));
+          expect(viewport.physics, isA<AlwaysScrollableScrollPhysics>());
+        }
+        expect(find.text('Get Lifetime Access'), findsOneWidget);
+        expect(find.byType(CheckboxListTile), findsNothing);
+        expect(fakeIap.buyCallCount, 0);
+        await tester.ensureVisible(find.text('Restore Purchase'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        router.dispose();
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+  }
 
   testWidgets(
     'automatically restores family sharing access and shows an explanation dialog',
