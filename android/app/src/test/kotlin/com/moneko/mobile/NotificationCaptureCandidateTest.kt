@@ -7,6 +7,29 @@ import org.junit.Test
 class NotificationCaptureCandidateTest {
 
     @Test
+    fun distinctIdenticalPaymentsDoNotReuseTheSameEventIdentity() {
+        val content = "คุณโอน ฿10.00 ให้ นาย ยุคนธร"
+        val first = NotificationCaptureCandidate.buildEventFingerprint("com.bank", "reused-key", content, 1000)
+        val later = NotificationCaptureCandidate.buildEventFingerprint("com.bank", "reused-key", content, 2000)
+        assertFalse(first == later)
+        assertTrue(first == NotificationCaptureCandidate.buildEventFingerprint("com.bank", "reused-key", content, 1000))
+        assertFalse(first == NotificationCaptureCandidate.buildEventFingerprint("com.bank", "reused-key", content + " สำเร็จ", 1000))
+    }
+
+    @Test
+    fun identityIncludesEvidenceAfterLongExpandedFields() {
+        fun content(message: String) = NotificationCaptureCandidate.buildContent(
+            title = "a".repeat(2000), text = "b".repeat(2000), bigText = "c".repeat(2000),
+            subText = null, textLines = emptyList(), messages = listOf(message),
+        )
+        val first = content("تم استلام ١٠ ر.س من أحمد")
+        val second = content("تم استلام ٢٠ ر.س من أحمد")
+        assertTrue(first.contains("١٠"))
+        assertFalse(NotificationCaptureCandidate.buildEventFingerprint("bank", "key", first, 1000) ==
+            NotificationCaptureCandidate.buildEventFingerprint("bank", "key", second, 1000))
+    }
+
+    @Test
     fun sendsPricePromotionsToAiForSemanticRejection() {
         val content = NotificationCaptureCandidate.buildContent(
             title = "Weekend sale",

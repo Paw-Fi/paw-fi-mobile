@@ -123,9 +123,6 @@ WalletSnapshot buildWalletSnapshot({
   final totalPeriodStart = periodStart;
   final totalPeriodEndExclusive = periodEndExclusive ?? endExclusive;
   final periodTransactions = balanceTransactions.where((expense) {
-    if (expense.category?.trim().toLowerCase() == 'transfers') {
-      return false;
-    }
     if (totalPeriodStart != null && expense.date.isBefore(totalPeriodStart)) {
       return false;
     }

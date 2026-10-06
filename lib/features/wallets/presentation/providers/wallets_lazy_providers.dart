@@ -2185,10 +2185,9 @@ _WalletSnapshotContribution _walletSnapshotContributionForEntry(
   final isExcludedFromAnalytics = wallet.excludeFromAnalytics;
   var incomeCents = 0;
   var spentCents = 0;
-  final category = transaction.category?.trim().toLowerCase();
   final isInPeriod = !transaction.date.isBefore(periodStart) &&
       transaction.date.isBefore(periodEndExclusive);
-  if (!isExcludedFromAnalytics && isInPeriod && category != 'transfers') {
+  if (!isExcludedFromAnalytics && isInPeriod) {
     if (transaction.countsTowardIncome) {
       incomeCents = amountCents;
     } else if (transaction.effectiveSpendingMultiplier != 0) {

@@ -83,6 +83,25 @@ enum NotificationShortcutCapturePayload {
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
+enum NotificationShortcutCaptureDispatcher {
+  static func submit(
+    enqueue: () -> Bool,
+    send: () async throws -> (isDuplicate: Bool, isIgnored: Bool),
+    finish: () -> Void
+  ) async throws -> (isDuplicate: Bool, isIgnored: Bool) {
+    guard enqueue() else { throw SiriShortcutIntentError.offlineSaveFailed }
+    do {
+      let result = try await send()
+      finish()
+      return result
+    } catch let error as SiriShortcutIntentError {
+      if !error.canQueueCapture { finish() }
+      throw error
+    }
+  }
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
 private struct SiriAssistantResultPayload {
   let speech: String
   let shouldOpenApp: Bool
@@ -1121,7 +1140,7 @@ private func enqueuePendingWalletCapture(
           "idempotencyKey": idempotencyKey,
         ]
       )
-      return false
+      return records.contains { ($0["idempotencyKey"] as? String) == idempotencyKey && ($0["userId"] as? String) == userId }
     }
 
     guard records.count < 100 else {
@@ -1314,6 +1333,9 @@ private func submitWalletCaptureRequestBodyOnce(
   }
 
   if httpResponse.statusCode == 409 {
+    if WalletCaptureRetryPolicy.isRetryable(statusCode: 409, responseBody: data) {
+      throw SiriShortcutIntentError.retryableFailure(statusCode: 409)
+    }
     if endpoint == "save-expense" || endpoint == "save-income" {
       throw resolveWalletCaptureIntentError(statusCode: httpResponse.statusCode, data: data)
     }
@@ -1338,14 +1360,11 @@ private func submitWalletCaptureRequestBodyOnce(
   }
 
   guard
-    let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-    (json["success"] as? Bool) == true
+    WalletCaptureRetryPolicy.isConfirmedSuccess(responseBody: data),
+    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
   else {
     NSLog("[MonekoCap] %@ failed — response JSON missing success:true", endpoint)
-    throw resolveWalletCaptureIntentError(
-      statusCode: httpResponse.statusCode,
-      data: data
-    )
+    throw SiriShortcutIntentError.networkFailure
   }
 
   if endpoint == "save-expense" || endpoint == "save-income" {
@@ -2053,10 +2072,20 @@ private func performNotificationTransactionCapture(
   }
 
   do {
-    let result = try await submitWalletCaptureRequestBody(
-      body,
-      context: context,
-      endpoint: "classify-notification-capture"
+    let result = try await NotificationShortcutCaptureDispatcher.submit(
+      enqueue: {
+        enqueuePendingWalletCapture(body: body, idempotencyKey: idempotencyKey,
+          userId: context.userId, merchantName: sourceAppName ?? "Notification",
+          amount: 0, endpoint: "classify-notification-capture")
+      },
+      send: {
+        try await submitWalletCaptureRequestBody(body, context: context,
+          endpoint: "classify-notification-capture")
+      },
+      finish: {
+        _ = mergePendingWalletCaptureSyncResults(completedIdempotencyKeys: [idempotencyKey],
+          updatedRecordsByIdempotencyKey: [:])
+      }
     )
     shouldKeepIdempotencySlot = true
     if result.isDuplicate {
@@ -2066,19 +2095,6 @@ private func performNotificationTransactionCapture(
       ? "Moneko checked the notification and found no completed transaction to save."
       : "Moneko captured the transaction from this notification."
   } catch let error as SiriShortcutIntentError where error.canQueueCapture {
-    let sourceLabel = sourceAppName?.trimmingCharacters(in: .whitespacesAndNewlines)
-    let queueLabel = sourceLabel.flatMap { $0.isEmpty ? nil : $0 } ?? "Notification"
-    let wasQueued = enqueuePendingWalletCapture(
-      body: body,
-      idempotencyKey: idempotencyKey,
-      userId: context.userId,
-      merchantName: queueLabel,
-      amount: 0,
-      endpoint: "classify-notification-capture"
-    )
-    guard wasQueued else {
-      throw SiriShortcutIntentError.offlineSaveFailed
-    }
     shouldKeepIdempotencySlot = true
     return "Saved this notification for Moneko to check when the app is next online."
   }
@@ -2796,8 +2812,21 @@ private final class SharedKeychainStore {
 }
 
 enum WalletCaptureRetryPolicy {
-  static func isRetryable(statusCode: Int) -> Bool {
-    [408, 425, 429].contains(statusCode) || (500...599).contains(statusCode)
+  static func isRetryable(statusCode: Int, responseBody: Data? = nil) -> Bool {
+    if statusCode == 409,
+       let responseBody,
+       let payload = try? JSONSerialization.jsonObject(with: responseBody) as? [String: Any],
+       payload["code"] as? String == "REQUEST_IN_PROGRESS" {
+      return true
+    }
+    return [408, 425, 429].contains(statusCode) || (500...599).contains(statusCode)
+  }
+
+  static func isConfirmedSuccess(responseBody: Data) -> Bool {
+    guard let payload = try? JSONSerialization.jsonObject(with: responseBody) as? [String: Any],
+          payload["success"] as? Bool == true else { return false }
+    return payload["ignored"] as? Bool == true || payload["duplicate"] as? Bool == true ||
+      (payload["data"] as? [String: Any])?["id"] is String
   }
 }
 

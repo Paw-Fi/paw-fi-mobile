@@ -14,12 +14,68 @@ bool shouldRemovePendingNotificationCapture({
     _ => false,
   };
   if (status == 409 && isRequestInProgress) return false;
-  return status == 200 ||
-      status == 201 ||
-      status == 400 ||
-      status == 403 ||
-      status == 409 ||
-      status == 422;
+  if (status == 200 || status == 201) {
+    return responseBody is Map &&
+        responseBody['success'] == true &&
+        (responseBody['ignored'] == true ||
+            responseBody['duplicate'] == true ||
+            (responseBody['data'] is Map &&
+                (responseBody['data'] as Map)['id'] is String));
+  }
+  return status == 400 || status == 403 || status == 409 || status == 422;
+}
+
+/// Replays a batch for its original actor, stopping on transient failure or an
+/// account switch. The caller must also freeze that actor's Authorization header.
+Future<List<String>> replayPendingNotificationCaptures({
+  required String userId,
+  required List<Map<dynamic, dynamic>> records,
+  required String? Function() currentUserId,
+  required Future<FunctionResponse> Function(
+    String functionName,
+    Map<String, dynamic> body,
+  ) invoke,
+}) async {
+  final completedIds = <String>[];
+  for (final rawRecord in records) {
+    if (currentUserId() != userId) break;
+    final record = Map<String, dynamic>.from(rawRecord);
+    final id = record['id']?.toString() ?? '';
+    final owner = record['userId']?.toString() ?? '';
+    final rawBody = record['body']?.toString() ?? '';
+    if (id.isEmpty || owner != userId || rawBody.isEmpty) continue;
+    try {
+      final decoded = jsonDecode(rawBody);
+      if (decoded is! Map<String, dynamic>) {
+        completedIds.add(id);
+        continue;
+      }
+      final response = await invoke(
+        decoded['notification'] is Map
+            ? 'classify-notification-capture'
+            : 'save-wallet-transaction',
+        decoded,
+      );
+      if (!shouldRemovePendingNotificationCapture(
+        status: response.status,
+        responseBody: response.data,
+      )) {
+        break;
+      }
+      completedIds.add(id);
+    } on FunctionException catch (error) {
+      if (!shouldRemovePendingNotificationCapture(
+        status: error.status,
+        responseBody: error.details,
+      )) {
+        break;
+      }
+      completedIds.add(id);
+    } catch (_) {
+      break;
+    }
+  }
+  return completedIds;
 }
 
 /// Data class representing a recently-seen notification source app.
@@ -234,47 +290,17 @@ class NotificationCaptureService {
     final records = await _channel
             .invokeListMethod<Map<dynamic, dynamic>>('getPendingCaptures') ??
         const [];
-    final completedIds = <String>[];
-
-    for (final rawRecord in records) {
-      final record = Map<String, dynamic>.from(rawRecord);
-      final id = record['id']?.toString() ?? '';
-      final userId = record['userId']?.toString() ?? '';
-      final rawBody = record['body']?.toString() ?? '';
-      if (id.isEmpty || userId != session.user.id || rawBody.isEmpty) continue;
-
-      try {
-        final decoded = jsonDecode(rawBody);
-        if (decoded is! Map<String, dynamic>) {
-          completedIds.add(id);
-          continue;
-        }
-        final functionName = decoded['notification'] is Map
-            ? 'classify-notification-capture'
-            : 'save-wallet-transaction';
-        final response = await Supabase.instance.client.functions.invoke(
-          functionName,
-          body: decoded,
-        );
-        if (shouldRemovePendingNotificationCapture(
-          status: response.status,
-          responseBody: response.data,
-        )) {
-          completedIds.add(id);
-        }
-      } on FunctionException catch (error) {
-        if (shouldRemovePendingNotificationCapture(
-          status: error.status,
-          responseBody: error.details,
-        )) {
-          completedIds.add(id);
-        } else {
-          break;
-        }
-      } catch (_) {
-        break;
-      }
-    }
+    final client = Supabase.instance.client;
+    final completedIds = await replayPendingNotificationCaptures(
+      userId: session.user.id,
+      records: records,
+      currentUserId: () => client.auth.currentUser?.id,
+      invoke: (functionName, body) => client.functions.invoke(
+        functionName,
+        body: body,
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
+      ),
+    );
 
     if (completedIds.isNotEmpty) {
       await _channel.invokeMethod<void>('removePendingCaptures', {

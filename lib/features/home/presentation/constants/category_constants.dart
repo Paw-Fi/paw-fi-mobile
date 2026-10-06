@@ -1097,11 +1097,12 @@ List<String> getIncomeCategories() {
       .toList(growable: false);
 }
 
-/// Expense-only canonical categories (all allowed minus income-focused and umbrella 'income')
+/// Expense categories, including external outgoing transfers.
 List<String> getExpenseCategories() {
   final incomeCats = {...getIncomeCategories(), 'income'};
-  final keys =
-      categoryColors.keys.where((k) => !incomeCats.contains(k)).toList();
+  final keys = categoryColors.keys
+      .where((k) => k == 'transfers' || !incomeCats.contains(k))
+      .toList();
   keys.sort((a, b) => a.compareTo(b));
   return keys;
 }

@@ -54,7 +54,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   String _analyticsClassForCategory(ExpenseEntry expense, dynamic category) {
     final normalizedCategory = _normalizeCategoryValue(category);
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-    if (normalizedCategory == 'transfers') {
+    // Bank category overrides retain their provider classification contract.
+    // An ordinary external payment remains income/spending in this category.
+    if (normalizedCategory == 'transfers' &&
+        expense.bankAccountId?.trim().isNotEmpty == true) {
       return isIncome ? 'transfer_in' : 'transfer_out';
     }
     if (normalizedCategory == 'debt payments') return 'debt_payment';

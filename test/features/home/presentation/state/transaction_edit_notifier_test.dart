@@ -488,6 +488,55 @@ void main() {
       },
     );
 
+    for (final type in ['expense', 'income']) {
+      test(
+          'editing an external $type to Transfers retains its financial effect in SQLite and providers',
+          () async {
+        final database = MonekoDatabase.inMemory();
+        addTearDown(database.close);
+        final original = ExpenseEntry(
+            id: 'external-payment',
+            userId: 'user-1',
+            date: DateTime(2026, 10, 6),
+            createdAt: DateTime(2026, 10, 6),
+            amountCents: 1000,
+            currency: 'THB',
+            category: 'other',
+            type: type);
+        await database.upsertTransactions([original]);
+        final container = createContainer(
+            supabaseClient: supabaseClient,
+            database: database,
+            onAnalyticsNotifierCreated: (notifier) =>
+                analyticsNotifier = notifier);
+        addTearDown(container.dispose);
+        container.read(analyticsProvider);
+        analyticsNotifier!.state =
+            AnalyticsData(expenses: [original], allExpenses: [original]);
+        expect(
+            await container
+                .read(transactionEditProvider.notifier)
+                .updateExpense(original.id, {'category': 'transfers'}),
+            isTrue);
+        final persisted = (await database.getRecentTransactions(
+                userId: 'user-1', householdId: null))
+            .single;
+        final displayed = container.read(analyticsProvider).allExpenses.single;
+        for (final entry in [persisted, displayed]) {
+          expect(entry.category, 'transfers');
+          expect(entry.currency, 'THB');
+          expect(entry.countsTowardIncome, type == 'income');
+          expect(entry.effectiveSpendingMultiplier, type == 'expense' ? 1 : 0);
+          expect(entry.analyticsClass,
+              type == 'income' ? 'income' : 'consumer_spend');
+        }
+        expect((await database.getOutboxMutations()).single.operation,
+            'update_transaction');
+        verifyNever(() =>
+            functionsClient.invoke('update-expense', body: any(named: 'body')));
+      });
+    }
+
     test('returns after writing a canonical edit to the local outbox',
         () async {
       final database = MonekoDatabase.inMemory();

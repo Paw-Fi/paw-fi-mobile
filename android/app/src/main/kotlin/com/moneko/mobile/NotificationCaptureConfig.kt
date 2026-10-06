@@ -22,6 +22,8 @@ data class RecentNotificationApp(
 class NotificationCaptureConfig(context: Context) {
 
     companion object {
+        // Listener, activity and cleanup workers create separate config instances.
+        private val pendingCaptureLock = Any()
         private const val PREFS_NAME = "moneko_notification_capture"
         private const val AUTH_PREFS_NAME = "moneko_notification_capture_auth"
         private const val KEY_ENABLED = "notification_capture_enabled"
@@ -121,6 +123,13 @@ class NotificationCaptureConfig(context: Context) {
 
     val isReady: Boolean
         get() = isAuthStorageAvailable && hasCredentials
+
+    fun accessTokenForUser(expectedUserId: String): String? = synchronized(pendingCaptureLock) {
+        accessToken.takeIf {
+            expectedUserId.isNotBlank() && userId == expectedUserId &&
+                isReady && !isAccessTokenExpired && it.isNotBlank()
+        }
+    }
 
     fun getEnabledPackages(): Set<String> {
         val json = prefs.getString(KEY_ENABLED_PACKAGES, "[]") ?: "[]"
@@ -237,123 +246,135 @@ class NotificationCaptureConfig(context: Context) {
         userId: String,
         expiresAt: Long
     ) {
-        val prefs = requireAuthPrefs()
-        val previousUserId = prefs.getString(KEY_USER_ID, "") ?: ""
-        prefs.edit().apply {
-            putString(KEY_SUPABASE_URL, supabaseUrl)
-            putString(KEY_SUPABASE_ANON_KEY, supabaseAnonKey)
-            putString(KEY_ACCESS_TOKEN, accessToken)
-            remove(KEY_REFRESH_TOKEN)
-            putString(KEY_USER_ID, userId)
-            putLong(KEY_EXPIRES_AT, expiresAt)
-            putInt(KEY_AUTH_CONTEXT_VERSION, 2)
-            if (previousUserId.isNotBlank() && previousUserId != userId) {
-                remove(KEY_PENDING_CAPTURES)
+        synchronized(pendingCaptureLock) {
+            val prefs = requireAuthPrefs()
+            val previousUserId = prefs.getString(KEY_USER_ID, "") ?: ""
+            prefs.edit().apply {
+                putString(KEY_SUPABASE_URL, supabaseUrl)
+                putString(KEY_SUPABASE_ANON_KEY, supabaseAnonKey)
+                putString(KEY_ACCESS_TOKEN, accessToken)
+                remove(KEY_REFRESH_TOKEN)
+                putString(KEY_USER_ID, userId)
+                putLong(KEY_EXPIRES_AT, expiresAt)
+                putInt(KEY_AUTH_CONTEXT_VERSION, 2)
+                if (previousUserId.isNotBlank() && previousUserId != userId) {
+                    remove(KEY_PENDING_CAPTURES)
+                }
+                apply()
             }
-            apply()
         }
     }
 
     fun clearLegacyNativeSession() {
-        authPrefs?.edit()?.apply {
-            remove(KEY_ACCESS_TOKEN)
-            remove(KEY_REFRESH_TOKEN)
-            remove(KEY_EXPIRES_AT)
-            remove(KEY_AUTH_CONTEXT_VERSION)
-            apply()
+        synchronized(pendingCaptureLock) {
+            authPrefs?.edit()?.apply {
+                remove(KEY_ACCESS_TOKEN)
+                remove(KEY_REFRESH_TOKEN)
+                remove(KEY_EXPIRES_AT)
+                remove(KEY_AUTH_CONTEXT_VERSION)
+                apply()
+            }
         }
     }
 
-    @Synchronized
     fun enqueuePendingCapture(body: JSONObject, idempotencyKey: String): Boolean {
-        val prefs = authPrefs ?: return false
-        val records = readPendingCaptures()
-        if ((0 until records.length()).any {
-                records.optJSONObject(it)?.optString("idempotencyKey") == idempotencyKey
-            }) {
+        synchronized(pendingCaptureLock) {
+            val prefs = authPrefs ?: return false
+            val captureUserId = body.optString("userId")
+            if (captureUserId.isBlank() || captureUserId != userId) return false
+            val records = readPendingCaptures()
+            if ((0 until records.length()).any {
+                    records.optJSONObject(it)?.optString("idempotencyKey") == idempotencyKey
+                }) {
+                return true
+            }
+            if (records.length() >= MAX_PENDING_CAPTURES) return false
+
+            val recordId = UUID.randomUUID().toString()
+            val queuedAt = System.currentTimeMillis()
+            records.put(JSONObject().apply {
+                put("id", recordId)
+                put("idempotencyKey", idempotencyKey)
+                put("userId", captureUserId)
+                put("queuedAt", queuedAt)
+                put("body", body)
+            })
+            val persisted = prefs.edit().putString(KEY_PENDING_CAPTURES, records.toString()).commit()
+            if (!persisted) return false
+            if (!schedulePendingCaptureCleanup(recordId, queuedAt)) {
+                removePendingCaptures(setOf(recordId))
+                return false
+            }
             return true
         }
-        if (records.length() >= MAX_PENDING_CAPTURES) return false
-
-        val recordId = UUID.randomUUID().toString()
-        val queuedAt = System.currentTimeMillis()
-        records.put(JSONObject().apply {
-            put("id", recordId)
-            put("idempotencyKey", idempotencyKey)
-            put("userId", userId)
-            put("queuedAt", queuedAt)
-            put("body", body)
-        })
-        val persisted = prefs.edit().putString(KEY_PENDING_CAPTURES, records.toString()).commit()
-        if (!persisted) return false
-        if (!schedulePendingCaptureCleanup(recordId, queuedAt)) {
-            removePendingCaptures(setOf(recordId))
-            return false
-        }
-        return true
     }
 
-    @Synchronized
     fun getPendingCaptures(): List<Map<String, Any?>> {
-        val records = readPendingCaptures()
-        return (0 until records.length()).mapNotNull { index ->
-            val record = records.optJSONObject(index) ?: return@mapNotNull null
-            val body = record.optJSONObject("body") ?: return@mapNotNull null
-            mapOf(
-                "id" to record.optString("id"),
-                "idempotencyKey" to record.optString("idempotencyKey"),
-                "userId" to record.optString("userId"),
-                "queuedAt" to record.optLong("queuedAt"),
-                "body" to body.toString()
-            )
+        synchronized(pendingCaptureLock) {
+            val records = readPendingCaptures()
+            return (0 until records.length()).mapNotNull { index ->
+                val record = records.optJSONObject(index) ?: return@mapNotNull null
+                val body = record.optJSONObject("body") ?: return@mapNotNull null
+                mapOf(
+                    "id" to record.optString("id"),
+                    "idempotencyKey" to record.optString("idempotencyKey"),
+                    "userId" to record.optString("userId"),
+                    "queuedAt" to record.optLong("queuedAt"),
+                    "body" to body.toString()
+                )
+            }
         }
     }
 
-    @Synchronized
     fun removePendingCaptures(ids: Set<String>) {
-        if (ids.isEmpty()) return
-        val prefs = authPrefs ?: return
-        val records = readPendingCaptures()
-        val remaining = JSONArray()
-        for (index in 0 until records.length()) {
-            val record = records.optJSONObject(index) ?: continue
-            if (!ids.contains(record.optString("id"))) remaining.put(record)
+        synchronized(pendingCaptureLock) {
+            if (ids.isEmpty()) return
+            val prefs = authPrefs ?: return
+            val records = readPendingCaptures()
+            val remaining = JSONArray()
+            for (index in 0 until records.length()) {
+                val record = records.optJSONObject(index) ?: continue
+                if (!ids.contains(record.optString("id"))) remaining.put(record)
+            }
+            prefs.edit().putString(KEY_PENDING_CAPTURES, remaining.toString()).commit()
         }
-        prefs.edit().putString(KEY_PENDING_CAPTURES, remaining.toString()).commit()
     }
 
-    @Synchronized
     fun removePendingCaptureByIdempotencyKey(idempotencyKey: String) {
-        if (idempotencyKey.isBlank()) return
-        val prefs = authPrefs ?: return
-        val records = readPendingCaptures()
-        val remaining = JSONArray()
-        for (index in 0 until records.length()) {
-            val record = records.optJSONObject(index) ?: continue
-            if (record.optString("idempotencyKey") != idempotencyKey) remaining.put(record)
+        synchronized(pendingCaptureLock) {
+            if (idempotencyKey.isBlank()) return
+            val prefs = authPrefs ?: return
+            val records = readPendingCaptures()
+            val remaining = JSONArray()
+            for (index in 0 until records.length()) {
+                val record = records.optJSONObject(index) ?: continue
+                if (record.optString("idempotencyKey") != idempotencyKey) remaining.put(record)
+            }
+            prefs.edit().putString(KEY_PENDING_CAPTURES, remaining.toString()).commit()
         }
-        prefs.edit().putString(KEY_PENDING_CAPTURES, remaining.toString()).commit()
     }
 
     private fun readPendingCaptures(): JSONArray {
-        val json = authPrefs?.getString(KEY_PENDING_CAPTURES, "[]") ?: "[]"
-        val records = try {
-            JSONArray(json)
-        } catch (_: Exception) {
-            JSONArray()
-        }
-        val now = System.currentTimeMillis()
-        val retained = JSONArray()
-        for (index in 0 until records.length()) {
-            val record = records.optJSONObject(index) ?: continue
-            if (!isPendingCaptureExpired(record.optLong("queuedAt"), now)) {
-                retained.put(record)
+        synchronized(pendingCaptureLock) {
+            val json = authPrefs?.getString(KEY_PENDING_CAPTURES, "[]") ?: "[]"
+            val records = try {
+                JSONArray(json)
+            } catch (_: Exception) {
+                JSONArray()
             }
+            val now = System.currentTimeMillis()
+            val retained = JSONArray()
+            for (index in 0 until records.length()) {
+                val record = records.optJSONObject(index) ?: continue
+                if (!isPendingCaptureExpired(record.optLong("queuedAt"), now)) {
+                    retained.put(record)
+                }
+            }
+            if (retained.length() != records.length()) {
+                authPrefs?.edit()?.putString(KEY_PENDING_CAPTURES, retained.toString())?.commit()
+            }
+            return retained
         }
-        if (retained.length() != records.length()) {
-            authPrefs?.edit()?.putString(KEY_PENDING_CAPTURES, retained.toString())?.commit()
-        }
-        return retained
     }
 
     internal fun pruneExpiredPendingCaptures() {
@@ -391,30 +412,34 @@ class NotificationCaptureConfig(context: Context) {
     }
 
     fun clearSessionTokens() {
-        authPrefs?.edit()?.apply {
-            remove(KEY_ACCESS_TOKEN)
-            remove(KEY_REFRESH_TOKEN)
-            remove(KEY_EXPIRES_AT)
-            remove(KEY_AUTH_CONTEXT_VERSION)
-            remove(KEY_PENDING_CAPTURES)
-            apply()
+        synchronized(pendingCaptureLock) {
+            authPrefs?.edit()?.apply {
+                remove(KEY_ACCESS_TOKEN)
+                remove(KEY_REFRESH_TOKEN)
+                remove(KEY_EXPIRES_AT)
+                remove(KEY_AUTH_CONTEXT_VERSION)
+                remove(KEY_PENDING_CAPTURES)
+                apply()
+            }
         }
     }
 
     fun clearAuthContext(): Boolean {
-        val prefs = authPrefs ?: return false
-        prefs.edit().apply {
-            remove(KEY_SUPABASE_URL)
-            remove(KEY_SUPABASE_ANON_KEY)
-            remove(KEY_ACCESS_TOKEN)
-            remove(KEY_REFRESH_TOKEN)
-            remove(KEY_USER_ID)
-            remove(KEY_EXPIRES_AT)
-            remove(KEY_AUTH_CONTEXT_VERSION)
-            remove(KEY_PENDING_CAPTURES)
-            apply()
+        synchronized(pendingCaptureLock) {
+            val prefs = authPrefs ?: return false
+            prefs.edit().apply {
+                remove(KEY_SUPABASE_URL)
+                remove(KEY_SUPABASE_ANON_KEY)
+                remove(KEY_ACCESS_TOKEN)
+                remove(KEY_REFRESH_TOKEN)
+                remove(KEY_USER_ID)
+                remove(KEY_EXPIRES_AT)
+                remove(KEY_AUTH_CONTEXT_VERSION)
+                remove(KEY_PENDING_CAPTURES)
+                apply()
+            }
+            return true
         }
-        return true
     }
 
     private fun requireAuthPrefs(): SharedPreferences {

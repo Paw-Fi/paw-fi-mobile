@@ -1262,7 +1262,8 @@ void main() {
     expect(state.displayedSnapshot?.spentTotalCents, 1500);
   });
 
-  test('production service overlays a pending create added after its snapshot',
+  test(
+      'production service counts an external transfer receipt added after its snapshot',
       () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
@@ -1340,7 +1341,7 @@ void main() {
       date: DateTime(2026, 4, 12),
       amountCents: 50,
       currency: 'USD',
-      category: 'food',
+      category: 'transfers',
       createdAt: DateTime.utc(2026, 4, 12, 10),
       type: 'income',
       walletId: 'w1',
@@ -1396,6 +1397,8 @@ void main() {
     expect(state.history.netWorthSeries.last.netWorthCents, 250);
     expect(state.displayedSnapshot?.netWorthCents, 250);
     expect(state.displayedSnapshot?.walletBalances['w1'], 250);
+    expect(state.displayedSnapshot?.incomeTotalCents, 350);
+    expect(state.displayedSnapshot?.spentTotalCents, 100);
   });
 
   test('merchant metadata update contributes zero to cached wallet history',

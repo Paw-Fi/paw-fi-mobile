@@ -221,6 +221,66 @@ class RunnerTests: XCTestCase {
     }
   }
 
+  func testWalletCaptureInProgressIsRetryableAndMalformedSuccessIsUnconfirmed() {
+    XCTAssertTrue(WalletCaptureRetryPolicy.isRetryable(statusCode: 409,
+      responseBody: Data(#"{"code":"REQUEST_IN_PROGRESS"}"#.utf8)))
+    XCTAssertFalse(WalletCaptureRetryPolicy.isRetryable(statusCode: 409,
+      responseBody: Data(#"{"code":"DUPLICATE_REQUEST"}"#.utf8)))
+    for body in ["not-json", #"{"success":true}"#, #"{"success":false,"ignored":true}"#] {
+      XCTAssertFalse(WalletCaptureRetryPolicy.isConfirmedSuccess(responseBody: Data(body.utf8)))
+    }
+    for body in [#"{"success":true,"ignored":true}"#, #"{"success":true,"duplicate":true}"#,
+                 #"{"success":true,"data":{"id":"saved-id"}}"#] {
+      XCTAssertTrue(WalletCaptureRetryPolicy.isConfirmedSuccess(responseBody: Data(body.utf8)))
+    }
+  }
+
+  func testNotificationCaptureCommitsBeforeSendAndRetainsRetryableFailures() async {
+    for error in [SiriShortcutIntentError.networkFailure, .missingSession, .retryableFailure(statusCode: 409), .retryableFailure(statusCode: 503)] {
+      var queued = false
+      var finished = false
+      do {
+        _ = try await NotificationShortcutCaptureDispatcher.submit(
+          enqueue: { queued = true; return true },
+          send: { XCTAssertTrue(queued); throw error },
+          finish: { finished = true }
+        )
+        XCTFail("Expected retryable error")
+      } catch {}
+      XCTAssertTrue(queued)
+      XCTAssertFalse(finished)
+    }
+  }
+
+  func testNotificationCapturePersistenceFailurePreventsRemoteSave() async {
+    var sent = false
+    do {
+      _ = try await NotificationShortcutCaptureDispatcher.submit(
+        enqueue: { false }, send: { sent = true; return (false, false) }, finish: {}
+      )
+      XCTFail("Expected persistence failure")
+    } catch {}
+    XCTAssertFalse(sent)
+  }
+
+  func testNotificationCaptureRemovesOnlyConfirmedOrTerminalRequests() async throws {
+    var finished = false
+    let result = try await NotificationShortcutCaptureDispatcher.submit(
+      enqueue: { true }, send: { (false, true) }, finish: { finished = true }
+    )
+    XCTAssertTrue(result.isIgnored)
+    XCTAssertTrue(finished)
+    finished = false
+    do {
+      _ = try await NotificationShortcutCaptureDispatcher.submit(
+        enqueue: { true }, send: { throw SiriShortcutIntentError.invalidInput },
+        finish: { finished = true }
+      )
+      XCTFail("Expected terminal rejection")
+    } catch {}
+    XCTAssertTrue(finished)
+  }
+
   func testNotificationShortcutPayloadMapsVisibleFields() {
     let notification = NotificationShortcutCapturePayload.makeNotification(
       title: "Card purchase",

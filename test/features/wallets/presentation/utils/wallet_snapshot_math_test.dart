@@ -5,6 +5,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
 
 void main() {
   WalletEntity wallet({
@@ -64,6 +65,40 @@ void main() {
         selected: SelectedHouseholdState(),
         portfolioHouseholdIds: <String>{},
       );
+
+  test(
+      'external transfers count as income and spending while own-wallet pair only moves balances',
+      () {
+    final date = DateTime(2026, 10, 6);
+    final snapshot = buildWalletSnapshot(
+      wallets: [wallet(id: 'w1', opening: 10000), wallet(id: 'w2', opening: 0)],
+      transactions: [
+        tx(
+                id: 'received',
+                date: date,
+                cents: 600,
+                type: 'income',
+                walletId: 'w1')
+            .copyWith(category: 'transfers'),
+        tx(id: 'sent', date: date, cents: 1000, type: 'expense', walletId: 'w1')
+            .copyWith(category: 'transfers'),
+        ...buildWalletTransferFeedEntries(transferJson: {
+          'id': 'own-transfer',
+          'from_account_id': 'w1',
+          'to_account_id': 'w2',
+          'amount_cents': 200,
+          'currency': 'USD',
+          'date': '2026-10-06',
+        }, fallbackUserId: 'user-1'),
+      ],
+      endExclusive: DateTime(2026, 11, 1),
+      periodStart: DateTime(2026, 10, 1),
+    );
+    expect(snapshot.totalIncomeCents, 600);
+    expect(snapshot.totalSpentCents, 1000);
+    expect(snapshot.walletBalances, {'w1': 9400, 'w2': 200});
+    expect(snapshot.netWorthCents, 9600);
+  });
 
   test('buildWalletSnapshot is cumulative through selected month end', () {
     final wallets = [wallet(id: 'w1', opening: 10000, isDefault: true)];

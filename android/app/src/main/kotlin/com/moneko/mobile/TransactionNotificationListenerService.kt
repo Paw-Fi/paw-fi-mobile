@@ -72,6 +72,8 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
         // Gate: this specific package must be enabled by the user
         if (!config.isPackageEnabled(packageName)) return
+        val captureUserId = config.userId
+        if (captureUserId.isBlank()) return
 
         // Extract notification text
         val extras = sbn.notification?.extras ?: return
@@ -132,6 +134,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             packageName = packageName,
             notificationKey = sbn.key,
             content = content,
+            notificationPostTimeMillis = sbn.postTime,
         )
         if (isDuplicate(dedupKey)) {
             Log.d(TAG, "Duplicate notification blocked locally: $packageName")
@@ -171,6 +174,8 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             additionalText = additionalText,
             isGroupSummary = isGroupSummary,
         )
+        body.put("userId", captureUserId)
+        body.put("idempotencyKey", "$captureUserId|${body.optString("idempotencyKey")}")
         val queued = config.enqueuePendingCapture(
             body,
             body.optString("idempotencyKey", dedupKey),
@@ -230,11 +235,15 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         }
 
         val idempotencyKey = body.optString("idempotencyKey", dedupKey)
+        val captureUserId = body.optString("userId")
+        if (captureUserId.isBlank() || config.userId != captureUserId) return
 
-        val accessToken = getValidAccessToken(config) ?: run {
+        val accessToken = config.accessTokenForUser(captureUserId) ?: run {
             queueCapture(config, body, dedupKey, "access_token_unavailable")
             return
         }
+        // Never pair an old capture with a token published by a new account.
+        if (config.userId != captureUserId) return
 
         val url = URL("$supabaseUrl/functions/v1/classify-notification-capture")
         val initialResponse = try {
@@ -246,6 +255,14 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
         when (initialResponse.statusCode) {
             200, 201 -> {
+                val response = runCatching { JSONObject(initialResponse.responseBody) }.getOrNull()
+                val confirmed = response?.optBoolean("success") == true &&
+                    (response.optBoolean("ignored") || response.optBoolean("duplicate") ||
+                        response.optJSONObject("data")?.optString("id")?.isNotBlank() == true)
+                if (!confirmed) {
+                    queueCapture(config, body, dedupKey, "capture_unconfirmed_response")
+                    return
+                }
                 config.removePendingCaptureByIdempotencyKey(idempotencyKey)
                 Log.d(TAG, "Transaction captured successfully from $packageName")
                 recordCaptureTelemetry(
@@ -280,10 +297,10 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             }
             400, 403, 422 -> {
                 config.removePendingCaptureByIdempotencyKey(idempotencyKey)
-                Log.w(TAG, "Terminal backend response ${initialResponse.statusCode}: ${initialResponse.responseBody}")
+                Log.w(TAG, "Terminal capture response ${initialResponse.statusCode}")
             }
             else -> {
-                Log.w(TAG, "Backend error ${initialResponse.statusCode}: ${initialResponse.responseBody}")
+                Log.w(TAG, "Capture backend error ${initialResponse.statusCode}")
             }
         }
     }
@@ -417,13 +434,6 @@ class TransactionNotificationListenerService : NotificationListenerService() {
     }
 
     // ── Auth helpers ─────────────────────────────────────────────────────
-
-    /** Returns the current access token without rotating the app session. */
-    private fun getValidAccessToken(config: NotificationCaptureConfig): String? {
-        val token = config.accessToken
-        if (token.isBlank()) return null
-        return token.takeUnless { config.isAccessTokenExpired }
-    }
 
     private fun queueCapture(
         config: NotificationCaptureConfig,

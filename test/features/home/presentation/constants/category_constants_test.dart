@@ -57,7 +57,7 @@ void main() {
   });
 
   test('every built-in category resolves to an existing image file', () {
-    final categories = [...getExpenseCategories(), ...getIncomeCategories()];
+    final categories = {...getExpenseCategories(), ...getIncomeCategories()};
     expect(categories, hasLength(127));
 
     for (final category in categories) {
@@ -435,14 +435,17 @@ void main() {
       expect(categories, isNotEmpty);
     });
 
-    test('excludes income categories', () {
+    test('excludes income-only categories and permits external transfers', () {
       final categories = getExpenseCategories();
       final incomeCategories = getIncomeCategories();
 
-      for (final income in incomeCategories) {
+      for (final income
+          in incomeCategories.where((key) => key != 'transfers')) {
         expect(categories, isNot(contains(income)));
       }
       expect(categories, isNot(contains('income')));
+      expect(categories, contains('transfers'));
+      expect(getIncomeCategories(), contains('transfers'));
     });
 
     test('includes expense categories', () {
