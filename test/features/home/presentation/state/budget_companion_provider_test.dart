@@ -6,6 +6,7 @@ import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
+import 'package:moneko/features/home/presentation/state/spending_daily_overview_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -14,6 +15,7 @@ import 'package:moneko/features/home/presentation/state/home_period_selection_pr
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/home_period_selector.dart';
+import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -59,6 +61,170 @@ ExpenseEntry _entry(String id, String category, int cents,
     );
 
 void main() {
+  test('retained categories never cross into an unresolved Space', () async {
+    final query = DashboardScopeQuery(
+        userId: 'user-1',
+        householdId: null,
+        selectedCurrency: 'USD',
+        startDate: DateTime(2026, 4),
+        endDate: DateTime(2026, 4, 30));
+    BudgetCompanionRequest request(DashboardScopeQuery query) =>
+        BudgetCompanionRequest(
+            query: query,
+            currency: 'USD',
+            mode: HomePeriodMode.daily,
+            pocketsScope: PocketsScopeParams(
+                scope: PocketsScopeType.personal,
+                periodMonth: DateTime(2026, 4),
+                currency: 'USD'));
+    final selection = StateProvider((ref) => request(query));
+    final pending = Completer<List<ExpenseEntry>>();
+    final container = ProviderContainer(overrides: [
+      budgetCompanionRequestProvider
+          .overrideWith((ref) => ref.watch(selection)),
+      includeUpcomingRecurringInPocketsProvider.overrideWith((ref) => false),
+      selectedHomeCurrencyCodeProvider.overrideWithValue('USD'),
+      dashboardCalendarTransactionsProvider.overrideWith((ref, q) => q == query
+          ? Future.value([_entry('one', 'food', 1000)])
+          : pending.future),
+      dashboardLocalOverlayTransactionsProvider.overrideWith((ref, q) => []),
+      recurringOccurrenceProjectionResolutionProvider.overrideWith(
+          (ref, q) => const RecurringOccurrenceProjectionResolution()),
+    ]);
+    addTearDown(container.dispose);
+    container.listen(budgetCompanionDataProvider, (_, __) {});
+    await container.read(dashboardCalendarTransactionsProvider(query).future);
+    await container.pump();
+    expect(container.read(budgetCompanionDataProvider).categories.hasValue,
+        isTrue);
+    container.read(selection.notifier).state =
+        request(query.copyWith(householdId: 'other-space'));
+    final changed = container.read(budgetCompanionDataProvider);
+    expect(changed.categories.hasValue, isFalse);
+    expect(changed.summary.hasValue, isFalse);
+    pending.complete([_entry('other', 'rent', 2500, household: 'other-space')]);
+    await container.pump();
+    expect(
+        container
+            .read(budgetCompanionDataProvider)
+            .categories
+            .requireValue
+            .single
+            .amount,
+        25);
+  });
+
+  test('repeated dependency reloads retain categories and share calendar reads',
+      () async {
+    final query = DashboardScopeQuery(
+        userId: 'user-1',
+        householdId: null,
+        selectedCurrency: 'USD',
+        startDate: DateTime(2026, 4, 20),
+        endDate: DateTime(2026, 4, 20));
+    final request = BudgetCompanionRequest(
+        query: query,
+        currency: 'USD',
+        mode: HomePeriodMode.daily,
+        pocketsScope: PocketsScopeParams(
+            scope: PocketsScopeType.personal,
+            periodMonth: DateTime(2026, 4),
+            currency: 'USD'));
+    final revision = StateProvider((ref) => 0);
+    var pending = Completer<List<ExpenseEntry>>();
+    var loads = 0;
+    final container = ProviderContainer(overrides: [
+      budgetCompanionRequestProvider.overrideWithValue(request),
+      includeUpcomingRecurringInPocketsProvider.overrideWith((ref) => false),
+      selectedHomeCurrencyCodeProvider.overrideWithValue('USD'),
+      dashboardCalendarTransactionsProvider.overrideWith((ref, q) {
+        ref.watch(revision);
+        loads++;
+        return pending.future;
+      }),
+      dashboardLocalOverlayTransactionsProvider.overrideWith((ref, q) => []),
+      recurringOccurrenceProjectionResolutionProvider.overrideWith(
+          (ref, q) => const RecurringOccurrenceProjectionResolution()),
+    ]);
+    addTearDown(container.dispose);
+    container.listen(dashboardCalendarTransactionsProvider(query), (_, __) {});
+    container.listen(budgetCompanionDataProvider, (_, __) {});
+    expect(container.read(budgetCompanionDataProvider).categories.hasValue,
+        isFalse);
+    pending.complete([_entry('one', 'food', 1000)]);
+    await container.read(dashboardCalendarTransactionsProvider(query).future);
+    await container.pump();
+    for (var index = 0; index < 10; index++) {
+      pending = Completer<List<ExpenseEntry>>();
+      container.read(revision.notifier).state++;
+      await container.pump();
+      final source =
+          container.read(dashboardCalendarTransactionsProvider(query));
+      expect(source.isReloading, isTrue);
+      expect(source.hasValue, isTrue);
+      expect(
+          container
+              .read(spendingScopedActualTransactionsProvider(query))
+              .hasValue,
+          isTrue);
+      final data = container.read(budgetCompanionDataProvider);
+      expect(data.categories.hasValue, isTrue,
+          reason: 'reload $index must not replace the chart with a skeleton');
+      expect(data.categories.requireValue.single.amount, 10 + index);
+      expect(data.summary.requireValue.spent, 10 + index);
+      expect(data.isRefreshing, isTrue);
+      expect(loads, index + 2);
+      pending.complete([_entry('one', 'food', 1100 + index * 100)]);
+      await container.read(dashboardCalendarTransactionsProvider(query).future);
+      await container.pump();
+      expect(container.read(budgetCompanionDataProvider).isRefreshing, isFalse);
+    }
+    expect(loads, 11);
+  });
+
+  for (final mode in HomePeriodMode.values) {
+    test('cached period reload retains mapped card values in ${mode.name}', () {
+      final query = DashboardScopeQuery(
+          userId: 'user-1',
+          householdId: null,
+          selectedCurrency: 'USD',
+          startDate: DateTime(2026, 4),
+          endDate: DateTime(2026, 4, 30));
+      final request = BudgetCompanionRequest(
+          query: query,
+          currency: 'USD',
+          mode: mode,
+          pocketsScope: PocketsScopeParams(
+              scope: PocketsScopeType.personal,
+              periodMonth: DateTime(2026, 4),
+              currency: 'USD'));
+      final loaded = AsyncData(summarizeTransactionsInCurrency(
+          [_entry('one', 'food', 1000)],
+          targetCurrency: 'USD',
+          rates: const CurrencyRateTable(
+              baseCurrency: 'USD', rates: {'USD': 1}, isStale: false)));
+      final period =
+          StateProvider<AsyncValue<TransactionsFeedSummary>>((ref) => loaded);
+      final container = ProviderContainer(overrides: [
+        budgetCompanionRequestProvider.overrideWithValue(request),
+        budgetCompanionPeriodSummaryProvider
+            .overrideWith((ref, q) => ref.watch(period)),
+        budgetCompanionMonthlySummaryProvider.overrideWith((ref, p) =>
+            const AsyncData(BudgetCompanionSummary(spent: 10, budget: 100))),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(budgetCompanionDataProvider, (_, __) {});
+      container.read(period.notifier).state =
+          const AsyncLoading<TransactionsFeedSummary>()
+              .copyWithPrevious(loaded, isRefresh: false);
+      final data = container.read(budgetCompanionDataProvider);
+      expect(data.categories.hasValue, isTrue);
+      expect(data.categories.requireValue.single.amount, 10);
+      expect(data.summary.requireValue.spent, 10);
+      expect(data.isRefreshing, isTrue);
+    });
+  }
+
   BudgetCompanionSummary summary(double spent, {double? budget = 100}) =>
       BudgetCompanionSummary(spent: spent, budget: budget);
 

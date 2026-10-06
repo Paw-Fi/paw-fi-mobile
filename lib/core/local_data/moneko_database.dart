@@ -573,6 +573,24 @@ class MonekoDatabase {
     return changed;
   }
 
+  Future<bool> cancelAiInput(LocalMutationOutboxData mutation) async {
+    _db.execute('''
+      UPDATE local_mutation_outbox
+      SET status = ?, last_error = NULL, retry_after = NULL, updated_at = ?
+      WHERE client_mutation_id = ? AND payload_json = ?
+        AND entity_type = 'ai_input' AND operation = 'analyze_ai_input'
+        AND status = 'awaiting_ai'
+    ''', [
+      localMutationStatusCancelled,
+      _instant(DateTime.now().toUtc()),
+      mutation.clientMutationId,
+      mutation.payloadJson,
+    ]);
+    final changed = _lastStatementChangedRow();
+    if (changed) _aiInputChanges.add(null);
+    return changed;
+  }
+
   Future<bool> hasOtherPendingReceiptReference({
     required String path,
     required String clientMutationId,

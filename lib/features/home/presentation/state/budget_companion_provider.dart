@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/utils/async_value_extensions.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
@@ -154,11 +155,11 @@ final budgetCompanionPeriodSummaryProvider = Provider.autoDispose
       : const CurrencyRateTable(
           baseCurrency: 'USD', rates: CurrencyRates.rates, isStale: true);
   try {
-    return AsyncData(summarizeTransactionsInCurrency(
-      [...actualExpenses, ...projected],
-      targetCurrency: currency,
-      rates: rates,
-    ));
+    return actual.whenDataWithPrevious((_) => summarizeTransactionsInCurrency(
+          [...actualExpenses, ...projected],
+          targetCurrency: currency,
+          rates: rates,
+        ));
   } catch (error, stack) {
     return AsyncError(error, stack);
   }
@@ -246,13 +247,14 @@ final budgetCompanionDataProvider =
         summary: AsyncLoading(), categories: AsyncLoading());
   }
   final period = ref.watch(budgetCompanionPeriodSummaryProvider(request.query));
-  final categories = period.whenData((summary) => budgetCompanionCategories({
-        for (final item in summary.categorySummaries)
-          item.category: item.amount,
-      }));
+  final categories =
+      period.whenDataWithPrevious((summary) => budgetCompanionCategories({
+            for (final item in summary.categorySummaries)
+              item.category: item.amount,
+          }));
   if (request.mode == HomePeriodMode.daily) {
     return BudgetCompanionData(
-      summary: period.whenData(
+      summary: period.whenDataWithPrevious(
           (value) => BudgetCompanionSummary(spent: value.expenseTotal)),
       categories: categories,
       isRefreshing: period.isLoading && period.hasValue,
@@ -263,6 +265,7 @@ final budgetCompanionDataProvider =
   return BudgetCompanionData(
     summary: current,
     categories: categories,
-    isRefreshing: current.isLoading && current.hasValue,
+    isRefreshing: (current.isLoading && current.hasValue) ||
+        (categories.isLoading && categories.hasValue),
   );
 });

@@ -45,6 +45,8 @@ Future<void> _pump(
   HomePeriodMode mode = HomePeriodMode.monthly,
   VoidCallback? onBudgetTap,
   VoidCallback? onRetry,
+  bool disableAnimations = true,
+  Duration pumpDuration = const Duration(milliseconds: 300),
 }) async {
   tester.view.physicalSize = Size(width, 1000);
   tester.view.devicePixelRatio = 1;
@@ -59,7 +61,7 @@ Future<void> _pump(
         data: MediaQueryData(
           size: Size(width, 1000),
           textScaler: TextScaler.linear(scale),
-          disableAnimations: true,
+          disableAnimations: disableAnimations,
         ),
         child: Scaffold(
             body: SingleChildScrollView(
@@ -73,10 +75,44 @@ Future<void> _pump(
               onRetry: onRetry ?? () {}),
         )))),
   ));
-  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pump(pumpDuration);
 }
 
 void main() {
+  testWidgets(
+      'animated cached reloads keep the mounted chart and scroll offset',
+      (tester) async {
+    final cached = _data();
+    await _pump(tester, cached, disableAnimations: false);
+    await tester.pump(const Duration(milliseconds: 300));
+    final chart = find.byKey(const ValueKey('budget-companion-categories'));
+    await tester.drag(chart, const Offset(-100, 0));
+    await tester.pumpAndSettle();
+    final element = tester.element(chart);
+    final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: chart, matching: find.byType(Scrollable)));
+    final offset = scrollable.position.pixels;
+    expect(offset, greaterThan(0));
+    for (var index = 0; index < 10; index++) {
+      await _pump(
+          tester,
+          BudgetCompanionData(
+              summary: const AsyncLoading<BudgetCompanionSummary>()
+                  .copyWithPrevious(cached.summary, isRefresh: false),
+              categories: const AsyncLoading<List<BudgetCompanionCategory>>()
+                  .copyWithPrevious(cached.categories, isRefresh: false),
+              isRefreshing: true),
+          disableAnimations: false,
+          pumpDuration: const Duration(milliseconds: 100));
+      expect(tester.element(chart), same(element));
+      expect(scrollable.position.pixels, offset);
+      expect(find.byType(BudgetCompanionSkeleton), findsNothing);
+      await _pump(tester, cached, disableAnimations: false);
+      expect(tester.element(chart), same(element));
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   test('semantic message colors remain readable in both themes', () {
     for (final theme in [AppTheme.lightTheme(), AppTheme.darkTheme()]) {
       final colors = theme.colorScheme;
@@ -101,7 +137,7 @@ void main() {
       (tester) async {
     await _pump(tester, _data());
     expect(find.text(r'$1,842'), findsOneWidget);
-    expect(find.text(r'spent of $3,000'), findsOneWidget);
+    expect(find.text(r'spent out of $3,000'), findsOneWidget);
     expect(find.text('61%'), findsOneWidget);
     expect(find.text(r'$1,158 left'), findsOneWidget);
     expect(find.text('8% less than last month'), findsNothing);
@@ -220,7 +256,7 @@ void main() {
     (60.0, 'cheering', "Nice! You're on track."),
     (80.0, 'confused', 'Getting close!'),
     (100.0, 'confused', 'Getting close!'),
-    (108.0, 'crying', 'Oops! We went over this month.'),
+    (108.0, 'crying', 'Oops! We went over budget this month.'),
   ]) {
     testWidgets('mascot, message and progress at ${sample.$1}%',
         (tester) async {
@@ -253,7 +289,7 @@ void main() {
       (tester) async {
     var opened = false;
     await _pump(tester, _data(budget: null), onBudgetTap: () => opened = true);
-    expect(find.text('No budget configured'), findsOneWidget);
+    expect(find.text('No budget set yet'), findsOneWidget);
     expect(find.text("Let's make a plan!"), findsOneWidget);
     expect(
         find.byKey(const ValueKey('budget-companion-percent')), findsNothing);
@@ -283,7 +319,7 @@ void main() {
       (tester) async {
     await _pump(tester, _data(spent: 92, budget: null),
         mode: HomePeriodMode.daily);
-    expect(find.text('spent this day'), findsOneWidget);
+    expect(find.text('spent today'), findsOneWidget);
     expect(find.text('8% less than the previous day'), findsNothing);
     expect(
         find.byKey(const ValueKey('budget-companion-progress')), findsNothing);

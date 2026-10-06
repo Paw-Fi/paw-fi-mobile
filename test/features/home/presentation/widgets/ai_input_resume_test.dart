@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
@@ -21,6 +23,7 @@ import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _Auth extends Auth {
   @override
@@ -85,6 +88,138 @@ Map<String, dynamic> _item(String currency, String wallet,
     };
 
 void main() {
+  late Future<http.Response> Function(http.Request) requestHandler;
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await Supabase.initialize(
+        url: 'http://localhost',
+        anonKey: 'anon',
+        authOptions: const FlutterAuthClientOptions(
+            localStorage: EmptyLocalStorage(), detectSessionInUri: false),
+        httpClient: MockClient((request) => requestHandler(request)));
+  });
+
+  for (final scenario in [
+    'cancel',
+    'dismiss',
+    'owner-change',
+    'retryable',
+    'offline'
+  ]) {
+    final cancel = scenario == 'cancel';
+    testWidgets(
+        'resumed analysis $scenario preserves durable capture ownership',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      final root = Directory.systemTemp.createTempSync('moneko-ai-cancel-');
+      final database = MonekoDatabase.inMemory();
+      final repository =
+          AiInputCaptureRepository(database, directory: () async => root);
+      final capture = (await tester.runAsync(() => repository.capture(
+          userId: 'owner',
+          body: {'userId': 'owner', 'text': '買い物５０円'},
+          target: {'accountType': 'personal'})))!;
+      var requests = 0;
+      requestHandler = (request) async {
+        expect(request.url.path, '/functions/v1/analyze-expense');
+        requests++;
+        return http.Response(
+            jsonEncode({'success': false}), scenario == 'retryable' ? 503 : 200,
+            headers: {'content-type': 'application/json'});
+      };
+      final container = ProviderContainer(overrides: [
+        authProvider.overrideWith(_Auth.new),
+        sharedPreferencesProvider.overrideWithValue(preferences),
+        appUserContactProvider.overrideWithValue(null),
+        localDatabaseProvider.overrideWith((ref) async => database),
+        aiInputCaptureRepositoryProvider
+            .overrideWith((ref) async => repository),
+        networkReachabilityProvider
+            .overrideWith((ref) => Stream.value(scenario != 'offline')),
+        mobileOutboxDrainerProvider.overrideWith((ref) => _PausedDrainer()),
+        appLockControllerProvider.overrideWith((ref) => AppLockController(
+            userId: 'owner',
+            repository: AppLockRepository(store: _Store()),
+            hasher: AppLockPasscodeHasher(),
+            biometricService: _Biometrics(),
+            isEnabledFlagSet: false,
+            setEnabledFlag: (_) async {})),
+      ]);
+      addTearDown(() async {
+        container.dispose();
+        await database.close();
+        root.deleteSync(recursive: true);
+      });
+      late BuildContext mountedContext;
+      late WidgetRef mountedRef;
+      await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Consumer(builder: (context, ref, _) {
+                mountedContext = context;
+                mountedRef = ref;
+                return const Scaffold(body: SizedBox());
+              }))));
+      await tester.pump();
+      await container.read(networkReachabilityProvider.future);
+      late Future<void> processing;
+      await tester.runAsync(() async {
+        processing = resumePendingAiInputs(mountedContext, mountedRef);
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pump(const Duration(milliseconds: 300));
+      final l10n = AppLocalizations.of(mountedContext)!;
+      final showsDialog = scenario != 'offline' && scenario != 'retryable';
+      for (var attempt = 0;
+          showsDialog &&
+              attempt < 20 &&
+              find.text(l10n.failedToAnalyze).evaluate().isEmpty;
+          attempt++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      if (showsDialog) {
+        expect(find.text(l10n.failedToAnalyze), findsOneWidget);
+        if (scenario == 'owner-change') {
+          (container.read(authProvider.notifier) as _Auth).changeUser();
+          await tester.pump();
+        }
+        if (cancel || scenario == 'owner-change') {
+          await tester.tap(find.text(l10n.cancel));
+        } else {
+          Navigator.of(mountedContext).pop();
+        }
+      } else {
+        expect(find.text(l10n.failedToAnalyze), findsNothing);
+      }
+      await tester.runAsync(() => processing);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(requests, scenario == 'offline' ? 0 : 1);
+      final pending = await repository.pending('owner');
+      expect(pending, cancel ? isEmpty : hasLength(1));
+      expect((await database.getOutboxMutations()).single.status,
+          cancel ? localMutationStatusCancelled : 'awaiting_ai');
+      expect(
+          await database.getRecentTransactions(
+              userId: 'owner', householdId: null),
+          isEmpty);
+      if (cancel) {
+        container.read(aiInputResumeControllerProvider).wake();
+        await tester
+            .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
+        expect(requests, 1);
+      } else {
+        expect(pending.single.id, capture.id);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   testWidgets(
       'resumed ready result uses the Home save contract and cannot materialize twice',
       (tester) async {

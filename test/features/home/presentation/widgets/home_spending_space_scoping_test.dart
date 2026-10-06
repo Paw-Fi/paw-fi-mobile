@@ -183,14 +183,14 @@ void main() {
     await settleData();
     expect(find.text('€840'), findsWidgets);
     expect(find.text('€84/day'), findsOneWidget);
-    expect(find.text('spent of €3,000'), findsOneWidget);
+    expect(find.text('spent out of €3,000'), findsOneWidget);
     expect(find.text('8% from last month'), findsOneWidget);
 
     container.read(selected.notifier).state = scope(privateId);
     await settleData();
     expect(find.text('€210'), findsWidgets);
     expect(find.text('€21/day'), findsOneWidget);
-    expect(find.text('spent of €2,000'), findsOneWidget);
+    expect(find.text('spent out of €2,000'), findsOneWidget);
     expect(find.text('30% from last month'), findsOneWidget);
     expect(find.text('€840'), findsNothing);
 
@@ -198,7 +198,7 @@ void main() {
     await settleData();
     expect(find.text('€420'), findsWidgets);
     expect(find.text('€42/day'), findsOneWidget);
-    expect(find.text('spent of €1,000'), findsOneWidget);
+    expect(find.text('spent out of €1,000'), findsOneWidget);
     expect(find.text('8% from last month'), findsOneWidget);
     expect(find.text('€210'), findsNothing);
     expect(loads.values.every((count) => count == 1), isTrue,

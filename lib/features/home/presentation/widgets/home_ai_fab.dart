@@ -2540,6 +2540,11 @@ Future<void> _processExpense(
             confirmLabel: context.l10n.retry,
             cancelLabel: context.l10n.cancel,
           );
+          if (result?.action == MonekoAlertDialogAction.cancel &&
+              ownsCapture() &&
+              capture != null) {
+            await captureRepository!.cancel(capture!);
+          }
           return result?.confirmed == true;
         },
       );

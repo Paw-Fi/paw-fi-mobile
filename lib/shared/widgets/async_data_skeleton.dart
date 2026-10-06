@@ -21,7 +21,10 @@ class AsyncRefreshStrip extends StatelessWidget {
         curve: Curves.easeInOut,
         child: ExcludeSemantics(
           excluding: !isRefreshing,
-          child: const LinearProgressIndicator(minHeight: 2),
+          child: TickerMode(
+            enabled: isRefreshing,
+            child: const LinearProgressIndicator(minHeight: 2),
+          ),
         ),
       ),
     );

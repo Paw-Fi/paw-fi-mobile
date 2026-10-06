@@ -154,6 +154,71 @@ void main() {
     expect(restored.payload, asked.payload);
   });
 
+  test('explicit cancellation survives disk reopen and removes captured media',
+      () async {
+    final saved = await capture({
+      'audio': {
+        'data': base64Encode([1, 2, 3]),
+        'contentType': 'audio/aac'
+      }
+    });
+    final changed = database.aiInputChanges.first;
+    await repository.cancel(saved);
+    await changed;
+    expect(await Directory('${root.path}/media/${saved.id}').exists(), isFalse);
+    await reopen();
+    expect(await repository.pending('owner'), isEmpty);
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusCancelled);
+    expect(
+        await database.nextRetryableMutation(DateTime.now().toUtc()), isNull);
+    expect(await database.holdAiInputForForeground(saved.mutation), isFalse);
+    await expectLater(
+        repository.checkpoint(saved, {'answers': []}), throwsStateError);
+    expect(
+        await database.getRecentTransactions(
+            userId: 'owner', householdId: null),
+        isEmpty);
+  });
+
+  test('stale cancellation cannot discard a newer checkpoint or its media',
+      () async {
+    final original = await capture({
+      'image': {
+        'data': base64Encode([1, 2, 3]),
+        'contentType': 'image/png'
+      }
+    });
+    final newer = await repository.checkpoint(original, {
+      'answers': [
+        {'question': 'どの財布？', 'answer': '私の財布'}
+      ]
+    });
+    await expectLater(repository.cancel(original), throwsStateError);
+    await reopen();
+    final restored = (await repository.pending('owner')).single;
+    expect(restored.payload, newer.payload);
+    expect((await repository.requestBody(restored))['image'], {
+      'data': base64Encode([1, 2, 3]),
+      'contentType': 'image/png'
+    });
+    await repository.cancel(restored);
+    await reopen();
+    expect(await repository.pending('owner'), isEmpty);
+  });
+
+  test('media cleanup failure cannot make a cancelled capture retryable',
+      () async {
+    final saved = await capture();
+    repository = AiInputCaptureRepository(database,
+        directory: () async => throw const FileSystemException('unavailable'));
+    await repository.cancel(saved);
+    await reopen();
+    expect(await repository.pending('owner'), isEmpty);
+    expect((await database.getOutboxMutations()).single.status,
+        localMutationStatusCancelled);
+  });
+
   test(
       'ready groups atomically hand off, skip replayed groups and finish after disk reopen',
       () async {

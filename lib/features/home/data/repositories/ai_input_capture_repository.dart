@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math';
 
@@ -160,6 +161,19 @@ class AiInputCaptureRepository {
     }
     return (await pending(capture.userId))
         .firstWhere((item) => item.id == capture.id);
+  }
+
+  Future<void> cancel(AiInputCapture capture) async {
+    if (!await database.cancelAiInput(capture.mutation)) {
+      throw StateError('AI capture changed before cancellation');
+    }
+    try {
+      await removeMaterializedMedia(capture);
+    } catch (error, stack) {
+      // Cleanup failure must not turn a committed cancellation into a retry.
+      developer.log('Could not clean cancelled AI capture media',
+          name: 'AiInputCaptureRepository', error: error, stackTrace: stack);
+    }
   }
 
   Future<Map<String, dynamic>> requestBody(AiInputCapture capture) async {

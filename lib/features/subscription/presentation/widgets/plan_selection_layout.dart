@@ -29,9 +29,9 @@ class PlanSelectionLayout extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            top: 148,
             child: ExcludeSemantics(
               child: SvgPicture.asset(scheme.planSelectionBackgroundAsset,
+                  key: const ValueKey('plan-selection-background'),
                   fit: BoxFit.fill),
             ),
           ),

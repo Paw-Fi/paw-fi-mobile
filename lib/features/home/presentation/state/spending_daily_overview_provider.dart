@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/utils/async_value_extensions.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/financial_period.dart';
@@ -118,7 +119,7 @@ final spendingScopedActualTransactionsProvider = Provider.autoDispose
         startDate: query.startDate!,
         endDate: query.endDate!),
   ));
-  return source.whenData((base) {
+  return source.whenDataWithPrevious((base) {
     final merged = mergeDashboardTransactionsWithLocalOverlay(
         base: base, localOverlay: overlay, query: query);
     final byId = <String, ExpenseEntry>{
@@ -181,7 +182,7 @@ final spendingDailyOverviewProvider = Provider.autoDispose
           const CurrencyRateTable(
               baseCurrency: 'USD', rates: CurrencyRates.rates, isStale: true)
       : null;
-  return current.whenData((entries) => SpendingDailyOverview(
+  return current.whenDataWithPrevious((entries) => SpendingDailyOverview(
         dailyAverage: calculateDailySpendingAverage(entries,
             start: request.query.startDate!,
             end: request.query.endDate!,
@@ -189,7 +190,7 @@ final spendingDailyOverviewProvider = Provider.autoDispose
             currency: request.currency,
             rates: rates),
         transactions: entries,
-        previousAverage: previous.whenData((entries) =>
+        previousAverage: previous.whenDataWithPrevious((entries) =>
             calculateDailySpendingAverage(entries,
                 start: request.previousStart,
                 end: request.previousEnd,

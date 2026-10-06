@@ -274,7 +274,10 @@ void main() {
         await tester.pumpWidget(_card([_entry('one')],
             dark: dark, locale: locale, width: 280, scale: 2));
         await tester.pump(const Duration(milliseconds: 900));
-        expect(find.text('€42/day'), findsOneWidget);
+        final localization =
+            AppLocalizations.of(tester.element(find.byType(SpendingCard)))!;
+        expect(
+            find.text(localization.spendingDailyPerDay('€42')), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }
