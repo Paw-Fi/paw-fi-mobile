@@ -202,21 +202,3 @@ extension PlaidClassificationReviewL10nX on AppLocalizations {
         _ => plaidExcludeFromBudget,
       };
 }
-
-/// English fallback until the Plus intro catalog entries are exported.
-extension PlusIntroL10nX on AppLocalizations {
-  String get plusIntroTitle => 'Unlock Moneko Plus';
-  String get plusIntroFamily => 'One subscription for the whole family';
-  String get plusIntroMessaging => 'WhatsApp & Telegram tracking';
-  String get plusIntroAiCapture => 'Unlimited AI expense capture';
-  String get plusIntroSpacesWallets => 'Unlimited Spaces & Wallets';
-  String get plusIntroCurrency => 'Multi-currency & live rates';
-  String get plusIntroBankSync => 'Bank sync (US & Canada)';
-  String get plusIntroSeeAllPlans => 'See all plans';
-  String plusIntroYearlyPrice(String annual, String monthly) =>
-      '$annual per year ($monthly/month)';
-}
-
-extension PlanSelectionL10nX on AppLocalizations {
-  String get planSelectionTitle => 'Money smarter with\nMoneko Plus';
-}

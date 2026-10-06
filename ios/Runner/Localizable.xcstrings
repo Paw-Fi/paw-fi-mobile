@@ -95,6 +95,50 @@
           }
         }
       }
+    },
+    "siriLogExpensePrompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What did you spend? You can include the currency, merchant, date, time, Space and wallet."
+          }
+        }
+      }
+    },
+    "siriLogIncomePrompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What income did you receive? You can include the currency, source, date, time, Space and wallet."
+          }
+        }
+      }
+    },
+    "siriLogExpenseDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe the amount, currency, merchant, date, time, Space and wallet in one sentence."
+          }
+        }
+      }
+    },
+    "siriLogIncomeDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe the amount, currency, source, date, time, Space and wallet in one sentence."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -9,6 +9,7 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/util/constants.dart';
+import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -31,6 +32,23 @@ final iosWalletCaptureSyncProvider =
     if (disposed || ref.read(authProvider).uid != userId) return;
     ref.read(iosWalletCaptureSyncRevisionProvider.notifier).state += 1;
   });
+  void publishFailure(({String id, String userId}) failure) {
+    if (disposed || ref.read(authProvider).uid != failure.userId) return;
+    ref.read(appMutationErrorProvider.notifier).state = AppMutationErrorEvent(
+      id: failure.id,
+      feature: 'transaction',
+    );
+    service.acknowledgeSiriFailure(failure.id);
+  }
+
+  final failures = service.siriCapturesFailed.listen(publishFailure);
+  // Auth/startup replay can finish before MainShell subscribes to the stream.
+  // Publish on the next event turn, after the mounted shell installs its toast
+  // listener; preserve the actor check if auth changes while waiting.
+  for (final failure
+      in service.pendingSiriFailures(ref.read(authProvider).uid)) {
+    unawaited(Future<void>(() => publishFailure(failure)));
+  }
 
   Future<void> drain(String userId) async {
     if (disposed ||
@@ -75,6 +93,7 @@ final iosWalletCaptureSyncProvider =
     disposed = true;
     timer.cancel();
     unawaited(subscription.cancel());
+    unawaited(failures.cancel());
   });
   return drain;
 });

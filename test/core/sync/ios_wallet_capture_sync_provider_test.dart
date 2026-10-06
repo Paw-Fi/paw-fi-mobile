@@ -11,6 +11,7 @@ import 'package:moneko/core/app/user_financial_cache_cleanup.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/sync/ios_wallet_capture_sync_provider.dart';
+import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -84,6 +85,78 @@ SUPABASE_ANON_KEY=anon-key
     debugDefaultTargetPlatformOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+  });
+
+  test('terminal Siri replay rejection emits an app-level error for its actor',
+      () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'syncPendingWalletCaptures') {
+        return {
+          'synced': 0,
+          'remaining': 0,
+          'failedSiriCaptures': [
+            {'id': 'siri-capture-1', 'userId': 'user-1'},
+          ],
+        };
+      }
+      return null;
+    });
+    mountSyncProvider();
+    await container.read(iosWalletCaptureSyncProvider)('user-1');
+    await pumpEventQueue();
+    expect(container.read(appMutationErrorProvider)?.id, 'siri-capture-1');
+    expect(container.read(appMutationErrorProvider)?.feature, 'transaction');
+    expect(container.read(iosWalletCaptureSyncRevisionProvider), 0);
+  });
+
+  test('terminal Siri replay errors from another actor are ignored', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'syncPendingWalletCaptures') {
+        return {
+          'synced': 0,
+          'remaining': 0,
+          'failedSiriCaptures': [
+            {'id': 'siri-capture-2', 'userId': 'user-2'},
+          ],
+        };
+      }
+      return null;
+    });
+    mountSyncProvider();
+    await container.read(iosWalletCaptureSyncProvider)('user-1');
+    await pumpEventQueue();
+    expect(container.read(appMutationErrorProvider), isNull);
+  });
+
+  test('startup Siri failure survives until the shell mounts', () async {
+    final service = SiriShortcutAuthService.instance;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'syncPendingWalletCaptures') {
+        return {
+          'synced': 0,
+          'failedSiriCaptures': [
+            {'id': 'startup-siri-failure', 'userId': 'user-1'},
+          ],
+        };
+      }
+      return null;
+    });
+    await service.syncPendingWalletCapturesWithCurrentSession(
+      auth: auth,
+      supabaseUrl: 'https://example.supabase.co',
+      supabaseAnonKey: 'anon-key',
+      userId: 'user-1',
+    );
+    expect(service.pendingSiriFailures('user-1').map((event) => event.id),
+        contains('startup-siri-failure'));
+    mountSyncProvider();
+    await pumpEventQueue();
+    expect(
+        container.read(appMutationErrorProvider)?.id, 'startup-siri-failure');
+    expect(service.pendingSiriFailures('user-1'), isEmpty);
   });
 
   test('retries queued offline captures while foregrounded', () {

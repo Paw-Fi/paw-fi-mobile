@@ -74,6 +74,47 @@ void main() {
       service.initializeSessionBridge(authReady: () async => auth);
     });
 
+    Future<void> notifySaved(String userId) async {
+      final completed = Completer<void>();
+      ServicesBinding.instance.channelBuffers.push(
+        channel.name,
+        channel.codec.encodeMethodCall(MethodCall(
+          'siriTransactionsSaved',
+          {'userId': userId},
+        )),
+        (data) {
+          try {
+            channel.codec.decodeEnvelope(data!);
+            completed.complete();
+          } catch (error, stack) {
+            completed.completeError(error, stack);
+          }
+        },
+      );
+      await completed.future;
+    }
+
+    test('online Siri save publishes a reconciliation event for its actor',
+        () async {
+      final events = <String>[];
+      final listener = service.walletCapturesSynced.listen(events.add);
+      addTearDown(listener.cancel);
+      await notifySaved('user-1');
+      await pumpEventQueue();
+      expect(events, ['user-1']);
+      verifyNever(() => auth.refreshSession());
+    });
+
+    test('online Siri save from a previous actor cannot refresh current data',
+        () async {
+      final events = <String>[];
+      final listener = service.walletCapturesSynced.listen(events.add);
+      addTearDown(listener.cancel);
+      await notifySaved('user-2');
+      await pumpEventQueue();
+      expect(events, isEmpty);
+    });
+
     test('returns a usable access token without exporting a refresh token',
         () async {
       expect(await request(), {

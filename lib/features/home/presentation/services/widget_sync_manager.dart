@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/services/widget_service.dart';
+import 'package:moneko/core/sync/ios_siri_transaction_defaults_provider.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
@@ -104,6 +105,7 @@ class WidgetSyncManager extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(iosSiriTransactionDefaultsSyncProvider);
     final user = ref.watch(authProvider);
 
     // Watch app initialization state to ensure we don't sync before ready

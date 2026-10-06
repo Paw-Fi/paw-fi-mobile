@@ -14,6 +14,7 @@ private enum AppStoreCommitmentChannel {
 private enum SiriShortcutChannel {
   static let name = "moneko/siri_shortcut_auth"
   static let syncAuthContext = "syncAuthContext"
+  static let syncTransactionDefaults = "syncTransactionDefaults"
   static let getStatus = "getStatus"
   static let clearAuthContext = "clearAuthContext"
   static let getWalletCaptureDebugReport = "getWalletCaptureDebugReport"
@@ -210,570 +211,385 @@ private func resolveSiriScope(_ rawValue: String?) -> SiriShortcutScopeResolutio
   return fallback
 }
 
+struct SiriPreparedTransaction {
+  let endpoint: String
+  let body: [String: Any]
+  let idempotencyKey: String
+}
+
+struct SiriTransactionClockIssue: Error {
+  let itemIndex: Int
+  let reason: String
+
+  var payload: [String: Any] {
+    ["itemIndex": itemIndex, "field": "transactionTime", "reason": reason]
+  }
+}
+
+struct SiriTransactionSaveOutcome {
+  var saved = 0
+  var queued = 0
+  var failures: [String] = []
+}
+
+/// Last app selection, stored atomically and isolated by authenticated owner.
 @available(iOS 16.0, watchOS 9.0, *)
-private func extractSiriScopeFromExpenseText(
-  _ rawText: String
-) -> SiriShortcutResolvedIntentInput? {
-  let spaces = loadStoredSpaces()
-    .filter { !$0.isPersonal }
-    .sorted { $0.name.count > $1.name.count }
-  guard !spaces.isEmpty else {
-    return nil
+struct SiriTransactionDefaults {
+  let userId: String
+  let currency: String
+  let spaceId: String
+  let isPortfolio: Bool
+  let accountId: String?
+
+  static func resolve(
+    _ payload: [String: Any], expectedUserId: String,
+    previous: SiriTransactionDefaults? = nil
+  ) -> SiriTransactionDefaults? {
+    guard (payload["version"] as? Int) == 1,
+          let userId = payload["userId"] as? String, !userId.isEmpty,
+          userId == expectedUserId,
+          let rawCurrency = payload["currency"] as? String,
+          let currency = normalizeSiriCurrencyCode(rawCurrency),
+          let spaceId = payload["spaceId"] as? String,
+          spaceId == "personal" || UUID(uuidString: spaceId) != nil,
+          let isPortfolio = payload["isPortfolio"] as? Bool,
+          spaceId != "personal" || !isPortfolio,
+          let walletsReady = payload["walletsReady"] as? Bool else { return nil }
+    let accountId = payload["accountId"] as? String
+    if let accountId, UUID(uuidString: accountId) == nil { return nil }
+    // A refresh without a new wallet value cannot erase a matching cached
+    // default. A changed actor, Space or currency must never inherit it.
+    let retainedAccountId = !walletsReady && accountId == nil &&
+      previous?.userId == userId && previous?.spaceId == spaceId && previous?.currency == currency
+      ? previous?.accountId : nil
+    return SiriTransactionDefaults(userId: userId, currency: currency,
+      spaceId: spaceId, isPortfolio: isPortfolio, accountId: accountId ?? retainedAccountId)
   }
 
-  for space in spaces {
-    let nameVariants = [
-      space.name,
-      space.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-    ]
-    let escapedNamePattern = Set(nameVariants)
-      .map(NSRegularExpression.escapedPattern(for:))
-      .joined(separator: "|")
-    let pattern = "\\s+(?:in|into|under)\\s+(?:(?:the|my)\\s+)?(?:\(escapedNamePattern))(?:\\s+(?:space|account))?[\\p{P}\\s]*$"
-    guard let regex = try? NSRegularExpression(
-      pattern: pattern,
-      options: [.caseInsensitive]
-    ) else {
-      continue
+  var payload: [String: Any] {
+    var value: [String: Any] = ["version": 1, "userId": userId,
+      "currency": currency, "spaceId": spaceId, "isPortfolio": isPortfolio,
+      "walletsReady": true]
+    if let accountId { value["accountId"] = accountId }
+    return value
+  }
+
+  static func load(expectedUserId: String, defaults: UserDefaults? = UserDefaults(suiteName: SiriShortcutKeys.appGroupId)) -> SiriTransactionDefaults? {
+    guard let payload = defaults?.dictionary(forKey: SiriShortcutKeys.transactionDefaults) else { return nil }
+    return resolve(payload, expectedUserId: expectedUserId)
+  }
+}
+
+/// Consumes only the backend's verified, versioned machine contract. Spoken
+/// currency, destination, dates and names are interpreted by the multilingual AI.
+@available(iOS 16.0, watchOS 9.0, *)
+enum SiriTransactionCapture {
+  static func analysisBody(
+    text: String, userId: String, typeHint: String,
+    defaults: SiriTransactionDefaults?, currencyCode: String? = nil,
+    spaceId: String? = nil, isPortfolio: Bool = false
+  ) throws -> [String: Any] {
+    let defaults = defaults?.userId == userId ? defaults : nil
+    var currency = defaults?.currency
+    if let currencyCode, !currencyCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      guard let normalized = normalizeSiriCurrencyCode(currencyCode) else { throw SiriShortcutIntentError.invalidCurrency }
+      currency = normalized
     }
-
-    let fullRange = NSRange(rawText.startIndex..<rawText.endIndex, in: rawText)
-    guard let match = regex.firstMatch(in: rawText, options: [], range: fullRange),
-          let matchRange = Range(match.range, in: rawText) else {
-      continue
+    let selectedSpaceId = spaceId ?? defaults?.spaceId ?? "personal"
+    var body: [String: Any] = ["userId": userId, "text": text, "typeHint": typeHint,
+      "language": detectSiriInputLanguage(for: text)]
+    if let currency { body["currency"] = currency }
+    if selectedSpaceId != "personal" {
+      body["householdId"] = selectedSpaceId
+      body["isPortfolio"] = spaceId == nil ? defaults?.isPortfolio ?? false : isPortfolio
     }
+    if selectedSpaceId == defaults?.spaceId, currency == defaults?.currency,
+       let accountId = defaults?.accountId { body["accountId"] = accountId }
+    // These are caller defaults, never explicitFields. The existing semantic
+    // contract applies each spoken override independently and verifies access.
+    return body
+  }
 
-    let cleanedText = rawText[..<matchRange.lowerBound]
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !cleanedText.isEmpty else {
-      continue
+  static func enqueue(
+    _ captures: [SiriPreparedTransaction], userId: String,
+    load: () -> [[String: Any]], save: ([[String: Any]]) -> Bool
+  ) -> Bool {
+    var records = load()
+    let keys = Set(records.compactMap { $0["idempotencyKey"] as? String })
+    let newCaptures = captures.filter { !keys.contains($0.idempotencyKey) }
+    guard records.count + newCaptures.count <= 100 else { return false }
+    for capture in newCaptures {
+      records.append([
+        "id": UUID().uuidString, "idempotencyKey": capture.idempotencyKey, "userId": userId,
+        "merchantName": "Siri transaction", "amount": capture.body["amount"] ?? 0,
+        "endpoint": capture.endpoint, "queuedAt": makeDiagnosticsTimestamp(),
+        "attemptCount": 0, "body": capture.body
+      ])
     }
-
-    return SiriShortcutResolvedIntentInput(
-      expenseText: cleanedText,
-      scope: SiriShortcutScopeResolution(
-        householdId: space.id,
-        isPortfolio: space.isPortfolio
-      )
-    )
+    return save(records)
   }
 
-  return nil
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func resolveSiriTransactionInput(
-  expenseText: String,
-  scopeName: String?
-) -> SiriShortcutResolvedIntentInput {
-  let explicitScope = resolveSiriScope(scopeName)
-  if explicitScope.householdId != nil {
-    return SiriShortcutResolvedIntentInput(expenseText: expenseText, scope: explicitScope)
-  }
-
-  guard let extractedInput = extractSiriScopeFromExpenseText(expenseText) else {
-    return SiriShortcutResolvedIntentInput(expenseText: expenseText, scope: explicitScope)
-  }
-
-  return extractedInput
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func makeSiriTransactionIdempotencyKey(
-  userId: String,
-  text: String,
-  scope: SiriShortcutScopeResolution,
-  typeHint: String
-) -> String {
-  let normalizedText = text
-    .lowercased()
-    .components(separatedBy: .whitespacesAndNewlines)
-    .filter { !$0.isEmpty }
-    .joined(separator: " ")
-  let scopeKey = scope.householdId ?? "personal"
-  let minuteBucket = Int(Date().timeIntervalSince1970 / 60)
-  let raw = "\(userId)|\(scopeKey)|\(typeHint)|\(normalizedText)|\(minuteBucket)"
-  let digest = SHA256.hash(data: Data(raw.utf8))
-  return digest.map { String(format: "%02x", $0) }.joined()
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func reserveSiriTransactionIdempotencySlot(idempotencyKey: String) -> Bool {
-  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
-    return true
-  }
-
-  let now = Int(Date().timeIntervalSince1970)
-  let lastHash = defaults.string(forKey: SiriShortcutKeys.idempotencyHash)
-  let lastTimestamp = defaults.integer(forKey: SiriShortcutKeys.idempotencyTimestamp)
-
-  if lastHash == idempotencyKey && now - lastTimestamp <= 15 {
-    return false
-  }
-
-  defaults.set(idempotencyKey, forKey: SiriShortcutKeys.idempotencyHash)
-  defaults.set(now, forKey: SiriShortcutKeys.idempotencyTimestamp)
-  return true
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func clearSiriTransactionIdempotencySlot(idempotencyKey: String) {
-  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
-    return
-  }
-  let lastHash = defaults.string(forKey: SiriShortcutKeys.idempotencyHash)
-  if lastHash == idempotencyKey {
-    defaults.removeObject(forKey: SiriShortcutKeys.idempotencyHash)
-    defaults.removeObject(forKey: SiriShortcutKeys.idempotencyTimestamp)
-  }
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func analyzeSiriTransactions(
-  text: String,
-  currencyCode: String?,
-  scope: SiriShortcutScopeResolution,
-  typeHint: String,
-  context: SiriShortcutAuthContext
-) async throws -> [[String: Any]] {
-  guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/analyze-expense") else {
-    throw SiriShortcutIntentError.notConfigured
-  }
-
-  var request = URLRequest(url: url)
-  request.httpMethod = "POST"
-  request.timeoutInterval = 25
-  request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-  request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
-  request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-
-  let dateFormatter = DateFormatter()
-  dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-  dateFormatter.timeZone = .current
-  dateFormatter.dateFormat = "yyyy-MM-dd"
-
-  var body: [String: Any] = [
-    "userId": context.userId,
-    "date": dateFormatter.string(from: Date()),
-    "language": detectSiriInputLanguage(for: text),
-    "typeHint": typeHint,
-    "text": text
-  ]
-
-  if let currencyCode, !currencyCode.isEmpty {
-    body["currency"] = currencyCode
-  }
-
-  if let householdId = scope.householdId {
-    body["householdId"] = householdId
-    body["isPortfolio"] = scope.isPortfolio
-  }
-
-  request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-  let data: Data
-  let response: URLResponse
-  do {
-    (data, response) = try await URLSession.shared.data(for: request)
-  } catch {
-    throw SiriShortcutIntentError.networkFailure
-  }
-  guard let httpResponse = response as? HTTPURLResponse else {
-    throw SiriShortcutIntentError.networkFailure
-  }
-  guard (200...299).contains(httpResponse.statusCode) else {
-    throw SiriShortcutIntentError.networkFailure
-  }
-
-  guard
-    let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-    (json["success"] as? Bool) == true,
-    let dataObject = json["data"] as? [String: Any],
-    let items = dataObject["items"] as? [[String: Any]]
-  else {
-    throw SiriShortcutIntentError.noExpenseDetected
-  }
-
-  return items
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func parseSucceededValueForSiri(_ value: Any?) -> Int? {
-  if let intValue = value as? Int {
-    return intValue
-  }
-  if let numberValue = value as? NSNumber {
-    return numberValue.intValue
-  }
-  if let stringValue = value as? String,
-     let intValue = Int(stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) {
-    return intValue
-  }
-  return nil
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func extractSucceededCountForSiri(from json: [String: Any]) -> Int? {
-  if let summary = json["summary"] as? [String: Any],
-     let succeeded = parseSucceededValueForSiri(summary["succeeded"]) {
-    return succeeded
-  }
-
-  if let dataObject = json["data"] as? [String: Any],
-     let summary = dataObject["summary"] as? [String: Any],
-     let succeeded = parseSucceededValueForSiri(summary["succeeded"]) {
-    return succeeded
-  }
-
-  if let results = json["results"] as? [[String: Any]] {
-    return results.reduce(into: 0) { count, item in
-      if (item["success"] as? Bool) == true {
-        count += 1
+  static func dispatch(
+    _ captures: [SiriPreparedTransaction],
+    enqueue: () -> Bool,
+    submit: (SiriPreparedTransaction) async throws -> Void,
+    finish: (String) -> Void
+  ) async throws -> SiriTransactionSaveOutcome {
+    guard enqueue() else { throw SiriShortcutIntentError.offlineSaveFailed }
+    var outcome = SiriTransactionSaveOutcome()
+    for capture in captures {
+      do {
+        try await submit(capture)
+        finish(capture.idempotencyKey)
+        outcome.saved += 1
+      } catch let error as SiriShortcutIntentError where error.canQueueCapture {
+        outcome.queued += 1
+      } catch {
+        finish(capture.idempotencyKey)
+        outcome.failures.append(error.localizedDescription)
       }
     }
+    return outcome
   }
 
-  return nil
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func buildSiriBatchTransactions(from items: [[String: Any]]) -> [[String: Any]] {
-  let isoTimestamp = ISO8601DateFormatter().string(from: Date())
-  var transactions: [[String: Any]] = []
-
-  for item in items {
-    let amountValue: Double
-    if let numberValue = item["amount"] as? NSNumber {
-      amountValue = numberValue.doubleValue
-    } else if let stringValue = item["amount"] as? String,
-              let parsedValue = Double(stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) {
-      amountValue = parsedValue
-    } else {
-      amountValue = -1
-    }
-
-    guard
-      amountValue > 0,
-      let categoryRaw = item["category"] as? String,
-      let currencyRaw = item["currency"] as? String,
-      let dateRaw = item["date"] as? String
-    else {
-      continue
-    }
-
-    let typeRaw = ((item["type"] as? String) ?? "expense").lowercased()
-    let normalizedType = typeRaw == "income" ? "income" : "expense"
-
-    let category = categoryRaw.trimmingCharacters(in: .whitespacesAndNewlines)
-    let currency = currencyRaw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-    let date = dateRaw.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !category.isEmpty, !currency.isEmpty, !date.isEmpty else {
-      continue
-    }
-
-    var transaction: [String: Any] = [
-      "type": normalizedType,
-      "amount": amountValue,
-      "category": category,
-      "currency": currency,
-      "date": date,
-      "clientCreatedAt": isoTimestamp
-    ]
-
-    if let description = (item["description"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !description.isEmpty {
-      transaction["description"] = description
-    }
-
-    if let breakdown = item["breakdown"] as? [Any], !breakdown.isEmpty {
-      transaction["breakdown"] = breakdown
-    }
-
-    if let receiptImageUrl = (item["receiptImageUrl"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !receiptImageUrl.isEmpty {
-      transaction["receiptImageUrl"] = receiptImageUrl
-    }
-
-    if let payerUserId = (item["payerUserId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !payerUserId.isEmpty {
-      transaction["payerUserId"] = payerUserId
-    }
-
-    if let customSplits = item["customSplits"] {
-      transaction["customSplits"] = customSplits
-    }
-
-    if let source = (item["source"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !source.isEmpty {
-      transaction["source"] = source
-    }
-
-    if let ownerType = (item["ownerType"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !ownerType.isEmpty {
-      transaction["ownerType"] = ownerType
-    }
-
-    if let privacyScope = (item["privacyScope"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !privacyScope.isEmpty {
-      transaction["privacyScope"] = privacyScope
-    }
-
-    if let isRecurring = item["isRecurring"] as? Bool {
-      transaction["isRecurring"] = isRecurring
-    }
-
-    if let recurrenceRule = item["recurrence_rule"] {
-      transaction["recurrence_rule"] = recurrenceRule
-    }
-
-    transactions.append(transaction)
-  }
-
-  return transactions
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func persistSiriTransactionsIndividually(
-  transactions: [[String: Any]],
-  scope: SiriShortcutScopeResolution,
-  context: SiriShortcutAuthContext,
-  idempotencyKey: String
-) async throws -> Int {
-  var savedCount = 0
-
-  for (index, transaction) in transactions.enumerated() {
-    let normalizedType = ((transaction["type"] as? String) ?? "expense").lowercased()
-    let endpoint = normalizedType == "income" ? "save-income" : "save-expense"
-
-    guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/\(endpoint)") else {
-      continue
-    }
-
-    var request = URLRequest(url: url)
-    request.httpMethod = "POST"
-    request.timeoutInterval = 25
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
-    request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-    request.setValue("\(idempotencyKey)-\(index)", forHTTPHeaderField: "x-idempotency-key")
-
-    var body: [String: Any] = [
-      "userId": context.userId,
-    ]
-    for (key, value) in transaction {
-      if key == "type" {
+  static func resolve(
+    body: [String: Any],
+    capturedAt: Date,
+    captureKey: String = "siri-" + UUID().uuidString,
+    analyze: ([String: Any]) async throws -> [String: Any],
+    clarify: (String) async throws -> String
+  ) async throws -> [SiriPreparedTransaction] {
+    var answers: [[String: String]] = []
+    var clockIssue: SiriTransactionClockIssue?
+    while answers.count <= 12 {
+      var request = body
+      var interactive: [String: Any] = ["version": 1, "answers": answers]
+      if let clockIssue { interactive["clientIssue"] = clockIssue.payload }
+      request["interactive"] = interactive
+      let response = try await analyze(request)
+      guard (response["success"] as? Bool) == true,
+            let data = response["data"] as? [String: Any],
+            (data["interactiveVersion"] as? Int) == 1,
+            let requiresCorrection = data["requireCorrection"] as? Bool else {
+        // A legacy response cannot verify explicit destination/provenance.
+        throw SiriShortcutIntentError.requestFailed
+      }
+      if requiresCorrection {
+        guard answers.count < 12,
+              let correction = data["correction"] as? [String: Any],
+              let question = correction["question"] as? String,
+              !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              question.count <= 1200,
+              let choices = correction["choices"] as? [String],
+              (2...4).contains(choices.count),
+              choices.allSatisfy({ !$0.isEmpty && $0.count <= 400 }),
+              (correction["allowCustomResponse"] as? Bool) == true else {
+          throw SiriShortcutIntentError.requestFailed
+        }
+        let prompt = question + " " + choices.joined(separator: "; ") + ". You can also say another answer."
+        let answer = try await clarify(prompt).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !answer.isEmpty, answer.count <= 4000 else {
+          throw SiriShortcutIntentError.invalidInput
+        }
+        answers.append(["question": question, "answer": answer])
+        clockIssue = nil
         continue
       }
-      body[key] = value
+      guard let items = data["items"] as? [[String: Any]],
+            let userId = body["userId"] as? String else {
+        throw SiriShortcutIntentError.noExpenseDetected
+      }
+      do {
+        // Identity belongs to this invocation, not its text or amount. Two
+        // identical purchases stay distinct; durable retries reuse this plan.
+        return try prepare(
+          items: items, userId: userId, captureKey: captureKey,
+          preferredTimezone: data["preferredTimezone"] as? String, capturedAt: capturedAt
+        )
+      } catch let issue as SiriTransactionClockIssue {
+        // Ask the backend for a semantic clarification; never silently shift a
+        // nonexistent clock or choose one of two daylight-saving instants.
+        guard clockIssue == nil else { throw SiriShortcutIntentError.requestFailed }
+        clockIssue = issue
+      }
     }
-    if let householdId = scope.householdId {
-      body["householdId"] = householdId
-      body["isPortfolio"] = scope.isPortfolio
+    throw SiriShortcutIntentError.requestFailed
+  }
+
+  static func prepare(
+    items: [[String: Any]], userId: String, captureKey: String,
+    preferredTimezone: String?, capturedAt: Date
+  ) throws -> [SiriPreparedTransaction] {
+    guard !items.isEmpty, items.count <= 40 else { throw SiriShortcutIntentError.noExpenseDetected }
+    return try items.enumerated().map { index, item in
+      guard let type = item["type"] as? String, ["expense", "income"].contains(type),
+            let amount = item["amount"] as? NSNumber, amount.doubleValue.isFinite, amount.doubleValue > 0,
+            let category = item["category"] as? String, !category.isEmpty,
+            let currency = item["currency"] as? String, normalizeSiriCurrencyCode(currency) == currency,
+            let date = item["date"] as? String, date.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression) != nil,
+            let explicitFields = item["explicitFields"] as? [String],
+            let destination = item["destination"] as? [String: Any],
+            let isPortfolio = destination["isPortfolio"] as? Bool,
+            destination["householdId"] != nil, destination["accountId"] != nil else {
+        throw SiriShortcutIntentError.requestFailed
+      }
+      let householdId = destination["householdId"] as? String
+      let accountId = destination["accountId"] as? String
+      guard (destination["householdId"] is NSNull || householdId.flatMap(UUID.init(uuidString:)) != nil),
+            (destination["accountId"] is NSNull || accountId.flatMap(UUID.init(uuidString:)) != nil),
+            accountId == nil || (destination["accountCurrency"] as? String) == currency,
+            householdId != nil || !isPortfolio else {
+        throw SiriShortcutIntentError.requestFailed
+      }
+      let key = "\(captureKey)-\(index)"
+      var body: [String: Any] = [
+        "userId": userId, "amount": amount, "category": category,
+        "categoryAlreadyResolved": true, "currency": currency, "date": date,
+        "idempotencyKey": key, "clientMutationId": key,
+        "clientCreatedAt": ISO8601DateFormatter().string(from: capturedAt)
+      ]
+      if let householdId { body["householdId"] = householdId; body["isPortfolio"] = isPortfolio }
+      if let accountId { body["accountId"] = accountId }
+      for field in ["description", "merchant", "breakdown", "receiptImageUrl", "payerUserId", "customSplits", "ownerType", "privacyScope", "isRecurring", "recurrence_rule"] {
+        if let value = item[field], !(value is NSNull) { body[field] = value }
+      }
+      for (source, target) in [("merchant_id", "merchantId"), ("merchant_structured_name", "merchantStructuredName"), ("merchant_evidence_descriptor", "merchantEvidenceDescriptor"), ("merchant_evidence_allow_structured", "merchantEvidenceAllowStructured")] {
+        if let value = item[source], !(value is NSNull) { body[target] = value }
+      }
+      if let time = item["transactionTime"] as? String {
+        guard explicitFields.contains("transactionTime"), (item["isRecurring"] as? Bool) != true else {
+          throw SiriShortcutIntentError.requestFailed
+        }
+        body["clientCreatedAt"] = try createdAt(date: date, time: time, timezone: preferredTimezone, itemIndex: index)
+      }
+      return SiriPreparedTransaction(endpoint: type == "income" ? "save-income" : "save-expense", body: body, idempotencyKey: key)
     }
+  }
 
-    request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-    do {
-      let (data, response) = try await URLSession.shared.data(for: request)
-      guard let httpResponse = response as? HTTPURLResponse else {
-        continue
+  static func createdAt(date: String, time: String, timezone: String?, itemIndex: Int = 0) throws -> String {
+    guard date.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression) != nil,
+          time.range(of: "^([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d$", options: .regularExpression) != nil else {
+      throw SiriShortcutIntentError.requestFailed
+    }
+    let zone: TimeZone
+    if let timezone, !timezone.isEmpty {
+      if let named = TimeZone(identifier: timezone) { zone = named }
+      else {
+        let raw = timezone.replacingOccurrences(of: "UTC", with: "").replacingOccurrences(of: "GMT", with: "")
+        guard raw.range(of: "^[+-]\\d{2}:\\d{2}$", options: .regularExpression) != nil else {
+          throw SiriShortcutIntentError.requestFailed
+        }
+        let parts = raw.dropFirst().split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2, parts[0] <= 14, parts[1] < 60, parts[0] < 14 || parts[1] == 0,
+              let offset = TimeZone(secondsFromGMT: (parts[0] * 3600 + parts[1] * 60) * (raw.first == "-" ? -1 : 1)) else {
+          throw SiriShortcutIntentError.requestFailed
+        }
+        zone = offset
       }
+    } else { zone = .current }
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = zone
+    let days = date.split(separator: "-").compactMap { Int($0) }
+    let clock = time.split(separator: ":").compactMap { Int($0) }
+    let components = DateComponents(year: days[0], month: days[1], day: days[2], hour: clock[0], minute: clock[1], second: clock[2])
+    guard let day = calendar.date(from: DateComponents(year: days[0], month: days[1], day: days[2])) else {
+      throw SiriShortcutIntentError.requestFailed
+    }
+    let first = calendar.nextDate(after: day.addingTimeInterval(-1), matching: components, matchingPolicy: .strict, repeatedTimePolicy: .first)
+    let last = calendar.nextDate(after: day.addingTimeInterval(-1), matching: components, matchingPolicy: .strict, repeatedTimePolicy: .last)
+    guard let first, let last else {
+      throw SiriTransactionClockIssue(itemIndex: itemIndex, reason: "nonexistent_wall_time")
+    }
+    guard first == last else { throw SiriTransactionClockIssue(itemIndex: itemIndex, reason: "ambiguous_wall_time") }
+    return ISO8601DateFormatter().string(from: first)
+  }
+}
 
-      if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-        throw SiriShortcutIntentError.missingSession
+@available(iOS 16.0, watchOS 9.0, *)
+private func analyzeSiriTransactions(body: [String: Any], context: SiriShortcutAuthContext) async throws -> [String: Any] {
+  try await WalletCaptureOnlineDispatcher.withSession(
+    context: context,
+    refresh: { try await WalletCaptureSessionBridge.shared.currentContext(for: context, forceRefresh: $0) },
+    operation: { current in
+      guard let url = URL(string: "\(current.supabaseUrl)/functions/v1/analyze-expense") else {
+        throw SiriShortcutIntentError.notConfigured
       }
-
-      guard (200...299).contains(httpResponse.statusCode) else {
-        continue
+      var request = URLRequest(url: url)
+      request.httpMethod = "POST"
+      request.timeoutInterval = 60
+      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      request.setValue("Bearer \(current.accessToken)", forHTTPHeaderField: "Authorization")
+      request.setValue(current.supabaseAnonKey, forHTTPHeaderField: "apikey")
+      request.httpBody = try JSONSerialization.data(withJSONObject: body)
+      let data: Data
+      let response: URLResponse
+      do { (data, response) = try await URLSession.shared.data(for: request) }
+      catch { throw SiriShortcutIntentError.networkFailure }
+      guard let http = response as? HTTPURLResponse else { throw SiriShortcutIntentError.networkFailure }
+      guard (200...299).contains(http.statusCode) else {
+        throw resolveWalletCaptureIntentError(statusCode: http.statusCode, data: data)
       }
-
       guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-        continue
+        throw SiriShortcutIntentError.requestFailed
       }
-
-      if json["id"] != nil {
-        savedCount += 1
-        continue
-      }
-
-      if let dataObject = json["data"] as? [String: Any], dataObject["id"] != nil {
-        savedCount += 1
-      }
-    } catch let intentError as SiriShortcutIntentError {
-      throw intentError
-    } catch {
-      continue
+      return json
     }
-  }
-
-  return savedCount
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func persistSiriTransactions(
-  items: [[String: Any]],
-  scope: SiriShortcutScopeResolution,
-  context: SiriShortcutAuthContext,
-  idempotencyKey: String
-) async throws -> Int {
-  let transactions = buildSiriBatchTransactions(from: items)
-  guard !transactions.isEmpty else {
-    throw SiriShortcutIntentError.noExpenseDetected
-  }
-
-  guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/save-transactions-batch") else {
-    throw SiriShortcutIntentError.notConfigured
-  }
-
-  var request = URLRequest(url: url)
-  request.httpMethod = "POST"
-  request.timeoutInterval = 25
-  request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-  request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
-  request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-  request.setValue(idempotencyKey, forHTTPHeaderField: "x-idempotency-key")
-
-  var body: [String: Any] = [
-    "userId": context.userId,
-    "transactions": transactions
-  ]
-  if let householdId = scope.householdId {
-    body["householdId"] = householdId
-    body["isPortfolio"] = scope.isPortfolio
-  }
-  request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-  let data: Data
-  let response: URLResponse
-  do {
-    (data, response) = try await URLSession.shared.data(for: request)
-  } catch {
-    throw SiriShortcutIntentError.networkFailure
-  }
-  guard let httpResponse = response as? HTTPURLResponse else {
-    throw SiriShortcutIntentError.networkFailure
-  }
-  if (200...299).contains(httpResponse.statusCode) {
-    do {
-      if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-         let succeeded = extractSucceededCountForSiri(from: json),
-         succeeded > 0 {
-        return succeeded
-      }
-    } catch {
-      throw SiriShortcutIntentError.saveFailed
-    }
-
-    throw SiriShortcutIntentError.saveFailed
-  }
-
-  if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-    throw SiriShortcutIntentError.missingSession
-  }
-
-  if httpResponse.statusCode == 409 {
-    throw SiriShortcutIntentError.duplicateRequest
-  }
-
-  if httpResponse.statusCode == 429 {
-    throw SiriShortcutIntentError.networkFailure
-  }
-
-  if httpResponse.statusCode == 404 {
-    let fallbackCount = try await persistSiriTransactionsIndividually(
-      transactions: transactions,
-      scope: scope,
-      context: context,
-      idempotencyKey: idempotencyKey
-    )
-    if fallbackCount > 0 {
-      return fallbackCount
-    }
-  }
-  throw SiriShortcutIntentError.saveFailed
+  )
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
 private func performSiriTransactionLogging(
-  text: String,
-  currencyCode: String?,
-  scopeName: String?,
-  typeHint: String
+  text: String, currencyCode: String?, scopeName: String?, typeHint: String,
+  clarify: (String) async throws -> String
 ) async throws -> String {
-  let normalizedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-  guard !normalizedText.isEmpty else {
-    throw SiriShortcutIntentError.invalidInput
-  }
-
-  guard var context = SiriShortcutAuthContext.load() else {
-    throw SiriShortcutIntentError.notConfigured
-  }
-
-  let resolvedInput = resolveSiriTransactionInput(expenseText: normalizedText, scopeName: scopeName)
-  guard !resolvedInput.expenseText.isEmpty else {
-    throw SiriShortcutIntentError.invalidInput
-  }
-
-  let idempotencyKey = makeSiriTransactionIdempotencyKey(
-    userId: context.userId,
-    text: resolvedInput.expenseText,
-    scope: resolvedInput.scope,
-    typeHint: typeHint
-  )
-  if !reserveSiriTransactionIdempotencySlot(idempotencyKey: idempotencyKey) {
-    return "That transaction was already logged in Moneko."
-  }
-
-  var shouldKeepIdempotencySlot = false
-  defer {
-    if !shouldKeepIdempotencySlot {
-      clearSiriTransactionIdempotencySlot(idempotencyKey: idempotencyKey)
+  let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+  guard !text.isEmpty, text.count <= 16000 else { throw SiriShortcutIntentError.invalidInput }
+  guard let context = SiriShortcutAuthContext.load() else { throw SiriShortcutIntentError.notConfigured }
+  let capturedAt = Date()
+  // Omit date/timezone defaults: the backend resolves Moneko's preferred zone.
+  var configuredSpace: SiriShortcutStoredSpace?
+  if let scopeName, !scopeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    let name = normalizeScopeLookupValue(scopeName)
+    let spaces = loadStoredSpaces().filter { normalizeScopeLookupValue($0.id) == name || normalizeScopeLookupValue($0.name) == name }
+    guard spaces.count == 1 else {
+      throw SiriShortcutIntentError.backendError(message: "That Space is unavailable or ambiguous. Include its name in your transaction sentence instead.", code: nil)
     }
+    configuredSpace = spaces[0]
   }
-
-  if context.isAccessTokenExpired {
-    throw SiriShortcutIntentError.missingSession
-  }
-
-  let normalizedCurrency = normalizeSiriCurrencyCode(currencyCode)
-  let analyzedItems = try await analyzeSiriTransactions(
-    text: resolvedInput.expenseText,
-    currencyCode: normalizedCurrency,
-    scope: resolvedInput.scope,
-    typeHint: typeHint,
-    context: context
+  let body = try SiriTransactionCapture.analysisBody(
+    text: text, userId: context.userId, typeHint: typeHint,
+    defaults: SiriTransactionDefaults.load(expectedUserId: context.userId),
+    currencyCode: currencyCode, spaceId: configuredSpace?.id,
+    isPortfolio: configuredSpace?.isPortfolio ?? false
   )
-  guard !analyzedItems.isEmpty else {
-    throw SiriShortcutIntentError.noExpenseDetected
-  }
+  let captures = try await SiriTransactionCapture.resolve(
+    body: body, capturedAt: capturedAt,
+    analyze: { try await analyzeSiriTransactions(body: $0, context: context) }, clarify: clarify
+  )
+  // Commit the complete verified plan before dispatch so partial success and
+  // interrupted requests retry the original body with the same per-item key.
+  let outcome = try await SiriTransactionCapture.dispatch(
+    captures,
+    enqueue: { enqueuePreparedSiriTransactions(captures, userId: context.userId) },
+    submit: { _ = try await submitWalletCaptureRequestBody($0.body, context: context, endpoint: $0.endpoint) },
+    finish: { _ = mergePendingWalletCaptureSyncResults(completedIdempotencyKeys: [$0], updatedRecordsByIdempotencyKey: [:]) }
+  )
+  let saved = outcome.saved
+  let queued = outcome.queued
+  let errors = outcome.failures
+  if saved > 0 { await WalletCaptureSessionBridge.shared.notifySiriSave(userId: context.userId) }
+  var messages: [String] = []
+  if saved > 0 { messages.append("Logged \(saved) transaction\(saved == 1 ? "" : "s") in Moneko.") }
+  if queued > 0 { messages.append("Saved \(queued) transaction\(queued == 1 ? "" : "s") locally. Moneko will sync them when you next open the app online.") }
+  if let error = errors.first { messages.append("\(errors.count) transaction\(errors.count == 1 ? "" : "s") could not be saved. \(error)") }
+  return messages.joined(separator: " ")
+}
 
-  let savedCount: Int
-  do {
-    savedCount = try await persistSiriTransactions(
-      items: analyzedItems,
-      scope: resolvedInput.scope,
-      context: context,
-      idempotencyKey: idempotencyKey
-    )
-  } catch SiriShortcutIntentError.duplicateRequest {
-    shouldKeepIdempotencySlot = true
-    return "That transaction was already logged in Moneko."
+private func enqueuePreparedSiriTransactions(_ captures: [SiriPreparedTransaction], userId: String) -> Bool {
+  walletPendingCaptureQueue.sync {
+    SiriTransactionCapture.enqueue(captures, userId: userId,
+      load: loadPendingWalletCaptureRecordsUnlocked, save: savePendingWalletCaptureRecordsUnlocked)
   }
-
-  guard savedCount > 0 else {
-    throw SiriShortcutIntentError.saveFailed
-  }
-
-  shouldKeepIdempotencySlot = true
-  if typeHint == "income" {
-    return savedCount == 1
-      ? "Logged 1 income transaction in Moneko."
-      : "Logged \(savedCount) income transactions in Moneko."
-  }
-
-  return savedCount == 1
-    ? "Logged 1 transaction in Moneko."
-    : "Logged \(savedCount) transactions in Moneko."
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
@@ -874,7 +690,7 @@ struct LogIncomeWithSiriIntent: AppIntent {
   @available(*, deprecated, message: "Use supportedModes when available.")
   static var openAppWhenRun: Bool { false }
 
-  @Parameter(title: "Income")
+  @Parameter(title: "Income", description: "siriLogIncomeDescription", requestValueDialog: "siriLogIncomePrompt")
   var incomeText: String
 
   @Parameter(title: "Currency")
@@ -888,7 +704,8 @@ struct LogIncomeWithSiriIntent: AppIntent {
       text: incomeText,
       currencyCode: currencyCode,
       scopeName: scopeName,
-      typeHint: "income"
+      typeHint: "income",
+      clarify: { try await $incomeText.requestValue(IntentDialog(stringLiteral: $0)) }
     )
     return .result(dialog: IntentDialog(stringLiteral: message))
   }
@@ -1417,7 +1234,7 @@ private func submitWalletCaptureRequestBodyOnce(
   context: SiriShortcutAuthContext,
   endpoint: String = "save-wallet-transaction"
 ) async throws -> (isDuplicate: Bool, isIgnored: Bool) {
-  let allowedEndpoints = ["save-wallet-transaction", "classify-notification-capture"]
+  let allowedEndpoints = ["save-wallet-transaction", "classify-notification-capture", "save-expense", "save-income"]
   guard
     allowedEndpoints.contains(endpoint),
     let url = URL(string: "\(context.supabaseUrl)/functions/v1/\(endpoint)")
@@ -1432,8 +1249,9 @@ private func submitWalletCaptureRequestBodyOnce(
   request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
   request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
   request.httpBody = try JSONSerialization.data(withJSONObject: body)
+  if let key = body["idempotencyKey"] as? String { request.setValue(key, forHTTPHeaderField: "x-idempotency-key") }
 
-  let containsNotificationContent = endpoint == "classify-notification-capture"
+  let containsNotificationContent = endpoint != "save-wallet-transaction"
   NSLog("[MonekoCap] Calling %@", endpoint)
   SiriShortcutDiagnostics.record(
     source: "shortcut",
@@ -1496,6 +1314,9 @@ private func submitWalletCaptureRequestBodyOnce(
   }
 
   if httpResponse.statusCode == 409 {
+    if endpoint == "save-expense" || endpoint == "save-income" {
+      throw resolveWalletCaptureIntentError(statusCode: httpResponse.statusCode, data: data)
+    }
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-duplicate-confirmed",
@@ -1525,6 +1346,12 @@ private func submitWalletCaptureRequestBodyOnce(
       statusCode: httpResponse.statusCode,
       data: data
     )
+  }
+
+  if endpoint == "save-expense" || endpoint == "save-income" {
+    guard let saved = json["data"] as? [String: Any], saved["id"] is String else {
+      throw SiriShortcutIntentError.networkFailure
+    }
   }
 
   if (json["duplicate"] as? Bool) == true {
@@ -1587,6 +1414,7 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
   var attempted = 0
   var synced = 0
   var requiresSessionRefresh = false
+  var failedSiriCaptures: [[String: String]] = []
   var completedIdempotencyKeys = Set<String>()
   var updatedRecordsByIdempotencyKey: [String: [String: Any]] = [:]
 
@@ -1631,6 +1459,12 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
       )
       break
     } catch {
+      let endpoint = record["endpoint"] as? String
+      if endpoint == "save-expense" || endpoint == "save-income" {
+        completedIdempotencyKeys.insert(idempotencyKey)
+        failedSiriCaptures.append(["id": idempotencyKey, "userId": context.userId])
+        continue
+      }
       let updated = updatedPendingWalletCaptureRecord(record, error: error.localizedDescription)
       if (updated["attemptCount"] as? Int ?? 0) < 5 {
         updatedRecordsByIdempotencyKey[idempotencyKey] = updated
@@ -1669,6 +1503,7 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
     "synced": synced,
     "remaining": remainingCount,
     "requiresSessionRefresh": requiresSessionRefresh,
+    "failedSiriCaptures": failedSiriCaptures,
   ]
 }
 
@@ -2341,6 +2176,7 @@ private enum SiriShortcutKeys {
   static let shortcutDestinationCatalogUserId = "shortcut_destination_catalog_user_id"
   static let shortcutDestinationSpaces = "config_households"
   static let shortcutDestinationWallets = "config_wallets"
+  static let transactionDefaults = "siri_transaction_defaults"
 }
 
 private func makeDiagnosticsTimestamp() -> String {
@@ -2467,11 +2303,6 @@ struct SiriShortcutScopeResolution {
   let isPortfolio: Bool
 }
 
-private struct SiriShortcutResolvedIntentInput {
-  let expenseText: String
-  let scope: SiriShortcutScopeResolution
-}
-
 private struct SiriShortcutStoredSpace {
   let id: String
   let name: String
@@ -2596,6 +2427,14 @@ enum WalletCaptureOnlineDispatcher {
     refresh: (Bool) async throws -> SiriShortcutAuthContext,
     save: (SiriShortcutAuthContext) async throws -> (isDuplicate: Bool, isIgnored: Bool)
   ) async throws -> (isDuplicate: Bool, isIgnored: Bool) {
+    try await withSession(context: context, refresh: refresh, operation: save)
+  }
+
+  static func withSession<Value>(
+    context: SiriShortcutAuthContext,
+    refresh: (Bool) async throws -> SiriShortcutAuthContext,
+    operation: (SiriShortcutAuthContext) async throws -> Value
+  ) async throws -> Value {
     func validate(_ candidate: SiriShortcutAuthContext) throws -> SiriShortcutAuthContext {
       guard candidate.userId == context.userId,
             !candidate.accessToken.isEmpty,
@@ -2607,11 +2446,11 @@ enum WalletCaptureOnlineDispatcher {
 
     let current = context.isAccessTokenExpired ? try await validate(refresh(false)) : context
     do {
-      return try await save(current)
+      return try await operation(current)
     } catch SiriShortcutIntentError.missingSession {
       // The server can reject a token before its locally recorded expiry.
       let refreshed = try await validate(refresh(true))
-      return try await save(refreshed)
+      return try await operation(refreshed)
     }
   }
 }
@@ -2620,6 +2459,10 @@ enum WalletCaptureOnlineDispatcher {
 private final class WalletCaptureSessionBridge {
   static let shared = WalletCaptureSessionBridge()
   var channel: FlutterMethodChannel?
+
+  func notifySiriSave(userId: String) {
+    channel?.invokeMethod("siriTransactionsSaved", arguments: ["userId": userId])
+  }
 
   func currentContext(
     for context: SiriShortcutAuthContext,
@@ -2984,7 +2827,7 @@ enum SiriShortcutIntentError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .notConfigured:
-      return "Turn on Apple Pay syncing in your Moneko Settings to continue."
+      return "Open Moneko and sign in, then try again."
     case .missingSession:
       return "Open Moneko to refresh your session, then try again."
     case .invalidInput:
@@ -3019,7 +2862,7 @@ struct LogExpenseWithSiriIntent: AppIntent {
   @available(*, deprecated, message: "Use supportedModes when available.")
   static var openAppWhenRun: Bool { false }
 
-  @Parameter(title: "Expense")
+  @Parameter(title: "Expense", description: "siriLogExpenseDescription", requestValueDialog: "siriLogExpensePrompt")
   var expenseText: String
 
   @Parameter(title: "Currency")
@@ -3033,487 +2876,12 @@ struct LogExpenseWithSiriIntent: AppIntent {
       text: expenseText,
       currencyCode: currencyCode,
       scopeName: scopeName,
-      typeHint: "expense"
+      typeHint: "expense",
+      clarify: { try await $expenseText.requestValue(IntentDialog(stringLiteral: $0)) }
     )
     return .result(dialog: IntentDialog(stringLiteral: message))
   }
 
-  private func analyzeExpense(
-    text: String,
-    currencyCode: String?,
-    scope: SiriShortcutScopeResolution,
-    context: SiriShortcutAuthContext
-  ) async throws -> [[String: Any]] {
-    guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/analyze-expense") else {
-      throw SiriShortcutIntentError.notConfigured
-    }
-
-    var request = URLRequest(url: url)
-    request.httpMethod = "POST"
-    request.timeoutInterval = 25
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
-    request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-
-    let dateFormatter = DateFormatter()
-    dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-    dateFormatter.timeZone = .current
-    dateFormatter.dateFormat = "yyyy-MM-dd"
-
-    var body: [String: Any] = [
-      "userId": context.userId,
-      "date": dateFormatter.string(from: Date()),
-      "language": detectSiriInputLanguage(for: text),
-      "typeHint": "mixed",
-      "text": text
-    ]
-
-    if let currencyCode, !currencyCode.isEmpty {
-      body["currency"] = currencyCode
-    }
-
-    if let householdId = scope.householdId {
-      body["householdId"] = householdId
-      body["isPortfolio"] = scope.isPortfolio
-    }
-
-    request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-    let data: Data
-    let response: URLResponse
-    do {
-      (data, response) = try await URLSession.shared.data(for: request)
-    } catch {
-      throw SiriShortcutIntentError.networkFailure
-    }
-    guard let httpResponse = response as? HTTPURLResponse else {
-      throw SiriShortcutIntentError.networkFailure
-    }
-    guard (200...299).contains(httpResponse.statusCode) else {
-      throw SiriShortcutIntentError.networkFailure
-    }
-
-    guard
-      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-      (json["success"] as? Bool) == true,
-      let dataObject = json["data"] as? [String: Any],
-      let items = dataObject["items"] as? [[String: Any]]
-    else {
-      throw SiriShortcutIntentError.noExpenseDetected
-    }
-
-    return items
-  }
-
-  private func persistTransactions(
-    items: [[String: Any]],
-    scope: SiriShortcutScopeResolution,
-    context: SiriShortcutAuthContext,
-    idempotencyKey: String
-  ) async throws -> Int {
-    let transactions = buildBatchTransactions(from: items)
-    guard !transactions.isEmpty else {
-      throw SiriShortcutIntentError.noExpenseDetected
-    }
-
-    guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/save-transactions-batch") else {
-      throw SiriShortcutIntentError.notConfigured
-    }
-
-    var request = URLRequest(url: url)
-    request.httpMethod = "POST"
-    request.timeoutInterval = 25
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
-    request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-    request.setValue(idempotencyKey, forHTTPHeaderField: "x-idempotency-key")
-
-    var body: [String: Any] = [
-      "userId": context.userId,
-      "transactions": transactions
-    ]
-    if let householdId = scope.householdId {
-      body["householdId"] = householdId
-      body["isPortfolio"] = scope.isPortfolio
-    }
-    request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-    let data: Data
-    let response: URLResponse
-    do {
-      (data, response) = try await URLSession.shared.data(for: request)
-    } catch {
-      throw SiriShortcutIntentError.networkFailure
-    }
-    guard let httpResponse = response as? HTTPURLResponse else {
-      throw SiriShortcutIntentError.networkFailure
-    }
-    if (200...299).contains(httpResponse.statusCode) {
-      do {
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let succeeded = extractSucceededCount(from: json),
-           succeeded > 0 {
-          return succeeded
-        }
-      } catch {
-        throw SiriShortcutIntentError.saveFailed
-      }
-
-      throw SiriShortcutIntentError.saveFailed
-    }
-
-    if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-      throw SiriShortcutIntentError.missingSession
-    }
-
-    if httpResponse.statusCode == 409 {
-      throw SiriShortcutIntentError.duplicateRequest
-    }
-
-    if httpResponse.statusCode == 429 {
-      throw SiriShortcutIntentError.networkFailure
-    }
-
-    if httpResponse.statusCode == 404 {
-      let fallbackCount = try await persistTransactionsIndividually(
-        transactions: transactions,
-        scope: scope,
-        context: context,
-        idempotencyKey: idempotencyKey
-      )
-      if fallbackCount > 0 {
-        return fallbackCount
-      }
-    }
-    throw SiriShortcutIntentError.saveFailed
-  }
-
-  private func extractSucceededCount(from json: [String: Any]) -> Int? {
-    if let summary = json["summary"] as? [String: Any],
-       let succeeded = parseSucceededValue(summary["succeeded"]) {
-      return succeeded
-    }
-
-    if let dataObject = json["data"] as? [String: Any],
-       let summary = dataObject["summary"] as? [String: Any],
-       let succeeded = parseSucceededValue(summary["succeeded"]) {
-      return succeeded
-    }
-
-    if let results = json["results"] as? [[String: Any]] {
-      return results.reduce(into: 0) { count, item in
-        if (item["success"] as? Bool) == true {
-          count += 1
-        }
-      }
-    }
-
-    return nil
-  }
-
-  private func parseSucceededValue(_ value: Any?) -> Int? {
-    if let intValue = value as? Int {
-      return intValue
-    }
-    if let numberValue = value as? NSNumber {
-      return numberValue.intValue
-    }
-    if let stringValue = value as? String,
-       let intValue = Int(stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) {
-      return intValue
-    }
-    return nil
-  }
-
-  private func persistTransactionsIndividually(
-    transactions: [[String: Any]],
-    scope: SiriShortcutScopeResolution,
-    context: SiriShortcutAuthContext,
-    idempotencyKey: String
-  ) async throws -> Int {
-    var savedCount = 0
-
-    for (index, transaction) in transactions.enumerated() {
-      let normalizedType = ((transaction["type"] as? String) ?? "expense").lowercased()
-      let endpoint = normalizedType == "income" ? "save-income" : "save-expense"
-
-      guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/\(endpoint)") else {
-        continue
-      }
-
-      var request = URLRequest(url: url)
-      request.httpMethod = "POST"
-      request.timeoutInterval = 25
-      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-      request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
-      request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-      request.setValue("\(idempotencyKey)-\(index)", forHTTPHeaderField: "x-idempotency-key")
-
-      var body: [String: Any] = [
-        "userId": context.userId,
-      ]
-      for (key, value) in transaction {
-        if key == "type" {
-          continue
-        }
-        body[key] = value
-      }
-      if let householdId = scope.householdId {
-        body["householdId"] = householdId
-        body["isPortfolio"] = scope.isPortfolio
-      }
-
-      request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-      do {
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-          continue
-        }
-
-        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-          throw SiriShortcutIntentError.missingSession
-        }
-
-        guard (200...299).contains(httpResponse.statusCode) else {
-          continue
-        }
-
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-          continue
-        }
-
-        if json["id"] != nil {
-          savedCount += 1
-          continue
-        }
-
-        if let dataObject = json["data"] as? [String: Any], dataObject["id"] != nil {
-          savedCount += 1
-        }
-      } catch let intentError as SiriShortcutIntentError {
-        throw intentError
-      } catch {
-        continue
-      }
-    }
-
-    return savedCount
-  }
-
-  private func buildBatchTransactions(from items: [[String: Any]]) -> [[String: Any]] {
-    let isoTimestamp = ISO8601DateFormatter().string(from: Date())
-    var transactions: [[String: Any]] = []
-
-    for item in items {
-      let amountValue: Double
-      if let numberValue = item["amount"] as? NSNumber {
-        amountValue = numberValue.doubleValue
-      } else if let stringValue = item["amount"] as? String,
-                let parsedValue = Double(stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) {
-        amountValue = parsedValue
-      } else {
-        amountValue = -1
-      }
-
-      guard
-        amountValue > 0,
-        let categoryRaw = item["category"] as? String,
-        let currencyRaw = item["currency"] as? String,
-        let dateRaw = item["date"] as? String
-      else {
-        continue
-      }
-
-      let typeRaw = ((item["type"] as? String) ?? "expense").lowercased()
-      let normalizedType = typeRaw == "income" ? "income" : "expense"
-
-      let category = categoryRaw.trimmingCharacters(in: .whitespacesAndNewlines)
-      let currency = currencyRaw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-      let date = dateRaw.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard !category.isEmpty, !currency.isEmpty, !date.isEmpty else {
-        continue
-      }
-
-      var transaction: [String: Any] = [
-        "type": normalizedType,
-        "amount": amountValue,
-        "category": category,
-        "currency": currency,
-        "date": date,
-        "clientCreatedAt": isoTimestamp
-      ]
-
-      if let description = (item["description"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-         !description.isEmpty {
-        transaction["description"] = description
-      }
-
-      if let breakdown = item["breakdown"] as? [Any], !breakdown.isEmpty {
-        transaction["breakdown"] = breakdown
-      }
-
-      transactions.append(transaction)
-    }
-
-    return transactions
-  }
-
-  private func normalizeCurrencyCode(_ rawValue: String?) -> String? {
-    guard let rawValue else { return nil }
-    let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-    guard normalized.count == 3 else { return nil }
-    return normalized
-  }
-
-  private func resolveIntentInput(
-    expenseText: String,
-    scopeName: String?
-  ) -> SiriShortcutResolvedIntentInput {
-    let explicitScope = resolveScope(scopeName)
-    if explicitScope.householdId != nil {
-      return SiriShortcutResolvedIntentInput(expenseText: expenseText, scope: explicitScope)
-    }
-
-    guard let extractedInput = extractScopeFromExpenseText(expenseText) else {
-      return SiriShortcutResolvedIntentInput(expenseText: expenseText, scope: explicitScope)
-    }
-
-    return extractedInput
-  }
-
-  private func resolveScope(_ rawValue: String?) -> SiriShortcutScopeResolution {
-    let fallback = SiriShortcutScopeResolution(householdId: nil, isPortfolio: false)
-    guard let rawValue else { return fallback }
-    let normalized = normalizeScopeLookupValue(rawValue)
-    let strippedNormalized = normalizeScopeLookupValue(rawValue, stripTrailingKeywords: true)
-    if normalized.isEmpty || normalized == "personal" {
-      return fallback
-    }
-
-    var strippedMatches: [SiriShortcutScopeResolution] = []
-
-    for space in loadStoredSpaces() {
-      if space.isPersonal {
-        continue
-      }
-      let exactResolution = SiriShortcutScopeResolution(
-        householdId: space.id,
-        isPortfolio: space.isPortfolio
-      )
-      let normalizedId = normalizeScopeLookupValue(space.id)
-      let normalizedName = normalizeScopeLookupValue(space.name)
-      if normalized == normalizedId || normalized == normalizedName {
-        return exactResolution
-      }
-      if strippedNormalized != normalized &&
-        (strippedNormalized == normalizedId || strippedNormalized == normalizedName) {
-        strippedMatches.append(exactResolution)
-      }
-    }
-
-    if strippedMatches.count == 1 {
-      return strippedMatches[0]
-    }
-
-    return fallback
-  }
-
-  private func extractScopeFromExpenseText(
-    _ rawText: String
-  ) -> SiriShortcutResolvedIntentInput? {
-    let spaces = loadStoredSpaces()
-      .filter { !$0.isPersonal }
-      .sorted { $0.name.count > $1.name.count }
-    guard !spaces.isEmpty else {
-      return nil
-    }
-
-    for space in spaces {
-      let nameVariants = [
-        space.name,
-        space.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-      ]
-      let escapedNamePattern = Set(nameVariants)
-        .map(NSRegularExpression.escapedPattern(for:))
-        .joined(separator: "|")
-      let pattern = "\\s+(?:in|into|under)\\s+(?:(?:the|my)\\s+)?(?:\(escapedNamePattern))(?:\\s+(?:space|account))?[\\p{P}\\s]*$"
-      guard let regex = try? NSRegularExpression(
-        pattern: pattern,
-        options: [.caseInsensitive]
-      ) else {
-        continue
-      }
-
-      let fullRange = NSRange(rawText.startIndex..<rawText.endIndex, in: rawText)
-      guard let match = regex.firstMatch(in: rawText, options: [], range: fullRange),
-            let matchRange = Range(match.range, in: rawText) else {
-        continue
-      }
-
-      let cleanedText = rawText[..<matchRange.lowerBound]
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-      guard !cleanedText.isEmpty else {
-        continue
-      }
-
-      return SiriShortcutResolvedIntentInput(
-        expenseText: cleanedText,
-        scope: SiriShortcutScopeResolution(
-          householdId: space.id,
-          isPortfolio: space.isPortfolio
-        )
-      )
-    }
-
-    return nil
-  }
-
-  private func reserveIdempotencySlot(idempotencyKey: String) -> Bool {
-    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
-      return true
-    }
-
-    let now = Int(Date().timeIntervalSince1970)
-    let lastHash = defaults.string(forKey: SiriShortcutKeys.idempotencyHash)
-    let lastTimestamp = defaults.integer(forKey: SiriShortcutKeys.idempotencyTimestamp)
-
-    if lastHash == idempotencyKey && now - lastTimestamp <= 15 {
-      return false
-    }
-
-    defaults.set(idempotencyKey, forKey: SiriShortcutKeys.idempotencyHash)
-    defaults.set(now, forKey: SiriShortcutKeys.idempotencyTimestamp)
-    return true
-  }
-
-  private func clearIdempotencySlot(idempotencyKey: String) {
-    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
-      return
-    }
-    let lastHash = defaults.string(forKey: SiriShortcutKeys.idempotencyHash)
-    if lastHash == idempotencyKey {
-      defaults.removeObject(forKey: SiriShortcutKeys.idempotencyHash)
-      defaults.removeObject(forKey: SiriShortcutKeys.idempotencyTimestamp)
-    }
-  }
-
-  private func makeIdempotencyKey(
-    userId: String,
-    text: String,
-    scope: SiriShortcutScopeResolution
-  ) -> String {
-    let normalizedText = text
-      .lowercased()
-      .components(separatedBy: .whitespacesAndNewlines)
-      .filter { !$0.isEmpty }
-      .joined(separator: " ")
-    let scopeKey = scope.householdId ?? "personal"
-    let minuteBucket = Int(Date().timeIntervalSince1970 / 60)
-    let raw = "\(userId)|\(scopeKey)|\(normalizedText)|\(minuteBucket)"
-    let digest = SHA256.hash(data: Data(raw.utf8))
-    return digest.map { String(format: "%02x", $0) }.joined()
-  }
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
@@ -3523,6 +2891,7 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       intent: LogExpenseWithSiriIntent(),
       phrases: [
         "Log expense with \(.applicationName)",
+        "Log transaction with \(.applicationName)",
         "Add expense in \(.applicationName)",
         "Track spending with \(.applicationName)"
       ],
@@ -3741,6 +3110,18 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       switch call.method {
       case SiriShortcutChannel.syncAuthContext:
         self.handleSyncAuthContext(call: call, result: result)
+      case SiriShortcutChannel.syncTransactionDefaults:
+        guard #available(iOS 16.0, *),
+              let args = call.arguments as? [String: Any],
+              let userId = args["userId"] as? String,
+              let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId),
+              let snapshot = SiriTransactionDefaults.resolve(args, expectedUserId: userId,
+                previous: SiriTransactionDefaults.load(expectedUserId: userId, defaults: defaults)) else {
+          result(FlutterError(code: "invalid_args", message: "Invalid Siri transaction defaults", details: nil))
+          return
+        }
+        defaults.set(snapshot.payload, forKey: SiriShortcutKeys.transactionDefaults)
+        result(nil)
       case SiriShortcutChannel.getStatus:
         self.handleGetStatus(result: result)
       case SiriShortcutChannel.clearAuthContext:
@@ -3804,6 +3185,9 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       .trimmingCharacters(in: .whitespacesAndNewlines)
     if !previousUserId.isEmpty && previousUserId != nextUserId {
       _ = savePendingWalletCaptureRecords([])
+      if defaults.dictionary(forKey: SiriShortcutKeys.transactionDefaults)?["userId"] as? String != nextUserId {
+        defaults.removeObject(forKey: SiriShortcutKeys.transactionDefaults)
+      }
     }
     SharedKeychainStore.shared.write(
       value: args["accessToken"] as? String,
@@ -3847,6 +3231,7 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     defaults?.removeObject(forKey: SiriShortcutKeys.supabaseUrl)
     defaults?.removeObject(forKey: SiriShortcutKeys.supabaseAnonKey)
     defaults?.removeObject(forKey: SiriShortcutKeys.authContextVersion)
+    defaults?.removeObject(forKey: SiriShortcutKeys.transactionDefaults)
     SharedKeychainStore.shared.clearAll()
     _ = savePendingWalletCaptureRecords([])
     SiriShortcutDiagnostics.record(

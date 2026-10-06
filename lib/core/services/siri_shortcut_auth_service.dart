@@ -20,8 +20,20 @@ class SiriShortcutAuthService {
   _SiriShortcutAuthSyncRequest? _queuedSyncRequest;
   int _syncGeneration = 0;
   final _walletCapturesSynced = StreamController<String>.broadcast();
+  final _siriCapturesFailed =
+      StreamController<({String id, String userId})>.broadcast();
+  final _pendingSiriFailures = <String, ({String id, String userId})>{};
 
   Stream<String> get walletCapturesSynced => _walletCapturesSynced.stream;
+  Stream<({String id, String userId})> get siriCapturesFailed =>
+      _siriCapturesFailed.stream;
+
+  Iterable<({String id, String userId})> pendingSiriFailures(String userId) =>
+      _pendingSiriFailures.values
+          .where((failure) => failure.userId == userId)
+          .toList();
+
+  void acknowledgeSiriFailure(String id) => _pendingSiriFailures.remove(id);
 
   bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
@@ -32,6 +44,18 @@ class SiriShortcutAuthService {
   }) {
     if (!_isIOS) return;
     _channel.setMethodCallHandler((call) async {
+      if (call.method == 'siriTransactionsSaved') {
+        final arguments = Map<Object?, Object?>.from(call.arguments as Map);
+        final userId = arguments['userId'] as String?;
+        final generation = _syncGeneration;
+        final auth = await authReady();
+        if (userId != null &&
+            generation == _syncGeneration &&
+            auth.currentSession?.user.id == userId) {
+          _walletCapturesSynced.add(userId);
+        }
+        return null;
+      }
       if (call.method != 'getCurrentSessionForWalletCapture') {
         throw MissingPluginException();
       }
@@ -95,6 +119,18 @@ class SiriShortcutAuthService {
     return refresh;
   }
 
+  Future<void> syncTransactionDefaults(Map<String, Object?> defaults) async {
+    if (!_isIOS) return;
+    _transactionDefaults = Map<String, Object?>.unmodifiable(defaults);
+    final generation = _syncGeneration;
+    final clearFuture = _clearAuthFuture;
+    if (clearFuture != null) await clearFuture;
+    if (generation != _syncGeneration) return;
+    await _channel.invokeMethod<void>('syncTransactionDefaults', defaults);
+  }
+
+  Map<String, Object?>? _transactionDefaults;
+
   Future<void> syncAuthContext({
     required String supabaseUrl,
     required String supabaseAnonKey,
@@ -111,6 +147,17 @@ class SiriShortcutAuthService {
       'userId': userId,
       'expiresAt': expiresAt,
     });
+    final defaults = _transactionDefaults;
+    if (defaults != null && defaults['userId'] == userId) {
+      // Session/resume sync also retries a failed native preference write.
+      // Preference transport must not block the separately durable save queue.
+      try {
+        await syncTransactionDefaults(defaults);
+      } catch (error) {
+        debugPrint(
+            '[Siri] Selection defaults will retry on session sync: $error');
+      }
+    }
   }
 
   Future<Map<String, dynamic>> syncAuthContextAndPendingWalletCaptures({
@@ -197,6 +244,20 @@ class SiriShortcutAuthService {
     );
     if (generation != _syncGeneration) return const <String, dynamic>{};
     final result = await syncPendingWalletCaptures();
+    if (generation == _syncGeneration && request.userId != null) {
+      for (final failure in result['failedSiriCaptures'] as List? ?? const []) {
+        if (failure is Map &&
+            failure['userId'] == request.userId &&
+            failure['id'] is String) {
+          final event = (
+            id: failure['id'] as String,
+            userId: request.userId!,
+          );
+          _pendingSiriFailures[event.id] = event;
+          _siriCapturesFailed.add(event);
+        }
+      }
+    }
     if (generation == _syncGeneration &&
         (result['synced'] as num? ?? 0) > 0 &&
         request.userId != null) {
@@ -261,6 +322,7 @@ class SiriShortcutAuthService {
   }
 
   Future<void> clearAuthContext() async {
+    _transactionDefaults = null;
     final existingClear = _clearAuthFuture;
     if (existingClear != null) return existingClear;
 
@@ -286,6 +348,7 @@ class SiriShortcutAuthService {
 
   Future<void> _clearAuthContext() async {
     _syncGeneration++;
+    _pendingSiriFailures.clear();
     _queuedSyncRequest = null;
     final inFlightSync = _syncAuthAndCaptureFuture;
     if (inFlightSync != null) {
