@@ -343,6 +343,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                     final value = await showCalculatorKeypadSheet(
                       context: context,
                       initialValue: openingController.text,
+                      allowNegative: true,
                       prefix: currencySymbol,
                       header: header,
                     );

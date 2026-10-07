@@ -2,6 +2,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 
 void main() {
+  test('negative balances survive RPC parsing and page cache round-trip', () {
+    final month = DateTime(2026, 4);
+    final snapshot = WalletsMonthSnapshot.fromJson({
+      'month_start': '2026-04-01',
+      'month_end_exclusive': '2026-05-01',
+      'income_total_cents': 0,
+      'spent_total_cents': 0,
+      'net_worth_cents': -7500,
+      'wallet_balances': [
+        {'wallet_id': 'debt', 'balance_cents': -7500},
+      ],
+    });
+    final state = WalletsPageState(
+      history: WalletsHistorySummary(
+        availableMonths: [month],
+        netWorthSeries: [
+          WalletNetWorthPoint(monthStart: month, netWorthCents: -7500),
+        ],
+      ),
+      visibleMonths: [month],
+      selectedMonthStart: month,
+      cachedSnapshotsByMonth: {month: snapshot},
+      loadingMonths: const {},
+      monthErrorsByMonth: const {},
+      lastResolvedSelectedMonthStart: month,
+    );
+    final restored = WalletsPageState.fromCacheJson(state.toCacheJson());
+    expect(restored.displayedSnapshot?.walletBalances['debt'], -7500);
+    expect(restored.displayedSnapshot?.netWorthCents, -7500);
+    expect(restored.history.netWorthSeries.single.netWorthCents, -7500);
+  });
+
   group('WalletsScopeQuery', () {
     test('normalizes month and keeps equality/hash stable', () {
       final a = WalletsScopeQuery(

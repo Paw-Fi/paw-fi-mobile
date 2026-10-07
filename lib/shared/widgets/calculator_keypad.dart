@@ -11,6 +11,7 @@ Future<String?> showCalculatorKeypadSheet({
   String? prefix,
   Widget? prefixWidget,
   Widget? header,
+  bool allowNegative = false,
 }) {
   return MonekoBottomSheet.show<String>(
     context: context,
@@ -21,6 +22,7 @@ Future<String?> showCalculatorKeypadSheet({
       prefix: prefix,
       prefixWidget: prefixWidget,
       header: header,
+      allowNegative: allowNegative,
       onConfirm: (value) {
         if (sheetContext.mounted) {
           Navigator.pop(sheetContext, value);
@@ -39,6 +41,7 @@ class CalculatorKeypad extends StatefulWidget {
     this.prefix,
     this.prefixWidget,
     this.header,
+    this.allowNegative = false,
   });
 
   final String initialValue;
@@ -47,6 +50,7 @@ class CalculatorKeypad extends StatefulWidget {
   final String? prefix;
   final Widget? prefixWidget;
   final Widget? header;
+  final bool allowNegative;
 
   @override
   State<CalculatorKeypad> createState() => _CalculatorKeypadState();
@@ -109,7 +113,8 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
           _isFirstInput = false;
         } else {
           if (!_display.contains('.')) {
-            _display = '${_display.isEmpty ? '0' : _display}.';
+            _display =
+                '${_display == '-' ? '-0' : _display.isEmpty ? '0' : _display}.';
           }
         }
       } else if (key == 'AC') {
@@ -123,6 +128,13 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
         if (_display.isNotEmpty) {
           _display = _display.substring(0, _display.length - 1);
         }
+      } else if (key == '-' &&
+          widget.allowNegative &&
+          _display.isEmpty &&
+          _lastValue == null) {
+        _display = '-';
+        _shouldResetDisplay = false;
+        _isFirstInput = false;
       } else if (['+', '-', '×', '÷'].contains(key)) {
         _isFirstInput = false;
         final current = double.tryParse(_display) ?? 0.0;
@@ -139,7 +151,9 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
         _isFirstInput = false;
         final current = double.tryParse(_display) ?? 0.0;
         if (_lastValue != null && _operation != null) {
-          final result = _calculate(_lastValue!, current, _operation!);
+          final result = _shouldResetDisplay
+              ? current
+              : _calculate(_lastValue!, current, _operation!);
           _display = _formatDisplay(result);
           _lastValue = null;
           _operation = null;
@@ -149,12 +163,14 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
             return;
           }
         } else if (key == 'Done') {
-          widget.onConfirm(_display.isEmpty ? '0' : _display);
+          widget
+              .onConfirm(_display.isEmpty || _display == '-' ? '0' : _display);
           return;
         }
       }
     });
-    widget.onValueChange?.call(_display.isEmpty ? '0' : _display);
+    widget.onValueChange
+        ?.call(_display.isEmpty || _display == '-' ? '0' : _display);
   }
 
   String _getLocalizedDisplay(String value) {
@@ -165,11 +181,14 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
     final wholePart = parts.first.isEmpty ? '0' : parts.first;
     final fractionPart = parts.length > 1 ? parts.sublist(1).join('') : null;
     final wholeNumber = int.tryParse(wholePart);
-    final localizedWhole = wholeNumber == null
+    var localizedWhole = wholeNumber == null
         ? wholePart
         : NumberFormat.decimalPattern(
             Localizations.localeOf(context).toString(),
           ).format(wholeNumber);
+    if (wholeNumber == 0 && wholePart.startsWith('-')) {
+      localizedWhole = '-$localizedWhole';
+    }
 
     if (fractionPart == null) return localizedWhole;
     if (hasTrailingDecimal) return '$localizedWhole$_decimalSeparator';
@@ -256,7 +275,8 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
                     if (widget.prefixWidget != null) ...[
                       widget.prefixWidget!,
                       const SizedBox(width: 8),
-                    ] else if (widget.prefix != null && widget.prefix!.isNotEmpty) ...[
+                    ] else if (widget.prefix != null &&
+                        widget.prefix!.isNotEmpty) ...[
                       Text(
                         widget.prefix!,
                         style: TextStyle(
@@ -277,7 +297,9 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          _display.isEmpty ? '0' : _getLocalizedDisplay(_display),
+                          _display.isEmpty
+                              ? '0'
+                              : _getLocalizedDisplay(_display),
                           style: TextStyle(
                             color: _isFirstInput && _display.isNotEmpty
                                 ? scheme.primary

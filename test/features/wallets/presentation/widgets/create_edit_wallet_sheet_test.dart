@@ -14,6 +14,51 @@ Future<void> _tapConfirm(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('wallet opening balance accepts a leading minus and saves cents',
+      (tester) async {
+    CreateEditWalletResult? result;
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                result = await showCreateEditWalletSheet(context);
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, 'Mortgage');
+    await tester.scrollUntilVisible(find.text('Tap to set').first, 250,
+        scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text('Tap to set').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.remove));
+    for (final digit in ['1', '0', '0', '.', '5']) {
+      await tester.tap(find.text(digit).last);
+      await tester.pump();
+    }
+    expect(find.text('-100.5'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.check));
+    await tester.pumpAndSettle();
+    expect(find.text('-100.5'), findsOneWidget);
+    await _tapConfirm(tester);
+    await tester.pumpAndSettle();
+    expect(result?.openingBalanceCents, -10050);
+  });
+
   testWidgets('choosing a built-in wallet icon clears custom logoUrl',
       (tester) async {
     const wallet = WalletEntity(

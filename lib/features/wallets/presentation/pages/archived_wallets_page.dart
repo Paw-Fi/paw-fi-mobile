@@ -161,7 +161,7 @@ class _ArchivedAccountCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
+                      '${amount < 0 ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
                       style: TextStyle(
                         color: colorScheme.mutedForeground,
                         fontWeight: FontWeight.w600,

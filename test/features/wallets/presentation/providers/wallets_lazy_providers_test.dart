@@ -252,6 +252,8 @@ ProviderContainer _offlineWalletContainer(
   MonekoDatabase database,
   WalletsScopeQuery scope, {
   WalletsPageState? sessionState,
+  int openingBalanceCents = 10000,
+  bool hasProviderBalance = true,
 }) {
   final container = ProviderContainer(overrides: [
     appPreferredTimezoneProvider.overrideWith((ref) => null),
@@ -274,7 +276,7 @@ ProviderContainer _offlineWalletContainer(
       selectedCurrency: scope.selectedCurrency,
       selectedCurrencies: scope.selectedCurrencies,
       currentMonthStart: scope.currentMonthStart,
-    ): const [
+    ): [
       WalletEntity(
         id: 'w1',
         userId: 'user-1',
@@ -283,13 +285,13 @@ ProviderContainer _offlineWalletContainer(
         icon: 'wallet',
         color: '#6B7280',
         currency: 'USD',
-        openingBalanceCents: 10000,
+        openingBalanceCents: openingBalanceCents,
         goalAmountCents: null,
         isDefault: false,
         isSystem: false,
         isArchived: false,
-        currentBalanceCents: 10000,
-        hasProviderBalance: true,
+        currentBalanceCents: openingBalanceCents,
+        hasProviderBalance: hasProviderBalance,
       ),
     ],
   };
@@ -951,125 +953,143 @@ void main() {
     expect(container.read(provider).requireValue.displayedSnapshot, isNotNull);
   });
 
-  test('mounted wallet snapshot observes a durable transfer without refresh',
-      () async {
-    final database = MonekoDatabase.inMemory();
-    addTearDown(database.close);
-    final scope = buildScope();
-    final month = scope.currentMonthStart;
-    final initial = _cachedWalletState(
-      monthStart: month,
-      balanceCents: 10000,
-      spentCents: 0,
-    );
-    final container =
-        _offlineWalletContainer(database, scope, sessionState: initial);
-    addTearDown(container.dispose);
-    final networkSubscription =
-        container.listen(networkReachabilityProvider, (_, __) {});
-    addTearDown(networkSubscription.close);
-    await container.read(localDatabaseProvider.future);
-    await container.read(networkReachabilityProvider.future);
-    final provider = walletsPageStateProvider(scope);
-    final subscription = container.listen(provider, (_, __) {});
-    addTearDown(subscription.close);
-    await container.read(provider.future);
-    await pumpEventQueue();
+  for (final scenario in [
+    (opening: 10000, providerBacked: true),
+    (opening: -10000, providerBacked: false),
+    (opening: -10000, providerBacked: true),
+  ]) {
+    test(
+        'mounted wallet ${scenario.opening} provider=${scenario.providerBacked} observes durable transfer lifecycle',
+        () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final scope = buildScope();
+      final month = scope.currentMonthStart;
+      final initial = _cachedWalletState(
+        monthStart: month,
+        balanceCents: scenario.opening,
+        spentCents: 0,
+      );
+      final container = _offlineWalletContainer(database, scope,
+          sessionState: initial,
+          openingBalanceCents: scenario.opening,
+          hasProviderBalance: scenario.providerBacked);
+      addTearDown(container.dispose);
+      final networkSubscription =
+          container.listen(networkReachabilityProvider, (_, __) {});
+      addTearDown(networkSubscription.close);
+      await container.read(localDatabaseProvider.future);
+      await container.read(networkReachabilityProvider.future);
+      final provider = walletsPageStateProvider(scope);
+      final subscription = container.listen(provider, (_, __) {});
+      addTearDown(subscription.close);
+      await container.read(provider.future);
+      await pumpEventQueue();
 
-    final entries = buildWalletTransferFeedEntries(
-      transferJson: {
-        'id': 'optimistic-transfer-test',
-        'from_account_id': 'w1',
-        'to_account_id': 'other-wallet',
-        'amount_cents': 1500,
-        'currency': 'USD',
-        'date': '2026-04-12',
-        'created_by_user_id': scope.userId,
-      },
-      fallbackUserId: scope.userId,
-    );
-    await database.writeOptimisticWalletTransfer(
-      entries: entries,
-      clientMutationId: 'transfer-create',
-      entityId: 'optimistic-transfer-test',
-      payload: const {'functionName': 'create-wallet-transfer'},
-    );
-    await pumpEventQueue();
+      final entries = buildWalletTransferFeedEntries(
+        transferJson: {
+          'id': 'optimistic-transfer-test',
+          'from_account_id': scenario.opening < 0 ? 'other-wallet' : 'w1',
+          'to_account_id': scenario.opening < 0 ? 'w1' : 'other-wallet',
+          'amount_cents': 1500,
+          'currency': 'USD',
+          'date': '2026-04-12',
+          'created_by_user_id': scope.userId,
+        },
+        fallbackUserId: scope.userId,
+      );
+      await database.writeOptimisticWalletTransfer(
+        entries: entries,
+        clientMutationId: 'transfer-create',
+        entityId: 'optimistic-transfer-test',
+        payload: const {'functionName': 'create-wallet-transfer'},
+      );
+      await pumpEventQueue();
 
-    final state = container.read(provider).requireValue;
-    expect(state.displayedSnapshot?.walletBalances['w1'], 8500);
-    expect(state.displayedSnapshot?.spentTotalCents, 0);
+      final state = container.read(provider).requireValue;
+      final expectedBalance = scenario.opening < 0 ? -8500 : 8500;
+      expect(state.displayedSnapshot?.walletBalances['w1'], expectedBalance);
+      expect(state.displayedSnapshot?.spentTotalCents, 0);
+      expect(state.displayedSnapshot?.incomeTotalCents, 0);
 
-    await database.markMutationFailed(
-      clientMutationId: 'transfer-create',
-      error: 'offline',
-      retryAfter: DateTime.now().add(const Duration(minutes: 1)),
-    );
-    await pumpEventQueue();
-    expect(
-        container
-            .read(provider)
-            .requireValue
-            .displayedSnapshot
-            ?.walletBalances['w1'],
-        8500);
+      await database.markMutationFailed(
+        clientMutationId: 'transfer-create',
+        error: 'offline',
+        retryAfter: DateTime.now().add(const Duration(minutes: 1)),
+      );
+      await pumpEventQueue();
+      expect(
+          container
+              .read(provider)
+              .requireValue
+              .displayedSnapshot
+              ?.walletBalances['w1'],
+          expectedBalance);
 
-    await database.replaceOptimisticWalletTransfer(
-      optimisticIds: entries.map((entry) => entry.id),
-      savedEntries: entries
+      await database.replaceOptimisticWalletTransfer(
+        optimisticIds: entries.map((entry) => entry.id),
+        savedEntries: entries
+            .map((entry) => ExpenseEntry.fromJson({
+                  ...entry.toJson(),
+                  'id': entry.id
+                      .replaceFirst('optimistic-transfer-test', 'canonical'),
+                }))
+            .toList(),
+        clientMutationId: 'transfer-create',
+      );
+      await pumpEventQueue();
+      expect(
+          container
+              .read(provider)
+              .requireValue
+              .displayedSnapshot
+              ?.walletBalances['w1'],
+          expectedBalance);
+
+      final secondEntries = entries
           .map((entry) => ExpenseEntry.fromJson({
                 ...entry.toJson(),
-                'id': entry.id
-                    .replaceFirst('optimistic-transfer-test', 'canonical'),
+                'id': entry.id.replaceFirst(
+                    'optimistic-transfer-test', 'optimistic-transfer-second'),
+                'amount_cents': 500,
               }))
-          .toList(),
-      clientMutationId: 'transfer-create',
-    );
-    await pumpEventQueue();
-    expect(
-        container
-            .read(provider)
-            .requireValue
-            .displayedSnapshot
-            ?.walletBalances['w1'],
-        8500);
-
-    final secondEntries = entries
-        .map((entry) => ExpenseEntry.fromJson({
-              ...entry.toJson(),
-              'id': entry.id.replaceFirst(
-                  'optimistic-transfer-test', 'optimistic-transfer-second'),
-              'amount_cents': 500,
-            }))
-        .toList();
-    await database.writeOptimisticWalletTransfer(
-      entries: secondEntries,
-      clientMutationId: 'transfer-second',
-      entityId: 'optimistic-transfer-second',
-      payload: const {'functionName': 'create-wallet-transfer'},
-    );
-    await pumpEventQueue();
-    expect(
-        container
-            .read(provider)
-            .requireValue
-            .displayedSnapshot
-            ?.walletBalances['w1'],
-        8000);
-    await database.rollbackOptimisticWalletTransfer(
-      optimisticIds: secondEntries.map((entry) => entry.id),
-      clientMutationId: 'transfer-second',
-      error: StateError('terminal rejection'),
-    );
-    await pumpEventQueue();
-    expect(
-        container
-            .read(provider)
-            .requireValue
-            .displayedSnapshot
-            ?.walletBalances['w1'],
-        8500);
-  });
+          .toList();
+      await database.writeOptimisticWalletTransfer(
+        entries: secondEntries,
+        clientMutationId: 'transfer-second',
+        entityId: 'optimistic-transfer-second',
+        payload: const {'functionName': 'create-wallet-transfer'},
+      );
+      await pumpEventQueue();
+      expect(
+          container
+              .read(provider)
+              .requireValue
+              .displayedSnapshot
+              ?.walletBalances['w1'],
+          scenario.opening < 0 ? -8000 : 8000);
+      await database.rollbackOptimisticWalletTransfer(
+        optimisticIds: secondEntries.map((entry) => entry.id),
+        clientMutationId: 'transfer-second',
+        error: StateError('terminal rejection'),
+      );
+      await pumpEventQueue();
+      expect(
+          container
+              .read(provider)
+              .requireValue
+              .displayedSnapshot
+              ?.walletBalances['w1'],
+          expectedBalance);
+      final cache = await database.getJsonCache(
+        namespace: 'wallets_page_state',
+        cacheKey: walletsPageStateCacheKey(scope),
+      );
+      expect(cache, isNotNull);
+      final restored = WalletsPageState.fromCacheJson(cache!.payload);
+      expect(restored.displayedSnapshot?.walletBalances['w1'], expectedBalance);
+    });
+  }
 
   test(
       'walletsPageStateProvider preserves pending local overlay after stale refresh completes',

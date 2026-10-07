@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -65,6 +66,78 @@ void main() {
         selected: SelectedHouseholdState(),
         portfolioHouseholdIds: <String>{},
       );
+
+  test('foreign debt reduces net worth with signed cent-rounded conversion',
+      () {
+    final snapshot = buildWalletSnapshot(
+      wallets: [
+        wallet(id: 'cash', opening: 20000).copyWith(currency: 'EUR'),
+        wallet(id: 'debt', opening: -10001),
+      ],
+      transactions: [
+        tx(
+            id: 'interest',
+            date: DateTime(2026, 10, 6),
+            cents: 100,
+            type: 'expense',
+            walletId: 'debt'),
+      ],
+      endExclusive: DateTime(2026, 11),
+      targetCurrency: 'EUR',
+      rates: const CurrencyRateTable(
+          baseCurrency: 'USD', rates: {'USD': 1, 'EUR': 0.85}),
+    );
+    expect(snapshot.walletBalances, {'cash': 20000, 'debt': -8586});
+    expect(snapshot.netWorthCents, 11414);
+    expect(snapshot.totalSpentCents, 85);
+  });
+
+  test('debt repayment transfers reduce debt without creating income', () {
+    final debt = wallet(id: 'debt', opening: -10000);
+    expect(WalletEntity.fromJson(debt.toJson()).openingBalanceCents, -10000);
+    final snapshot = buildWalletSnapshot(
+      wallets: [wallet(id: 'cash', opening: 20000), debt],
+      transactions: buildWalletTransferFeedEntries(transferJson: {
+        'id': 'repayment',
+        'from_account_id': 'cash',
+        'to_account_id': 'debt',
+        'amount_cents': 2500,
+        'currency': 'USD',
+        'date': '2026-10-06',
+      }, fallbackUserId: 'user-1'),
+      endExclusive: DateTime(2026, 11),
+    );
+    expect(snapshot.walletBalances, {'cash': 17500, 'debt': -7500});
+    expect(snapshot.netWorthCents, 10000);
+    expect(snapshot.totalIncomeCents, 0);
+    expect(snapshot.totalSpentCents, 0);
+    expect(
+        retargetWalletBalanceForOpeningChange(
+          previousOpeningBalanceCents: -10000,
+          nextOpeningBalanceCents: -20000,
+          currentBalanceCents: -7500,
+        ),
+        -17500);
+  });
+
+  for (final repayment in [0, 2500, 10000, 12500]) {
+    test('debt balance remains signed after repayment of $repayment', () {
+      final snapshot = buildWalletSnapshot(
+        wallets: [wallet(id: 'debt', opening: -10000)],
+        transactions: [
+          tx(
+              id: 'payment',
+              date: DateTime(2026, 10, 6),
+              cents: repayment,
+              type: 'income',
+              walletId: 'debt'),
+        ],
+        endExclusive: DateTime(2026, 11),
+      );
+      expect(snapshot.walletBalances['debt'], -10000 + repayment);
+      expect(snapshot.netWorthCents, -10000 + repayment);
+    });
+  }
 
   test(
       'external transfers count as income and spending while own-wallet pair only moves balances',

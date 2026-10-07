@@ -3,6 +3,31 @@ import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
 
 void main() {
   group('buildMonthlyFinancialReport', () {
+    test('negative net worth remains signed in forecast and debt improvement',
+        () {
+      final report = buildMonthlyFinancialReport(MonthlyReportInput(
+        monthStart: DateTime(2026, 5),
+        now: DateTime(2026, 5, 10),
+        currencyCode: 'EUR',
+        currentBalance: -7500,
+        previousNetWorth: -10000,
+        currentMonthTransactions: const [],
+        previousMonthTransactions: const [],
+        budgetItems: const [],
+        recurringItems: const [],
+        futureTransactions: [
+          _tx('interest', DateTime(2026, 5, 12), 100),
+          _tx('income', DateTime(2026, 5, 20), 500, type: 'income'),
+        ],
+      ));
+      expect(report.overview.currentBalance, -7500);
+      expect(report.overview.forecastedBalance, -7100);
+      expect(report.safeToSpend.dailyAmount, 0);
+      expect(report.cashFlowHealth.lowWaterBalance, -7600);
+      expect(report.netWorthTrend?.change, 2500);
+      expect(report.netWorthTrend?.changePercent, 0.25);
+    });
+
     test('calculates overview, safe-to-spend, and cashflow from real inputs',
         () {
       final report = buildMonthlyFinancialReport(
