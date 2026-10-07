@@ -390,7 +390,7 @@ class _VerticalPlanOption extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             onTap: disabled ? null : onSelected,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               child: largeText
                   ? details
                   : Row(children: [

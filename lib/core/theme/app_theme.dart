@@ -88,7 +88,10 @@ extension AppColorScheme on ColorScheme {
 
   Color get planSelectionBackground => brightness == Brightness.dark
       ? const Color(0xFF101014)
-      : const Color(0xFFFFFFFF);
+      : const Color(0xFFF1F1F3);
+  Color get planSelectionCloudBase => brightness == Brightness.dark
+      ? const Color(0xFF232427)
+      : const Color(0xFFFCFCFC);
   Color get planSelectionCard => brightness == Brightness.dark
       ? const Color(0xFF101014)
       : const Color(0xFFF9F8FC);

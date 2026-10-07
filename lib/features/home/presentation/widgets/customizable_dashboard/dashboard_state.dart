@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
@@ -5,6 +7,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'dashboard_config.dart';
+import 'dashboard_layout_defaults.dart';
 import 'dashboard_repository.dart';
 
 // ============================================================================
@@ -60,23 +63,13 @@ void _dashboardConfigTrace(
 
 final isEditModeProvider = StateProvider<bool>((ref) => false);
 
-List<DashboardWidgetConfig> _insertAfterDashboardWidget(
-  List<DashboardWidgetConfig> configs,
-  DashboardWidgetType type,
-  DashboardWidgetType anchor,
-) {
-  if (configs.any((config) => config.type == type)) return configs;
-  final result = List<DashboardWidgetConfig>.from(configs);
-  final anchorIndex = result.indexWhere((config) => config.type == anchor);
-  result.insert(
-    anchorIndex < 0 ? result.length : anchorIndex + 1,
-    DashboardWidgetConfig(id: type.name, type: type, order: 0),
+bool _dashboardLayoutsMatch(
+    List<DashboardWidgetConfig>? saved, List<DashboardWidgetConfig> resolved) {
+  if (saved == null) return false;
+  return foundation.listEquals(
+    saved.map((config) => jsonEncode(config.toJson())).toList(),
+    resolved.map((config) => jsonEncode(config.toJson())).toList(),
   );
-  return result
-      .asMap()
-      .entries
-      .map((entry) => entry.value.copyWith(order: entry.key))
-      .toList(growable: false);
 }
 
 // ============================================================================
@@ -97,98 +90,24 @@ class PersonalDashboardController
     _dashboardConfigTrace('PersonalDashboardConfig', 'load-start',
         fields: {'user': _userId});
     try {
-      final configs = await _repository.loadPersonalLayout(_userId);
+      final saved = await _repository.loadPersonalLayout(_userId);
       if (!mounted) return;
-      if (configs != null && configs.isNotEmpty) {
-        configs.sort((a, b) => a.order.compareTo(b.order));
-        // Migration: Ensure all default widgets are present
-        final currentTypes = configs.map((c) => c.type).toSet();
-        final defaultTypes = [
-          DashboardWidgetType.spendingSummary,
-          DashboardWidgetType.netCashflow,
-          DashboardWidgetType.financialCalendar,
-          DashboardWidgetType.recentTransactions,
-          DashboardWidgetType.upcomingTransactions,
-          DashboardWidgetType.spendingBreakdownChart,
-          DashboardWidgetType.whereTheMoneyWent,
-        ];
-
-        final missingTypes =
-            defaultTypes.where((t) => !currentTypes.contains(t));
-
-        if (missingTypes.isNotEmpty) {
-          final maxOrder =
-              configs.map((c) => c.order).reduce((a, b) => a > b ? a : b);
-          var nextOrder = maxOrder + 1;
-
-          final newConfigs = List<DashboardWidgetConfig>.from(configs);
-          for (final type in missingTypes) {
-            if (type == DashboardWidgetType.upcomingTransactions) continue;
-            newConfigs.add(DashboardWidgetConfig(
-              id: type.name, // Use type name as ID for new widgets
-              type: type,
-              order: nextOrder++,
-              isVisible: true, // Default to visible so user sees it
-            ));
-          }
-          final migrated = _insertAfterDashboardWidget(
-            newConfigs,
-            DashboardWidgetType.upcomingTransactions,
-            DashboardWidgetType.recentTransactions,
-          );
-          state = AsyncValue.data(migrated);
-          // Auto-save the migrated config
-          save(migrated);
-        } else {
-          state = AsyncValue.data(configs);
-        }
-        _dashboardConfigTrace('PersonalDashboardConfig', 'load-success',
-            fields: {
-              'user': _userId,
-              'widgetCount': state.valueOrNull?.length
-            });
-      } else {
-        // Default Layout
-        if (!mounted) return;
-        final defaultConfigs = [
-          const DashboardWidgetConfig(
-              id: 'spending',
-              type: DashboardWidgetType.spendingSummary,
-              order: 0),
-          const DashboardWidgetConfig(
-              id: 'net_cashflow',
-              type: DashboardWidgetType.netCashflow,
-              order: 1),
-          const DashboardWidgetConfig(
-              id: 'calendar',
-              type: DashboardWidgetType.financialCalendar,
-              order: 2),
-          const DashboardWidgetConfig(
-              id: 'categories',
-              type: DashboardWidgetType.recentTransactions,
-              order: 3),
-          const DashboardWidgetConfig(
-              id: 'upcoming_transactions',
-              type: DashboardWidgetType.upcomingTransactions,
-              order: 4),
-          const DashboardWidgetConfig(
-              id: 'spending_chart',
-              type: DashboardWidgetType.spendingBreakdownChart,
-              order: 5),
-          const DashboardWidgetConfig(
-              id: 'where_the_money_went',
-              type: DashboardWidgetType.whereTheMoneyWent,
-              order: 6),
-        ];
-        state = AsyncValue.data(defaultConfigs);
-        await _repository.savePersonalLayout(_userId, defaultConfigs);
-        _dashboardConfigTrace(
-            'PersonalDashboardConfig', 'default-config-created',
-            fields: {'user': _userId, 'widgetCount': defaultConfigs.length});
+      final configs = resolveDashboardLayout(
+        saved,
+        isHousehold: false,
+        isCustomized: _repository.isPersonalLayoutCustomized(_userId),
+      );
+      state = AsyncValue.data(configs);
+      // Defaults and automatic migrations are not user customization.
+      if (!_dashboardLayoutsMatch(saved, configs)) {
+        await _repository.savePersonalLayout(_userId, configs);
       }
+      _dashboardConfigTrace('PersonalDashboardConfig', 'load-success',
+          fields: {'user': _userId, 'widgetCount': configs.length});
     } catch (e, st) {
       if (!mounted) return;
-      state = AsyncValue.error(e, st);
+      // A persistence error must not hide an already resolved layout.
+      if (!state.hasValue) state = AsyncValue.error(e, st);
       _dashboardConfigTrace('PersonalDashboardConfig', 'load-error',
           fields: {'user': _userId, 'error': e});
     }
@@ -197,6 +116,7 @@ class PersonalDashboardController
   Future<void> save(List<DashboardWidgetConfig> configs) async {
     if (!mounted) return;
     state = AsyncValue.data(configs);
+    await _repository.markPersonalLayoutCustomized(_userId);
     await _repository.savePersonalLayout(_userId, configs);
   }
 
@@ -276,117 +196,24 @@ class HouseholdDashboardController
     _dashboardConfigTrace('HouseholdDashboardConfig', 'load-start',
         fields: {'household': _householdId});
     try {
-      final configs = await _repository.loadHouseholdLayout(_householdId);
+      final saved = await _repository.loadHouseholdLayout(_householdId);
       if (!mounted) return;
-      if (configs != null && configs.isNotEmpty) {
-        configs.sort((a, b) => a.order.compareTo(b.order));
-        // Migration: Ensure all default widgets are present
-        final currentTypes = configs.map((c) => c.type).toSet();
-        final defaultTypes = [
-          DashboardWidgetType.householdSpentByYou,
-          DashboardWidgetType.householdFinancialCalendar,
-          DashboardWidgetType.householdBudgetOverview,
-          DashboardWidgetType.householdFairness,
-          DashboardWidgetType.householdSettlement,
-          DashboardWidgetType.householdMemberSpending,
-          DashboardWidgetType.householdRecentTransactions,
-          DashboardWidgetType.householdUpcomingTransactions,
-          DashboardWidgetType.householdSpendingBreakdownChart,
-          DashboardWidgetType.householdWhereTheMoneyWent,
-        ];
-
-        final missingTypes =
-            defaultTypes.where((t) => !currentTypes.contains(t));
-
-        if (missingTypes.isNotEmpty) {
-          final maxOrder =
-              configs.map((c) => c.order).reduce((a, b) => a > b ? a : b);
-          var nextOrder = maxOrder + 1;
-
-          final newConfigs = List<DashboardWidgetConfig>.from(configs);
-          for (final type in missingTypes) {
-            if (type == DashboardWidgetType.householdUpcomingTransactions) {
-              continue;
-            }
-            newConfigs.add(DashboardWidgetConfig(
-              id: type.name,
-              type: type,
-              order: nextOrder++,
-              isVisible: true,
-            ));
-          }
-          final migrated = _insertAfterDashboardWidget(
-            newConfigs,
-            DashboardWidgetType.householdUpcomingTransactions,
-            DashboardWidgetType.householdRecentTransactions,
-          );
-          state = AsyncValue.data(migrated);
-          save(migrated);
-        } else {
-          state = AsyncValue.data(configs);
-        }
-        _dashboardConfigTrace('HouseholdDashboardConfig', 'load-success',
-            fields: {
-              'household': _householdId,
-              'widgetCount': state.valueOrNull?.length,
-            });
-      } else {
-        // Default Layout
-        if (!mounted) return;
-        final defaultConfigs = [
-          const DashboardWidgetConfig(
-              id: 'settlement',
-              type: DashboardWidgetType.householdSettlement,
-              order: 0),
-          const DashboardWidgetConfig(
-              id: 'member_spending',
-              type: DashboardWidgetType.householdMemberSpending,
-              order: 1),
-          const DashboardWidgetConfig(
-              id: 'spent_by_you',
-              type: DashboardWidgetType.householdSpentByYou,
-              order: 2),
-          const DashboardWidgetConfig(
-              id: 'calendar',
-              type: DashboardWidgetType.householdFinancialCalendar,
-              order: 3),
-          const DashboardWidgetConfig(
-              id: 'budget_overview',
-              type: DashboardWidgetType.householdBudgetOverview,
-              order: 4),
-          const DashboardWidgetConfig(
-              id: 'fairness',
-              type: DashboardWidgetType.householdFairness,
-              order: 5),
-          const DashboardWidgetConfig(
-              id: 'categories',
-              type: DashboardWidgetType.householdRecentTransactions,
-              order: 6),
-          const DashboardWidgetConfig(
-              id: 'household_upcoming_transactions',
-              type: DashboardWidgetType.householdUpcomingTransactions,
-              order: 7),
-          const DashboardWidgetConfig(
-              id: 'spending_chart',
-              type: DashboardWidgetType.householdSpendingBreakdownChart,
-              order: 8),
-          const DashboardWidgetConfig(
-              id: 'where_the_money_went',
-              type: DashboardWidgetType.householdWhereTheMoneyWent,
-              order: 9),
-        ];
-        state = AsyncValue.data(defaultConfigs);
-        await _repository.saveHouseholdLayout(_householdId, defaultConfigs);
-        _dashboardConfigTrace(
-            'HouseholdDashboardConfig', 'default-config-created',
-            fields: {
-              'household': _householdId,
-              'widgetCount': defaultConfigs.length,
-            });
+      final configs = resolveDashboardLayout(
+        saved,
+        isHousehold: true,
+        isCustomized: _repository.isHouseholdLayoutCustomized(_householdId),
+      );
+      state = AsyncValue.data(configs);
+      // Defaults and automatic migrations are not user customization.
+      if (!_dashboardLayoutsMatch(saved, configs)) {
+        await _repository.saveHouseholdLayout(_householdId, configs);
       }
+      _dashboardConfigTrace('HouseholdDashboardConfig', 'load-success',
+          fields: {'household': _householdId, 'widgetCount': configs.length});
     } catch (e, st) {
       if (!mounted) return;
-      state = AsyncValue.error(e, st);
+      // A persistence error must not hide an already resolved layout.
+      if (!state.hasValue) state = AsyncValue.error(e, st);
       _dashboardConfigTrace('HouseholdDashboardConfig', 'load-error',
           fields: {'household': _householdId, 'error': e});
     }
@@ -395,6 +222,7 @@ class HouseholdDashboardController
   Future<void> save(List<DashboardWidgetConfig> configs) async {
     if (!mounted) return;
     state = AsyncValue.data(configs);
+    await _repository.markHouseholdLayoutCustomized(_householdId);
     await _repository.saveHouseholdLayout(_householdId, configs);
   }
 

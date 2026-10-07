@@ -2,6 +2,49 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 
 void main() {
+  group('merchant auto-resolution blocker', () {
+    for (final type in ['expense', 'income']) {
+      for (final marker in [true, false, null, 'true', 1]) {
+        test('$type preserves only a boolean true blocker ($marker)', () {
+          final parsed = ParsedExpense.fromJson({
+            'type': type,
+            'amount': 12.34,
+            'category': 'other',
+            'currency': 'JPY',
+            'date': '2026-10-03',
+            'transactionTime': '18:30:27',
+            'merchant': '原文の相手',
+            'description': '送金の記録',
+            if (marker != null) 'merchant_auto_resolution_blocked': marker,
+          });
+          expect(parsed.merchantAutoResolutionBlocked, marker == true);
+          final json = parsed.toJson();
+          expect(json.containsKey('merchant_auto_resolution_blocked'),
+              marker == true);
+          final restored = ParsedExpense.fromJson(json);
+          expect(restored.merchantAutoResolutionBlocked, marker == true);
+          expect(restored.merchant, '原文の相手');
+          expect(restored.description, '送金の記録');
+          expect(restored.amount, 12.34);
+          expect(restored.currency, 'JPY');
+          expect(restored.date, DateTime(2026, 10, 3));
+          expect(restored.transactionTime, '18:30:27');
+          expect(restored.isIncome, type == 'income');
+          expect(parsed.copyWith(amount: 20).merchantAutoResolutionBlocked,
+              marker == true);
+          final corrected = parsed.copyWith(
+              merchant: '手動訂正', merchantAutoResolutionBlocked: false);
+          expect(corrected.merchantAutoResolutionBlocked, isFalse);
+          expect(
+              corrected
+                  .toJson()
+                  .containsKey('merchant_auto_resolution_blocked'),
+              isFalse);
+          expect(parsed.merchantAutoResolutionBlocked, marker == true);
+        });
+      }
+    }
+  });
   test('preserves analyzed merchant identity and candidates through JSON', () {
     final expense = ParsedExpense.fromJson({
       'type': 'expense',

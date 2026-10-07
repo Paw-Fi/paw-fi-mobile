@@ -45,7 +45,7 @@ class FinancialCalendarWidget extends ConsumerStatefulWidget {
     required this.recurringTransactions,
     required this.currency,
     this.initialMonth,
-    this.isExpanded = false,
+    this.isExpanded = true,
   });
 
   @override

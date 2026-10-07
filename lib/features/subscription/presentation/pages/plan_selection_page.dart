@@ -1222,6 +1222,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                   style: TextStyle(
                       fontSize: 12,
                       color: colorScheme.primary,
+                      decorationColor: colorScheme.primary,
                       decoration: TextDecoration.underline)),
             ),
           ),

@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/utils/async_value_extensions.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -6,6 +7,7 @@ import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -109,7 +111,29 @@ class SpendingDailyOverview {
 /// service calls: each Space/actor/currency/range keeps its original cache key.
 final spendingScopedActualTransactionsProvider = Provider.autoDispose
     .family<AsyncValue<List<ExpenseEntry>>, DashboardScopeQuery>((ref, query) {
+  if (ref.watch(previewModeProvider).isActive) {
+    final rows = const PreviewDashboardDataService().calendarTransactions(query);
+    logPreviewHomeLoading('spending-scoped-source', {
+      'source': 'mock-transactions',
+      'rows': rows.length,
+      'household': query.householdId ?? '<personal>',
+      'currencies': query.normalizedCurrencies,
+      'start': query.startDate,
+      'end': query.endDate,
+    });
+    return AsyncData(rows);
+  }
   final source = ref.watch(dashboardCalendarTransactionsProvider(query));
+  logPreviewHomeLoading('spending-scoped-source', {
+    'source': 'live-calendar',
+    'loading': source.isLoading,
+    'hasValue': source.hasValue,
+    'hasError': source.hasError,
+    'rows': source.valueOrNull?.length,
+    'household': query.householdId ?? '<personal>',
+    'start': query.startDate,
+    'end': query.endDate,
+  });
   if (!source.hasValue) return source;
   final overlay = ref.watch(dashboardLocalOverlayTransactionsProvider(query));
   final resolution = ref.watch(recurringOccurrenceProjectionResolutionProvider(
@@ -166,6 +190,15 @@ final spendingDailyOverviewProvider = Provider.autoDispose
         (ref, request) {
   final current =
       ref.watch(spendingScopedActualTransactionsProvider(request.query));
+  logPreviewHomeLoading('spending-overview-current', {
+    'preview': ref.read(previewModeProvider).isActive,
+    'loading': current.isLoading,
+    'hasValue': current.hasValue,
+    'hasError': current.hasError,
+    'household': request.query.householdId ?? '<personal>',
+    'start': request.query.startDate,
+    'end': request.query.endDate,
+  });
   if (!current.hasValue) {
     return current.hasError
         ? AsyncError(current.error!, current.stackTrace ?? StackTrace.current)
@@ -173,15 +206,27 @@ final spendingDailyOverviewProvider = Provider.autoDispose
   }
   final previous = ref
       .watch(spendingScopedActualTransactionsProvider(request.previousQuery));
+  logPreviewHomeLoading('spending-overview-previous', {
+    'preview': ref.read(previewModeProvider).isActive,
+    'loading': previous.isLoading,
+    'hasValue': previous.hasValue,
+    'hasError': previous.hasError,
+    'rows': previous.valueOrNull?.length,
+    'start': request.previousQuery.startDate,
+    'end': request.previousQuery.endDate,
+  });
   final needsRates = [...current.valueOrNull!, ...?previous.valueOrNull].any(
       (entry) =>
           entry.currency?.trim().isNotEmpty == true &&
           entry.currency!.trim().toUpperCase() != request.currency);
-  final rates = needsRates
+  final rates = needsRates && !ref.watch(previewModeProvider).isActive
       ? ref.watch(currencyRateTableProvider).valueOrNull ??
           const CurrencyRateTable(
               baseCurrency: 'USD', rates: CurrencyRates.rates, isStale: true)
-      : null;
+      : needsRates
+          ? const CurrencyRateTable(
+              baseCurrency: 'USD', rates: CurrencyRates.rates, isStale: true)
+          : null;
   return current.whenDataWithPrevious((entries) => SpendingDailyOverview(
         dailyAverage: calculateDailySpendingAverage(entries,
             start: request.query.startDate!,

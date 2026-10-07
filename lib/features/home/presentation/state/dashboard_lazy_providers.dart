@@ -121,6 +121,12 @@ class PreviewDashboardDataService implements DashboardDataService {
   @override
   Future<List<ExpenseEntry>> fetchCalendarTransactions(
       DashboardScopeQuery query) async {
+    return calendarTransactions(query);
+  }
+
+  /// Preview derivations can consume the same scoped mock rows synchronously,
+  /// without entering the authenticated dashboard's SQLite/cache lifecycle.
+  List<ExpenseEntry> calendarTransactions(DashboardScopeQuery query) {
     return PreviewMockData.dashboardExpenses
         .where((entry) {
           final matchesHousehold = query.householdId == null

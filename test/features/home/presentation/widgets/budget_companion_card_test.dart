@@ -6,6 +6,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/widgets/budget_companion_card.dart';
+import 'package:moneko/features/home/presentation/widgets/dashboard_budget_header.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 String? _assetName(Image image) {
@@ -46,6 +47,7 @@ Future<void> _pump(
   VoidCallback? onBudgetTap,
   VoidCallback? onRetry,
   bool disableAnimations = true,
+  bool includeCategories = true,
   Duration pumpDuration = const Duration(milliseconds: 300),
 }) async {
   tester.view.physicalSize = Size(width, 1000);
@@ -67,18 +69,77 @@ Future<void> _pump(
             body: SingleChildScrollView(
                 child: Padding(
           padding: const EdgeInsets.all(16),
-          child: BudgetCompanionCard(
-              data: data,
-              currency: currency,
-              mode: mode,
-              onBudgetTap: onBudgetTap ?? () {},
-              onRetry: onRetry ?? () {}),
+          child: Column(children: [
+            DashboardBudgetHeader(
+                summary: data.summary,
+                isRefreshing: data.isRefreshing,
+                currency: currency,
+                mode: mode,
+                onBudgetTap: onBudgetTap ?? () {},
+                onRetry: onRetry ?? () {}),
+            const SizedBox(height: 20),
+            if (includeCategories)
+              BudgetCompanionCard(
+                  data: data, currency: currency, onRetry: onRetry ?? () {}),
+          ]),
         )))),
   ));
   await tester.pump(pumpDuration);
 }
 
 void main() {
+  testWidgets('page header renders independently of the category card',
+      (tester) async {
+    await _pump(tester, _data(), includeCategories: false);
+    expect(find.byType(DashboardBudgetHeader), findsOneWidget);
+    expect(find.byType(BudgetGaugeIndicator), findsOneWidget);
+    expect(find.byType(BudgetCompanionCard), findsNothing);
+    expect(find.text(r'$1,842'), findsOneWidget);
+    expect(find.text(r'$1,158 left'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('category card does not contain the page header or gauge',
+      (tester) async {
+    await _pump(tester, _data());
+    final card = find.byType(BudgetCompanionCard);
+    expect(
+        find.descendant(of: card, matching: find.byType(DashboardBudgetHeader)),
+        findsNothing);
+    expect(
+        find.descendant(of: card, matching: find.byType(BudgetGaugeIndicator)),
+        findsNothing);
+    expect(tester.getBottomLeft(find.byType(DashboardBudgetHeader)).dy,
+        lessThan(tester.getTopLeft(card).dy));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ready categories remain visible while the header is loading',
+      (tester) async {
+    await _pump(
+        tester,
+        BudgetCompanionData(
+            summary: const AsyncLoading(), categories: _data().categories));
+    expect(find.byType(DashboardBudgetHeaderSkeleton), findsOneWidget);
+    expect(find.byKey(const ValueKey('budget-bar-food')), findsOneWidget);
+    expect(find.byType(BudgetCompanionSkeleton), findsNothing);
+    expect(find.byType(BudgetGaugeIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ready header remains visible while categories are loading',
+      (tester) async {
+    await _pump(
+        tester,
+        BudgetCompanionData(
+            summary: _data().summary, categories: const AsyncLoading()));
+    expect(find.byType(DashboardBudgetHeaderSkeleton), findsNothing);
+    expect(find.byType(BudgetCompanionSkeleton), findsOneWidget);
+    expect(find.byType(BudgetGaugeIndicator), findsOneWidget);
+    expect(find.text(r'$1,842'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'animated cached reloads keep the mounted chart and scroll offset',
       (tester) async {
@@ -145,16 +206,16 @@ void main() {
     expect(find.text("Nice! You're on track."), findsOneWidget);
     expect(find.text('Spending by category'), findsNothing);
     expect(tester.getSize(find.byKey(const ValueKey('budget-bar-food'))).height,
-        86);
+        190);
     expect(
         tester
             .getSize(find.byKey(const ValueKey('budget-bar-shopping')))
             .height,
-        closeTo(86 * 384 / 498, .01));
+        closeTo(190 * 384 / 498, .01));
     final viewport = tester
         .getRect(find.byKey(const ValueKey('budget-companion-categories')));
     final nextBar =
-        tester.getRect(find.byKey(const ValueKey('budget-bar-travel')));
+        tester.getRect(find.byKey(const ValueKey('budget-bar-coffee')));
     expect((viewport.right - nextBar.left) / nextBar.width, closeTo(.25, .001));
     final images = tester.widgetList<Image>(find.byType(Image));
     expect(
@@ -175,8 +236,8 @@ void main() {
           (dark ? AppTheme.darkTheme() : AppTheme.lightTheme()).colorScheme;
       final decoration = card.decoration! as BoxDecoration;
       expect(decoration.gradient, isNull);
-      expect(decoration.color, colors.homeCardSurface);
-      expect(decoration.border, Border.all(color: colors.homeCardBorder));
+      expect(decoration.color, colors.surface.withValues(alpha: 0.0));
+      expect(decoration.border, isNull);
       expect(decoration.borderRadius, BorderRadius.circular(24));
     });
   }
@@ -203,9 +264,14 @@ void main() {
           scale: sample.$2,
           locale: sample.$3);
       final chart = find.byKey(const ValueKey('budget-companion-categories'));
-      final list = tester.widget<ListView>(chart);
-      expect(
-          (list.childrenDelegate as SliverChildBuilderDelegate).childCount, 30);
+      final bars = find.descendant(
+          of: chart,
+          matching: find.byWidgetPredicate((widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>)
+                  .value
+                  .startsWith('budget-bar-category-')));
+      expect(bars, findsNWidgets(30));
       final viewport = tester.getRect(chart);
       final count =
           (viewport.width / (60 * sample.$2.clamp(1, 2))).floor().clamp(2, 7);
@@ -266,12 +332,11 @@ void main() {
       final images = tester.widgetList<Image>(find.byType(Image));
       expect(
           images.any((image) =>
-              _assetName(image) ==
-              'lib/assets/mascots/moneko-${sample.$2}.png'),
+              _assetName(image) == 'lib/assets/mascots/cat-pecentage.png'),
           isTrue);
       expect(
           tester
-              .widget<LinearProgressIndicator>(
+              .widget<BudgetGaugeIndicator>(
                   find.byKey(const ValueKey('budget-companion-progress')))
               .value,
           (sample.$1 / 100).clamp(0, 1));
@@ -331,6 +396,7 @@ void main() {
         const BudgetCompanionData(
             summary: AsyncLoading(), categories: AsyncLoading()));
     expect(find.byType(BudgetCompanionSkeleton), findsOneWidget);
+    expect(find.byType(DashboardBudgetHeaderSkeleton), findsOneWidget);
     expect(find.text(r'$0'), findsNothing);
     expect(find.text('No budget configured'), findsNothing);
     await _pump(
@@ -369,8 +435,8 @@ void main() {
         BudgetCompanionData(
             summary: AsyncError(StateError('offline'), StackTrace.current),
             categories: const AsyncLoading()));
-    expect(
-        find.byKey(const ValueKey('budget-companion-error')), findsOneWidget);
+    expect(find.byKey(const ValueKey('dashboard-budget-header-error')),
+        findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
     expect(find.text(r'$0'), findsNothing);
     expect(tester.takeException(), isNull);

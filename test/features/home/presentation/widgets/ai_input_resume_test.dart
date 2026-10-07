@@ -24,6 +24,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 class _Auth extends Auth {
   @override
@@ -220,137 +221,175 @@ void main() {
     });
   }
 
-  testWidgets(
-      'resumed ready result uses the Home save contract and cannot materialize twice',
-      (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final preferences = await SharedPreferences.getInstance();
-    final root = Directory.systemTemp.createTempSync('moneko-ai-resume-');
-    final database = MonekoDatabase.inMemory();
-    final repository =
-        AiInputCaptureRepository(database, directory: () async => root);
-    final capturedAt = DateTime.utc(2026, 10, 2, 23, 30);
-    var capture = (await tester.runAsync(() => repository.capture(
-        userId: 'owner',
-        body: {
-          'userId': 'owner',
-          'text': '買い物５０円、給料２０ドル',
-          'date': '2026-10-03',
-          'currency': 'JPY'
-        },
-        target: {'accountType': 'personal'},
-        preferredTimezone: 'Asia/Tokyo',
-        capturedAt: capturedAt,
-        isOnboarding: true)))!;
-    final items = [
-      _item('JPY', 'jpy-wallet'),
-      _item('USD', 'usd-wallet', income: true)
-    ];
-    capture = await repository.checkpoint(capture, {
-      'readyResponse': {
-        'success': true,
-        'data': {
-          'interactiveVersion': 1,
-          'requireCorrection': false,
-          'preferredTimezone': 'Asia/Tokyo',
-          'items': items
+  for (final interactive in [true, false]) {
+    for (final marker in [true, false, null]) {
+      testWidgets(
+          'resumed ready result interactive=$interactive blocker=$marker uses the Home save contract and cannot materialize twice',
+          (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final preferences = await SharedPreferences.getInstance();
+        final root = Directory.systemTemp.createTempSync('moneko-ai-resume-');
+        var database = MonekoDatabase.fromExistingDatabaseForTesting(
+            sqlite.sqlite3.open('${root.path}/capture.sqlite'));
+        var repository =
+            AiInputCaptureRepository(database, directory: () async => root);
+        final capturedAt = DateTime.utc(2026, 10, 2, 23, 30);
+        var capture = (await tester.runAsync(() => repository.capture(
+            userId: 'owner',
+            body: {
+              'userId': 'owner',
+              'text': '買い物５０円、給料２０ドル',
+              'date': '2026-10-03',
+              'currency': 'JPY'
+            },
+            target: {'accountType': 'personal'},
+            preferredTimezone: 'Asia/Tokyo',
+            capturedAt: capturedAt,
+            isOnboarding: true)))!;
+        final items = [
+          _item('JPY', 'jpy-wallet'),
+          _item('USD', 'usd-wallet', income: true)
+        ];
+        for (final item in items) {
+          if (marker != null) item['merchant_auto_resolution_blocked'] = marker;
         }
-      },
-      'destinationKeys': items
-          .map((item) => jsonEncode([
-                null,
-                false,
-                (item['destination'] as Map)['accountId'],
-                (item['destination'] as Map)['accountCurrency']
-              ]))
-          .toList(),
-      'completedDestinations': <String>[],
-    });
-    final container = ProviderContainer(overrides: [
-      authProvider.overrideWith(_Auth.new),
-      sharedPreferencesProvider.overrideWithValue(preferences),
-      appUserContactProvider.overrideWithValue(null),
-      localDatabaseProvider.overrideWith((ref) async => database),
-      aiInputCaptureRepositoryProvider.overrideWith((ref) async => repository),
-      networkReachabilityProvider.overrideWith((ref) => Stream.value(true)),
-      mobileOutboxDrainerProvider.overrideWith((ref) => _PausedDrainer()),
-      appLockControllerProvider.overrideWith((ref) => AppLockController(
-          userId: 'owner',
-          repository: AppLockRepository(store: _Store()),
-          hasher: AppLockPasscodeHasher(),
-          biometricService: _Biometrics(),
-          isEnabledFlagSet: false,
-          setEnabledFlag: (_) async {})),
-    ]);
-    addTearDown(() async {
-      container.dispose();
-      await database.close();
-      root.deleteSync(recursive: true);
-    });
-    late BuildContext mountedContext;
-    late WidgetRef mountedRef;
-    await tester.pumpWidget(UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: Consumer(builder: (context, ref, _) {
-              mountedContext = context;
-              mountedRef = ref;
-              return const Scaffold(body: SizedBox());
-            }))));
-    await tester.pump();
-    await tester
-        .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
-    await tester.pump(const Duration(seconds: 2));
-    expect(tester.takeException(), isNull);
-    expect(await repository.pending('owner'), isEmpty);
-    final rows = await database.getRecentTransactions(
-        userId: 'owner', householdId: null);
-    expect(rows, hasLength(2));
-    final expense = rows.singleWhere((row) => row.type == 'expense');
-    expect(expense.walletId, 'jpy-wallet');
-    expect(expense.currency, 'JPY');
-    expect(expense.merchant, '小商店');
-    expect(expense.createdAt.toUtc(), DateTime.utc(2026, 10, 3, 9, 30));
-    final mutations = (await database.getOutboxMutations())
-        .where((row) => row.entityType == 'transaction')
-        .toList();
-    expect(mutations, hasLength(2));
-    final requests =
-        mutations.map((row) => jsonDecode(row.payloadJson) as Map).toList();
-    final expenseRequest = requests.singleWhere(
-        (row) => row['functionName'] == 'save-expense')['requestBody'] as Map;
-    expect(expenseRequest['merchant'], '小商店');
-    expect(expenseRequest['merchantId'], 'merchant-id');
-    expect(expenseRequest['merchantStructuredName'], '小商店');
-    expect(expenseRequest['breakdown'], ['一品']);
-    final incomeRequest = requests.singleWhere(
-        (row) => row['functionName'] == 'save-income')['requestBody'] as Map;
-    expect(incomeRequest['currency'], 'USD');
-    expect(incomeRequest['accountId'], 'usd-wallet');
-    expect(incomeRequest['isRecurring'], true);
-    expect(incomeRequest['recurrence_rule'],
-        {'frequency': 'monthly', 'anchor_date': '2026-10-03', 'interval': 1});
-    expect(incomeRequest['clientCreatedAt'], capturedAt.toIso8601String());
-    expect(requests.every((row) => row['aiCaptureId'] == capture.id), isTrue);
-    expect(
-        container.read(transactionsFeedRefreshSignalProvider), greaterThan(0));
-    expect(container.read(dashboardRefreshSignalProvider), greaterThan(0));
-    container.read(aiInputResumeControllerProvider).wake();
-    await tester
-        .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
-    expect(
-        await database.getRecentTransactions(
-            userId: 'owner', householdId: null),
-        hasLength(2));
-    (container.read(authProvider.notifier) as _Auth).changeUser();
-    await tester
-        .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
-    expect(
-        await database.getRecentTransactions(
-            userId: 'other', householdId: null),
-        isEmpty);
-    await tester.pumpWidget(const SizedBox());
-  });
+        capture = await repository.checkpoint(capture, {
+          'readyResponse': {
+            'success': true,
+            'data': {
+              if (interactive) 'interactiveVersion': 1,
+              'requireCorrection': false,
+              'preferredTimezone': 'Asia/Tokyo',
+              'items': items
+            }
+          },
+          'destinationKeys': !interactive
+              ? ['default']
+              : items
+                  .map((item) => jsonEncode([
+                        null,
+                        false,
+                        (item['destination'] as Map)['accountId'],
+                        (item['destination'] as Map)['accountCurrency']
+                      ]))
+                  .toList(),
+          'completedDestinations': <String>[],
+        });
+        await database.close();
+        database = MonekoDatabase.fromExistingDatabaseForTesting(
+            sqlite.sqlite3.open('${root.path}/capture.sqlite'));
+        repository =
+            AiInputCaptureRepository(database, directory: () async => root);
+        expect((await repository.pending('owner')).single.readyResponse,
+            capture.readyResponse);
+        final container = ProviderContainer(overrides: [
+          authProvider.overrideWith(_Auth.new),
+          sharedPreferencesProvider.overrideWithValue(preferences),
+          appUserContactProvider.overrideWithValue(null),
+          localDatabaseProvider.overrideWith((ref) async => database),
+          aiInputCaptureRepositoryProvider
+              .overrideWith((ref) async => repository),
+          networkReachabilityProvider.overrideWith((ref) => Stream.value(true)),
+          mobileOutboxDrainerProvider.overrideWith((ref) => _PausedDrainer()),
+          appLockControllerProvider.overrideWith((ref) => AppLockController(
+              userId: 'owner',
+              repository: AppLockRepository(store: _Store()),
+              hasher: AppLockPasscodeHasher(),
+              biometricService: _Biometrics(),
+              isEnabledFlagSet: false,
+              setEnabledFlag: (_) async {})),
+        ]);
+        addTearDown(() async {
+          container.dispose();
+          await database.close();
+          root.deleteSync(recursive: true);
+        });
+        late BuildContext mountedContext;
+        late WidgetRef mountedRef;
+        await tester.pumpWidget(UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: Consumer(builder: (context, ref, _) {
+                  mountedContext = context;
+                  mountedRef = ref;
+                  return const Scaffold(body: SizedBox());
+                }))));
+        await tester.pump();
+        await tester
+            .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
+        await tester.pump(const Duration(seconds: 2));
+        expect(tester.takeException(), isNull);
+        expect(await repository.pending('owner'), isEmpty);
+        final rows = await database.getRecentTransactions(
+            userId: 'owner', householdId: null);
+        expect(rows, hasLength(2));
+        final expense = rows.singleWhere((row) => row.type == 'expense');
+        expect(expense.walletId, interactive ? 'jpy-wallet' : null);
+        expect(expense.currency, 'JPY');
+        expect(expense.merchant, '小商店');
+        expect(
+            expense.createdAt.toUtc(),
+            interactive
+                ? DateTime.utc(2026, 10, 3, 9, 30)
+                : DateTime(2026, 10, 3, 18, 30).toUtc());
+        final mutations = (await database.getOutboxMutations())
+            .where((row) => row.entityType == 'transaction')
+            .toList();
+        expect(mutations, hasLength(2));
+        final requests =
+            mutations.map((row) => jsonDecode(row.payloadJson) as Map).toList();
+        final expenseRequest = requests.singleWhere(
+                (row) => row['functionName'] == 'save-expense')['requestBody']
+            as Map;
+        expect(expenseRequest['merchant'], '小商店');
+        expect(expenseRequest['merchantId'], 'merchant-id');
+        expect(expenseRequest['merchantStructuredName'], '小商店');
+        expect(expenseRequest.containsKey('merchantAutoResolutionBlocked'),
+            marker == true);
+        if (marker == true) {
+          expect(expenseRequest['merchantAutoResolutionBlocked'], true);
+        }
+        expect(expenseRequest['breakdown'], ['一品']);
+        final incomeRequest = requests.singleWhere(
+                (row) => row['functionName'] == 'save-income')['requestBody']
+            as Map;
+        expect(incomeRequest['currency'], 'USD');
+        expect(incomeRequest['accountId'], interactive ? 'usd-wallet' : null);
+        expect(incomeRequest.containsKey('merchantAutoResolutionBlocked'),
+            marker == true);
+        if (marker == true) {
+          expect(incomeRequest['merchantAutoResolutionBlocked'], true);
+        }
+        expect(incomeRequest['isRecurring'], true);
+        expect(incomeRequest['recurrence_rule'], {
+          'frequency': 'monthly',
+          'anchor_date': '2026-10-03',
+          'interval': 1
+        });
+        expect(incomeRequest['clientCreatedAt'], capturedAt.toIso8601String());
+        expect(
+            requests.every((row) => row['aiCaptureId'] == capture.id), isTrue);
+        expect(container.read(transactionsFeedRefreshSignalProvider),
+            greaterThan(0));
+        expect(container.read(dashboardRefreshSignalProvider), greaterThan(0));
+        container.read(aiInputResumeControllerProvider).wake();
+        await tester
+            .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
+        expect(
+            await database.getRecentTransactions(
+                userId: 'owner', householdId: null),
+            hasLength(2));
+        (container.read(authProvider.notifier) as _Auth).changeUser();
+        await tester
+            .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
+        expect(
+            await database.getRecentTransactions(
+                userId: 'other', householdId: null),
+            isEmpty);
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
+  }
 }

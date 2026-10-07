@@ -232,8 +232,8 @@ void main() {
       'success': true,
       'data': {
         'items': [
-          {'amount': 50},
-          {'amount': 20}
+          {'amount': 50, 'merchant_auto_resolution_blocked': true},
+          {'amount': 20, 'merchant_auto_resolution_blocked': true}
         ]
       }
     };
@@ -267,6 +267,7 @@ void main() {
                 'requestBody': {
                   'userId': 'owner',
                   'merchant': '小商店',
+                  'merchantAutoResolutionBlocked': true,
                   'clientCreatedAt': capturedAt.toIso8601String()
                 }
               }
@@ -277,6 +278,15 @@ void main() {
     await reopen();
     expect((await repository.pending('owner')).single.completedDestinations,
         ['first']);
+    expect((await repository.pending('owner')).single.readyResponse, response);
+    final restoredRequest = jsonDecode((await database.getOutboxMutations())
+        .singleWhere((row) => row.entityType == 'transaction')
+        .payloadJson) as Map;
+    expect(
+        (restoredRequest['requestBody']
+            as Map)['merchantAutoResolutionBlocked'],
+        true);
+    expect((restoredRequest['requestBody'] as Map)['merchant'], '小商店');
     expect(await handoff('first', entry.copyWith(amountCents: 9900)), isFalse);
     expect(
         (await database.getRecentTransactions(

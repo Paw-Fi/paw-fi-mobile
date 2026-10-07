@@ -181,19 +181,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
       final range = selectedPeriod;
 
       switch (config.type) {
-        case DashboardWidgetType.householdSpentByYou:
-          needsRecurring = true;
-          calendarQueries.add(
-            DashboardScopeQuery(
-              userId: userId,
-              householdId: household.id,
-              selectedCurrency: selectedCurrency,
-              selectedCurrencies: selectedCurrencies,
-              startDate: range['from'],
-              endDate: range['to'],
-            ),
-          );
-          break;
         case DashboardWidgetType.householdBudgetOverview:
           needsRecurring = true;
           needsMembers = true;
@@ -599,16 +586,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           end: end);
                 },
                 widgetBuilders: {
-                  DashboardWidgetType.householdSpentByYou: (context, config) =>
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: LazyHouseholdSpentByYouCard(
-                          household: resolvedHousehold,
-                          config: config,
-                          selectedCurrency: selectedCurrency,
-                          referenceNow: userNow,
-                        ),
-                      ),
                   DashboardWidgetType.householdFinancialCalendar: (context,
                           config) =>
                       Padding(

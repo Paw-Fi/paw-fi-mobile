@@ -1,7 +1,10 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -102,20 +105,40 @@ SelectedHouseholdState canonicalizeHouseholdSelection(
 }
 
 final householdScopeProvider = Provider<HouseholdScope>((ref) {
+  final isPreview = ref.watch(previewModeProvider).isActive;
   final viewMode = ref.watch(viewModeProvider).mode;
   final selected = ref.watch(selectedHouseholdProvider);
   final userId = ref.watch(authProvider).uid;
-  final households = userId.isEmpty
-      ? const <Household>[]
-      : ref.watch(userHouseholdsProvider(userId)).valueOrNull ??
-          const <Household>[];
+  final households = isPreview
+      ? PreviewMockData.households
+      : userId.isEmpty
+          ? const <Household>[]
+          : ref.watch(userHouseholdsProvider(userId)).valueOrNull ??
+              const <Household>[];
   final portfolioIds =
       households.where((h) => h.isPortfolio).map((h) => h.id).toSet();
   final canonicalSelection =
       canonicalizeHouseholdSelection(selected, households);
+  // Guest preview starts in household mode without a selected Space. Home
+  // already renders Personal in that state; give its cards the same resolved
+  // mode instead of waiting for an authenticated selection that never arrives.
+  final resolvedViewMode = isPreview && !canonicalSelection.hasSelection
+      ? ViewMode.personal
+      : viewMode;
+  logPreviewHomeLoading('household-scope', {
+    'preview': isPreview,
+    'authenticatedUserPresent': userId.isNotEmpty,
+    'viewMode': viewMode.name,
+    'resolvedViewMode': resolvedViewMode.name,
+    'rawSelectedHousehold':
+        selected.householdId ?? selected.household?.id ?? '<none>',
+    'canonicalSelectedHousehold': canonicalSelection.householdId ?? '<none>',
+    'selectionLoading': selected.isLoading,
+    'catalogCount': households.length,
+  });
 
   return HouseholdScope(
-    viewMode: viewMode,
+    viewMode: resolvedViewMode,
     selected: canonicalSelection,
     portfolioHouseholdIds: portfolioIds,
   );

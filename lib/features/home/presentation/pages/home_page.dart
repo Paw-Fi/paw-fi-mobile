@@ -17,14 +17,12 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
-import 'package:moneko/features/home/presentation/models/daily_budget_entry.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/thai_language_prompt_logic.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
-import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -298,9 +296,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final selectedCurrencyRaw = ref.watch(
       homeFilterProvider.select((state) => state.selectedCurrency),
     );
-    final selectedCurrencies = ref.watch(
-      homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
-    );
     final authenticatedUserId =
         ref.watch(authProvider.select((user) => user.uid));
     final previewMode = ref.watch(previewModeProvider);
@@ -388,7 +383,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       slivers: [
         const SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: EdgeInsets.only(top: 8),
+            child: LazyDashboardBudgetHeader(),
+          ),
+        ),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 20, bottom: 16),
             child: LazyDashboardBudgetCompanionCard(),
           ),
         ),
@@ -409,34 +410,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                   (state) => state.valueOrNull,
                 ),
               );
-              final dashboardBudgets = ref.watch(
-                    dashboardActiveScopeBudgetsProvider.select(
-                      (state) => state.valueOrNull,
-                    ),
-                  ) ??
-                  const <DailyBudgetEntry>[];
-              final selectedCurrencyFilter = selectedCurrency;
-              final selectedCurrencyFilters = selectedCurrencies;
               final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
                 dashboardContact?.preferredTimezone,
               );
               final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
-              final selectedPeriod = ref.watch(
-                homePeriodDateRangeProvider(userId),
-              );
-              final netFrom = selectedPeriod.start;
-              final netTo = selectedPeriod.end;
-              final netBudgets = dashboardBudgets.where((budget) {
-                final d = DateTime(
-                    budget.date.year, budget.date.month, budget.date.day);
-                final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
-                final budgetCurrency = budget.currency?.toUpperCase();
-                final currencyOk = selectedCurrencyFilters == null
-                    ? selectedCurrencyFilter == null ||
-                        budgetCurrency == selectedCurrencyFilter
-                    : selectedCurrencyFilters.contains(budgetCurrency);
-                return dateOk && currencyOk;
-              }).toList();
               final dashboardAsync =
                   ref.watch(personalDashboardProvider(userId));
               final dashboardSignature = [
@@ -490,45 +467,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                               end: end);
                     },
                     widgetBuilders: {
-                      DashboardWidgetType.spendingSummary: (context, config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: LazyDashboardSpendingSummaryCard(
-                              config: config,
-                              colorScheme: colorScheme,
-                              contact: dashboardContact,
-                              userNow: userNow,
-                            ),
-                          ),
-                      DashboardWidgetType.netCashflow: (context, config) =>
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  child: AspectRatio(
-                                    aspectRatio: 1,
-                                    child: MoMTrendBar(),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AspectRatio(
-                                    aspectRatio: 1,
-                                    child: LazyDashboardNetCashflowCard(
-                                      config: config,
-                                      colorScheme: colorScheme,
-                                      contact: dashboardContact,
-                                      userNow: userNow,
-                                      budgets: netBudgets,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                       DashboardWidgetType.financialCalendar: (context,
                               config) =>
                           Padding(

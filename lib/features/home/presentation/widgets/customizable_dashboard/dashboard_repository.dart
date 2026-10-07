@@ -14,6 +14,22 @@ class DashboardRepository {
 
   DashboardRepository(this._prefs, this._supabase);
 
+  bool isPersonalLayoutCustomized(String userId) =>
+      _prefs.getBool('$_kPersonalLayoutKey$userId:customized') ?? false;
+
+  bool isHouseholdLayoutCustomized(String householdId) =>
+      _prefs.getBool('$_kHouseholdLayoutKeyPrefix$householdId:customized') ??
+      false;
+
+  Future<void> markPersonalLayoutCustomized(String userId) async {
+    await _prefs.setBool('$_kPersonalLayoutKey$userId:customized', true);
+  }
+
+  Future<void> markHouseholdLayoutCustomized(String householdId) async {
+    await _prefs.setBool(
+        '$_kHouseholdLayoutKeyPrefix$householdId:customized', true);
+  }
+
   // ==========================================================================
   // PERSONAL DASHBOARD
   // ==========================================================================

@@ -181,6 +181,9 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       if (expense.merchantEvidenceAllowsStructuredLearning) {
         requestBody['merchantEvidenceAllowStructured'] = true;
       }
+      if (expense.merchantAutoResolutionBlocked) {
+        requestBody['merchantAutoResolutionBlocked'] = true;
+      }
 
       final breakdown = expense.breakdown;
       if (breakdown != null && breakdown.isNotEmpty) {

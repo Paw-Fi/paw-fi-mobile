@@ -10,9 +10,11 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/financial_period.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -20,6 +22,7 @@ import 'package:moneko/features/home/presentation/state/budget_companion_provide
 import 'package:moneko/features/home/presentation/state/spending_daily_overview_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection_provider.dart';
@@ -28,6 +31,7 @@ import 'package:moneko/features/home/presentation/state/financial_month_start_pr
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
+import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/home/presentation/widgets/net_cashflow_card.dart';
 import 'package:moneko/features/home/presentation/widgets/recent_transactions_card.dart';
@@ -35,6 +39,7 @@ import 'package:moneko/features/home/presentation/widgets/upcoming_transactions_
 import 'package:moneko/features/home/presentation/widgets/spending_breakdown_chart.dart';
 import 'package:moneko/features/home/presentation/widgets/spending_card.dart';
 import 'package:moneko/features/home/presentation/widgets/budget_companion_card.dart';
+import 'package:moneko/features/home/presentation/widgets/dashboard_budget_header.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -44,6 +49,83 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+class LazyDashboardBudgetHeader extends ConsumerWidget {
+  const LazyDashboardBudgetHeader({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final request = ref.watch(budgetCompanionRequestProvider);
+    final headerData = ref.watch(budgetCompanionDataProvider.select(
+      (data) => (summary: data.summary, isRefreshing: data.isRefreshing),
+    ));
+    _ensureBudgetCompanionRecurringLoaded(ref);
+    return DashboardBudgetHeader(
+      key: ValueKey((request?.query, request?.pocketsScope)),
+      summary: headerData.summary,
+      isRefreshing: headerData.isRefreshing,
+      currency:
+          request?.currency ?? ref.watch(selectedHomeCurrencyCodeProvider),
+      mode: request?.mode ?? HomePeriodMode.monthly,
+      onBudgetTap: () => ref.read(mainShellTabIndexProvider.notifier).state = 2,
+      onAddTap: () {
+        final contact = ref.read(dashboardUserContactProvider).valueOrNull;
+        final filterState = ref.read(homeFilterProvider);
+        final selectedCurrency = (filterState.selectedCurrency ??
+                contact?.preferredCurrency ??
+                'USD')
+            .trim()
+            .toUpperCase();
+        showUnifiedTransactionSheet(
+          context,
+          contact: contact,
+          newExpense: ParsedExpense(
+            amount: 0,
+            category: 'other',
+            currency: selectedCurrency,
+            currencySymbol: '\$',
+            date: effectiveToday(preferredTimezone: contact?.preferredTimezone),
+            description: null,
+          ),
+        );
+      },
+      onTransferTap: () =>
+          ref.read(mainShellTabIndexProvider.notifier).state = 4,
+      onInsightsTap: () =>
+          ref.read(mainShellTabIndexProvider.notifier).state = 3,
+      onRetry: () => _retryBudgetCompanion(
+          ref, request, ref.read(budgetCompanionDataProvider)),
+    );
+  }
+}
+
+void _ensureBudgetCompanionRecurringLoaded(WidgetRef ref) {
+  if (!ref.watch(previewModeProvider).isActive &&
+      ref.watch(includeUpcomingRecurringInPocketsProvider)) {
+    final scope = ref.watch(householdScopeProvider);
+    _ensureRecurringTransactionsLoaded(
+        ref,
+        scope,
+        ref.watch(
+            recurringTransactionsProvider(scope.activeAccountHouseholdId)));
+  }
+}
+
+void _retryBudgetCompanion(
+    WidgetRef ref, BudgetCompanionRequest? request, BudgetCompanionData data) {
+  if (request == null) return;
+  ref.invalidate(dashboardCalendarTransactionsProvider(request.query));
+  final recurring =
+      ref.read(recurringTransactionsProvider(request.query.householdId));
+  if (recurring.data.hasError && !recurring.data.hasValue) {
+    ref
+        .read(recurringTransactionsProvider(request.query.householdId).notifier)
+        .refresh(request.query.userId);
+  }
+  if (request.mode != HomePeriodMode.daily && !data.summary.hasValue) {
+    ref.read(pocketsProvider(request.pocketsScope).notifier).load();
+  }
+}
+
 class LazyDashboardBudgetCompanionCard extends ConsumerWidget {
   const LazyDashboardBudgetCompanionCard({super.key});
 
@@ -51,37 +133,26 @@ class LazyDashboardBudgetCompanionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final request = ref.watch(budgetCompanionRequestProvider);
     final data = ref.watch(budgetCompanionDataProvider);
-    if (ref.watch(includeUpcomingRecurringInPocketsProvider)) {
-      final scope = ref.watch(householdScopeProvider);
-      _ensureRecurringTransactionsLoaded(
-          ref,
-          scope,
-          ref.watch(
-              recurringTransactionsProvider(scope.activeAccountHouseholdId)));
-    }
+    logPreviewHomeLoading('companion-lazy-build', {
+      'preview': ref.read(previewModeProvider).isActive,
+      'requestPresent': request != null,
+      'scope': request?.pocketsScope.scope.name,
+      'mode': request?.mode.name,
+      'summaryLoading': data.summary.isLoading,
+      'summaryHasValue': data.summary.hasValue,
+      'summaryHasError': data.summary.hasError,
+      'categoriesLoading': data.categories.isLoading,
+      'categoriesHasValue': data.categories.hasValue,
+      'categoriesHasError': data.categories.hasError,
+    });
+    _ensureBudgetCompanionRecurringLoaded(ref);
     return BudgetCompanionCard(
       key: ValueKey((request?.query, request?.pocketsScope)),
       data: data,
       currency:
           request?.currency ?? ref.watch(selectedHomeCurrencyCodeProvider),
-      mode: request?.mode ?? HomePeriodMode.monthly,
       useCustomCategoryStyles: request?.query.householdId == null,
-      onBudgetTap: () => ref.read(mainShellTabIndexProvider.notifier).state = 2,
-      onRetry: () {
-        if (request == null) return;
-        ref.invalidate(dashboardCalendarTransactionsProvider(request.query));
-        final recurring =
-            ref.read(recurringTransactionsProvider(request.query.householdId));
-        if (recurring.data.hasError && !recurring.data.hasValue) {
-          ref
-              .read(recurringTransactionsProvider(request.query.householdId)
-                  .notifier)
-              .refresh(request.query.userId);
-        }
-        if (request.mode != HomePeriodMode.daily && !data.summary.hasValue) {
-          ref.read(pocketsProvider(request.pocketsScope).notifier).load();
-        }
-      },
+      onRetry: () => _retryBudgetCompanion(ref, request, data),
     );
   }
 }
@@ -144,6 +215,15 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         (!scope.hasSelectedHousehold ||
             (householdId != null &&
                 householdId != scope.activeAccountHouseholdId))) {
+      logPreviewHomeLoading('spending-lazy-skeleton', {
+        'reason': 'unresolved-or-mismatched-space',
+        'preview': ref.read(previewModeProvider).isActive,
+        'viewMode': scope.viewMode.name,
+        'hasSelectedHousehold': scope.hasSelectedHousehold,
+        'selectionLoading': scope.selected.isLoading,
+        'activeHousehold': scope.activeAccountHouseholdId ?? '<none>',
+        'widgetHousehold': householdId ?? '<none>',
+      });
       return _buildSpendingSkeleton(
           context, colorScheme, dateRange, currency, userNow);
     }
@@ -158,8 +238,9 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       startDate: range['from'],
       endDate: range['to'],
     ).copyWith(householdId: householdId);
-    final transactionsAsync =
-        ref.watch(dashboardCalendarTransactionsProvider(query));
+    final transactionsAsync = ref.watch(previewModeProvider).isActive
+        ? ref.watch(spendingScopedActualTransactionsProvider(query))
+        : ref.watch(dashboardCalendarTransactionsProvider(query));
     final baseTransactions =
         transactionsAsync.valueOrNull ?? const <ExpenseEntry>[];
     final overlayTransactions =
@@ -172,8 +253,10 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     final recurringState = ref.watch(
       recurringTransactionsProvider(query.householdId),
     );
-    _ensureRecurringTransactionsLoaded(ref, scope, recurringState,
-        householdId: query.householdId);
+    if (!ref.watch(previewModeProvider).isActive) {
+      _ensureRecurringTransactionsLoaded(ref, scope, recurringState,
+          householdId: query.householdId);
+    }
 
     _homeSpendTrace(
       'spending-build phase=precheck scope=${scope.activeAccountType.name} '
@@ -192,6 +275,13 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
+      logPreviewHomeLoading('spending-lazy-skeleton', {
+        'reason': 'transactions-unresolved',
+        'preview': ref.read(previewModeProvider).isActive,
+        'household': query.householdId ?? '<personal>',
+        'start': query.startDate,
+        'end': query.endDate,
+      });
       _homeSpendTrace('spending-render source=tx-skeleton');
       return _buildDashboardSwitcher(
         _buildSpendingSkeleton(
@@ -227,6 +317,12 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     ));
     final overview = overviewAsync.valueOrNull;
     if (overview == null) {
+      logPreviewHomeLoading('spending-lazy-overview-missing', {
+        'preview': ref.read(previewModeProvider).isActive,
+        'loading': overviewAsync.isLoading,
+        'hasError': overviewAsync.hasError,
+        'render': overviewAsync.hasError ? 'error' : 'skeleton',
+      });
       return overviewAsync.hasError
           ? _buildDashboardErrorCard(
               context, colorScheme, context.l10n.errorLoadingDashboard,
@@ -241,16 +337,26 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
             .toSet()
             .toList();
     final needsRates = includedCurrencies.any((code) => code != currency);
-    final rateTable = needsRates
+    final rateTable = needsRates && !ref.watch(previewModeProvider).isActive
         ? ref.watch(currencyRateTableProvider).valueOrNull ??
             const CurrencyRateTable(
                 baseCurrency: 'USD', rates: CurrencyRates.rates, isStale: true)
-        : null;
+        : needsRates
+            ? const CurrencyRateTable(
+                baseCurrency: 'USD', rates: CurrencyRates.rates, isStale: true)
+            : null;
 
     _homeSpendTrace(
       'spending-render source=data actualTotal=${_traceAmount(_traceExpenseTotal(transactions))} '
       'actualCount=${transactions.length}',
     );
+    logPreviewHomeLoading('spending-lazy-data', {
+      'preview': ref.read(previewModeProvider).isActive,
+      'rows': overview.transactions.length,
+      'previousLoading': overview.previousAverage.isLoading,
+      'previousHasValue': overview.previousAverage.hasValue,
+      'previousHasError': overview.previousAverage.hasError,
+    });
 
     return _buildDashboardSwitcher(
       buildSpendingCard(

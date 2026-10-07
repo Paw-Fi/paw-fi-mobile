@@ -270,10 +270,12 @@ void main() {
             findsNothing);
         expect(find.byType(PaywallCheckoutActionButton), findsNothing);
         expect(find.byType(CheckboxListTile), findsNothing);
-        expect(
-            tester.getRect(
-                find.byKey(const ValueKey('plan-selection-background'))),
-            Offset.zero & configuration.size);
+        final cloud = tester
+            .getRect(find.byKey(const ValueKey('plan-selection-background')));
+        final hero =
+            tester.getRect(find.byKey(const ValueKey('plan-selection-hero')));
+        expect(cloud.top, hero.top + hero.height / 2);
+        expect(cloud.width, configuration.size.width);
         final annual = find.text('Yearly');
         final monthly = find.text('Monthly');
         final lifetime = find.text('Lifetime');

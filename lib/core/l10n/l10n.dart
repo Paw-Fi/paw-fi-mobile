@@ -64,6 +64,7 @@ extension HomeDashboardL10nX on AppLocalizations {
   String get budgetCompanionSpentThisDay => 'spent this day';
   String get budgetCompanionNoComparison => 'No previous-period comparison';
   String get budgetCompanionNoCategories => 'No category spending available';
+  String get budgetCompanionSpentByCategory => 'Spent by category';
   String budgetCompanionLess(String percent) =>
       '$percent% less than last month';
   String budgetCompanionMore(String percent) =>

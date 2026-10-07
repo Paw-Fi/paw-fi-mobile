@@ -10550,4 +10550,129 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get moneySmarterWithMonekoPlus => 'จัดการเงินได้ฉลาดยิ่งขึ้นด้วย\nMoneko Plus';
+
+  @override
+  String get budgetCompanionSpentByCategory => 'รายจ่ายตามหมวดหมู่';
+
+  @override
+  String budgetCompanionHappy1(Object month) {
+    return 'สวัสดี $month!';
+  }
+
+  @override
+  String get budgetCompanionHappy2 => 'ไปได้สวยเลย!';
+
+  @override
+  String get budgetCompanionHappy3 => 'เริ่มได้ดีเลย!';
+
+  @override
+  String get budgetCompanionHappy4 => 'ยังตามแผนอยู่เลย!';
+
+  @override
+  String get budgetCompanionHappy5 => 'กำลังดีเลย!';
+
+  @override
+  String get budgetCompanionHappy6 => 'ทำแบบนี้ต่อไปนะ!';
+
+  @override
+  String get budgetCompanionHappy7 => 'ยังเหลืออีกเยอะเลย!';
+
+  @override
+  String get budgetCompanionHappy8 => 'ทำได้ดีมากเลย!';
+
+  @override
+  String get budgetCompanionEncouraging1 => 'มาครึ่งทางแล้ว!';
+
+  @override
+  String get budgetCompanionEncouraging2 => 'ไปได้สวยเลย!';
+
+  @override
+  String get budgetCompanionEncouraging3 => 'ยังตามแผนอยู่!';
+
+  @override
+  String get budgetCompanionEncouraging4 => 'ทำได้แน่นอน!';
+
+  @override
+  String get budgetCompanionEncouraging5 => 'กำลังไปได้ดี!';
+
+  @override
+  String get budgetCompanionEncouraging6 => 'ใกล้แล้ว!';
+
+  @override
+  String get budgetCompanionEncouraging7 => 'ไปได้ดีเลย!';
+
+  @override
+  String get budgetCompanionEncouraging8 => 'ไปต่อเลย!';
+
+  @override
+  String get budgetCompanionConcerned1 => 'ใกล้ถึงขีดจำกัดแล้ว!';
+
+  @override
+  String get budgetCompanionConcerned2 => 'เริ่มใกล้แล้ว!';
+
+  @override
+  String get budgetCompanionConcerned3 => 'เหลืออีกนิดเดียว!';
+
+  @override
+  String get budgetCompanionConcerned4 => 'เหลืออีกนิดเดียว!';
+
+  @override
+  String get budgetCompanionConcerned5 => 'ใกล้ถึงขีดจำกัดแล้ว!';
+
+  @override
+  String get budgetCompanionConcerned6 => 'เกือบถึงแล้ว!';
+
+  @override
+  String get budgetCompanionConcerned7 => 'ผ่อนลงนิดไหม?';
+
+  @override
+  String get budgetCompanionConcerned8 => 'ใกล้มากแล้ว!';
+
+  @override
+  String get budgetCompanionOverBudget1 => 'เกินงบนิดหน่อย...';
+
+  @override
+  String get budgetCompanionOverBudget2 => 'เกินมานิดหน่อย...';
+
+  @override
+  String get budgetCompanionOverBudget3 => 'ลองผ่อนลงนิดนะ!';
+
+  @override
+  String get budgetCompanionOverBudget4 => 'เกินขีดจำกัดนิดหน่อย...';
+
+  @override
+  String get budgetCompanionOverBudget5 => 'มาปรับกันใหม่ไหม?';
+
+  @override
+  String get budgetCompanionOverBudget6 => 'เยอะไปนิดหน่อย...';
+
+  @override
+  String get budgetCompanionOverBudget7 => 'ลองดูอีกทีนะ!';
+
+  @override
+  String get budgetCompanionOverBudget8 => 'เกินงบแล้วนะ!';
+
+  @override
+  String get budgetCompanionPlanning1 => 'มาวางแผนกัน!';
+
+  @override
+  String get budgetCompanionPlanning2 => 'พร้อมเริ่มหรือยัง?';
+
+  @override
+  String get budgetCompanionPlanning3 => 'เริ่มด้วยการตั้งงบเลย!';
+
+  @override
+  String get budgetCompanionPlanning4 => 'ทีละนิดก็มีความหมาย!';
+
+  @override
+  String get budgetCompanionPlanning5 => 'เงินไปไหนบ้าง?';
+
+  @override
+  String get budgetCompanionPlanning6 => 'เริ่มติดตามวันนี้เลย!';
+
+  @override
+  String get budgetCompanionPlanning7 => 'แผนของคุณเริ่มตรงนี้!';
+
+  @override
+  String get budgetCompanionPlanning8 => 'ก้าวเล็ก ๆ สู่ผลลัพธ์ใหญ่!';
 }

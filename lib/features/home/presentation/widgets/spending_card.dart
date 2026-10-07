@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -11,6 +12,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -138,6 +140,16 @@ class _SpendingCardState extends State<SpendingCard> {
 
   @override
   Widget build(BuildContext context) {
+    logPreviewHomeLoading('spending-card-render', {
+      'overviewPresent': widget.overview != null,
+      'rows': widget.expenses.length,
+      'previousLoading': widget.overview?.previousAverage.isLoading,
+      'previousHasValue': widget.overview?.previousAverage.hasValue,
+      'previousHasError': widget.overview?.previousAverage.hasError,
+      'ancestorSkeletonEnabled':
+          context.getInheritedWidgetOfExactType<SkeletonizerScope>()?.enabled ??
+              false,
+    });
     final intervalType = getChartIntervalTypeFromFilter(widget.dateFilter);
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final now = widget.referenceNow ?? DateTime.now();
@@ -800,6 +812,11 @@ class _DailySpendingComparison extends StatelessWidget {
     if (change == null) {
       if (overview?.previousAverage.isLoading == true &&
           overview?.previousAverage.hasValue != true) {
+        logPreviewHomeLoading('spending-comparison-skeleton', {
+          'reason': 'previous-average-unresolved',
+          'overviewPresent': overview != null,
+          'previousHasError': overview?.previousAverage.hasError,
+        });
         return SizedBox(
             height: 20,
             child: Skeletonizer(

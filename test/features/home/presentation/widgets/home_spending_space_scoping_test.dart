@@ -150,6 +150,7 @@ void main() {
                 createdAt: DateTime(2026, 1),
                 updatedAt: DateTime(2026, 1));
             return CustomScrollView(slivers: [
+              const SliverToBoxAdapter(child: LazyDashboardBudgetHeader()),
               const SliverToBoxAdapter(
                   child: LazyDashboardBudgetCompanionCard()),
               SliverToBoxAdapter(

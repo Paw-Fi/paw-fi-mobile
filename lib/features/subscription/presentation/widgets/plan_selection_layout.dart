@@ -28,69 +28,87 @@ class PlanSelectionLayout extends StatelessWidget {
       color: scheme.planSelectionBackground,
       child: Stack(
         children: [
-          Positioned.fill(
-            child: ExcludeSemantics(
-              child: SvgPicture.asset(scheme.planSelectionBackgroundAsset,
-                  key: const ValueKey('plan-selection-background'),
-                  fit: BoxFit.fill),
-            ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.paddingOf(context).bottom,
+            child: ColoredBox(color: scheme.planSelectionCloudBase),
           ),
           SafeArea(
             child: Column(
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    key: const ValueKey('plan-selection-viewport'),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 480),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: MediaQuery.sizeOf(context).width < 360
-                                  ? 16
-                                  : 24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              header,
-                              SizedBox(
-                                key: const ValueKey('plan-selection-hero'),
-                                height: 220,
-                                child: ExcludeSemantics(
-                                    child: Image.asset(
-                                        scheme.planSelectionHeroAsset,
-                                        fit: BoxFit.contain)),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(context.l10n.moneySmarterWithMonekoPlus,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontSize: 22,
-                                      height: 1.2,
-                                      fontWeight: FontWeight.w700,
-                                      color: scheme.onSurface)),
-                              const SizedBox(height: 12),
-                              plans,
-                              comparison,
-                              const SizedBox(height: 12),
-                              const SizedBox(
-                                key: ValueKey('plan-selection-rating'),
-                                height: 90,
-                                child: Center(
-                                    child: FittedBox(
-                                  fit: BoxFit.contain,
-                                  child: PaywallAppRatingBadge(
-                                      planSelection: true),
-                                )),
-                              ),
-                              const SizedBox(height: 16),
-                              footer,
-                              const SizedBox(height: 16),
-                            ],
+                  child: LayoutBuilder(
+                    builder: (context, viewport) => SingleChildScrollView(
+                      key: const ValueKey('plan-selection-viewport'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        children: [
+                          _PlanSelectionContentInset(child: header),
+                          ConstrainedBox(
+                            constraints:
+                                BoxConstraints(minHeight: viewport.maxHeight),
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  top: 110,
+                                  child: ExcludeSemantics(
+                                    child: SvgPicture.asset(
+                                        scheme.planSelectionBackgroundAsset,
+                                        key: const ValueKey(
+                                            'plan-selection-background'),
+                                        fit: BoxFit.fill),
+                                  ),
+                                ),
+                                _PlanSelectionContentInset(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      SizedBox(
+                                        key: const ValueKey(
+                                            'plan-selection-hero'),
+                                        height: 220,
+                                        child: ExcludeSemantics(
+                                            child: Image.asset(
+                                                scheme.planSelectionHeroAsset,
+                                                fit: BoxFit.contain)),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                          context
+                                              .l10n.moneySmarterWithMonekoPlus,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                              fontSize: 22,
+                                              height: 1.2,
+                                              fontWeight: FontWeight.w700,
+                                              color: scheme.onSurface)),
+                                      const SizedBox(height: 12),
+                                      plans,
+                                      comparison,
+                                      const SizedBox(height: 12),
+                                      const SizedBox(
+                                        key: ValueKey('plan-selection-rating'),
+                                        height: 90,
+                                        child: Center(
+                                            child: FittedBox(
+                                          fit: BoxFit.contain,
+                                          child: PaywallAppRatingBadge(
+                                              planSelection: true),
+                                        )),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      footer,
+                                      const SizedBox(height: 16),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -141,4 +159,22 @@ class PlanSelectionLayout extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PlanSelectionContentInset extends StatelessWidget {
+  const _PlanSelectionContentInset({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.sizeOf(context).width < 360 ? 16 : 24),
+            child: child,
+          ),
+        ),
+      );
 }

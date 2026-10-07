@@ -37,89 +37,99 @@ void main() {
     );
   });
 
-  test('saveExpense sends client mutation metadata for idempotent retries',
-      () async {
-    final transactionOccurredAt = DateTime.utc(2026, 4, 20, 18, 45, 27);
-    Map<String, dynamic>? capturedSaveBody;
-    requestHandler = (request) async {
-      if (request.url.path.endsWith('/functions/v1/save-expense')) {
-        capturedSaveBody = jsonDecode(request.body) as Map<String, dynamic>;
+  for (final marker in [true, false]) {
+    test(
+        'saveExpense sends client mutation metadata and true-only blocker=$marker',
+        () async {
+      final transactionOccurredAt = DateTime.utc(2026, 4, 20, 18, 45, 27);
+      Map<String, dynamic>? capturedSaveBody;
+      requestHandler = (request) async {
+        if (request.url.path.endsWith('/functions/v1/save-expense')) {
+          capturedSaveBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'data': {
+                'id': 'expense_1',
+                'user_id': 'user_1',
+                'date': '2026-04-20',
+                'category': 'food',
+                'amount_cents': 1250,
+                'currency': 'EUR',
+                'merchant_id': 'merchant-tesco',
+                'merchant_structured_name': 'Tesco',
+                'type': 'expense',
+                'created_at': '2026-04-20T10:00:00.000Z',
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }
         return http.Response(
-          jsonEncode({
-            'success': true,
-            'data': {
-              'id': 'expense_1',
-              'user_id': 'user_1',
-              'date': '2026-04-20',
-              'category': 'food',
-              'amount_cents': 1250,
-              'currency': 'EUR',
-              'merchant_id': 'merchant-tesco',
-              'merchant_structured_name': 'Tesco',
-              'type': 'expense',
-              'created_at': '2026-04-20T10:00:00.000Z',
-            },
-          }),
-          200,
+          jsonEncode({'success': false, 'error': 'unexpected request'}),
+          404,
           headers: {'content-type': 'application/json'},
           request: request,
         );
-      }
-      return http.Response(
-        jsonEncode({'success': false, 'error': 'unexpected request'}),
-        404,
-        headers: {'content-type': 'application/json'},
-        request: request,
-      );
-    };
+      };
 
-    final container = ProviderContainer(overrides: [
-      authProvider.overrideWith(_TestAuth.new),
-      householdScopeProvider.overrideWithValue(
-        const HouseholdScope(
-          viewMode: ViewMode.personal,
-          selected: SelectedHouseholdState(),
-          portfolioHouseholdIds: {},
+      final container = ProviderContainer(overrides: [
+        authProvider.overrideWith(_TestAuth.new),
+        householdScopeProvider.overrideWithValue(
+          const HouseholdScope(
+            viewMode: ViewMode.personal,
+            selected: SelectedHouseholdState(),
+            portfolioHouseholdIds: {},
+          ),
         ),
-      ),
-    ]);
-    addTearDown(container.dispose);
+      ]);
+      addTearDown(container.dispose);
 
-    final saved =
-        await container.read(expenseSaveNotifierProvider.notifier).saveExpense(
-              expense: ParsedExpense(
-                amount: 12.50,
-                category: 'food',
-                currency: 'EUR',
-                currencySymbol: 'EUR',
-                date: DateTime(2026, 4, 20),
-                description: 'Lunch',
-                merchantId: 'merchant-tesco',
-                merchantDomain: 'tesco.com',
-                merchantStructuredName: 'Tesco',
-              ),
-              clientRecordId: 'optimistic_abc',
-              clientMutationId: 'mobile:optimistic_abc',
-              idempotencyKey: 'mobile:optimistic_abc',
-              clientCreatedAt: transactionOccurredAt,
-              invalidateProviders: false,
-            );
+      final saved = await container
+          .read(expenseSaveNotifierProvider.notifier)
+          .saveExpense(
+            expense: ParsedExpense(
+              amount: 12.50,
+              category: 'food',
+              currency: 'EUR',
+              currencySymbol: 'EUR',
+              date: DateTime(2026, 4, 20),
+              description: 'Lunch',
+              merchantId: 'merchant-tesco',
+              merchantDomain: 'tesco.com',
+              merchantStructuredName: 'Tesco',
+              merchantAutoResolutionBlocked: marker,
+            ),
+            clientRecordId: 'optimistic_abc',
+            clientMutationId: 'mobile:optimistic_abc',
+            idempotencyKey: 'mobile:optimistic_abc',
+            clientCreatedAt: transactionOccurredAt,
+            invalidateProviders: false,
+          );
 
-    expect(saved?.id, 'expense_1');
-    expect(saved?.merchantId, 'merchant-tesco');
-    expect(saved?.merchantDomain, 'tesco.com');
-    expect(saved?.merchantStructuredName, 'Tesco');
-    expect(capturedSaveBody, isNotNull);
-    expect(capturedSaveBody!['clientRecordId'], 'optimistic_abc');
-    expect(capturedSaveBody!['clientMutationId'], 'mobile:optimistic_abc');
-    expect(capturedSaveBody!['idempotencyKey'], 'mobile:optimistic_abc');
-    expect(capturedSaveBody!['merchantId'], 'merchant-tesco');
-    expect(capturedSaveBody!['merchantStructuredName'], 'Tesco');
-    expect(
-      capturedSaveBody!['clientCreatedAt'],
-      transactionOccurredAt.toIso8601String(),
-    );
-  });
+      expect(saved?.id, 'expense_1');
+      expect(saved?.merchantId, 'merchant-tesco');
+      expect(saved?.merchantDomain, 'tesco.com');
+      expect(saved?.merchantStructuredName, 'Tesco');
+      expect(capturedSaveBody, isNotNull);
+      expect(capturedSaveBody!['clientRecordId'], 'optimistic_abc');
+      expect(capturedSaveBody!['clientMutationId'], 'mobile:optimistic_abc');
+      expect(capturedSaveBody!['idempotencyKey'], 'mobile:optimistic_abc');
+      expect(capturedSaveBody!['merchantId'], 'merchant-tesco');
+      expect(capturedSaveBody!['merchantStructuredName'], 'Tesco');
+      expect(capturedSaveBody!.containsKey('merchantAutoResolutionBlocked'),
+          marker);
+      if (marker) {
+        expect(capturedSaveBody!['merchantAutoResolutionBlocked'], true);
+      }
+      expect(
+        capturedSaveBody!['clientCreatedAt'],
+        transactionOccurredAt.toIso8601String(),
+      );
+    });
+  }
 
   test('saveExpense sends household custom splits and payer user id', () async {
     Map<String, dynamic>? capturedSaveBody;

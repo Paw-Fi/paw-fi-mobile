@@ -3,6 +3,15 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 typedef HomeDebugLogSink = void Function(String message);
 
+/// Temporary diagnostics for the unresolved preview Home skeletons.
+void logPreviewHomeLoading(
+  String event, [
+  Map<String, Object?> fields = const <String, Object?>{},
+]) {
+  if (!kDebugMode) return;
+  debugPrint('[PreviewHome][loading-v2] $event${_formatHomeDebugFields(fields)}');
+}
+
 final homeDebugLoggingEnabledProvider = Provider<bool>((ref) => kDebugMode);
 
 final homeDebugLogSinkProvider = Provider<HomeDebugLogSink>((ref) {
