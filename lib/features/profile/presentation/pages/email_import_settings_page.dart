@@ -22,6 +22,7 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EmailImportSettingsPage extends HookConsumerWidget {
   const EmailImportSettingsPage({super.key, this.initialSenderEmail});
@@ -59,6 +60,17 @@ class EmailImportSettingsPage extends HookConsumerWidget {
           highlightedFeature: PlusFeature.emailReceiptImport,
         );
         return;
+      }
+      if (error is FunctionException && error.details is Map) {
+        final code = (error.details as Map)['code'];
+        if (code == 'INVALID_EMAIL') {
+          AppToast.error(context, context.l10n.emailFileImportInvalidEmail);
+          return;
+        }
+        if (code == 'VERIFICATION_EMAIL_FAILED') {
+          AppToast.error(context, context.l10n.verificationEmailDeliveryFailed);
+          return;
+        }
       }
       AppToast.error(
         context,

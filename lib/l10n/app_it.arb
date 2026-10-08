@@ -3696,5 +3696,10 @@
   "typeYourOwnAnswer": "Scrivi la tua risposta",
   "aiClarificationError": "{error}\nQuesti dettagli verranno salvati dopo la conferma.",
   "senderAccountConfirmation": "Stai aggiungendo questo mittente al tuo account Moneko ({accountEmail}). Invieremo un link di verifica all'indirizzo del mittente. Le ricevute verranno importate solo dopo aver verificato il mittente.",
-  "previouslyForwardedAttachmentNotice": "Se hai già inoltrato un allegato, dovrai inoltrarlo di nuovo dopo aver approvato e verificato questo mittente. Gli allegati inoltrati in precedenza non verranno importati automaticamente."
+  "previouslyForwardedAttachmentNotice": "Se hai già inoltrato un allegato, dovrai inoltrarlo di nuovo dopo aver approvato e verificato questo mittente. Gli allegati inoltrati in precedenza non verranno importati automaticamente.",
+  "verifyingSender": "Verifica del mittente...",
+  "senderVerificationLinkExpired": "Questo link di verifica è scaduto. Richiedi una nuova email di verifica in Moneko.",
+  "invalidSenderVerificationLink": "Questo link di verifica non è valido o non è più disponibile. Richiedi una nuova email di verifica in Moneko.",
+  "senderVerificationFailed": "Non siamo riusciti a verificare questo mittente. Prova ad aprire di nuovo il link di verifica.",
+  "verificationEmailDeliveryFailed": "Non siamo riusciti a inviare l'email di verifica. Controlla che l'indirizzo email del mittente sia corretto e riprova. Questo mittente non è ancora stato approvato."
 }

@@ -161,11 +161,24 @@ class EmailImportSettings {
 
 String? normalizeWhitelistEmail(String value) {
   final trimmed = value.trim().toLowerCase();
-  if (trimmed.isEmpty) return null;
+  if (trimmed.isEmpty || trimmed.length > 320) return null;
 
   const pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$';
-  if (!RegExp(pattern).hasMatch(trimmed)) {
+  if (!RegExp(pattern).hasMatch(trimmed) ||
+      RegExp(r'''[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF<>()\[\],;:"\\]''')
+          .hasMatch(trimmed)) {
     return null;
   }
+  final parts = trimmed.split('@');
+  final local = parts[0];
+  if (local.length > 64 ||
+      local.startsWith('.') ||
+      local.endsWith('.') ||
+      local.contains('..')) {
+    return null;
+  }
+  final domainLabel = RegExp(
+      r'^[a-z0-9\u0080-\uFFFF](?:[a-z0-9\u0080-\uFFFF-]{0,61}[a-z0-9\u0080-\uFFFF])?$');
+  if (!parts[1].split('.').every(domainLabel.hasMatch)) return null;
   return trimmed;
 }

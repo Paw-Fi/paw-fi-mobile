@@ -3749,5 +3749,10 @@
   "typeYourOwnAnswer": "Eigene Antwort eingeben",
   "aiClarificationError": "{error}\nDiese Angaben werden gespeichert, sobald du sie bestätigst.",
   "senderAccountConfirmation": "Du fügst diesen Absender deinem Moneko-Konto ({accountEmail}) hinzu. Wir senden einen Bestätigungslink an die E-Mail-Adresse des Absenders. Belege werden erst importiert, nachdem du den Absender bestätigt hast.",
-  "previouslyForwardedAttachmentNotice": "Falls du bereits einen Anhang weitergeleitet hast, musst du ihn nach der Freigabe und Bestätigung dieses Absenders erneut weiterleiten. Bereits weitergeleitete Anhänge werden nicht automatisch importiert."
+  "previouslyForwardedAttachmentNotice": "Falls du bereits einen Anhang weitergeleitet hast, musst du ihn nach der Freigabe und Bestätigung dieses Absenders erneut weiterleiten. Bereits weitergeleitete Anhänge werden nicht automatisch importiert.",
+  "verifyingSender": "Absender wird bestätigt...",
+  "senderVerificationLinkExpired": "Dieser Bestätigungslink ist abgelaufen. Fordere in Moneko eine neue Bestätigungs-E-Mail an.",
+  "invalidSenderVerificationLink": "Dieser Bestätigungslink ist ungültig oder nicht mehr verfügbar. Fordere in Moneko eine neue Bestätigungs-E-Mail an.",
+  "senderVerificationFailed": "Wir konnten diesen Absender nicht bestätigen. Öffne den Bestätigungslink bitte noch einmal.",
+  "verificationEmailDeliveryFailed": "Die Bestätigungs-E-Mail konnte nicht gesendet werden. Prüfe die E-Mail-Adresse des Absenders auf Tippfehler und versuche es erneut. Dieser Absender wurde noch nicht freigegeben."
 }

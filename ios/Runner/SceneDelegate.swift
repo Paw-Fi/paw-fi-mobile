@@ -28,11 +28,11 @@ import app_links
     // Forward cold-start links to app_links after plugin registration so its
     // initial-link cache and uriLinkStream both receive the OAuth callback.
     for context in connectionOptions.urlContexts {
-      forward(url: context.url, source: "cold-start")
+      forward(url: context.url)
     }
     for userActivity in connectionOptions.userActivities {
       if let url = userActivity.webpageURL {
-        forward(url: url, source: "cold-start-activity")
+        forward(url: url)
       }
     }
 

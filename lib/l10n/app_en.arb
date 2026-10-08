@@ -3793,5 +3793,10 @@
   "typeYourOwnAnswer": "Type your own answer",
   "aiClarificationError": "{error}\nThese details will be saved once you confirm them.",
   "senderAccountConfirmation": "You are adding this sender to your Moneko account ({accountEmail}). We will email a verification link to the sender address. Receipts are imported only after you verify this sender.",
-  "previouslyForwardedAttachmentNotice": "If you have already forwarded an attachment, you must forward your attachment again after approving and verifying this sender. Previously forwarded attachments will not be imported automatically."
+  "previouslyForwardedAttachmentNotice": "If you have already forwarded an attachment, you must forward your attachment again after approving and verifying this sender. Previously forwarded attachments will not be imported automatically.",
+  "verifyingSender": "Verifying sender...",
+  "senderVerificationLinkExpired": "This verification link has expired. Request a new verification email in Moneko.",
+  "invalidSenderVerificationLink": "This verification link is invalid or no longer available. Request a new verification email in Moneko.",
+  "senderVerificationFailed": "We couldn't verify this sender. Please try opening the verification link again.",
+  "verificationEmailDeliveryFailed": "We couldn't send the verification email. Check the sender email address for typos and try again. This sender has not been approved."
 }

@@ -3751,5 +3751,10 @@
   "typeYourOwnAnswer": "Escribe tu propia respuesta",
   "aiClarificationError": "{error}\nEstos datos se guardarán cuando los confirmes.",
   "senderAccountConfirmation": "Estás añadiendo este remitente a tu cuenta de Moneko ({accountEmail}). Enviaremos un enlace de verificación a la dirección del remitente. Los recibos solo se importarán después de verificarlo.",
-  "previouslyForwardedAttachmentNotice": "Si ya reenviaste un archivo adjunto, tendrás que volver a reenviarlo después de aprobar y verificar este remitente. Los archivos enviados anteriormente no se importarán automáticamente."
+  "previouslyForwardedAttachmentNotice": "Si ya reenviaste un archivo adjunto, tendrás que volver a reenviarlo después de aprobar y verificar este remitente. Los archivos enviados anteriormente no se importarán automáticamente.",
+  "verifyingSender": "Verificando remitente...",
+  "senderVerificationLinkExpired": "Este enlace de verificación ha caducado. Solicita un nuevo correo de verificación en Moneko.",
+  "invalidSenderVerificationLink": "Este enlace de verificación no es válido o ya no está disponible. Solicita un nuevo correo de verificación en Moneko.",
+  "senderVerificationFailed": "No pudimos verificar este remitente. Intenta abrir de nuevo el enlace de verificación.",
+  "verificationEmailDeliveryFailed": "No pudimos enviar el correo de verificación. Revisa que la dirección del remitente esté bien escrita e inténtalo de nuevo. Este remitente aún no ha sido aprobado."
 }

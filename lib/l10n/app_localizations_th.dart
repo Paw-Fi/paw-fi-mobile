@@ -10691,4 +10691,19 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get previouslyForwardedAttachmentNotice => 'หากคุณเคยส่งต่อไฟล์แนบมาแล้ว โปรดส่งไฟล์แนบนั้นอีกครั้งหลังจากอนุมัติและยืนยันผู้ส่งรายนี้ ไฟล์แนบที่ส่งมาก่อนหน้านี้จะไม่ถูกนำเข้าโดยอัตโนมัติ';
+
+  @override
+  String get verifyingSender => 'กำลังยืนยันผู้ส่ง...';
+
+  @override
+  String get senderVerificationLinkExpired => 'ลิงก์ยืนยันนี้หมดอายุแล้ว โปรดขออีเมลยืนยันฉบับใหม่ใน Moneko';
+
+  @override
+  String get invalidSenderVerificationLink => 'ลิงก์ยืนยันนี้ไม่ถูกต้องหรือใช้งานไม่ได้แล้ว โปรดขออีเมลยืนยันฉบับใหม่ใน Moneko';
+
+  @override
+  String get senderVerificationFailed => 'เราไม่สามารถยืนยันผู้ส่งรายนี้ได้ โปรดลองเปิดลิงก์ยืนยันอีกครั้ง';
+
+  @override
+  String get verificationEmailDeliveryFailed => 'เราไม่สามารถส่งอีเมลยืนยันได้ โปรดตรวจสอบว่าอีเมลของผู้ส่งพิมพ์ถูกต้องแล้วลองอีกครั้ง ผู้ส่งรายนี้ยังไม่ได้รับการอนุมัติ';
 }

@@ -2,6 +2,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/profile/domain/email_import_settings.dart';
 
 void main() {
+  test('sender form rejects malformed email formats before verification', () {
+    for (final email in [
+      'sender@example..com',
+      '.sender@example.com',
+      'sender..receipts@example.com',
+      'sender,@example.com',
+      'sender@-example.com',
+      'sender@example_.com',
+      'sender@example.com\u200b',
+      'sender\u0000@example.com',
+    ]) {
+      expect(normalizeWhitelistEmail(email), isNull, reason: email);
+    }
+    expect(normalizeWhitelistEmail(' Wickum+Receipts@Outlook.com '),
+        'wickum+receipts@outlook.com');
+    expect(normalizeWhitelistEmail('用户@例子.中国'), '用户@例子.中国');
+    expect(normalizeWhitelistEmail('مستخدم@مثال.اختبار'), 'مستخدم@مثال.اختبار');
+  });
+
   test('new pending senders are not treated as verified authorizations', () {
     final pending = EmailImportWhitelistEntry.fromJson({
       'id': 'sender-1',

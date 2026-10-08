@@ -3748,5 +3748,10 @@
   "typeYourOwnAnswer": "Nhập câu trả lời của bạn",
   "aiClarificationError": "{error}\nCác thông tin này sẽ được lưu sau khi bạn xác nhận.",
   "senderAccountConfirmation": "Bạn đang thêm người gửi này vào tài khoản Moneko ({accountEmail}). Chúng tôi sẽ gửi liên kết xác minh đến địa chỉ email của người gửi. Biên lai chỉ được nhập sau khi bạn xác minh người gửi này.",
-  "previouslyForwardedAttachmentNotice": "Nếu bạn đã chuyển tiếp tệp đính kèm trước đó, hãy chuyển tiếp lại sau khi phê duyệt và xác minh người gửi này. Các tệp đính kèm đã chuyển tiếp trước đó sẽ không được tự động nhập."
+  "previouslyForwardedAttachmentNotice": "Nếu bạn đã chuyển tiếp tệp đính kèm trước đó, hãy chuyển tiếp lại sau khi phê duyệt và xác minh người gửi này. Các tệp đính kèm đã chuyển tiếp trước đó sẽ không được tự động nhập.",
+  "verifyingSender": "Đang xác minh người gửi...",
+  "senderVerificationLinkExpired": "Liên kết xác minh này đã hết hạn. Hãy yêu cầu email xác minh mới trong Moneko.",
+  "invalidSenderVerificationLink": "Liên kết xác minh này không hợp lệ hoặc không còn khả dụng. Hãy yêu cầu email xác minh mới trong Moneko.",
+  "senderVerificationFailed": "Không thể xác minh người gửi này. Hãy thử mở lại liên kết xác minh.",
+  "verificationEmailDeliveryFailed": "Không thể gửi email xác minh. Hãy kiểm tra địa chỉ email của người gửi xem có nhập sai không rồi thử lại. Người gửi này chưa được phê duyệt."
 }

@@ -44,6 +44,14 @@ class FakeService extends EmailImportSettingsService {
   }
 
   @override
+  Future<EmailImportSettings> removeWhitelistEmail(String value) async =>
+      settings.copyWith(
+          whitelistEmails: settings.whitelistEmails
+              .where((entry) =>
+                  entry.normalizedEmail != value.trim().toLowerCase())
+              .toList());
+
+  @override
   Stream<void> watchSenders(String id) async* {
     expect(id, userId);
     yield null;
@@ -135,6 +143,29 @@ void main() {
         container.read(provider.notifier).requestVerification(email),
         throwsA(isA<FunctionException>()));
     expect(container.read(provider).requireValue.whitelistEmails, isEmpty);
+  });
+
+  test(
+      'removing a malformed cached sender clears its pending overlay and cache',
+      () async {
+    const invalidEmail = 'sender@example..com';
+    final cached = service.settings.copyWith(whitelistEmails: const [
+      EmailImportWhitelistEntry(
+          id: 'local:sender@example..com',
+          email: invalidEmail,
+          normalizedEmail: invalidEmail,
+          isVerified: false),
+    ]);
+    await prefs.setString(
+        'email-import-settings:$userId', jsonEncode(cached.toJson()));
+    container.invalidate(provider);
+    await container.read(provider.future);
+    await container.read(provider.notifier).removeSender(invalidEmail);
+    expect(container.read(provider).requireValue.whitelistEmails, isEmpty);
+    final stored = EmailImportSettings.fromJson(
+        jsonDecode(prefs.getString('email-import-settings:$userId')!)
+            as Map<String, dynamic>);
+    expect(stored.whitelistEmails, isEmpty);
   });
 
   test('verification projects immediately and an older request cannot undo it',

@@ -3696,5 +3696,10 @@
   "typeYourOwnAnswer": "Typ je eigen antwoord",
   "aiClarificationError": "{error}\nDeze gegevens worden opgeslagen zodra je ze bevestigt.",
   "senderAccountConfirmation": "Je voegt deze afzender toe aan je Moneko-account ({accountEmail}). We sturen een verificatielink naar het e-mailadres van de afzender. Bonnen worden pas geïmporteerd nadat je de afzender hebt geverifieerd.",
-  "previouslyForwardedAttachmentNotice": "Heb je al een bijlage doorgestuurd? Stuur deze dan opnieuw door nadat je deze afzender hebt goedgekeurd en geverifieerd. Eerder doorgestuurde bijlagen worden niet automatisch geïmporteerd."
+  "previouslyForwardedAttachmentNotice": "Heb je al een bijlage doorgestuurd? Stuur deze dan opnieuw door nadat je deze afzender hebt goedgekeurd en geverifieerd. Eerder doorgestuurde bijlagen worden niet automatisch geïmporteerd.",
+  "verifyingSender": "Afzender verifiëren...",
+  "senderVerificationLinkExpired": "Deze verificatielink is verlopen. Vraag in Moneko een nieuwe verificatie-e-mail aan.",
+  "invalidSenderVerificationLink": "Deze verificatielink is ongeldig of niet meer beschikbaar. Vraag in Moneko een nieuwe verificatie-e-mail aan.",
+  "senderVerificationFailed": "We konden deze afzender niet verifiëren. Probeer de verificatielink opnieuw te openen.",
+  "verificationEmailDeliveryFailed": "We konden de verificatie-e-mail niet versturen. Controleer het e-mailadres van de afzender op typefouten en probeer het opnieuw. Deze afzender is nog niet goedgekeurd."
 }

@@ -19,11 +19,12 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
-import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/profile/domain/email_import_settings.dart';
 import 'package:moneko/features/profile/presentation/providers/email_import_settings_provider.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Deep link service that handles app links
 class DeepLinkService {
@@ -36,6 +37,7 @@ class DeepLinkService {
   final Set<String> _pendingSenderTokens = {};
   String? _activeSenderToken;
   bool _isSenderVerificationRunning = false;
+  DialogRoute<void>? _senderVerificationDialog;
   String? _pendingSenderEmail;
   bool _isSenderAddScheduled = false;
   GoRouter? _senderAddRouter;
@@ -369,10 +371,27 @@ class DeepLinkService {
     _pendingSenderTokens.remove(token);
     _activeSenderToken = token;
     _isSenderVerificationRunning = true;
+    final route = DialogRoute<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: BlockingProcessingDialog(
+          message: context.l10n.verifyingSender,
+          showElapsedTime: false,
+          enableCancelAfterSeconds: 0,
+        ),
+      ),
+    );
+    _senderVerificationDialog = route;
+    Navigator.of(context, rootNavigator: true).push(route);
     try {
+      await WidgetsBinding.instance.endOfFrame;
+      if (_isDisposed) return;
       final result = await ref
           .read(emailImportSettingsServiceProvider)
           .verifySender(token);
+      await _closeSenderVerificationDialog();
       if (_isDisposed) return;
       final userId = result['userId'];
       final sender = result['sender'];
@@ -382,7 +401,9 @@ class DeepLinkService {
         throw const FormatException('Invalid sender verification response');
       }
       final currentContext = rootNavigatorKey.currentContext;
-      if (currentContext == null || !currentContext.mounted) return;
+      if (currentContext == null || !currentContext.mounted) {
+        return;
+      }
       if (ref.read(authProvider).uid == userId) {
         ref
             .read(emailImportSettingsProvider(userId).notifier)
@@ -404,20 +425,45 @@ class DeepLinkService {
             currentContext.l10n.emailSenderVerifiedOtherAccount);
       }
     } catch (error) {
+      await _closeSenderVerificationDialog();
       final currentContext = rootNavigatorKey.currentContext;
       if (!_isDisposed && currentContext != null && currentContext.mounted) {
-        AppToast.error(
-            currentContext,
-            ErrorHandler.getUserFriendlyMessage(error,
-                context: BackendErrorContext.emailImportSettings));
+        final code = error is FunctionException && error.details is Map
+            ? (error.details as Map)['code']
+            : null;
+        final message = switch (code) {
+          'VERIFICATION_LINK_EXPIRED' =>
+            currentContext.l10n.senderVerificationLinkExpired,
+          'INVALID_VERIFICATION_LINK' =>
+            currentContext.l10n.invalidSenderVerificationLink,
+          _ => currentContext.l10n.senderVerificationFailed,
+        };
+        AppToast.error(currentContext, message);
       }
     } finally {
+      await _closeSenderVerificationDialog();
       _isSenderVerificationRunning = false;
       _activeSenderToken = null;
       if (!_isDisposed && _pendingSenderTokens.isNotEmpty) {
         _consumeSenderVerification(ref);
       }
     }
+  }
+
+  Future<void> _closeSenderVerificationDialog() async {
+    final route = _senderVerificationDialog;
+    if (route == null) return;
+    _senderVerificationDialog = null;
+    final navigator = route.navigator;
+    if (navigator != null && navigator.mounted && route.isActive) {
+      if (route.isCurrent) {
+        navigator.pop();
+      } else {
+        // Close only our dialog if another route was opened while waiting.
+        navigator.removeRoute(route);
+      }
+    }
+    await route.completed;
   }
 
   void _queueImportReview(Uri uri) {
@@ -490,6 +536,7 @@ class DeepLinkService {
   /// Dispose the subscription
   void dispose() {
     _isDisposed = true;
+    unawaited(_closeSenderVerificationDialog());
     _pendingImportReview = null;
     _pendingSenderTokens.clear();
     _pendingSenderEmail = null;

@@ -184,7 +184,7 @@ class EmailImportSettingsController
     if (saved.ownerUserId != null && saved.ownerUserId != _userId) {
       throw const FormatException('Invalid email settings response owner');
     }
-    _pending.remove(normalizeWhitelistEmail(email));
+    _pending.remove(email.trim().toLowerCase());
     final projected = _overlay(saved);
     state = AsyncData(projected);
     await _persist(projected);

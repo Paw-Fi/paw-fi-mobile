@@ -3749,5 +3749,10 @@
   "typeYourOwnAnswer": "自分で回答を入力",
   "aiClarificationError": "{error}\n確認すると、これらの内容が保存されます。",
   "senderAccountConfirmation": "この送信者をMonekoアカウント（{accountEmail}）に追加します。送信者のメールアドレスに確認リンクを送信します。領収書は送信者の確認後にのみ取り込まれます。",
-  "previouslyForwardedAttachmentNotice": "すでに添付ファイルを転送している場合は、この送信者を承認・確認した後でもう一度転送してください。以前に転送した添付ファイルは自動では取り込まれません。"
+  "previouslyForwardedAttachmentNotice": "すでに添付ファイルを転送している場合は、この送信者を承認・確認した後でもう一度転送してください。以前に転送した添付ファイルは自動では取り込まれません。",
+  "verifyingSender": "送信者を確認中...",
+  "senderVerificationLinkExpired": "この確認リンクの有効期限が切れています。Monekoで新しい確認メールをリクエストしてください。",
+  "invalidSenderVerificationLink": "この確認リンクは無効か、利用できなくなっています。Monekoで新しい確認メールをリクエストしてください。",
+  "senderVerificationFailed": "この送信者を確認できませんでした。確認リンクをもう一度開いてみてください。",
+  "verificationEmailDeliveryFailed": "確認メールを送信できませんでした。送信者のメールアドレスに入力ミスがないか確認して、もう一度お試しください。この送信者はまだ承認されていません。"
 }
