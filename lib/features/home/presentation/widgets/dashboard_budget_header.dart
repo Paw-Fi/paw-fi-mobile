@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui show BlurStyle, lerpDouble;
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/home/presentation/constants/budget_companion_messages.dart';
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
@@ -13,6 +15,7 @@ import 'package:moneko/features/home/presentation/state/home_period_selection.da
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
+import 'package:moneko/shared/widgets/atmospheric_header_lines.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 Duration _motion(BuildContext context) =>
@@ -221,10 +224,13 @@ class _SummaryValues extends StatelessWidget {
       const topClearance = 44.0;
       final totalGaugeSectionHeight = gaugeHeight + topClearance;
 
-      final gaugeColor = hasBudget ? accent : colors.mutedForeground;
-      final percentText = hasBudget
-          ? '${formatLocalizedNumber(context, (summary.progress! * 100).round())}%'
-          : null;
+      final gaugeAccent = switch (summary.reaction) {
+        BudgetCompanionReaction.happy => colors.budgetGaugeSuccess,
+        BudgetCompanionReaction.concerned => colors.budgetGaugeWarning,
+        BudgetCompanionReaction.overBudget => colors.budgetGaugeDanger,
+        _ => colors.budgetGaugeInfo,
+      };
+      final gaugeColor = hasBudget ? gaugeAccent : colors.mutedForeground;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -233,89 +239,19 @@ class _SummaryValues extends StatelessWidget {
           SizedBox(
             width: cardWidth,
             height: totalGaugeSectionHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _AtmosphericHeroPainter(
-                      color: gaugeColor.withValues(alpha: 0.08),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: (cardWidth - gaugeWidth) / 2,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0, end: summary.barProgress),
-                    duration: _motion(context),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) => BudgetGaugeIndicator(
-                      key: const ValueKey('budget-companion-progress'),
-                      value: value,
-                      color: gaugeColor,
-                      backgroundColor: gaugeColor.withValues(alpha: .15),
-                      strokeWidth: strokeWidth,
-                      width: gaugeWidth,
-                      center: percentText == null
-                          ? null
-                          : Semantics(
-                              label: '$percentText ${context.l10n.budget}',
-                              child: Text(
-                                percentText,
-                                key: const ValueKey('budget-companion-percent'),
-                                style: theme.textTheme.headlineMedium?.copyWith(
-                                  fontFamily:
-                                      theme.platform == TargetPlatform.iOS
-                                          ? '.SF Compact Rounded'
-                                          : null,
-                                  fontFamilyFallback: const [
-                                    '.SF Pro Rounded',
-                                    'SF Pro Rounded',
-                                    'SF Compact Rounded',
-                                    'sans-serif-medium',
-                                  ],
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -1,
-                                  color: colors.foreground,
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: topClearance - catHeight + 14,
-                  left: (cardWidth - catWidth) / 2,
-                  width: catWidth,
-                  height: catHeight,
-                  child: _AnimatedMascot(
-                    asset: mascotAsset,
-                    width: catWidth,
-                    height: catHeight,
-                  ),
-                ),
-                PositionedDirectional(
-                  top: 2,
-                  start: (cardWidth / 2) + 36,
-                  end: 4,
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: (cardWidth - ((cardWidth / 2) + 40))
-                            .clamp(80.0, 200.0),
-                      ),
-                      child: _CompanionChatBubble(
-                        reaction: summary.reaction,
-                        foreground: foreground,
-                        accent: accent,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            child: _BudgetHeroStage(
+              progress: hasBudget ? summary.progress! : null,
+              reaction: summary.reaction,
+              mascotAsset: mascotAsset,
+              gaugeColor: gaugeColor,
+              accent: accent,
+              foreground: foreground,
+              cardWidth: cardWidth,
+              gaugeWidth: gaugeWidth,
+              strokeWidth: strokeWidth,
+              catWidth: catWidth,
+              catHeight: catHeight,
+              topClearance: topClearance,
             ),
           ),
           const SizedBox(height: 14),
@@ -390,36 +326,272 @@ class _SummaryValues extends StatelessWidget {
   }
 }
 
-class _AtmosphericHeroPainter extends CustomPainter {
-  const _AtmosphericHeroPainter({required this.color});
-  final Color color;
+/// Choreographs the hero section as one timeline: the gauge rests at 0% for a
+/// beat, counts up to the real percentage, the mascot pops in while the gauge
+/// is still filling, and the speech bubble reacts last. Later summary changes
+/// settle the gauge from its displayed value instead of replaying the intro.
+class _BudgetHeroStage extends StatefulWidget {
+  const _BudgetHeroStage({
+    required this.progress,
+    required this.reaction,
+    required this.mascotAsset,
+    required this.gaugeColor,
+    required this.accent,
+    required this.foreground,
+    required this.cardWidth,
+    required this.gaugeWidth,
+    required this.strokeWidth,
+    required this.catWidth,
+    required this.catHeight,
+    required this.topClearance,
+  });
+
+  /// Unclamped spent/budget ratio; null when no budget is set.
+  final double? progress;
+  final BudgetCompanionReaction reaction;
+  final String mascotAsset;
+  final Color gaugeColor;
+  final Color accent;
+  final Color foreground;
+  final double cardWidth;
+  final double gaugeWidth;
+  final double strokeWidth;
+  final double catWidth;
+  final double catHeight;
+  final double topClearance;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+  State<_BudgetHeroStage> createState() => _BudgetHeroStageState();
+}
 
-    final w = size.width;
-    final h = size.height;
+class _BudgetHeroStageState extends State<_BudgetHeroStage>
+    with TickerProviderStateMixin {
+  // Intro timeline (2000ms): hold 0% → fill → mascot pop → bubble pop.
+  static const _introDuration = Duration(milliseconds: 2000);
+  static const _settleDuration = Duration(milliseconds: 700);
+  static const _gaugeInterval =
+      Interval(0.25, 0.85, curve: Curves.easeInOutCubic);
+  static const _mascotInterval = Interval(0.64, 0.92);
+  static const _bubbleInterval = Interval(0.84, 1.0);
+  // Back-out springs: overshoot slightly past rest, then settle.
+  static const _mascotSpring = Cubic(0.34, 1.56, 0.64, 1.0);
+  static const _bubbleSpring = Cubic(0.34, 1.42, 0.64, 1.0);
 
-    for (var i = 1; i <= 4; i++) {
-      final path = Path();
-      path.moveTo(-20, h * 0.22 * i);
-      path.quadraticBezierTo(
-        w * 0.5,
-        -10.0 + (i * 12.0),
-        w + 20,
-        h * 0.32 * i,
-      );
-      canvas.drawPath(path, paint);
+  late final AnimationController _intro =
+      AnimationController(vsync: this, duration: _introDuration);
+  late final AnimationController _settle =
+      AnimationController(vsync: this, duration: _settleDuration);
+  late final CurvedAnimation _gaugeFill =
+      CurvedAnimation(parent: _intro, curve: _gaugeInterval);
+  late final CurvedAnimation _mascotEntrance =
+      CurvedAnimation(parent: _intro, curve: _mascotInterval);
+  late final CurvedAnimation _bubbleEntrance =
+      CurvedAnimation(parent: _intro, curve: _bubbleInterval);
+  late final CurvedAnimation _settleCurve =
+      CurvedAnimation(parent: _settle, curve: Curves.easeInOutCubic);
+
+  double _introFrom = 0;
+  late double _introTo = _target;
+  Tween<double>? _settleTween;
+
+  double get _target => widget.progress ?? 0;
+
+  /// Unclamped percentage currently on screen; the arc clamps it to 0–1.
+  double get _displayed {
+    final tween = _settleTween;
+    if (tween != null) return tween.evaluate(_settleCurve);
+    return ui.lerpDouble(_introFrom, _introTo, _gaugeFill.value)!;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // This stage only mounts once a summary has resolved, so the timeline
+    // starts exactly when valid data is available.
+    _intro.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context) && !_intro.isCompleted) {
+      _intro.value = 1;
     }
   }
 
   @override
-  bool shouldRepaint(covariant _AtmosphericHeroPainter oldDelegate) =>
-      oldDelegate.color != color;
+  void didUpdateWidget(_BudgetHeroStage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.progress != widget.progress) _retarget(_target);
+  }
+
+  void _retarget(double target) {
+    final shown = _displayed;
+    final fill = _gaugeFill.value;
+    if (_settleTween == null && fill < 0.98) {
+      // Re-aim the running intro so lerp(from, to, fill) still equals what is
+      // on screen right now and the remaining fill lands on the new target.
+      _introTo = target;
+      _introFrom = (shown - fill * target) / (1 - fill);
+      return;
+    }
+    _settleTween = Tween<double>(begin: shown, end: target);
+    _settle.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _gaugeFill.dispose();
+    _mascotEntrance.dispose();
+    _bubbleEntrance.dispose();
+    _settleCurve.dispose();
+    _intro.dispose();
+    _settle.dispose();
+    super.dispose();
+  }
+
+  Widget _buildGauge(BuildContext context, double shown) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final hasBudget = widget.progress != null;
+    String percent(double value) =>
+        '${formatLocalizedNumber(context, (value * 100).round())}%';
+    return BudgetGaugeIndicator(
+      key: const ValueKey('budget-companion-progress'),
+      value: shown.clamp(0.0, 1.0),
+      color: widget.gaugeColor,
+      backgroundColor: widget.gaugeColor.withValues(alpha: .15),
+      glowColor: hasBudget ? colors.budgetGaugeGlow(widget.gaugeColor) : null,
+      strokeWidth: widget.strokeWidth,
+      width: widget.gaugeWidth,
+      center: !hasBudget
+          ? null
+          : Semantics(
+              label: '${percent(_target)} ${context.l10n.budget}',
+              child: Text(
+                percent(shown),
+                key: const ValueKey('budget-companion-percent'),
+                style: WidgetTextStyles.roundedNumber(
+                  theme,
+                  baseStyle: theme.textTheme.headlineMedium?.copyWith(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1,
+                    color: colors.foreground,
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildMascotEntrance(BuildContext context, Widget? child) {
+    final t = _mascotEntrance.value;
+    if (t == 0) return const SizedBox.shrink();
+    final spring = _mascotSpring.transform(t);
+    return Opacity(
+      opacity: Curves.easeOut.transform(math.min(1.0, t * 2.5)),
+      child: Transform.translate(
+        offset: Offset(0, (1 - spring) * 14),
+        child: Transform.scale(
+          scale: ui.lerpDouble(0.6, 1.0, spring)!,
+          alignment: Alignment.bottomCenter,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBubbleEntrance(BuildContext context, Widget? child) {
+    final t = _bubbleEntrance.value;
+    if (t == 0) return const SizedBox.shrink();
+    final spring = _bubbleSpring.transform(t);
+    final towardMascot =
+        Directionality.of(context) == TextDirection.rtl ? 8.0 : -8.0;
+    return Opacity(
+      opacity: Curves.easeOut.transform(math.min(1.0, t * 2)),
+      child: Transform.translate(
+        offset: Offset(towardMascot * (1 - spring), 6 * (1 - spring)),
+        child: Transform.scale(
+          scale: ui.lerpDouble(0.6, 1.0, spring)!,
+          alignment: AlignmentDirectional.bottomStart,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    final cardWidth = widget.cardWidth;
+    final mascot = _AnimatedMascot(
+      asset: widget.mascotAsset,
+      width: widget.catWidth,
+      height: widget.catHeight,
+      animateEntrance: reduced,
+    );
+    final bubble = _CompanionChatBubble(
+      reaction: widget.reaction,
+      foreground: widget.foreground,
+      accent: widget.accent,
+      animateEntrance: reduced,
+    );
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: AtmosphericHeaderLines(
+            color: widget.gaugeColor.withValues(alpha: 0.08),
+          ),
+        ),
+        Positioned(
+          bottom: 0,
+          left: (cardWidth - widget.gaugeWidth) / 2,
+          child: reduced
+              ? _buildGauge(context, _target)
+              : AnimatedBuilder(
+                  animation: Listenable.merge([_intro, _settle]),
+                  builder: (context, _) => _buildGauge(context, _displayed),
+                ),
+        ),
+        Positioned(
+          top: widget.topClearance - widget.catHeight + 14,
+          left: (cardWidth - widget.catWidth) / 2,
+          width: widget.catWidth,
+          height: widget.catHeight,
+          child: reduced
+              ? mascot
+              : AnimatedBuilder(
+                  animation: _mascotEntrance,
+                  builder: _buildMascotEntrance,
+                  child: mascot,
+                ),
+        ),
+        PositionedDirectional(
+          top: 2,
+          start: (cardWidth / 2) + 36,
+          end: 4,
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth:
+                    (cardWidth - ((cardWidth / 2) + 40)).clamp(80.0, 200.0),
+              ),
+              child: reduced
+                  ? bubble
+                  : AnimatedBuilder(
+                      animation: _bubbleEntrance,
+                      builder: _buildBubbleEntrance,
+                      child: bubble,
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _AnimatedMascot extends StatefulWidget {
@@ -427,11 +599,16 @@ class _AnimatedMascot extends StatefulWidget {
     required this.asset,
     required this.width,
     required this.height,
+    this.animateEntrance = true,
   });
 
   final String asset;
   final double width;
   final double height;
+
+  /// When false the mascot mounts at rest (a parent choreographs its
+  /// entrance) but still bounces when the asset changes.
+  final bool animateEntrance;
 
   @override
   State<_AnimatedMascot> createState() => _AnimatedMascotState();
@@ -449,6 +626,7 @@ class _AnimatedMascotState extends State<_AnimatedMascot>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 550),
+      value: widget.animateEntrance ? 0 : 1,
     );
     _scaleAnimation = Tween<double>(begin: 0.82, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
@@ -512,11 +690,16 @@ class _ChatBubble extends StatefulWidget {
     required this.message,
     required this.foreground,
     required this.accent,
+    this.animateEntrance = true,
   });
 
   final String message;
   final Color foreground;
   final Color accent;
+
+  /// When false the first appearance skips the built-in pop (a parent
+  /// choreographs it); later message changes still pop.
+  final bool animateEntrance;
 
   @override
   State<_ChatBubble> createState() => _ChatBubbleState();
@@ -527,6 +710,7 @@ class _ChatBubbleState extends State<_ChatBubble>
   late AnimationController _controller;
   late Animation<int> _charAnimation;
   late Animation<double> _popAnimation;
+  late bool _shouldPop = widget.animateEntrance;
 
   @override
   void initState() {
@@ -556,6 +740,7 @@ class _ChatBubbleState extends State<_ChatBubble>
   void didUpdateWidget(_ChatBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message != widget.message) {
+      _shouldPop = true;
       final durationMs =
           math.min(800, math.max(300, widget.message.length * 28));
       _controller.duration = Duration(milliseconds: durationMs);
@@ -586,12 +771,14 @@ class _ChatBubbleState extends State<_ChatBubble>
             ? widget.message.length
             : _charAnimation.value.clamp(1, widget.message.length);
         final displayedText = widget.message.substring(0, count);
-        final scale = disableAnimations ? 1.0 : _popAnimation.value;
+        final scale =
+            disableAnimations || !_shouldPop ? 1.0 : _popAnimation.value;
 
         return Transform.scale(
           scale: scale,
           alignment: AlignmentDirectional.bottomStart,
           child: AnimatedContainer(
+            key: const ValueKey('budget-companion-bubble'),
             duration: _motion(context),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
@@ -632,11 +819,13 @@ class _CompanionChatBubble extends StatefulWidget {
     required this.reaction,
     required this.foreground,
     required this.accent,
+    this.animateEntrance = true,
   });
 
   final BudgetCompanionReaction reaction;
   final Color foreground;
   final Color accent;
+  final bool animateEntrance;
 
   @override
   State<_CompanionChatBubble> createState() => _CompanionChatBubbleState();
@@ -659,6 +848,7 @@ class _CompanionChatBubbleState extends State<_CompanionChatBubble> {
       message: resolveBudgetCompanionMessage(context.l10n, _messageKey),
       foreground: widget.foreground,
       accent: widget.accent,
+      animateEntrance: widget.animateEntrance,
     );
   }
 }
@@ -672,6 +862,7 @@ class BudgetGaugeIndicator extends StatelessWidget {
     this.strokeWidth = 18.0,
     this.width = 210.0,
     this.center,
+    this.glowColor,
   });
 
   final double value;
@@ -681,6 +872,9 @@ class BudgetGaugeIndicator extends StatelessWidget {
   final double width;
   final Widget? center;
 
+  /// Optional halo painted beneath the active arc; omitted when null.
+  final Color? glowColor;
+
   @override
   Widget build(BuildContext context) {
     final height = (width + strokeWidth) / 2;
@@ -689,6 +883,7 @@ class BudgetGaugeIndicator extends StatelessWidget {
       height: height,
       child: Stack(
         alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
           CustomPaint(
             size: Size(width, height),
@@ -697,6 +892,7 @@ class BudgetGaugeIndicator extends StatelessWidget {
               color: color,
               backgroundColor: backgroundColor,
               strokeWidth: strokeWidth,
+              glowColor: glowColor,
             ),
           ),
           if (center != null)
@@ -716,12 +912,14 @@ class _BudgetGaugePainter extends CustomPainter {
     required this.color,
     required this.backgroundColor,
     required this.strokeWidth,
+    this.glowColor,
   });
 
   final double progress;
   final Color color;
   final Color backgroundColor;
   final double strokeWidth;
+  final Color? glowColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -740,13 +938,26 @@ class _BudgetGaugePainter extends CustomPainter {
     canvas.drawArc(rect, math.pi, math.pi, false, bgPaint);
 
     if (progress > 0) {
+      final sweepAngle = (progress.clamp(0.0, 1.0) * math.pi);
+
+      final glow = glowColor;
+      if (glow != null) {
+        // A blurred, slightly wider copy of the arc underneath reads as a
+        // halo that follows the fill without touching the arc's own edge.
+        final glowPaint = Paint()
+          ..color = glow
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth + 6
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = MaskFilter.blur(ui.BlurStyle.normal, strokeWidth * .6);
+        canvas.drawArc(rect, math.pi, sweepAngle, false, glowPaint);
+      }
+
       final progressPaint = Paint()
         ..color = color
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
-
-      final sweepAngle = (progress.clamp(0.0, 1.0) * math.pi);
       canvas.drawArc(rect, math.pi, sweepAngle, false, progressPaint);
     }
   }
@@ -756,7 +967,8 @@ class _BudgetGaugePainter extends CustomPainter {
     return oldDelegate.progress != progress ||
         oldDelegate.color != color ||
         oldDelegate.backgroundColor != backgroundColor ||
-        oldDelegate.strokeWidth != strokeWidth;
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.glowColor != glowColor;
   }
 }
 

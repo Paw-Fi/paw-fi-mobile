@@ -14,6 +14,7 @@ import 'package:moneko/core/subscription/plan_access.dart'
     show hasPremiumFeatureAccess;
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -47,7 +48,7 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
-import 'package:moneko/shared/widgets/seamless_header_background.dart';
+import 'package:moneko/shared/widgets/atmospheric_header_lines.dart';
 import 'package:moneko/shared/widgets/seamless_header_action.dart';
 import 'package:moneko/shared/widgets/header_month_label.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -471,7 +472,12 @@ class AccountsPage extends HookConsumerWidget {
         child: AdaptiveScaffold(
       body: Stack(
         children: [
-          const Positioned.fill(child: SeamlessHeaderBackground()),
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AtmosphericHeaderBackground(),
+          ),
           SafeArea(
             child: Builder(builder: (context) {
               final wallets = effectiveWallets;
@@ -670,24 +676,26 @@ class AccountsPage extends HookConsumerWidget {
                     if (!isPreviewMode)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
-                        child: Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            KeyedSubtree(
-                              key: newWalletSpotlightKey,
-                              child: SeamlessHeaderAction(
-                                label: context.l10n.addWallet,
-                                icon: Icons.add_rounded,
-                                onPressed: onAddAccount,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              KeyedSubtree(
+                                key: newWalletSpotlightKey,
+                                child: SeamlessHeaderAction(
+                                  label: context.l10n.addWallet,
+                                  icon: Icons.add_rounded,
+                                  onPressed: onAddAccount,
+                                ),
                               ),
-                            ),
-                            SeamlessHeaderAction(
-                              label: context.l10n.transfer,
-                              icon: Icons.swap_horiz_rounded,
-                              onPressed: onTransfer,
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              SeamlessHeaderAction(
+                                label: context.l10n.transfer,
+                                icon: Icons.swap_horiz_rounded,
+                                onPressed: onTransfer,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     if (!hasWalletsContent && walletsAsync.isLoading)
@@ -754,7 +762,10 @@ class _AnimatedNumberText extends StatelessWidget {
       builder: (context, val, child) {
         return Text(
           '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(val)))}',
-          style: style,
+          style: WidgetTextStyles.roundedNumber(
+            Theme.of(context),
+            baseStyle: style,
+          ),
           maxLines: singleLine ? 1 : null,
           softWrap: !singleLine,
         );
@@ -1573,21 +1584,22 @@ class _WalletsPageSkeleton extends StatelessWidget {
           const SizedBox(height: 16),
           const Padding(
             padding: EdgeInsets.fromLTRB(8, 8, 8, 28),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                Bone(
-                  height: 48,
-                  width: 144,
-                  borderRadius: BorderRadius.all(Radius.circular(100)),
-                ),
-                Bone(
-                  height: 48,
-                  width: 128,
-                  borderRadius: BorderRadius.all(Radius.circular(100)),
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  Bone(
+                    height: 48,
+                    width: 144,
+                    borderRadius: BorderRadius.all(Radius.circular(100)),
+                  ),
+                  Bone(
+                    height: 48,
+                    width: 128,
+                    borderRadius: BorderRadius.all(Radius.circular(100)),
+                  ),
+                ],
+              ),
             ),
           ),
           // Skeleton for wallet stack - 3 skeleton cards

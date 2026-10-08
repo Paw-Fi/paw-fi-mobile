@@ -1,7 +1,23 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 /// Shared text styling constants matching CategoryBreakdownChart.tsx web component
 class WidgetTextStyles {
+  static TextStyle roundedNumber(
+    ThemeData theme, {
+    TextStyle? baseStyle,
+  }) {
+    return (baseStyle ?? const TextStyle()).copyWith(
+      fontFamily:
+          theme.platform == TargetPlatform.iOS ? '.SF Compact Rounded' : null,
+      fontFamilyFallback: const [
+        '.SF Pro Rounded',
+        'SF Pro Rounded',
+        'SF Compact Rounded',
+        'sans-serif-medium',
+      ],
+    );
+  }
+
   // Primary title style (matches web h1)
   static const TextStyle title = TextStyle(
     fontSize: 16,

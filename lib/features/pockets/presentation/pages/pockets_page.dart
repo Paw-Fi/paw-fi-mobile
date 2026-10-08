@@ -34,7 +34,7 @@ import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
-import 'package:moneko/shared/widgets/seamless_header_background.dart';
+import 'package:moneko/shared/widgets/atmospheric_header_lines.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 class PocketsPage extends HookConsumerWidget {
@@ -545,7 +545,12 @@ class PocketsPage extends HookConsumerWidget {
         child: AdaptiveScaffold(
       body: Stack(
         children: [
-          const Positioned.fill(child: SeamlessHeaderBackground()),
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AtmosphericHeaderBackground(),
+          ),
           PageView.builder(
             controller: pageController,
             allowImplicitScrolling: true,

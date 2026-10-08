@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
@@ -38,7 +39,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
-import 'package:moneko/shared/widgets/seamless_header_background.dart';
+import 'package:moneko/shared/widgets/atmospheric_header_lines.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
@@ -199,7 +200,12 @@ class _RecurringTransactionsPageState
         child: AdaptiveScaffold(
       body: Stack(
         children: [
-          const Positioned.fill(child: SeamlessHeaderBackground()),
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AtmosphericHeaderBackground(),
+          ),
           Column(
             children: [
               Padding(
@@ -672,37 +678,79 @@ class _RecurringTransactionsPageState
             ),
           ),
           const SizedBox(height: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              textBaseline: TextBaseline.alphabetic,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              children: [
-                Text(
-                  '$symbol$localizedTotal',
-                  maxLines: 1,
-                  softWrap: false,
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
-                    letterSpacing: -1.2,
-                    height: 1.05,
+          Row(
+            children: [
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    textBaseline: TextBaseline.alphabetic,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    children: [
+                      Text(
+                        '$symbol$localizedTotal',
+                        maxLines: 1,
+                        softWrap: false,
+                        style: WidgetTextStyles.roundedNumber(
+                          Theme.of(context),
+                          baseStyle: TextStyle(
+                            fontSize: 40,
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.foreground,
+                            letterSpacing: -1.2,
+                            height: 1.05,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        currencyCode,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  currencyCode,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.mutedForeground,
+              ),
+              if (showCurrencyBreakdown)
+                Tooltip(
+                  message: context.l10n.displayCurrencyTooltip,
+                  child: Semantics(
+                    button: true,
+                    label: context.l10n.displayCurrencyTooltip,
+                    child: AdaptiveButton.child(
+                      onPressed: () => showMultiCurrencyTotalBreakdownSheet(
+                        context: context,
+                        colorScheme: colorScheme,
+                        currencyTypeTotals: currencyTotals,
+                        rates: rateTable,
+                        targetCurrency: currencyCode,
+                        totalSpent: total,
+                        title: label,
+                        allowSingleCurrency: true,
+                      ),
+                      useNative: false,
+                      style: AdaptiveButtonStyle.plain,
+                      borderRadius: BorderRadius.circular(100),
+                      minSize: const Size(48, 48),
+                      padding: EdgeInsets.zero,
+                      child: Transform.translate(
+                        offset: const Offset(0, 6),
+                        child: Icon(
+                          Icons.info_outline_rounded,
+                          size: 18,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
           const SizedBox(height: 16),
           Text(
@@ -713,67 +761,6 @@ class _RecurringTransactionsPageState
               color: colorScheme.mutedForeground,
             ),
           ),
-          if (showCurrencyBreakdown) ...[
-            const SizedBox(height: 16),
-            Semantics(
-              button: true,
-              label: label,
-              child: DecoratedBox(
-                decoration: ShapeDecoration(
-                  color: colorScheme.cardSurface,
-                  shape: StadiumBorder(
-                    side: BorderSide(color: colorScheme.controlBorder),
-                  ),
-                ),
-                child: AdaptiveButton.child(
-                  onPressed: () => showMultiCurrencyTotalBreakdownSheet(
-                    context: context,
-                    colorScheme: colorScheme,
-                    currencyTypeTotals: currencyTotals,
-                    rates: rateTable,
-                    targetCurrency: currencyCode,
-                    totalSpent: total,
-                    title: label,
-                    allowSingleCurrency: true,
-                  ),
-                  useNative: false,
-                  style: AdaptiveButtonStyle.plain,
-                  borderRadius: BorderRadius.circular(100),
-                  minSize: const Size(0, 48),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        size: 18,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'CONVERTED',
-                            maxLines: 1,
-                            softWrap: false,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

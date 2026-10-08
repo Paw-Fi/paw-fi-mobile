@@ -1,4 +1,5 @@
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
 import 'package:moneko/shared/widgets/seamless_header_action.dart';
 import 'package:moneko/shared/widgets/header_month_label.dart';
@@ -42,6 +44,8 @@ class PocketsHeaderCard extends StatelessWidget {
     this.isSeamless = false,
     this.showEditActions = true,
     this.onAddPocket,
+    this.onAddPocketForCurrency,
+    this.isAddingPocket = false,
   });
 
   final double totalBudget;
@@ -68,6 +72,8 @@ class PocketsHeaderCard extends StatelessWidget {
   final bool isSeamless;
   final bool showEditActions;
   final VoidCallback? onAddPocket;
+  final Future<void> Function(String currency)? onAddPocketForCurrency;
+  final bool isAddingPocket;
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +158,146 @@ class PocketsHeaderCard extends StatelessWidget {
             onChanged: (value) => onCurrencyBudgetChanged!(entry.key, value),
           );
     }
+
+    void showCurrencyBudgetBreakdown() {
+      MonekoBottomSheet.show<void>(
+        context: context,
+        title: context.l10n.monthlyBudget,
+        isScrollControlled: true,
+        builder: (sheetContext) {
+          final sheetColorScheme = Theme.of(sheetContext).colorScheme;
+          return SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                bottom: MediaQuery.of(sheetContext).padding.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    monthLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: sheetColorScheme.mutedForeground,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    formatLocalizedCurrency(effectiveBudget),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: sheetColorScheme.foreground,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  for (final entry in nativeBudgets)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _CurrencyBudgetRow(
+                        currency: entry.key,
+                        amount: formatLocalizedCurrency(entry.value, entry.key),
+                        colorScheme: sheetColorScheme,
+                        isSaving: savingCurrency == entry.key,
+                        onTap: null,
+                        isSeamless: true,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    Future<String?> chooseNativeCurrency() {
+      return MonekoBottomSheet.show<String>(
+        context: context,
+        title: context.l10n.selectCurrency,
+        isScrollControlled: true,
+        builder: (sheetContext) {
+          final sheetColorScheme = Theme.of(sheetContext).colorScheme;
+          return SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                bottom: MediaQuery.of(sheetContext).padding.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final entry in nativeBudgets)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _CurrencyBudgetRow(
+                        currency: entry.key,
+                        amount: formatLocalizedCurrency(entry.value, entry.key),
+                        colorScheme: sheetColorScheme,
+                        isSaving: false,
+                        onTap: () => Navigator.of(sheetContext).pop(entry.key),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    Future<void> chooseNativeCurrencyBudget() async {
+      final currencyBudgetChanged = onCurrencyBudgetChanged;
+      if (currencyBudgetChanged == null || savingCurrency != null) return;
+
+      final selectedCurrency = await chooseNativeCurrency();
+
+      if (selectedCurrency == null || !context.mounted) return;
+
+      MapEntry<String, double>? selectedBudget;
+      for (final entry in nativeBudgets) {
+        if (entry.key == selectedCurrency) {
+          selectedBudget = entry;
+          break;
+        }
+      }
+      if (selectedBudget == null) return;
+      final budget = selectedBudget;
+
+      await _showBudgetInputSheet(
+        context,
+        currentAmount: budget.value,
+        currencyCode: budget.key,
+        onChanged: (amount) => currencyBudgetChanged(budget.key, amount),
+      );
+    }
+
+    final Future<void> Function(String currency)? addPocketForCurrency =
+        onAddPocketForCurrency;
+    final hasAddPocketAction =
+        onAddPocket != null || addPocketForCurrency != null;
+    final VoidCallback? addPocketAction = addPocketForCurrency == null
+        ? onAddPocket
+        : isAddingPocket || savingCurrency != null
+            ? null
+            : () async {
+                final selectedCurrency = await chooseNativeCurrency();
+                if (selectedCurrency == null || !context.mounted) return;
+                await addPocketForCurrency(selectedCurrency);
+              };
+
+    final VoidCallback? editBudgetAction = onCurrencyBudgetChanged == null
+        ? editBudget
+        : savingCurrency != null || isAddingPocket
+            ? null
+            : () => chooseNativeCurrencyBudget();
 
     final monthSelector = GestureDetector(
       onTap: () => _pickMonth(context),
@@ -317,14 +463,17 @@ class PocketsHeaderCard extends StatelessWidget {
                                   : Alignment.center,
                               child: Text(
                                 formatLocalizedCurrency(effectiveBudget),
-                                style: TextStyle(
-                                  fontSize: isSeamless ? 40 : 44,
-                                  fontWeight: isSeamless
-                                      ? FontWeight.w800
-                                      : FontWeight.w700,
-                                  color: textColor,
-                                  letterSpacing: isSeamless ? -1.2 : -1.6,
-                                  height: 1.1,
+                                style: WidgetTextStyles.roundedNumber(
+                                  Theme.of(context),
+                                  baseStyle: TextStyle(
+                                    fontSize: isSeamless ? 40 : 44,
+                                    fontWeight: isSeamless
+                                        ? FontWeight.w800
+                                        : FontWeight.w700,
+                                    color: textColor,
+                                    letterSpacing: isSeamless ? -1.2 : -1.6,
+                                    height: 1.1,
+                                  ),
                                 ),
                               ),
                             ),
@@ -341,6 +490,27 @@ class PocketsHeaderCard extends StatelessWidget {
                           color: subTextColor,
                         ),
                       ],
+                      if (isSeamless && !isSkeleton && showCurrencyBreakdown)
+                        Tooltip(
+                          message: context.l10n.pocketRolloverBreakdownTitle,
+                          child: Semantics(
+                            button: true,
+                            label: context.l10n.pocketRolloverBreakdownTitle,
+                            child: AdaptiveButton.child(
+                              onPressed: showCurrencyBudgetBreakdown,
+                              useNative: false,
+                              style: AdaptiveButtonStyle.plain,
+                              borderRadius: BorderRadius.circular(100),
+                              minSize: const Size(48, 48),
+                              padding: EdgeInsets.zero,
+                              child: Icon(
+                                Icons.info_outline_rounded,
+                                size: 18,
+                                color: subTextColor,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ],
@@ -407,78 +577,71 @@ class PocketsHeaderCard extends StatelessWidget {
               ),
             ],
 
-            // Multi-Currency Breakdown (Centered Minimalist List)
-            AnimatedSize(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOutCubic,
-              child: !isSkeleton && showCurrencyBreakdown
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Column(
-                        crossAxisAlignment: isSeamless
-                            ? CrossAxisAlignment.start
-                            : CrossAxisAlignment.center,
-                        children: [
-                          for (var index = 0;
-                              index < nativeBudgets.length;
-                              index++) ...[
-                            _CurrencyBudgetRow(
-                              key: ValueKey(
-                                'currency_budget_${nativeBudgets[index].key}',
+            if (!isSeamless)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                child: !isSkeleton && showCurrencyBreakdown
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            for (var index = 0;
+                                index < nativeBudgets.length;
+                                index++) ...[
+                              _CurrencyBudgetRow(
+                                key: ValueKey(
+                                  'currency_budget_${nativeBudgets[index].key}',
+                                ),
+                                currency: nativeBudgets[index].key,
+                                amount: formatLocalizedCurrency(
+                                  nativeBudgets[index].value,
+                                  nativeBudgets[index].key,
+                                ),
+                                colorScheme: colorScheme,
+                                isSeamless: false,
+                                isSaving:
+                                    savingCurrency == nativeBudgets[index].key,
+                                onTap: editCurrencyBudget(nativeBudgets[index]),
                               ),
-                              currency: nativeBudgets[index].key,
-                              amount: formatLocalizedCurrency(
-                                nativeBudgets[index].value,
-                                nativeBudgets[index].key,
-                              ),
-                              colorScheme: colorScheme,
-                              isSeamless: isSeamless,
-                              isSaving:
-                                  savingCurrency == nativeBudgets[index].key,
-                              onTap: editCurrencyBudget(nativeBudgets[index]),
-                            ),
-                            if (index < nativeBudgets.length - 1)
-                              SizedBox(height: isSeamless ? 8 : 4),
+                              if (index < nativeBudgets.length - 1)
+                                const SizedBox(height: 4),
+                            ],
                           ],
-                        ],
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
 
             if (isSeamless && showEditActions) ...[
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  if (onAddPocket != null)
-                    SeamlessHeaderAction(
-                      key: const ValueKey('pocket_add_button'),
-                      label: context.l10n.newPocketTitle,
-                      icon: CupertinoIcons.plus,
-                      onPressed: isSkeleton ? null : onAddPocket,
-                    ),
-                  KeyedSubtree(
-                    key: amountSpotlightKey,
-                    child: SeamlessHeaderAction(
-                      key: const ValueKey('budget_edit_button'),
-                      label: context.l10n.editBudget,
-                      icon: CupertinoIcons.pencil,
-                      onPressed: isSkeleton ? null : editBudget,
-                    ),
-                  ),
-                  if (showCurrencyBreakdown)
-                    for (final entry in nativeBudgets)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    if (hasAddPocketAction)
                       SeamlessHeaderAction(
-                        key: ValueKey('currency_budget_edit_${entry.key}'),
-                        label: '${context.l10n.edit} ${entry.key}',
-                        icon: CupertinoIcons.pencil,
-                        onPressed:
-                            isSkeleton ? null : editCurrencyBudget(entry),
-                        isLoading: savingCurrency == entry.key,
+                        key: const ValueKey('pocket_add_button'),
+                        label: context.l10n.newPocketTitle,
+                        icon: CupertinoIcons.plus,
+                        onPressed: isSkeleton ? null : addPocketAction,
+                        isLoading: isAddingPocket,
                       ),
-                ],
+                    if (hasAddPocketAction) const SizedBox(width: 12),
+                    KeyedSubtree(
+                      key: amountSpotlightKey,
+                      child: SeamlessHeaderAction(
+                        key: const ValueKey('budget_edit_button'),
+                        label: context.l10n.editBudget,
+                        icon: CupertinoIcons.pencil,
+                        onPressed: isSkeleton ? null : editBudgetAction,
+                        isLoading: onCurrencyBudgetChanged != null &&
+                            savingCurrency != null,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
 

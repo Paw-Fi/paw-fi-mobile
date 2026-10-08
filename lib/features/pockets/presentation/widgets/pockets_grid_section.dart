@@ -70,6 +70,7 @@ class PocketsGridSection extends HookConsumerWidget {
     final envelopeMode = useState(true);
     final hasSeenEnvelopeModeHelp = useState(false);
     final savingCurrencyBudget = useState<String?>(null);
+    final addingPocketCurrency = useState<String?>(null);
 
     // View Mode & Ordering State
     final viewMode = useState('grid');
@@ -274,6 +275,77 @@ class PocketsGridSection extends HookConsumerWidget {
       );
     }
 
+    Future<void> openAddPocketSheetForCurrency(String currency) async {
+      final normalizedCurrency = currency.trim().toUpperCase();
+      if (!isMultiCurrencySelection ||
+          normalizedCurrency.isEmpty ||
+          savingCurrencyBudget.value != null ||
+          addingPocketCurrency.value != null) {
+        return;
+      }
+      if (ref.read(previewModeProvider).isActive) {
+        AppToast.info(context, context.l10n.previewMockUpdatesApplied);
+        return;
+      }
+
+      addingPocketCurrency.value = normalizedCurrency;
+      try {
+        final nativeParams = PocketsScopeParams(
+          scope: scopeParams.scope,
+          householdId: scopeParams.householdId,
+          periodMonth: state.periodMonth,
+          currency: normalizedCurrency,
+          selectedCurrencies: null,
+          financialMonthStartDay: scopeParams.normalizedFinancialMonthStartDay,
+          isBootstrapCurrency: false,
+          includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
+        );
+        final nativeProvider = pocketsProvider(nativeParams);
+        final nativeNotifier = ref.read(nativeProvider.notifier);
+        await nativeNotifier.load();
+        if (!context.mounted) return;
+
+        final nativeState = ref.read(nativeProvider);
+        final hasNativeBudgetId =
+            nativeState.budgetId?.trim().isNotEmpty == true;
+        if (nativeState.error != null && !nativeState.hasDisplayData) {
+          throw Exception(nativeState.error);
+        }
+
+        final nativeTotalBudget = nativeState.totalBudget;
+        final nativeBudgetId = nativeState.budgetId;
+        if (nativeTotalBudget <= 0 || !hasNativeBudgetId) {
+          AppToast.info(context, context.l10n.pleaseSetMonthlyBudgetFirst);
+          return;
+        }
+
+        final nativeTotalAllocated = nativeState.editing.fold<double>(
+          0.0,
+          (sum, pocket) => sum + pocket.getLimit(nativeTotalBudget),
+        );
+        addingPocketCurrency.value = null;
+        await EditPocketEnvelopeSheet.show(
+          context: context,
+          scopeParams: nativeParams,
+          budgetId: nativeBudgetId,
+          totalBudget: nativeTotalBudget,
+          unallocatedBudget: nativeTotalBudget - nativeTotalAllocated,
+          allPockets: nativeState.editing,
+        );
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(
+            context,
+            ErrorHandler.getUserFriendlyMessage(error),
+          );
+        }
+      } finally {
+        if (context.mounted) {
+          addingPocketCurrency.value = null;
+        }
+      }
+    }
+
     Future<void> updateNativeCurrencyBudget(
       String currency,
       double amount,
@@ -384,12 +456,17 @@ class PocketsGridSection extends HookConsumerWidget {
           PocketsHeaderCard(
             isSeamless: true,
             showEditActions: !isPreviewMode,
-            onAddPocket: canAddPocket
-                ? openAddPocketSheet
-                : () => AppToast.info(
-                      context,
-                      context.l10n.pleaseSetMonthlyBudgetFirst,
-                    ),
+            onAddPocket: isMultiCurrencySelection
+                ? null
+                : canAddPocket
+                    ? openAddPocketSheet
+                    : () => AppToast.info(
+                          context,
+                          context.l10n.pleaseSetMonthlyBudgetFirst,
+                        ),
+            onAddPocketForCurrency:
+                isMultiCurrencySelection ? openAddPocketSheetForCurrency : null,
+            isAddingPocket: addingPocketCurrency.value != null,
             totalBudget: totalBudget,
             periodMonth: state.periodMonth,
             financialMonthStartDay: state.financialMonthStartDay,

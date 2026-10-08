@@ -418,36 +418,40 @@ class EmptyWalletStackCard extends StatelessWidget {
           ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 240),
-            child: AdaptiveButton.child(
-              onPressed: onAddWallet,
-              useNative: false,
-              style: AdaptiveButtonStyle.plain,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_rounded, size: 32, color: colors.primary),
-                  const SizedBox(height: 12),
-                  Text(
-                    context.l10n.newWallet,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: colors.foreground,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+            child: ColoredBox(
+              color: colors.pocketAddSurface,
+              child: AdaptiveButton.child(
+                onPressed: onAddWallet,
+                useNative: false,
+                style: AdaptiveButtonStyle.plain,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_rounded, size: 32, color: colors.primary),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.l10n.newWallet,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.foreground,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    context.l10n.noWalletsYet,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: colors.mutedForeground,
-                      fontSize: 13,
+                    const SizedBox(height: 8),
+                    Text(
+                      context.l10n.noWalletsYet,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.mutedForeground,
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

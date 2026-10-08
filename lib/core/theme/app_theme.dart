@@ -290,6 +290,22 @@ extension AppColorScheme on ColorScheme {
       ? const Color(0xFFCCBFFF)
       : const Color(0xFF5030B8);
 
+  /// Home budget gauge arc colors, tuned per background: light keeps the
+  /// brand semantics, dark lifts amber so it reads on the near-black page.
+  Color get budgetGaugeSuccess => success;
+
+  Color get budgetGaugeWarning => brightness == Brightness.dark
+      ? const Color(0xFFFFDC6E)
+      : AppTheme.warning;
+
+  Color get budgetGaugeDanger => destructive;
+
+  Color get budgetGaugeInfo => info;
+
+  /// Soft halo painted beneath the gauge's active arc.
+  Color budgetGaugeGlow(Color arc) =>
+      arc.withValues(alpha: brightness == Brightness.dark ? .55 : .32);
+
   /// Warning color
   Color get warning =>
       brightness == Brightness.dark ? AppTheme.darkWarning : AppTheme.warning;
