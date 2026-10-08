@@ -11,6 +11,14 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MerchantSelection {
+  const MerchantSelection.cleared()
+      : merchant = null,
+        descriptor = null,
+        merchantName = null,
+        merchantId = null,
+        merchantDomain = null,
+        allowsStructuredLearning = false;
+
   const MerchantSelection.customText(this.merchant)
       : descriptor = null,
         merchantName = null,
@@ -34,6 +42,12 @@ class MerchantSelection {
   final bool allowsStructuredLearning;
 
   bool get isCustomText => merchant != null;
+  bool get isCleared =>
+      merchant == null &&
+      descriptor == null &&
+      merchantName == null &&
+      merchantId == null &&
+      merchantDomain == null;
 }
 
 class MerchantSearchCandidate {
@@ -104,6 +118,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
   bool _hasRequestedInitialFocus = false;
   Timer? _debounce;
   String _lastSearchedQuery = '';
+  late String _lastInputQuery;
   List<MerchantSearchCandidate> _candidates = const [];
   MerchantSearchCandidate? _selectedCandidate;
   bool _isLoading = false;
@@ -116,6 +131,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
   void initState() {
     super.initState();
     _queryController = TextEditingController(text: widget.initialQuery);
+    _lastInputQuery = widget.initialQuery.trim();
     _queryFocusNode = FocusNode();
     _candidates = widget.initialCandidates;
     _hasCompletedSearch = widget.initialCandidates.isNotEmpty;
@@ -173,8 +189,11 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
   }
 
   void _onQueryChanged() {
-    _debounce?.cancel();
     final query = _queryController.text.trim();
+    if (query == _lastInputQuery) return;
+    _lastInputQuery = query;
+    _debounce?.cancel();
+    _searchVersion += 1;
     if (query.isEmpty) {
       setState(() {
         _selectedCandidate = null;
@@ -187,7 +206,9 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
       return;
     }
 
-    if (query == _lastSearchedQuery) return;
+    if (query == _lastSearchedQuery && _hasCompletedSearch && !_isLoading) {
+      return;
+    }
 
     setState(() {
       _selectedCandidate = null;
@@ -253,7 +274,14 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
   Future<void> _confirm() async {
     final selected = _selectedCandidate;
     final query = _queryController.text.trim();
-    if (selected == null || query.isEmpty || _isConfirming) return;
+    if (_isConfirming) return;
+    if (query.isEmpty) {
+      _debounce?.cancel();
+      _searchVersion += 1;
+      Navigator.of(context).pop(const MerchantSelection.cleared());
+      return;
+    }
+    if (selected == null) return;
     if (selected.source == 'custom') {
       Navigator.of(context).pop(MerchantSelection.customText(query));
       return;
@@ -354,7 +382,7 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
             children: [
               _MerchantSelectionHeader(
                 title: widget.title,
-                canConfirm: _selectedCandidate != null,
+                canConfirm: query.isEmpty || _selectedCandidate != null,
                 isConfirming: _isConfirming,
                 onClose: () => Navigator.of(context).pop(),
                 onConfirm: _confirm,
@@ -441,38 +469,45 @@ class _MerchantSelectionPageState extends State<MerchantSelectionPage> {
                         ],
                       ),
               ),
-              if (_selectedCandidate != null)
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.appBackground,
-                    border: Border(
-                      top: BorderSide(
-                        color: colorScheme.surfaceBorder,
-                        width: 0.5,
-                      ),
-                    ),
-                  ),
-                  child: PrimaryAdaptiveButton(
-                    onPressed: _isConfirming ? null : _confirm,
-                    isExpanded: true,
-                    child: _isConfirming
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeInOut,
+                child: query.isEmpty || _selectedCandidate != null
+                    ? Container(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.appBackground,
+                          border: Border(
+                            top: BorderSide(
+                              color: colorScheme.surfaceBorder,
+                              width: 0.5,
                             ),
-                          )
-                        : Text(
-                            _selectedCandidate!.source == 'custom'
-                                ? context.l10n.useCustomName
-                                : context.l10n.selectMerchant(
-                                    _selectedCandidate!.name,
-                                  ),
                           ),
-                  ),
-                ),
+                        ),
+                        child: PrimaryAdaptiveButton(
+                          onPressed: _isConfirming ? null : _confirm,
+                          isExpanded: true,
+                          child: _isConfirming
+                              ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  query.isEmpty
+                                      ? context.l10n.clear
+                                      : _selectedCandidate!.source == 'custom'
+                                          ? context.l10n.useCustomName
+                                          : context.l10n.selectMerchant(
+                                              _selectedCandidate!.name,
+                                            ),
+                                ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),

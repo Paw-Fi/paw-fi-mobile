@@ -682,10 +682,15 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     }
 
     final filtered = _filterAnalyzedItems(items);
-    final normalized = filtered.map((rawItem) {
+    final blockedRowIndices = <int>{};
+    final normalized = filtered.asMap().entries.map((entry) {
+      final rawItem = entry.value;
       final item = rawItem is Map
           ? Map<String, dynamic>.from(rawItem)
           : <String, dynamic>{};
+      if (item['merchant_auto_resolution_blocked'] == true) {
+        blockedRowIndices.add(entry.key);
+      }
       final rawAmount = item['amount'];
       final amountText = rawAmount == null ? '' : rawAmount.toString();
       final dateText = item['date']?.toString() ?? '';
@@ -717,6 +722,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'type',
       ],
       rows: normalized,
+      merchantAutoResolutionBlockedRowIndices:
+          Set<int>.unmodifiable(blockedRowIndices),
     );
   }
 
@@ -781,12 +788,23 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
   void updateMapping(ImportField field, int? columnIndex) {
     final current = state.mapping;
-    final table = state.table;
+    var table = state.table;
     if (current == null || table == null) return;
 
+    if (field == ImportField.merchant &&
+        current.fieldToColumnIndex[field] != columnIndex &&
+        table.merchantAutoResolutionBlockedRowIndices.isNotEmpty) {
+      table = ImportTable(
+        headers: table.headers,
+        rows: table.rows,
+        detectedDelimiter: table.detectedDelimiter,
+        formatHint: table.formatHint,
+      );
+    }
     final newMapping = current.copyWithField(field, columnIndex);
     final parsedRows = _parseAndDedupe(table, newMapping);
-    state = state.copyWith(mapping: newMapping, parsedRows: parsedRows);
+    state = state.copyWith(
+        table: table, mapping: newMapping, parsedRows: parsedRows);
   }
 
   void toggleSplitDebitCredit(bool value) {
@@ -949,13 +967,32 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final rows = [...state.parsedRows];
     final pos = rows.indexWhere((r) => r.index == updated.index);
     if (pos < 0) return;
+    if ((updated.merchant ?? '').trim() != (rows[pos].merchant ?? '').trim()) {
+      updated = updated.copyWith(merchantAutoResolutionBlocked: false);
+    }
     rows[pos] = _applyImportDefaults(updated);
     final deduped = _inferAndDedupeRows(
       rows,
       _existingExpensesForTarget(state.targetHouseholdId),
       targetAccountId: state.targetAccountId,
     );
-    state = state.copyWith(parsedRows: deduped);
+    final table = state.table;
+    final updatedTable = table != null &&
+            !updated.merchantAutoResolutionBlocked &&
+            table.merchantAutoResolutionBlockedRowIndices
+                .contains(updated.index)
+        ? ImportTable(
+            headers: table.headers,
+            rows: table.rows,
+            detectedDelimiter: table.detectedDelimiter,
+            formatHint: table.formatHint,
+            merchantAutoResolutionBlockedRowIndices: Set<int>.unmodifiable(
+              table.merchantAutoResolutionBlockedRowIndices
+                  .where((index) => index != updated.index),
+            ),
+          )
+        : table;
+    state = state.copyWith(table: updatedTable, parsedRows: deduped);
   }
 
   void deleteParsedRow(int index) {
@@ -1145,6 +1182,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         if (description != null && description.isNotEmpty)
           'description': description,
         if (hasValidMerchantLabel) 'merchant': merchantLabel,
+        if (row.merchantAutoResolutionBlocked)
+          'merchantAutoResolutionBlocked': true,
         'isRecurring': row.isRecurring,
         if (row.recurrenceRule != null) 'recurrence_rule': row.recurrenceRule,
       };
@@ -1251,6 +1290,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
           mapping,
           index: i,
           dateOrderHint: dateOrderHint,
+        ).copyWith(
+          merchantAutoResolutionBlocked:
+              table.merchantAutoResolutionBlockedRowIndices.contains(i),
         ),
       );
       if (_isSummaryFooterRow(parsed)) {

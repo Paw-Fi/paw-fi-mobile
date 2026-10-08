@@ -178,12 +178,15 @@ class ImportTable {
   final List<List<String>> rows;
   final String? detectedDelimiter;
   final CsvFormatHint formatHint;
+  // Analyze metadata stays separate from editable financial string columns.
+  final Set<int> merchantAutoResolutionBlockedRowIndices;
 
   const ImportTable({
     required this.headers,
     required this.rows,
     this.detectedDelimiter,
     this.formatHint = CsvFormatHint.unknown,
+    this.merchantAutoResolutionBlockedRowIndices = const {},
   });
 }
 
@@ -256,6 +259,7 @@ class ImportParsedRow {
   final String? category;
   final String? description;
   final String? merchant;
+  final bool merchantAutoResolutionBlocked;
   final String? currency;
   final String? type;
   final bool isRecurring;
@@ -283,6 +287,7 @@ class ImportParsedRow {
     required this.category,
     required this.description,
     this.merchant,
+    this.merchantAutoResolutionBlocked = false,
     required this.currency,
     required this.type,
     this.isRecurring = false,
@@ -305,6 +310,7 @@ class ImportParsedRow {
     Object? category = _unset,
     Object? description = _unset,
     Object? merchant = _unset,
+    bool? merchantAutoResolutionBlocked,
     Object? currency = _unset,
     Object? type = _unset,
     bool? isRecurring,
@@ -325,6 +331,8 @@ class ImportParsedRow {
       description:
           description == _unset ? this.description : description as String?,
       merchant: merchant == _unset ? this.merchant : merchant as String?,
+      merchantAutoResolutionBlocked:
+          merchantAutoResolutionBlocked ?? this.merchantAutoResolutionBlocked,
       currency: currency == _unset ? this.currency : currency as String?,
       type: type == _unset ? this.type : type as String?,
       isRecurring: isRecurring ?? this.isRecurring,

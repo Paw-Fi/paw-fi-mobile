@@ -50,6 +50,7 @@ class ParsedExpense {
   final String? merchantDomain;
   final String? merchantLogoUrl;
   final String? merchantStructuredName;
+  final bool merchantAutoResolutionBlocked;
   final String? merchantEvidenceDescriptor;
   final bool merchantEvidenceAllowsStructuredLearning;
   final List<ParsedMerchantCandidate> merchantCandidates;
@@ -73,6 +74,7 @@ class ParsedExpense {
     this.merchantDomain,
     this.merchantLogoUrl,
     this.merchantStructuredName,
+    this.merchantAutoResolutionBlocked = false,
     this.merchantEvidenceDescriptor,
     this.merchantEvidenceAllowsStructuredLearning = false,
     this.merchantCandidates = const [],
@@ -114,6 +116,8 @@ class ParsedExpense {
       merchantDomain: json['merchant_domain']?.toString(),
       merchantLogoUrl: json['merchant_logo_url']?.toString(),
       merchantStructuredName: json['merchant_structured_name']?.toString(),
+      merchantAutoResolutionBlocked:
+          json['merchant_auto_resolution_blocked'] == true,
       merchantEvidenceDescriptor:
           json['merchant_evidence_descriptor']?.toString(),
       merchantEvidenceAllowsStructuredLearning:
@@ -155,6 +159,8 @@ class ParsedExpense {
       'merchant_domain': merchantDomain,
       'merchant_logo_url': merchantLogoUrl,
       'merchant_structured_name': merchantStructuredName,
+      if (merchantAutoResolutionBlocked)
+        'merchant_auto_resolution_blocked': true,
       'merchant_evidence_descriptor': merchantEvidenceDescriptor,
       'merchant_evidence_allow_structured':
           merchantEvidenceAllowsStructuredLearning,
@@ -182,6 +188,7 @@ class ParsedExpense {
     Object? merchantDomain = _copyWithUnset,
     Object? merchantLogoUrl = _copyWithUnset,
     Object? merchantStructuredName = _copyWithUnset,
+    bool? merchantAutoResolutionBlocked,
     Object? merchantEvidenceDescriptor = _copyWithUnset,
     bool? merchantEvidenceAllowsStructuredLearning,
     List<ParsedMerchantCandidate>? merchantCandidates,
@@ -218,6 +225,8 @@ class ParsedExpense {
       merchantStructuredName: identical(merchantStructuredName, _copyWithUnset)
           ? this.merchantStructuredName
           : merchantStructuredName as String?,
+      merchantAutoResolutionBlocked:
+          merchantAutoResolutionBlocked ?? this.merchantAutoResolutionBlocked,
       merchantEvidenceDescriptor:
           identical(merchantEvidenceDescriptor, _copyWithUnset)
               ? this.merchantEvidenceDescriptor

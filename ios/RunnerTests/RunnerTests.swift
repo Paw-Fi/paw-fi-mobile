@@ -551,6 +551,33 @@ class RunnerTests: XCTestCase {
     XCTAssertEqual(prepared[0].body["categoryAlreadyResolved"] as? Bool, true)
   }
 
+  func testSiriMerchantBlockerIsTrueOnlyAndSurvivesDurablePlanRoundtrip() throws {
+    for type in ["expense", "income"] {
+      for marker: Any in [true, false, NSNull(), "true"] {
+        var item = siriItem()
+        item["type"] = type
+        item["merchant"] = "原文の相手"
+        if !(marker is NSNull) { item["merchant_auto_resolution_blocked"] = marker }
+        let prepared = try SiriTransactionCapture.prepare(items: [item],
+          userId: "user-1", captureKey: "capture", preferredTimezone: "UTC", capturedAt: siriCapturedAt)
+        let blocked = (marker as? Bool) == true
+        XCTAssertEqual(prepared[0].body["merchantAutoResolutionBlocked"] as? Bool, blocked ? true : nil)
+        var records: [[String: Any]] = []
+        XCTAssertTrue(SiriTransactionCapture.enqueue(prepared, userId: "user-1", load: { records }, save: { records = $0; return true }))
+        let data = try JSONSerialization.data(withJSONObject: records)
+        let restored = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let body = try XCTUnwrap(restored[0]["body"] as? [String: Any])
+        XCTAssertEqual(body["merchantAutoResolutionBlocked"] as? Bool, blocked ? true : nil)
+        XCTAssertEqual(body["merchant"] as? String, "原文の相手")
+        XCTAssertEqual(body["amount"] as? Double, 20)
+        XCTAssertEqual(body["currency"] as? String, "USD")
+        XCTAssertEqual(body["date"] as? String, "2026-10-05")
+        XCTAssertEqual(body["clientCreatedAt"] as? String, "2026-10-05T13:05:00Z")
+        XCTAssertEqual(restored[0]["endpoint"] as? String, type == "income" ? "save-income" : "save-expense")
+      }
+    }
+  }
+
   private func siriDefaultsPayload(spaceId: String = "personal", currency: String = "EUR") -> [String: Any] {
     ["version": 1, "userId": "user-1", "currency": currency, "spaceId": spaceId,
      "isPortfolio": false, "accountId": siriWalletId, "walletsReady": true]

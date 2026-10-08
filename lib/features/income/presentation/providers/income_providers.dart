@@ -205,6 +205,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     String? merchantId,
     String? merchantDomain,
     String? merchantStructuredName,
+    bool merchantAutoResolutionBlocked = false,
     String? merchantEvidenceDescriptor,
     bool merchantEvidenceAllowsStructuredLearning = false,
     String? source,
@@ -256,6 +257,8 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           'merchantId': merchantId,
         if (merchantStructuredName != null && merchantStructuredName.isNotEmpty)
           'merchantStructuredName': merchantStructuredName,
+        if (merchantAutoResolutionBlocked)
+          'merchantAutoResolutionBlocked': true,
         if (merchantEvidenceDescriptor != null &&
             merchantEvidenceDescriptor.isNotEmpty)
           'merchantEvidenceDescriptor': merchantEvidenceDescriptor,

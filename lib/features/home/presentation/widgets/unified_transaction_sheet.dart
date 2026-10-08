@@ -596,7 +596,10 @@ class _UnifiedTransactionSheetV2State
         (left.merchant ?? '') == (right.merchant ?? '') &&
         left.merchantId == right.merchantId &&
         left.merchantDomain == right.merchantDomain &&
+        left.merchantLogoUrl == right.merchantLogoUrl &&
         left.merchantStructuredName == right.merchantStructuredName &&
+        left.merchantAutoResolutionBlocked ==
+            right.merchantAutoResolutionBlocked &&
         left.merchantEvidenceDescriptor == right.merchantEvidenceDescriptor &&
         left.merchantEvidenceAllowsStructuredLearning ==
             right.merchantEvidenceAllowsStructuredLearning &&
@@ -1175,7 +1178,7 @@ class _UnifiedTransactionSheetV2State
                                 duration: const Duration(milliseconds: 300),
                                 child: Container(
                                   key: ValueKey(
-                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|$displayCategory',
+                                    '${merchantId ?? ''}|${merchantDomain ?? ''}|${merchantLogoUrl ?? ''}|${merchantStructuredName ?? ''}|$displayCategory',
                                   ),
                                   width: 80,
                                   height: 80,
@@ -2648,29 +2651,34 @@ class _UnifiedTransactionSheetV2State
           merchant: result.merchant,
           merchantId: result.merchantId,
           merchantDomain: result.merchantDomain,
+          merchantLogoUrl: null,
           merchantStructuredName: result.merchantName,
+          merchantAutoResolutionBlocked: result.isCleared,
           merchantEvidenceDescriptor:
               result.isCustomText ? null : result.descriptor,
           merchantEvidenceAllowsStructuredLearning:
               result.allowsStructuredLearning,
+          merchantCandidates:
+              result.isCleared ? const [] : current.merchantCandidates,
         );
       }
-    } else {
-      setState(() {
-        if (result.isCustomText) {
-          _editedMerchant = result.merchant;
-          _hasEditedMerchant = true;
-        }
-        _editedMerchantId = result.merchantId;
-        _editedMerchantDomain = result.merchantDomain;
-        _editedMerchantStructuredName = result.merchantName;
-        _editedMerchantEvidenceDescriptor =
-            result.isCustomText ? null : result.descriptor;
-        _editedMerchantEvidenceAllowsStructuredLearning =
-            result.allowsStructuredLearning;
-        _hasEditedMerchantIdentity = true;
-      });
     }
+    setState(() {
+      if (result.isCustomText || result.isCleared) {
+        _editedMerchant = result.merchant;
+        _hasEditedMerchant = true;
+      }
+      _editedMerchantId = result.merchantId;
+      _editedMerchantDomain = result.merchantDomain;
+      _editedMerchantStructuredName = result.merchantName;
+      _editedMerchantEvidenceDescriptor =
+          result.isCustomText ? null : result.descriptor;
+      _editedMerchantEvidenceAllowsStructuredLearning =
+          result.allowsStructuredLearning;
+      _hasEditedMerchantIdentity = true;
+    });
+
+    if (result.isCleared) return;
 
     if (!mounted) return;
     final applyToOthers = await MonekoAlertDialog.show(
@@ -3734,6 +3742,8 @@ class _UnifiedTransactionSheetV2State
           'merchantId': expense.merchantId,
         if (expense.merchantStructuredName?.isNotEmpty == true)
           'merchantStructuredName': expense.merchantStructuredName,
+        if (expense.merchantAutoResolutionBlocked)
+          'merchantAutoResolutionBlocked': true,
         if (expense.merchantEvidenceDescriptor?.isNotEmpty == true)
           'merchantEvidenceDescriptor': expense.merchantEvidenceDescriptor,
         if (expense.merchantEvidenceAllowsStructuredLearning)
@@ -3860,6 +3870,8 @@ class _UnifiedTransactionSheetV2State
               merchantId: expense.merchantId,
               merchantDomain: expense.merchantDomain,
               merchantStructuredName: expense.merchantStructuredName,
+              merchantAutoResolutionBlocked:
+                  expense.merchantAutoResolutionBlocked,
               merchantEvidenceDescriptor: expense.merchantEvidenceDescriptor,
               merchantEvidenceAllowsStructuredLearning:
                   expense.merchantEvidenceAllowsStructuredLearning,
@@ -4428,6 +4440,8 @@ class _UnifiedTransactionSheetV2State
                 merchantId: expense.merchantId,
                 merchantDomain: expense.merchantDomain,
                 merchantStructuredName: expense.merchantStructuredName,
+                merchantAutoResolutionBlocked:
+                    expense.merchantAutoResolutionBlocked,
                 merchantEvidenceDescriptor: expense.merchantEvidenceDescriptor,
                 merchantEvidenceAllowsStructuredLearning:
                     expense.merchantEvidenceAllowsStructuredLearning,

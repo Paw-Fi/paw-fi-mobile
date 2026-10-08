@@ -475,6 +475,9 @@ enum SiriTransactionCapture {
       for (source, target) in [("merchant_id", "merchantId"), ("merchant_structured_name", "merchantStructuredName"), ("merchant_evidence_descriptor", "merchantEvidenceDescriptor"), ("merchant_evidence_allow_structured", "merchantEvidenceAllowStructured")] {
         if let value = item[source], !(value is NSNull) { body[target] = value }
       }
+      if (item["merchant_auto_resolution_blocked"] as? Bool) == true {
+        body["merchantAutoResolutionBlocked"] = true
+      }
       if let time = item["transactionTime"] as? String {
         guard explicitFields.contains("transactionTime"), (item["isRecurring"] as? Bool) != true else {
           throw SiriShortcutIntentError.requestFailed

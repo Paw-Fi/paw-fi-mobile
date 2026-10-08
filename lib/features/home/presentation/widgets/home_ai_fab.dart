@@ -1012,6 +1012,8 @@ Future<void> _persistAiTransactions(
       if (tx.merchantId?.isNotEmpty == true) 'merchantId': tx.merchantId,
       if (tx.merchantStructuredName?.isNotEmpty == true)
         'merchantStructuredName': tx.merchantStructuredName,
+      if (tx.merchantAutoResolutionBlocked)
+        'merchantAutoResolutionBlocked': true,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
       if ((item.destination != null ||
@@ -2804,6 +2806,8 @@ Future<void> _processExpense(
                   merchantDomain: item['merchant_domain']?.toString(),
                   merchantStructuredName:
                       item['merchant_structured_name']?.toString(),
+                  merchantAutoResolutionBlocked:
+                      item['merchant_auto_resolution_blocked'] == true,
                   merchantCandidates:
                       (item['merchant_candidates'] as List? ?? const [])
                           .whereType<Map>()
