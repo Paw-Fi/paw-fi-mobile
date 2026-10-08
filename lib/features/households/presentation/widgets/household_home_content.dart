@@ -18,6 +18,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_snapshot_model
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
+import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 
@@ -563,6 +564,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
               return DraggableDashboardList(
                 configs: configs,
+                fixedSection: const LazyDashboardBudgetCompanionCard(),
+                fixedSectionAfter: DashboardWidgetType.householdSettlement,
                 onReorder: (oldIndex, newIndex) {
                   ref
                       .read(householdDashboardProvider(resolvedHousehold.id)

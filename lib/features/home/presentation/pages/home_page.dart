@@ -387,20 +387,23 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: LazyDashboardBudgetHeader(),
           ),
         ),
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.only(top: 20, bottom: 16),
-            child: LazyDashboardBudgetCompanionCard(),
-          ),
-        ),
         if (householdScope.isHouseholdView) ...[
-          const HouseholdHomeContent(),
+          const SliverPadding(
+            padding: EdgeInsets.only(top: 20),
+            sliver: HouseholdHomeContent(),
+          ),
           SliverToBoxAdapter(
             child: SizedBox(
               height: PlatformInfo.isIOS26OrHigher() ? 120 : 24,
             ),
           ),
         ] else ...[
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 20, bottom: 16),
+              child: LazyDashboardBudgetCompanionCard(),
+            ),
+          ),
           // Personal mode - show customizable dashboard
           const SliverToBoxAdapter(child: ConnectSocialBanner()),
           Consumer(

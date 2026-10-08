@@ -362,10 +362,17 @@ class _KeepAliveDashboardItemState extends State<_KeepAliveDashboardItem>
 }
 
 class DraggableDashboardList extends ConsumerWidget {
+  static const _fixedSectionKey = ValueKey<Symbol>(#dashboardFixedSection);
+
   final List<DashboardWidgetConfig> configs;
   final Map<DashboardWidgetType,
       Widget Function(BuildContext, DashboardWidgetConfig)> widgetBuilders;
   final Function(int, int) onReorder;
+
+  /// A section outside saved configuration, positioned after a visible anchor.
+  /// Falls back to the beginning when the anchor is hidden or missing.
+  final Widget? fixedSection;
+  final DashboardWidgetType? fixedSectionAfter;
   final Function(String) onToggleVisibility;
   final Function(String,
       {DateRangeFilter? dateRange,
@@ -380,6 +387,8 @@ class DraggableDashboardList extends ConsumerWidget {
     required this.onReorder,
     required this.onToggleVisibility,
     required this.onUpdateConfig,
+    this.fixedSection,
+    this.fixedSectionAfter,
   });
 
   @override
@@ -391,34 +400,61 @@ class DraggableDashboardList extends ConsumerWidget {
             .where((config) =>
                 config.isVisible && widgetBuilders.containsKey(config.type))
             .toList(growable: false);
+    final anchorIndex =
+        visibleConfigs.indexWhere((config) => config.type == fixedSectionAfter);
+    final fixedSectionIndex = fixedSection == null ? -1 : anchorIndex + 1;
+    final itemCount = visibleConfigs.length + (fixedSection == null ? 0 : 1);
+
+    int configIndex(int index) =>
+        fixedSectionIndex >= 0 && index > fixedSectionIndex ? index - 1 : index;
+
+    Widget buildItem(BuildContext context, int index) {
+      if (index == fixedSectionIndex) {
+        return _KeepAliveDashboardItem(
+          key: _fixedSectionKey,
+          index: index,
+          enabled: false,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: RepaintBoundary(child: fixedSection!),
+          ),
+        );
+      }
+      return _buildDashboardItem(
+        context,
+        visibleConfigs[configIndex(index)],
+        index,
+        isEditMode: isEditMode,
+      );
+    }
 
     if (!isEditMode) {
       return SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, index) => _buildDashboardItem(
-            context,
-            visibleConfigs[index],
-            index,
-            isEditMode: false,
-          ),
-          childCount: visibleConfigs.length,
-          findChildIndexCallback: (key) =>
-              _findConfigIndexForKey(key, visibleConfigs),
+          buildItem,
+          childCount: itemCount,
+          findChildIndexCallback: (key) {
+            if (key == _fixedSectionKey) {
+              return fixedSectionIndex >= 0 ? fixedSectionIndex : null;
+            }
+            final index = _findConfigIndexForKey(key, visibleConfigs);
+            if (index == null) return null;
+            return fixedSectionIndex >= 0 && index >= fixedSectionIndex
+                ? index + 1
+                : index;
+          },
         ),
       );
     }
 
     return SliverReorderableList(
-      itemCount: visibleConfigs.length,
-      onReorder: onReorder,
-      itemBuilder: (context, index) {
-        return _buildDashboardItem(
-          context,
-          visibleConfigs[index],
-          index,
-          isEditMode: true,
-        );
+      itemCount: itemCount,
+      onReorder: (oldIndex, newIndex) {
+        if (oldIndex == fixedSectionIndex) return;
+        // Translate rendered insertion indices back to saved config indices.
+        onReorder(configIndex(oldIndex), configIndex(newIndex));
       },
+      itemBuilder: buildItem,
     );
   }
 
