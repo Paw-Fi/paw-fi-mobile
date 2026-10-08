@@ -3754,5 +3754,11 @@
   "senderVerificationLinkExpired": "Ce lien de vérification a expiré. Demande un nouvel e-mail de vérification dans Moneko.",
   "invalidSenderVerificationLink": "Ce lien de vérification n'est pas valide ou n'est plus disponible. Demande un nouvel e-mail de vérification dans Moneko.",
   "senderVerificationFailed": "Nous n'avons pas pu vérifier cet expéditeur. Essaie d'ouvrir à nouveau le lien de vérification.",
-  "verificationEmailDeliveryFailed": "Nous n'avons pas pu envoyer l'e-mail de vérification. Vérifie l'adresse e-mail de l'expéditeur et réessaie. Cet expéditeur n'a pas encore été approuvé."
+  "verificationEmailDeliveryFailed": "Nous n'avons pas pu envoyer l'e-mail de vérification. Vérifie l'adresse e-mail de l'expéditeur et réessaie. Cet expéditeur n'a pas encore été approuvé.",
+  "walletStartingBalance": "Solde initial",
+  "walletTargetBalance": "Solde cible",
+  "walletRemainingDebt": "Dette restante",
+  "walletDebtPaidOff": "Dette remboursée",
+  "walletRepaid": "Remboursé",
+  "walletInitialDebt": "Dette initiale"
 }

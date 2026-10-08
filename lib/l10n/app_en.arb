@@ -3798,5 +3798,11 @@
   "senderVerificationLinkExpired": "This verification link has expired. Request a new verification email in Moneko.",
   "invalidSenderVerificationLink": "This verification link is invalid or no longer available. Request a new verification email in Moneko.",
   "senderVerificationFailed": "We couldn't verify this sender. Please try opening the verification link again.",
-  "verificationEmailDeliveryFailed": "We couldn't send the verification email. Check the sender email address for typos and try again. This sender has not been approved."
+  "verificationEmailDeliveryFailed": "We couldn't send the verification email. Check the sender email address for typos and try again. This sender has not been approved.",
+  "walletStartingBalance": "Starting balance",
+  "walletTargetBalance": "Target balance",
+  "walletRemainingDebt": "Remaining debt",
+  "walletDebtPaidOff": "Debt paid off",
+  "walletRepaid": "Repaid",
+  "walletInitialDebt": "Initial debt"
 }

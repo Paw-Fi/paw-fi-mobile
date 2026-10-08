@@ -3700,5 +3700,11 @@
   "senderVerificationLinkExpired": "یہ تصدیقی لنک ختم ہو چکا ہے۔ Moneko میں نئی تصدیقی ای میل کی درخواست کریں۔",
   "invalidSenderVerificationLink": "یہ تصدیقی لنک درست نہیں ہے یا اب دستیاب نہیں۔ Moneko میں نئی تصدیقی ای میل کی درخواست کریں۔",
   "senderVerificationFailed": "ہم اس بھیجنے والے کی تصدیق نہیں کر سکے۔ براہ کرم تصدیقی لنک دوبارہ کھول کر کوشش کریں۔",
-  "verificationEmailDeliveryFailed": "ہم تصدیقی ای میل نہیں بھیج سکے۔ بھیجنے والے کا ای میل پتہ درست ہے یا نہیں، چیک کریں اور دوبارہ کوشش کریں۔ اس بھیجنے والے کو ابھی منظوری نہیں دی گئی۔"
+  "verificationEmailDeliveryFailed": "ہم تصدیقی ای میل نہیں بھیج سکے۔ بھیجنے والے کا ای میل پتہ درست ہے یا نہیں، چیک کریں اور دوبارہ کوشش کریں۔ اس بھیجنے والے کو ابھی منظوری نہیں دی گئی۔",
+  "walletStartingBalance": "ابتدائی بیلنس",
+  "walletTargetBalance": "ہدف بیلنس",
+  "walletRemainingDebt": "باقی قرض",
+  "walletDebtPaidOff": "قرض ادا ہو گیا",
+  "walletRepaid": "ادا شدہ",
+  "walletInitialDebt": "ابتدائی قرض"
 }

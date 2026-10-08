@@ -3756,5 +3756,11 @@
   "senderVerificationLinkExpired": "Este enlace de verificación ha caducado. Solicita un nuevo correo de verificación en Moneko.",
   "invalidSenderVerificationLink": "Este enlace de verificación no es válido o ya no está disponible. Solicita un nuevo correo de verificación en Moneko.",
   "senderVerificationFailed": "No pudimos verificar este remitente. Intenta abrir de nuevo el enlace de verificación.",
-  "verificationEmailDeliveryFailed": "No pudimos enviar el correo de verificación. Revisa que la dirección del remitente esté bien escrita e inténtalo de nuevo. Este remitente aún no ha sido aprobado."
+  "verificationEmailDeliveryFailed": "No pudimos enviar el correo de verificación. Revisa que la dirección del remitente esté bien escrita e inténtalo de nuevo. Este remitente aún no ha sido aprobado.",
+  "walletStartingBalance": "Saldo inicial",
+  "walletTargetBalance": "Saldo objetivo",
+  "walletRemainingDebt": "Deuda pendiente",
+  "walletDebtPaidOff": "Deuda saldada",
+  "walletRepaid": "Reembolsado",
+  "walletInitialDebt": "Deuda inicial"
 }

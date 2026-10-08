@@ -21,6 +21,16 @@ extension RecurrencePickerL10nX on AppLocalizations {
 }
 
 /// English fallback until these translation-catalog entries are exported.
+extension WalletDebtL10nX on AppLocalizations {
+  String get walletRemainingDebt => 'Remaining debt';
+  String get walletDebtPaidOff => 'Debt paid off';
+  String get walletRepaid => 'Repaid';
+  String get walletInitialDebt => 'Initial debt';
+  String get walletStartingBalance => 'Starting balance';
+  String get walletTargetBalance => 'Target balance';
+}
+
+/// English fallback until these translation-catalog entries are exported.
 extension HomeDashboardL10nX on AppLocalizations {
   String spendingDailyPerDay(String amount) => '$amount/day';
   String spendingDailyVsLastMonth(String percent) =>

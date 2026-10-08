@@ -3698,5 +3698,11 @@
   "senderVerificationLinkExpired": "此驗證連結已過期。請在 Moneko 中重新寄送驗證郵件。",
   "invalidSenderVerificationLink": "此驗證連結無效或已無法使用。請在 Moneko 中重新寄送驗證郵件。",
   "senderVerificationFailed": "無法驗證此寄件者。請嘗試重新開啟驗證連結。",
-  "verificationEmailDeliveryFailed": "無法寄送驗證郵件。請檢查寄件者的電子郵件地址是否有誤，然後再試一次。此寄件者尚未核准。"
+  "verificationEmailDeliveryFailed": "無法寄送驗證郵件。請檢查寄件者的電子郵件地址是否有誤，然後再試一次。此寄件者尚未核准。",
+  "walletStartingBalance": "起始餘額",
+  "walletTargetBalance": "目標餘額",
+  "walletRemainingDebt": "剩餘債務",
+  "walletDebtPaidOff": "債務已還清",
+  "walletRepaid": "已償還",
+  "walletInitialDebt": "初始債務"
 }

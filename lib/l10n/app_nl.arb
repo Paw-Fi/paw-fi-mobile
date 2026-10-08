@@ -3701,5 +3701,11 @@
   "senderVerificationLinkExpired": "Deze verificatielink is verlopen. Vraag in Moneko een nieuwe verificatie-e-mail aan.",
   "invalidSenderVerificationLink": "Deze verificatielink is ongeldig of niet meer beschikbaar. Vraag in Moneko een nieuwe verificatie-e-mail aan.",
   "senderVerificationFailed": "We konden deze afzender niet verifiëren. Probeer de verificatielink opnieuw te openen.",
-  "verificationEmailDeliveryFailed": "We konden de verificatie-e-mail niet versturen. Controleer het e-mailadres van de afzender op typefouten en probeer het opnieuw. Deze afzender is nog niet goedgekeurd."
+  "verificationEmailDeliveryFailed": "We konden de verificatie-e-mail niet versturen. Controleer het e-mailadres van de afzender op typefouten en probeer het opnieuw. Deze afzender is nog niet goedgekeurd.",
+  "walletStartingBalance": "Beginsaldo",
+  "walletTargetBalance": "Doelsaldo",
+  "walletRemainingDebt": "Resterende schuld",
+  "walletDebtPaidOff": "Schuld afbetaald",
+  "walletRepaid": "Afgelost",
+  "walletInitialDebt": "Oorspronkelijke schuld"
 }

@@ -1,13 +1,11 @@
 #!/bin/bash
 
 # iOS Deployment Script for Moneko Flutter App
-# Prepares the project for an Xcode Archive build (Product > Archive).
-# The Xcode archive compiles Dart, assets and pods itself, so this script
-# only needs to refresh generated files and keep versions in sync.
+# Refreshes release configuration and versions, creates a signed Xcode archive,
+# verifies packaged versions, and opens the archive in Xcode.
 #
 # Usage:
-#   ./deploy_ios.sh             prepare for iOS archive
-#   ./deploy_ios.sh --archive   prepare, archive, and open the archive in Xcode
+#   ./deploy_ios.sh             prepare, archive, and open the archive in Xcode
 #   ./deploy_ios.sh --clean     flutter clean first (troubleshooting/fresh state)
 #   ./deploy_ios.sh --android   also build the Android App Bundle
 
@@ -43,14 +41,12 @@ print_error() {
 # Flags
 DO_CLEAN=false
 BUILD_ANDROID=false
-DO_ARCHIVE=false
 for arg in "$@"; do
     case "$arg" in
         --clean) DO_CLEAN=true ;;
         --android) BUILD_ANDROID=true ;;
-        --archive) DO_ARCHIVE=true ;;
         --help|-h)
-            echo "Usage: $0 [--clean] [--android] [--archive]"
+            echo "Usage: $0 [--clean] [--android]"
             exit 0
             ;;
         *)
@@ -96,8 +92,8 @@ flutter pub get
 print_success "Dependencies installed"
 
 # Explicitly regenerate the configuration used by Xcode's Release archive.
-# --config-only avoids compiling the app twice; --no-codesign allows manual
-# Xcode archiving too. The actual archive still uses normal Xcode signing.
+# --config-only avoids compiling the app twice; --no-codesign skips signing
+# during preparation. The actual archive still uses normal Xcode signing.
 print_step "Refreshing Flutter release configuration..."
 flutter build ios --release --config-only --no-codesign \
     --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER" \
@@ -181,29 +177,27 @@ project.write_text(source)
 PY
 print_success "App, widget, and share extension versions synced"
 
-# Optional: create a signed archive without exporting or uploading an IPA.
-if [ "$DO_ARCHIVE" = true ]; then
-    ARCHIVE_PATH="$PWD/build/ios/archive/Moneko-$BUILD_NAME-$BUILD_NUMBER-$(date +%Y%m%d-%H%M%S).xcarchive"
-    mkdir -p "$(dirname "$ARCHIVE_PATH")"
-    print_step "Archiving iOS release with Xcode..."
-    xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner \
-        -configuration Release -destination 'generic/platform=iOS' \
-        -archivePath "$ARCHIVE_PATH" -allowProvisioningUpdates archive
+# Create a signed archive without exporting or uploading an IPA.
+ARCHIVE_PATH="$PWD/build/ios/archive/Moneko-$BUILD_NAME-$BUILD_NUMBER-$(date +%Y%m%d-%H%M%S).xcarchive"
+mkdir -p "$(dirname "$ARCHIVE_PATH")"
+print_step "Archiving iOS release with Xcode..."
+xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner \
+    -configuration Release -destination 'generic/platform=iOS' \
+    -archivePath "$ARCHIVE_PATH" -allowProvisioningUpdates archive
 
-    # Verify the actual packaged versions before reporting success.
-    APP_PATH="$ARCHIVE_PATH/Products/Applications/Runner.app"
-    shopt -s nullglob
-    for BUNDLE_PATH in "$APP_PATH" "$APP_PATH"/PlugIns/*.appex; do
-        ACTUAL_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$BUNDLE_PATH/Info.plist")
-        ACTUAL_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$BUNDLE_PATH/Info.plist")
-        if [ "$ACTUAL_NAME" != "$BUILD_NAME" ] || [ "$ACTUAL_NUMBER" != "$BUILD_NUMBER" ]; then
-            print_error "Archive version mismatch in $BUNDLE_PATH: $ACTUAL_NAME ($ACTUAL_NUMBER)"
-            exit 1
-        fi
-    done
-    print_success "Archive verified: $ARCHIVE_PATH"
-    open "$ARCHIVE_PATH"
-fi
+# Verify the actual packaged versions before reporting success.
+APP_PATH="$ARCHIVE_PATH/Products/Applications/Runner.app"
+shopt -s nullglob
+for BUNDLE_PATH in "$APP_PATH" "$APP_PATH"/PlugIns/*.appex; do
+    ACTUAL_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$BUNDLE_PATH/Info.plist")
+    ACTUAL_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$BUNDLE_PATH/Info.plist")
+    if [ "$ACTUAL_NAME" != "$BUILD_NAME" ] || [ "$ACTUAL_NUMBER" != "$BUILD_NUMBER" ]; then
+        print_error "Archive version mismatch in $BUNDLE_PATH: $ACTUAL_NAME ($ACTUAL_NUMBER)"
+        exit 1
+    fi
+done
+print_success "Archive verified: $ARCHIVE_PATH"
+open "$ARCHIVE_PATH"
 
 # Optional: Android App Bundle
 if [ "$BUILD_ANDROID" = true ]; then
@@ -212,8 +206,4 @@ if [ "$BUILD_ANDROID" = true ]; then
     print_success "Android App Bundle build completed successfully!"
 fi
 
-if [ "$DO_ARCHIVE" = true ]; then
-    print_success "🎉 Archive complete! Continue validation/distribution in Xcode."
-else
-    print_success "🎉 Preparation complete! Xcode → Product → Archive, or run this script with --archive."
-fi
+print_success "🎉 Archive complete! Continue validation/distribution in Xcode."

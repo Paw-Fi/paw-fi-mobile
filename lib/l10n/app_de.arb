@@ -3754,5 +3754,11 @@
   "senderVerificationLinkExpired": "Dieser Bestätigungslink ist abgelaufen. Fordere in Moneko eine neue Bestätigungs-E-Mail an.",
   "invalidSenderVerificationLink": "Dieser Bestätigungslink ist ungültig oder nicht mehr verfügbar. Fordere in Moneko eine neue Bestätigungs-E-Mail an.",
   "senderVerificationFailed": "Wir konnten diesen Absender nicht bestätigen. Öffne den Bestätigungslink bitte noch einmal.",
-  "verificationEmailDeliveryFailed": "Die Bestätigungs-E-Mail konnte nicht gesendet werden. Prüfe die E-Mail-Adresse des Absenders auf Tippfehler und versuche es erneut. Dieser Absender wurde noch nicht freigegeben."
+  "verificationEmailDeliveryFailed": "Die Bestätigungs-E-Mail konnte nicht gesendet werden. Prüfe die E-Mail-Adresse des Absenders auf Tippfehler und versuche es erneut. Dieser Absender wurde noch nicht freigegeben.",
+  "walletStartingBalance": "Anfangssaldo",
+  "walletTargetBalance": "Zielsaldo",
+  "walletRemainingDebt": "Restschuld",
+  "walletDebtPaidOff": "Schulden abbezahlt",
+  "walletRepaid": "Zurückgezahlt",
+  "walletInitialDebt": "Ursprüngliche Schulden"
 }

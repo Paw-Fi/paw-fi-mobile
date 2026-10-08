@@ -10706,4 +10706,22 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get verificationEmailDeliveryFailed => 'เราไม่สามารถส่งอีเมลยืนยันได้ โปรดตรวจสอบว่าอีเมลของผู้ส่งพิมพ์ถูกต้องแล้วลองอีกครั้ง ผู้ส่งรายนี้ยังไม่ได้รับการอนุมัติ';
+
+  @override
+  String get walletStartingBalance => 'ยอดคงเหลือเริ่มต้น';
+
+  @override
+  String get walletTargetBalance => 'ยอดเงินเป้าหมาย';
+
+  @override
+  String get walletRemainingDebt => 'หนี้คงเหลือ';
+
+  @override
+  String get walletDebtPaidOff => 'ชำระหนี้หมดแล้ว';
+
+  @override
+  String get walletRepaid => 'ชำระแล้ว';
+
+  @override
+  String get walletInitialDebt => 'หนี้เริ่มต้น';
 }

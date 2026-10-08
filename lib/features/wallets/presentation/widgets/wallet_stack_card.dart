@@ -46,11 +46,30 @@ class WalletStackCard extends StatelessWidget {
     final amount = displayBalanceCents / 100.0;
     final isNegative = amount < 0;
 
-    final goal = (wallet.goalAmountCents ?? 0) / 100.0;
-    final currentProgressAmount = amount < 0 ? 0.0 : amount;
+    final isDebtWallet = wallet.openingBalanceCents < 0;
+    final targetBalanceCents = wallet.goalAmountCents ?? 0;
+    final hasPositiveDebtGoal = isDebtWallet && targetBalanceCents > 0;
+    final initialDebtCents = wallet.openingBalanceCents.abs();
+    final remainingDebtCents =
+        displayBalanceCents < 0 ? -displayBalanceCents : 0;
+    final repaidCents =
+        (initialDebtCents - remainingDebtCents).clamp(0, initialDebtCents);
+    final goal =
+        isDebtWallet ? initialDebtCents / 100.0 : targetBalanceCents / 100.0;
+    final currentProgressAmount =
+        isDebtWallet ? repaidCents / 100.0 : (amount < 0 ? 0.0 : amount);
+    final balanceLabel = isDebtWallet && isNegative
+        ? context.l10n.walletRemainingDebt
+        : isDebtWallet && displayBalanceCents == 0
+            ? context.l10n.walletDebtPaidOff
+            : context.l10n.balance;
 
     double progress = 0.0;
-    if (goal > 0) {
+    if (isDebtWallet) {
+      progress = ((displayBalanceCents - wallet.openingBalanceCents) /
+              (targetBalanceCents - wallet.openingBalanceCents))
+          .clamp(0.0, 1.0);
+    } else if (goal > 0) {
       progress = (currentProgressAmount / goal).clamp(0.0, 1.0);
     } else if (goal == 0) {
       progress = 1.0;
@@ -260,45 +279,51 @@ class WalletStackCard extends StatelessWidget {
                 size: 36,
                 iconSize: 18,
               ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          balanceLabel,
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        if (showBalanceChevron) ...[
+                          const SizedBox(width: 2),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 12,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      context.l10n.balance,
+                      '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
                       style: TextStyle(
-                        color: colorScheme.mutedForeground,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
+                        color: isNegative
+                            ? colorScheme.destructive
+                            : colorScheme.foreground,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
                       ),
                     ),
-                    if (showBalanceChevron) ...[
-                      const SizedBox(width: 2),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 12,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ],
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
-                  style: TextStyle(
-                    color: isNegative
-                        ? colorScheme.destructive
-                        : colorScheme.foreground,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -348,11 +373,52 @@ class WalletStackCard extends StatelessWidget {
                         if (footer != null)
                           footer!
                         else if (showGoalProgress) ...[
+                          if (isDebtWallet) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      hasPositiveDebtGoal
+                                          ? context.l10n.walletStartingBalance
+                                          : context.l10n.walletRepaid,
+                                      style: TextStyle(
+                                        color: colorScheme.mutedForeground,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      hasPositiveDebtGoal
+                                          ? context.l10n.walletTargetBalance
+                                          : context.l10n.walletInitialDebt,
+                                      style: TextStyle(
+                                        color: colorScheme.mutedForeground,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                          ],
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
+                                hasPositiveDebtGoal
+                                    ? '-$symbol${formatLocalizedNumber(context, double.parse(formatAmount(initialDebtCents / 100.0)))}'
+                                    : '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
                                 style: TextStyle(
                                   color: colorScheme.mutedForeground,
                                   fontSize: 11,
@@ -360,7 +426,7 @@ class WalletStackCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(goal)))}',
+                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(hasPositiveDebtGoal ? targetBalanceCents / 100.0 : goal)))}',
                                 style: TextStyle(
                                   color: colorScheme.mutedForeground,
                                   fontSize: 11,
@@ -372,13 +438,32 @@ class WalletStackCard extends StatelessWidget {
                           const SizedBox(height: 6),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              minHeight: 12,
-                              value: progress,
-                              backgroundColor:
-                                  baseColor.withValues(alpha: 0.15),
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(baseColor),
+                            child: TweenAnimationBuilder<double>(
+                              tween:
+                                  Tween<double>(begin: progress, end: progress),
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 200),
+                              curve: Curves.easeInOut,
+                              builder: (context, animatedProgress, _) =>
+                                  LinearProgressIndicator(
+                                minHeight: 12,
+                                value: animatedProgress,
+                                semanticsLabel: isDebtWallet
+                                    ? hasPositiveDebtGoal
+                                        ? context.l10n.walletTargetBalance
+                                        : context.l10n.walletRepaid
+                                    : null,
+                                backgroundColor: isDebtWallet
+                                    ? colorScheme.mutedForeground
+                                        .withValues(alpha: 0.15)
+                                    : baseColor.withValues(alpha: 0.15),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  isDebtWallet
+                                      ? colorScheme.success
+                                      : baseColor,
+                                ),
+                              ),
                             ),
                           ),
                         ],

@@ -3567,5 +3567,11 @@
   "senderVerificationLinkExpired": "이 인증 링크는 만료되었습니다. Moneko에서 새 인증 이메일을 요청해 주세요.",
   "invalidSenderVerificationLink": "이 인증 링크는 유효하지 않거나 더 이상 사용할 수 없습니다. Moneko에서 새 인증 이메일을 요청해 주세요.",
   "senderVerificationFailed": "이 발신자를 인증하지 못했습니다. 인증 링크를 다시 열어 주세요.",
-  "verificationEmailDeliveryFailed": "인증 이메일을 보내지 못했습니다. 발신자 이메일 주소에 오타가 없는지 확인한 후 다시 시도해 주세요. 이 발신자는 아직 승인되지 않았습니다."
+  "verificationEmailDeliveryFailed": "인증 이메일을 보내지 못했습니다. 발신자 이메일 주소에 오타가 없는지 확인한 후 다시 시도해 주세요. 이 발신자는 아직 승인되지 않았습니다.",
+  "walletStartingBalance": "시작 잔액",
+  "walletTargetBalance": "목표 잔액",
+  "walletRemainingDebt": "남은 부채",
+  "walletDebtPaidOff": "부채 상환 완료",
+  "walletRepaid": "상환한 금액",
+  "walletInitialDebt": "초기 부채"
 }

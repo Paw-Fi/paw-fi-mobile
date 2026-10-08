@@ -3771,5 +3771,11 @@
   "senderVerificationLinkExpired": "ลิงก์ยืนยันนี้หมดอายุแล้ว โปรดขออีเมลยืนยันฉบับใหม่ใน Moneko",
   "invalidSenderVerificationLink": "ลิงก์ยืนยันนี้ไม่ถูกต้องหรือใช้งานไม่ได้แล้ว โปรดขออีเมลยืนยันฉบับใหม่ใน Moneko",
   "senderVerificationFailed": "เราไม่สามารถยืนยันผู้ส่งรายนี้ได้ โปรดลองเปิดลิงก์ยืนยันอีกครั้ง",
-  "verificationEmailDeliveryFailed": "เราไม่สามารถส่งอีเมลยืนยันได้ โปรดตรวจสอบว่าอีเมลของผู้ส่งพิมพ์ถูกต้องแล้วลองอีกครั้ง ผู้ส่งรายนี้ยังไม่ได้รับการอนุมัติ"
+  "verificationEmailDeliveryFailed": "เราไม่สามารถส่งอีเมลยืนยันได้ โปรดตรวจสอบว่าอีเมลของผู้ส่งพิมพ์ถูกต้องแล้วลองอีกครั้ง ผู้ส่งรายนี้ยังไม่ได้รับการอนุมัติ",
+  "walletStartingBalance": "ยอดคงเหลือเริ่มต้น",
+  "walletTargetBalance": "ยอดเงินเป้าหมาย",
+  "walletRemainingDebt": "หนี้คงเหลือ",
+  "walletDebtPaidOff": "ชำระหนี้หมดแล้ว",
+  "walletRepaid": "ชำระแล้ว",
+  "walletInitialDebt": "หนี้เริ่มต้น"
 }

@@ -3750,5 +3750,11 @@
   "senderVerificationLinkExpired": "此验证链接已过期。请在 Moneko 中重新发送验证邮件。",
   "invalidSenderVerificationLink": "此验证链接无效或已不可用。请在 Moneko 中重新发送验证邮件。",
   "senderVerificationFailed": "无法验证此发件人。请尝试重新打开验证链接。",
-  "verificationEmailDeliveryFailed": "无法发送验证邮件。请检查发件人邮箱是否有误，然后重试。此发件人尚未获批。"
+  "verificationEmailDeliveryFailed": "无法发送验证邮件。请检查发件人邮箱是否有误，然后重试。此发件人尚未获批。",
+  "walletStartingBalance": "初始余额",
+  "walletTargetBalance": "目标余额",
+  "walletRemainingDebt": "剩余债务",
+  "walletDebtPaidOff": "债务已还清",
+  "walletRepaid": "已偿还",
+  "walletInitialDebt": "初始债务"
 }

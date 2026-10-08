@@ -3753,5 +3753,11 @@
   "senderVerificationLinkExpired": "Liên kết xác minh này đã hết hạn. Hãy yêu cầu email xác minh mới trong Moneko.",
   "invalidSenderVerificationLink": "Liên kết xác minh này không hợp lệ hoặc không còn khả dụng. Hãy yêu cầu email xác minh mới trong Moneko.",
   "senderVerificationFailed": "Không thể xác minh người gửi này. Hãy thử mở lại liên kết xác minh.",
-  "verificationEmailDeliveryFailed": "Không thể gửi email xác minh. Hãy kiểm tra địa chỉ email của người gửi xem có nhập sai không rồi thử lại. Người gửi này chưa được phê duyệt."
+  "verificationEmailDeliveryFailed": "Không thể gửi email xác minh. Hãy kiểm tra địa chỉ email của người gửi xem có nhập sai không rồi thử lại. Người gửi này chưa được phê duyệt.",
+  "walletStartingBalance": "Số dư ban đầu",
+  "walletTargetBalance": "Số dư mục tiêu",
+  "walletRemainingDebt": "Nợ còn lại",
+  "walletDebtPaidOff": "Đã trả hết nợ",
+  "walletRepaid": "Đã trả",
+  "walletInitialDebt": "Khoản nợ ban đầu"
 }
