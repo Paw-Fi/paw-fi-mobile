@@ -84,10 +84,7 @@ class _HouseholdSelectorContent extends ConsumerWidget {
             colorScheme: colorScheme,
             onTap: () async {
               HapticFeedback.lightImpact();
-              debugPrint(
-                  '🏠 [DEEP LINK TEST] Household selected: ${household.id}');
-              debugPrint(
-                  '🔗 [DEEP LINK TEST] Test with: moneko://household/${household.id}');
+
               await ref
                   .read(selectedHouseholdProvider.notifier)
                   .selectHousehold(household.id);

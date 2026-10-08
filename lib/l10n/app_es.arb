@@ -3747,5 +3747,9 @@
   "budgetCompanionPlanning5": "¿En qué se te va?",
   "budgetCompanionPlanning6": "¡Empieza a registrar hoy!",
   "budgetCompanionPlanning7": "¡Tu plan empieza aquí!",
-  "budgetCompanionPlanning8": "¡Pequeños pasos, grandes logros!"
+  "budgetCompanionPlanning8": "¡Pequeños pasos, grandes logros!",
+  "typeYourOwnAnswer": "Escribe tu propia respuesta",
+  "aiClarificationError": "{error}\nEstos datos se guardarán cuando los confirmes.",
+  "senderAccountConfirmation": "Estás añadiendo este remitente a tu cuenta de Moneko ({accountEmail}). Enviaremos un enlace de verificación a la dirección del remitente. Los recibos solo se importarán después de verificarlo.",
+  "previouslyForwardedAttachmentNotice": "Si ya reenviaste un archivo adjunto, tendrás que volver a reenviarlo después de aprobar y verificar este remitente. Los archivos enviados anteriormente no se importarán automáticamente."
 }

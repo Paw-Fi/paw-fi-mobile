@@ -514,12 +514,9 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     if (widget.initialSplits != null && widget.initialSplits!.isNotEmpty) {
       // Use provided initial splits
       _initializeSplitsFromInitial();
-      debugPrint(
-          '🔧 [SPLIT EDITOR] Initialized with provided splits: $_selectedType');
     } else {
       // Initialize with default equal splits
       _initializeSplits();
-      debugPrint('🔧 [SPLIT EDITOR] Initialized with default equal splits');
     }
 
     _initializeControllers();

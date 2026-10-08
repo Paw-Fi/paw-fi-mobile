@@ -14,7 +14,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
+
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
@@ -68,27 +68,17 @@ String _formatListWalletsDate(DateTime date) {
 final walletsByHouseholdIdProvider =
     FutureProvider.family<List<WalletEntity>, String?>(
         (ref, householdId) async {
-  final trace = WalletsDebugTrace(
-    label: 'WalletsByHousehold',
-    enabled: ref.read(walletsDebugLoggingEnabledProvider),
-    logSink: ref.read(walletsDebugLogSinkProvider),
-    contextFields: {
-      'household': householdId?.trim().isEmpty ?? true ? '<none>' : householdId,
-    },
-  );
   final authHeaders = ref.watch(walletAuthHeadersProvider);
   final scopeQuery = ref.watch(walletsScopeQueryProvider);
   final userId = ref.watch(authProvider.select((user) => user.uid));
   if (authHeaders == null) {
     // Avoid caching a transient unauthorized fetch during the post-login
     // handoff before auth state is ready in Riverpod.
-    trace.mark(
-        'wallets-fetch-skipped', const {'reason': 'missing-auth-headers'});
+
     return const <WalletEntity>[];
   }
 
   try {
-    trace.mark('wallets-fetch-start');
     final response = await runAuthenticatedWalletRead(
       auth: supabase.auth,
       userId: userId,
@@ -115,10 +105,9 @@ final walletsByHouseholdIdProvider =
         .whereType<Map<String, dynamic>>()
         .map(WalletEntity.fromJson)
         .toList(growable: false);
-    trace.mark('wallets-fetch-success', {'count': wallets.length});
+
     return wallets;
   } catch (error) {
-    trace.mark('wallets-fetch-exception', {'error': error});
     rethrow;
   }
 });
@@ -424,28 +413,15 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
       selectedCurrencies: scopeQuery.normalizedSelectedCurrencies,
       currentMonthStart: scopeQuery.currentMonthStart,
     );
-    final trace = WalletsDebugTrace(
-      label: 'ScopedWalletsProvider',
-      enabled: ref.read(walletsDebugLoggingEnabledProvider),
-      logSink: ref.read(walletsDebugLogSinkProvider),
-      contextFields: {
-        'user': user.uid.isEmpty ? '<empty>' : user.uid,
-        'household': householdId ?? '<none>',
-      },
-    );
 
     if (user.uid.isEmpty) {
-      trace.mark('build-skipped', const {'reason': 'empty-user'});
       return const <WalletEntity>[];
     }
 
     if (authHeaders == null) {
-      trace.mark('build-skipped', const {'reason': 'missing-auth-headers'});
       final cachedSessionWallets =
           ref.read(walletsListSessionCacheProvider)[cacheKey];
       if (cachedSessionWallets != null) {
-        trace.mark('session-cache-hit-without-auth-headers',
-            {'count': cachedSessionWallets.length});
         return _activeWallets(cachedSessionWallets);
       }
 
@@ -459,8 +435,6 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
           currentMonthStart: scopeQuery.currentMonthStart,
         );
         if (persistedWallets != null) {
-          trace.mark('persisted-cache-hit-without-auth-headers',
-              {'count': persistedWallets.length});
           final activePersistedWallets = _activeWallets(persistedWallets);
           ref.read(walletsListSessionCacheProvider.notifier).state = {
             ...ref.read(walletsListSessionCacheProvider),
@@ -476,7 +450,6 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
     final sessionCache = ref.read(walletsListSessionCacheProvider);
     final cachedSessionWallets = sessionCache[cacheKey];
     if (cachedSessionWallets != null) {
-      trace.mark('session-cache-hit', {'count': cachedSessionWallets.length});
       return _activeWallets(cachedSessionWallets);
     }
 
@@ -490,7 +463,6 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
         currentMonthStart: scopeQuery.currentMonthStart,
       );
       if (persistedWallets != null) {
-        trace.mark('persisted-cache-hit', {'count': persistedWallets.length});
         final activePersistedWallets = _activeWallets(persistedWallets);
         Future<void>(() {
           ref.read(walletsListSessionCacheProvider.notifier).state = {
@@ -507,7 +479,6 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
       }
     }
 
-    trace.mark('cache-miss');
     return refreshFromNetwork();
   }
 
@@ -668,9 +639,6 @@ class WalletActions {
   }
 
   void setOptimisticWallet(WalletEntity account) {
-    debugPrint(
-      '[Accounts][Optimistic] set accountId=${account.id} name=${account.name} color=${account.color} opening=${account.openingBalanceCents}',
-    );
     final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
     ref.read(optimisticScopedAccountsOverridesProvider.notifier).state = {
       ...overrides,
@@ -698,7 +666,6 @@ class WalletActions {
   }
 
   void clearOptimisticWallet(String accountId) {
-    debugPrint('[Accounts][Optimistic] clear accountId=$accountId');
     final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
     if (!overrides.containsKey(accountId)) {
       return;
@@ -720,9 +687,6 @@ class WalletActions {
       return;
     }
 
-    debugPrint(
-      '[Accounts][Optimistic] reconcile success accountId=${serverAccount.id}; clearing override',
-    );
     clearOptimisticWallet(serverAccount.id);
   }
 
@@ -884,9 +848,6 @@ class WalletActions {
             excludeFromAnalytics ?? existingWallet.excludeFromAnalytics,
       ));
     }
-    debugPrint(
-      '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color logo=$logoUrl opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount includeLogo=$includeLogoUrl isDefault=$isDefault invalidate=$invalidate',
-    );
 
     final requestBody = {
       'accountId': walletId,
@@ -926,7 +887,7 @@ class WalletActions {
       );
       _throwIfFailed(response.data, 'Failed to update wallet');
       await localDatabase.markMutationSynced(_walletMutationId(walletId));
-      debugPrint('[Accounts][Update] success accountId=$walletId');
+
       if (invalidate) {
         _invalidateAll();
       }
@@ -1063,9 +1024,7 @@ class WalletActions {
                 ? linkedBankAccountId
                 : existingWallet?.linkedBankAccountId,
       );
-    } catch (error) {
-      debugPrint('[Accounts][Delete] local cleanup failed: $error');
-    }
+    } catch (error) {}
 
     clearOptimisticWallet(accountId);
     _invalidateAll();
@@ -1489,9 +1448,6 @@ class WalletActions {
         currentBalanceCents: targetBalanceCents,
       ));
     }
-    debugPrint(
-      '[Accounts][Balance] start accountId=$walletId targetBalanceCents=$targetBalanceCents invalidate=$invalidate',
-    );
 
     try {
       final requestBody = {
@@ -1511,7 +1467,7 @@ class WalletActions {
       );
       _throwIfFailed(response.data, 'Failed to update account balance');
       await localDatabase.markMutationSynced(_walletMutationId(walletId));
-      debugPrint('[Accounts][Balance] success accountId=$walletId');
+
       if (invalidate) {
         _invalidateAll();
       }
@@ -1610,9 +1566,7 @@ class WalletActions {
         clientMutationId: _walletMutationId(entityId),
         error: error,
       );
-    } catch (cancelError) {
-      debugPrint('[Accounts][Outbox] failed to cancel mutation: $cancelError');
-    }
+    } catch (cancelError) {}
     await _clearWalletCachesForCurrentUser();
   }
 
@@ -1646,11 +1600,6 @@ class WalletActions {
   }
 
   void _invalidateAll() {
-    final overridesCountBefore =
-        ref.read(optimisticScopedAccountsOverridesProvider).length;
-    debugPrint(
-      '[Accounts][Invalidate] start optimisticOverridesBefore=$overridesCountBefore',
-    );
     ref.invalidate(walletsByHouseholdIdProvider);
     ref.invalidate(shortcutDestinationWalletsByHouseholdIdProvider);
     ref.invalidate(walletsByCurrencyProvider);
@@ -1673,8 +1622,6 @@ class WalletActions {
       ref.read(walletsPageStatePersistedCacheBypassProvider.notifier).state = 1;
     }
     if (userId.isNotEmpty) {
-      debugPrint(
-          '[Accounts][Invalidate] trigger analytics reload userId=$userId');
       unawaited(
         ref.read(analyticsProvider.notifier).loadData(
               userId,
@@ -1684,7 +1631,6 @@ class WalletActions {
     }
     ref.invalidate(householdExpensesProvider);
     ref.invalidate(recurringTransactionsProvider);
-    debugPrint('[Accounts][Invalidate] done');
   }
 }
 

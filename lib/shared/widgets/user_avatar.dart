@@ -97,7 +97,6 @@ class UserAvatar extends StatelessWidget {
 
       return response?['avatar_url'] as String?;
     } catch (e) {
-      debugPrint('Error fetching user avatar: $e');
       return null;
     }
   }

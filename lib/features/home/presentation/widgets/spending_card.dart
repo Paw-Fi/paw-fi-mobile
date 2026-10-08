@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -12,7 +12,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -20,18 +20,6 @@ import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/state/spending_daily_overview_provider.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/home/presentation/widgets/multi_currency_total_breakdown_sheet.dart';
-
-/// Interactive spending card with swipeable chart and current point highlight
-void _homeSpendTrace(String _) {}
-
-double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
-  return entries.fold<double>(
-    0,
-    (sum, entry) => sum + entry.spendingEffect,
-  );
-}
-
-String _traceAmount(num value) => value.toStringAsFixed(2);
 
 class SpendingCard extends StatefulWidget {
   final ColorScheme colorScheme;
@@ -140,29 +128,11 @@ class _SpendingCardState extends State<SpendingCard> {
 
   @override
   Widget build(BuildContext context) {
-    logPreviewHomeLoading('spending-card-render', {
-      'overviewPresent': widget.overview != null,
-      'rows': widget.expenses.length,
-      'previousLoading': widget.overview?.previousAverage.isLoading,
-      'previousHasValue': widget.overview?.previousAverage.hasValue,
-      'previousHasError': widget.overview?.previousAverage.hasError,
-      'ancestorSkeletonEnabled':
-          context.getInheritedWidgetOfExactType<SkeletonizerScope>()?.enabled ??
-              false,
-    });
     final intervalType = getChartIntervalTypeFromFilter(widget.dateFilter);
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final now = widget.referenceNow ?? DateTime.now();
     final derivedData = _derivedDataFor(intervalType, now);
     final sortedDates = derivedData.sortedDates;
-    final totalSpent = derivedData.totalSpent;
-    _homeSpendTrace(
-      'spending-card-render expenses=${widget.expenses.length} '
-      'inputTotal=${_traceAmount(_traceExpenseTotal(widget.expenses))} '
-      'derivedTotal=${_traceAmount(totalSpent)} '
-      'filter=${widget.dateFilter.name} currency=${widget.selectedCurrency ?? '<none>'} '
-      'signature=${_expenseListSignature(widget.expenses)}',
-    );
 
     final currencyTypeTotals = _currencyTypeTotalsFor(now);
     final shouldShowBreakdownIcon = currencyTypeTotals.length > 1 &&
@@ -812,11 +782,6 @@ class _DailySpendingComparison extends StatelessWidget {
     if (change == null) {
       if (overview?.previousAverage.isLoading == true &&
           overview?.previousAverage.hasValue != true) {
-        logPreviewHomeLoading('spending-comparison-skeleton', {
-          'reason': 'previous-average-unresolved',
-          'overviewPresent': overview != null,
-          'previousHasError': overview?.previousAverage.hasError,
-        });
         return SizedBox(
             height: 20,
             child: Skeletonizer(

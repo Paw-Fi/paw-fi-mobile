@@ -42,6 +42,37 @@ final correction = {
 };
 
 void main() {
+  test('receipt clarification retains the image and original dropdown defaults',
+      () async {
+    final image = {'data': 'cmVjZWlwdA==', 'contentType': 'image/jpeg'};
+    final requests = <Map<String, dynamic>>[];
+    final response = await runInteractiveAiAnalysis(
+      body: {
+        'image': image,
+        'householdId': 'family',
+        'accountId': 'selected-wallet',
+        'language': 'ja',
+      },
+      invoke: (request) async {
+        requests.add(request);
+        expect(request['image'], image);
+        expect(request['householdId'], 'family');
+        expect(request['accountId'], 'selected-wallet');
+        return requests.length == 1
+            ? correction
+            : ready([item('family', 'selected-wallet', 'JPY')]);
+      },
+      ask: (_) async => '合計は７０円です',
+      retry: (_) async => fail('receipt clarification must use the MCQ loop'),
+      isActive: () => true,
+    );
+    expect(requests, hasLength(2));
+    expect((requests.last['interactive'] as Map)['answers'], [
+      {'question': '残りの30は誰に？', 'answer': '合計は７０円です'}
+    ]);
+    expect(response?['data']['requireCorrection'], false);
+  });
+
   test(
       'a saved question reopens before analysis and custom answers checkpoint before invocation',
       () async {

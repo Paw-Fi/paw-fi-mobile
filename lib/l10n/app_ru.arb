@@ -3642,9 +3642,9 @@
   "emailSenderVerificationDescription": "Мы отправим ссылку для подтверждения на этот адрес. Чеки будут импортироваться после того, как владелец почтового ящика разрешит доступ этому аккаунту.",
   "notificationRepairProcessing": "Проверяем push-уведомления…",
   "emailFileImportAccountEmailAlreadyIncluded": "Адрес электронной почты вашего аккаунта Moneko уже есть в списке разрешённых отправителей. Добавлять его повторно не нужно.",
-  "aiClarificationNotSaved": "Эти данные будут сохранены после вашего подтверждения.",
+  "aiClarificationNotSaved": "Эти данные сохранятся после подтверждения.",
   "aiClarificationCustomAnswer": "Введите свой ответ",
-  "aiInputSavedForLater": "Ввод сохранён на этом устройстве. Анализ продолжится, когда вы откроете Moneko с подключением к интернету.",
+  "aiInputSavedForLater": "Данные сохранены на этом устройстве. Анализ продолжится, когда вы откроете Moneko с подключением к интернету.",
   "unlockMonekoPlus": "Откройте Moneko Plus",
   "unlimitedAiExpenseCapture": "Неограниченный учёт расходов с ИИ",
   "unlimitedSpacesWallets": "Неограниченное количество Spaces и кошельков",
@@ -3695,5 +3695,9 @@
   "budgetCompanionPlanning5": "Куда уходят деньги?",
   "budgetCompanionPlanning6": "Начни отслеживать сегодня!",
   "budgetCompanionPlanning7": "План начинается здесь!",
-  "budgetCompanionPlanning8": "Маленькие шаги, большие победы!"
+  "budgetCompanionPlanning8": "Маленькие шаги, большие победы!",
+  "typeYourOwnAnswer": "Введите свой ответ",
+  "aiClarificationError": "{error}\nЭти данные сохранятся после подтверждения.",
+  "senderAccountConfirmation": "Вы добавляете этого отправителя в свой аккаунт Moneko ({accountEmail}). Мы отправим ссылку для подтверждения на адрес отправителя. Чеки будут импортироваться только после подтверждения отправителя.",
+  "previouslyForwardedAttachmentNotice": "Если вы уже пересылали вложение, после одобрения и подтверждения этого отправителя его нужно будет переслать ещё раз. Ранее пересланные вложения не будут импортированы автоматически."
 }

@@ -36,14 +36,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
-void _debugLog(Object? message) {
-  debugPrint(message?.toString() ?? 'null');
-}
-
-// Intentionally shadow dart:core print in this file so any existing purchase
-// flow logs never ship in release builds.
-// ignore: avoid_print
-void print(Object? message) => _debugLog(message);
 
 int? _computeTrialDaysLeft(DateTime? trialEndAt) {
   if (trialEndAt == null) return null;
@@ -153,7 +145,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     );
     final lastSyncedPlanFamilyForPlan = useRef<String?>(null);
     final currentSubscription = currentSub?.subscription;
-    final currentInterval = currentSubscription?.billingInterval;
+
     final currentProvider = currentSubscription?.provider;
     final normalizedProvider = currentProvider?.toLowerCase().trim();
     final currentStatus = currentSub?.subscription?.status?.toLowerCase();
@@ -238,7 +230,6 @@ class PlanSelectionPage extends HookConsumerWidget {
         dialogOpen: processingDialogOpen,
         dialogKind: processingDialogKind,
         reason: reason,
-        logger: _debugLog,
       );
     }
 
@@ -294,8 +285,6 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     Future<void> verifySubscriptionAndCompleteCheckout(String trigger) async {
       try {
-        _debugLog(
-            '🔄 verifySubscriptionAndCompleteCheckout start | trigger=$trigger');
         await ref.read(subscriptionManagementProvider.notifier).refresh();
         await Future<void>.delayed(const Duration(milliseconds: 1000));
 
@@ -318,14 +307,6 @@ class PlanSelectionPage extends HookConsumerWidget {
                     ) ==
                     true;
 
-        _debugLog(
-          '📊 Checkout verification snapshot | trigger=$trigger '
-          'hasValue=${subscriptionAsync.hasValue} hasError=${subscriptionAsync.hasError} '
-          'plan=${subscriptionData?.plan} status=${subscriptionData?.status} '
-          'provider=${subscriptionData?.provider} interval=${subscriptionData?.billingInterval} '
-          'isSubscribed=$isActive',
-        );
-
         if (hasExpectedPlan) {
           await completePlanSelectionFlowToDashboard(
             option: expectedOption,
@@ -342,10 +323,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           context,
           context.l10n.paywallErrorNotActivated,
         );
-      } catch (e, stack) {
-        _debugLog(
-            '❌ verifySubscriptionAndCompleteCheckout failed | trigger=$trigger error=$e');
-        _debugLog('Stack: $stack');
+      } catch (e) {
         didInitiateCheckout.value = false;
         checkoutPlanOption.value = null;
         if (context.mounted) {
@@ -411,21 +389,10 @@ class PlanSelectionPage extends HookConsumerWidget {
         final prevProcessing = prevState?.isProcessing ?? false;
         final nextProcessing = nextState?.isProcessing ?? false;
 
-        _debugLog(
-          '🧪 IAP state change | prevProcessing=$prevProcessing nextProcessing=$nextProcessing '
-          'prevError=${prevState?.lastError ?? ""} nextError=${nextState?.lastError ?? ""} '
-          'prevErrorCode=${prevState?.lastErrorCode ?? ""} nextErrorCode=${nextState?.lastErrorCode ?? ""} '
-          'prevInitiated=${prevState?.initiatedProductId ?? ""} nextInitiated=${nextState?.initiatedProductId ?? ""} '
-          'prevCompleted=${prevState?.lastCompletedProductId ?? ""} nextCompleted=${nextState?.lastCompletedProductId ?? ""} '
-          'storeAvailable=${nextState?.storeAvailable ?? false} '
-          'dialogOpen=${processingDialogOpen.value} dialogKind=${processingDialogKind.value} '
-          'didInitiateCheckout=${didInitiateCheckout.value} didSeeIapProcessing=${didSeeIapProcessing.value}',
-        );
-
         if (next.hasError) {
           didInitiateCheckout.value = false;
           dismissProcessingDialog('provider error');
-          _debugLog('IAP provider error: ${next.error}');
+
           showIapError(
             context.l10n.paywallErrorGeneric,
             'provider error',
@@ -450,8 +417,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         final nextError = nextState?.lastError;
         final prevError = prevState?.lastError;
         final nextErrorCode = nextState?.lastErrorCode;
-        _debugLog(
-            '🔍 Error check: nextError="$nextError" prevError="$prevError"');
+
         if (nextError != null &&
             nextError.isNotEmpty &&
             nextError != prevError) {
@@ -459,14 +425,12 @@ class PlanSelectionPage extends HookConsumerWidget {
               !didInitiateCheckout.value &&
               !didInitiateRestore.value) {
             didInitiateFamilyAutoRestore.value = false;
-            _debugLog('Auto family restore ended with IAP error: $nextError');
+
             return;
           }
           didInitiateCheckout.value = false;
-          _debugLog('🚨 IAP purchase error detected: $nextError');
-          _debugLog('🚨 Calling showIapError...');
+
           showIapError(nextError, 'lastError', nextErrorCode);
-          _debugLog('🚨 showIapError called');
         }
 
         // Check if a user-initiated purchase completed successfully
@@ -479,12 +443,9 @@ class PlanSelectionPage extends HookConsumerWidget {
             nextCompletedProductId != prevCompletedProductId;
 
         if (hasNewCompletion) {
-          _debugLog(
-              '✅ User-initiated purchase completed: $nextCompletedProductId');
           dismissProcessingDialog('user-initiated purchase completed');
 
           // User-initiated purchase completed successfully - navigate to dashboard
-          _debugLog('✅ Purchase successful! Refreshing subscription...');
 
           // Schedule async work without blocking the listener
           Future.microtask(() =>
@@ -492,7 +453,6 @@ class PlanSelectionPage extends HookConsumerWidget {
         }
 
         if (!prevProcessing && nextProcessing) {
-          _debugLog('⏳ IAP processing started');
           didSeeIapProcessing.value = true;
         }
       });
@@ -500,18 +460,11 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     useEffect(() {
       if (!useIap) return null;
-      _debugLog(
-        '🧭 IAP dialog effect | dialogOpen=${processingDialogOpen.value} '
-        'dialogKind=${processingDialogKind.value} iapProcessing=$iapProcessing '
-        'didSeeIapProcessing=${didSeeIapProcessing.value} '
-        'iapLastError="$iapLastError" iapLastErrorCode=${iapLastErrorCode ?? ""}',
-      );
+
       if (processingDialogKind.value != _ProcessingDialogKind.iapPurchase) {
-        _debugLog('🧭 IAP dialog effect skip: kind is not iapPurchase');
         return null;
       }
       if (!processingDialogOpen.value) {
-        _debugLog('🧭 IAP dialog effect skip: dialog already closed');
         return null;
       }
 
@@ -527,23 +480,16 @@ class PlanSelectionPage extends HookConsumerWidget {
 
       if (iapProcessing && !didSeeIapProcessing.value) {
         didSeeIapProcessing.value = true;
-        _debugLog(
-            '🧭 IAP dialog effect: recovered missing processing transition -> didSeeIapProcessing=true');
       }
 
       if (iapLastError.isNotEmpty &&
           (didInitiateCheckout.value || didInitiateRestore.value)) {
-        _debugLog('🧭 IAP dialog effect: lastError present -> showIapError');
         runAfterBuild(() => showIapError(iapLastError, 'effect'));
         return null;
       }
 
       if (didSeeIapProcessing.value && !iapProcessing) {
-        _debugLog(
-            '🧭 IAP dialog effect: processing finished -> dismiss dialog');
         runAfterBuild(() => dismissProcessingDialog('iap processing ended'));
-      } else {
-        _debugLog('🧭 IAP dialog effect: keep waiting');
       }
 
       return null;
@@ -607,7 +553,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
       if (showProcessing && context.mounted) {
         processingDialogOpen.value = true;
-        _debugLog('🧾 Dialog open set to true (plan selection restore)');
+
         showBlockingProcessingDialog(
           context: context,
           message: context.l10n.paywallRestoringPurchases,
@@ -659,10 +605,8 @@ class PlanSelectionPage extends HookConsumerWidget {
           } else {
             didInitiateFamilyAutoRestore.value = false;
           }
-        } catch (e, stack) {
+        } catch (e) {
           didInitiateFamilyAutoRestore.value = false;
-          _debugLog('Auto family restore skipped: $e');
-          _debugLog('Stack: $stack');
         }
       }());
 
@@ -689,12 +633,6 @@ class PlanSelectionPage extends HookConsumerWidget {
           !didInitiateFamilyAutoRestore.value) {
         return null;
       }
-
-      _debugLog(
-        '✅ Active subscription detected on plan selection; scheduling flow completion '
-        '| checkout=${didInitiateCheckout.value} restore=${didInitiateRestore.value} '
-        'mode=${mode.queryValue} option=${activePlanOption?.id ?? 'none'}',
-      );
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(() async {
@@ -898,31 +836,27 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     Future<void> startStripeCheckout(PlanOption option) async {
-      final result = await startStripeCheckoutForOption(
-        context: context,
-        option: option,
-        supabaseClient: supabase,
-        noSessionError: context.l10n.paywallErrorNoSession,
-        startCheckoutError: context.l10n.paywallErrorStartCheckout,
-        noCheckoutUrlError: context.l10n.paywallErrorNoCheckoutUrl,
-        paymentCanceledMessage: context.l10n.paymentCanceled,
-        paymentFailedMessage: context.l10n.paymentFailed,
-        notActivatedMessage: context.l10n.paywallErrorNotActivated,
-        refreshSubscription: () async {
-          await ref.read(subscriptionManagementProvider.notifier).refresh();
-          await ref.read(subscriptionNotifierProvider.notifier).refresh();
-        },
-        hasActiveSubscription: () {
-          final subscriptionData = ref
-              .read(subscriptionManagementProvider)
-              .valueOrNull
-              ?.subscription;
-          return subscriptionMatchesPlanOption(subscriptionData, option);
-        },
-      );
-      if (result != null) {
-        _debugLog('🧾 Stripe checkout success | sessionId=${result.sessionId}');
-      }
+      await startStripeCheckoutForOption(
+          context: context,
+          option: option,
+          supabaseClient: supabase,
+          noSessionError: context.l10n.paywallErrorNoSession,
+          startCheckoutError: context.l10n.paywallErrorStartCheckout,
+          noCheckoutUrlError: context.l10n.paywallErrorNoCheckoutUrl,
+          paymentCanceledMessage: context.l10n.paymentCanceled,
+          paymentFailedMessage: context.l10n.paymentFailed,
+          notActivatedMessage: context.l10n.paywallErrorNotActivated,
+          refreshSubscription: () async {
+            await ref.read(subscriptionManagementProvider.notifier).refresh();
+            await ref.read(subscriptionNotifierProvider.notifier).refresh();
+          },
+          hasActiveSubscription: () {
+            final subscriptionData = ref
+                .read(subscriptionManagementProvider)
+                .valueOrNull
+                ?.subscription;
+            return subscriptionMatchesPlanOption(subscriptionData, option);
+          });
     }
 
     // Action Logic
@@ -933,18 +867,8 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
 
       checkoutAttemptCounter.value += 1;
-      final attemptId = checkoutAttemptCounter.value;
-      _debugLog(
-        '🧭 onMainAction start | attempt=$attemptId '
-        'plan=${selectedPlan.id} serverPlan=${selectedPlan.serverPlanId} interval=${selectedPlan.billingInterval} '
-        'storeReady=$isStoreReady useIap=$useIap hasActiveSubscription=$hasActiveSubscription '
-        'currentPlan=$currentPlanId currentInterval=$currentInterval currentStatus=$currentStatus currentProvider=$currentProvider',
-      );
-      print(
-          '🎯 Starting subscription flow for plan: ${selectedPlan.serverPlanId}');
 
       if (isCurrentPlan(selectedPlan)) {
-        print('⚠️ User already on this plan');
         // Already on this plan
         AppToast.info(context, context.l10n.alreadyOnThisPlan);
         return;
@@ -982,13 +906,10 @@ class PlanSelectionPage extends HookConsumerWidget {
         return;
       }
 
-      _debugLog(
-        '🧾 Confirmed selection | plan=${selectedPlan.id} serverPlan=${selectedPlan.serverPlanId} interval=${selectedPlan.billingInterval} useIap=$useIap',
-      );
       try {
         didInitiateCheckout.value = true;
         checkoutPlanOption.value = selectedPlan;
-        print('🍎 App Store checkout enabled: $useIap');
+
         if (useIap) {
           // Don't allow purchase attempts until the store/products are ready.
           final iapState = iapStateAsync.valueOrNull;
@@ -997,17 +918,13 @@ class PlanSelectionPage extends HookConsumerWidget {
           }
 
           final catalog = selectedPlan.catalogProduct;
-          print(
-              '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
+
           if (catalog == null) {
             throw Exception(context.l10n.paywallErrorMissingProductMapping);
           }
 
-          print('✅ catalogProduct is valid, proceeding...');
-
           // Show processing dialog before starting purchase
           if (context.mounted) {
-            print('🎬 Showing processing dialog...');
             lastIapErrorShown.value = null;
             // A StoreKit terminal update can arrive between Flutter frames.
             // This dialog belongs to the checkout attempt itself, so mark it
@@ -1018,36 +935,21 @@ class PlanSelectionPage extends HookConsumerWidget {
             didSeeIapProcessing.value = true;
             processingDialogOpen.value = true;
             processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
-            _debugLog(
-                '🧾 Dialog open set to true (iap). attempt=$attemptId plan=${selectedPlan.id} '
-                'checkoutPending=${didSeeIapProcessing.value}');
+
             showBlockingProcessingDialog(
               context: context,
               message: context.l10n.paywallProcessingPurchase,
             );
-            print('✅ Processing dialog shown');
-          } else {
-            print('⚠️ Context not mounted, skipping dialog');
           }
 
-          print(
-              '🔍 About to call buy() method with product: ${catalog.storeProductId}');
-          _debugLog(
-            '🧾 IAP buy start | product=${catalog.storeProductId} plan=${catalog.plan} interval=${catalog.billingInterval}',
-          );
           await ref.read(iapControllerProvider.notifier).buy(
                 catalog,
                 useMonthlyCommitment: selectedPlan.isCommitment,
               );
-          print('✅ buy() method completed');
-          _debugLog('🧾 IAP buy completed');
-          _debugLog(
-              '🧾 IAP state after buy: processing=${iapStateAsync.valueOrNull?.isProcessing} lastError=${iapStateAsync.valueOrNull?.lastError ?? ""}');
+
           // Dialog will remain open until purchase completes
           // Navigation in _onPurchaseUpdated will automatically dismiss the dialog
         } else {
-          print('💳 Starting Stripe checkout');
-
           isStripeProcessing.value = true;
 
           try {
@@ -1064,15 +966,11 @@ class PlanSelectionPage extends HookConsumerWidget {
           }
         }
       } catch (e) {
-        print('❌ Error in subscription flow: $e');
-
         dismissProcessingDialog('main action catch');
         didInitiateCheckout.value = false;
         checkoutPlanOption.value = null;
 
         if (context.mounted) {
-          _debugLog('Purchase flow threw: $e');
-
           final raw = e.toString();
           final lower = raw.toLowerCase();
           final isCanceled =

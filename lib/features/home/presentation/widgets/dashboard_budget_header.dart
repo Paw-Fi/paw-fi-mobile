@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -8,7 +9,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/budget_companion_messages.dart';
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
@@ -48,17 +49,7 @@ class DashboardBudgetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final value = summary.valueOrNull;
-    logPreviewHomeLoading('dashboard-header-render', {
-      'branch': value != null
-          ? 'data'
-          : summary.hasError
-              ? 'error'
-              : 'skeleton',
-      'summaryLoading': summary.isLoading,
-      'summaryHasValue': summary.hasValue,
-      'summaryHasError': summary.hasError,
-      'refreshing': isRefreshing,
-    });
+
     final accent =
         switch (value?.reaction ?? BudgetCompanionReaction.planning) {
       BudgetCompanionReaction.happy => colors.success,
@@ -168,7 +159,9 @@ class _SummaryValues extends StatelessWidget {
       progress: summary.progress,
     );
 
-    if (!summary.hasBudget) {
+    // Daily mode never carries a monthly budget, so it keeps the compact
+    // spent-today header instead of a permanently-disabled gauge.
+    if (mode == HomePeriodMode.daily) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -204,27 +197,19 @@ class _SummaryValues extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            mode == HomePeriodMode.daily
-                ? context.l10n.budgetCompanionSpentThisDay
-                : context.l10n.budgetCompanionNoBudget,
+            context.l10n.budgetCompanionSpentThisDay,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colors.mutedForeground,
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (mode != HomePeriodMode.daily) ...[
-            const SizedBox(height: 12),
-            AdaptiveButton(
-              label: context.l10n.setBudget,
-              style: AdaptiveButtonStyle.plain,
-              useNative: false,
-              padding: EdgeInsets.zero,
-              onPressed: onBudgetTap,
-            ),
-          ],
         ],
       );
     }
+
+    // An unset budget keeps the same gauge silhouette, dimmed, so the section
+    // reads as unavailable instead of disappearing entirely.
+    final hasBudget = summary.hasBudget;
 
     return LayoutBuilder(builder: (context, constraints) {
       final cardWidth = constraints.maxWidth;
@@ -236,8 +221,10 @@ class _SummaryValues extends StatelessWidget {
       const topClearance = 44.0;
       final totalGaugeSectionHeight = gaugeHeight + topClearance;
 
-      final percentText =
-          '${formatLocalizedNumber(context, (summary.progress! * 100).round())}%';
+      final gaugeColor = hasBudget ? accent : colors.mutedForeground;
+      final percentText = hasBudget
+          ? '${formatLocalizedNumber(context, (summary.progress! * 100).round())}%'
+          : null;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -252,7 +239,7 @@ class _SummaryValues extends StatelessWidget {
                 Positioned.fill(
                   child: CustomPaint(
                     painter: _AtmosphericHeroPainter(
-                      color: accent.withValues(alpha: 0.08),
+                      color: gaugeColor.withValues(alpha: 0.08),
                     ),
                   ),
                 ),
@@ -266,32 +253,35 @@ class _SummaryValues extends StatelessWidget {
                     builder: (context, value, _) => BudgetGaugeIndicator(
                       key: const ValueKey('budget-companion-progress'),
                       value: value,
-                      color: accent,
-                      backgroundColor: accent.withValues(alpha: .15),
+                      color: gaugeColor,
+                      backgroundColor: gaugeColor.withValues(alpha: .15),
                       strokeWidth: strokeWidth,
                       width: gaugeWidth,
-                      center: Semantics(
-                        label: '$percentText ${context.l10n.budget}',
-                        child: Text(
-                          percentText,
-                          key: const ValueKey('budget-companion-percent'),
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontFamily: theme.platform == TargetPlatform.iOS
-                                ? '.SF Compact Rounded'
-                                : null,
-                            fontFamilyFallback: const [
-                              '.SF Pro Rounded',
-                              'SF Pro Rounded',
-                              'SF Compact Rounded',
-                              'sans-serif-medium',
-                            ],
-                            fontSize: 36,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1,
-                            color: colors.foreground,
-                          ),
-                        ),
-                      ),
+                      center: percentText == null
+                          ? null
+                          : Semantics(
+                              label: '$percentText ${context.l10n.budget}',
+                              child: Text(
+                                percentText,
+                                key: const ValueKey('budget-companion-percent'),
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  fontFamily:
+                                      theme.platform == TargetPlatform.iOS
+                                          ? '.SF Compact Rounded'
+                                          : null,
+                                  fontFamilyFallback: const [
+                                    '.SF Pro Rounded',
+                                    'SF Pro Rounded',
+                                    'SF Compact Rounded',
+                                    'sans-serif-medium',
+                                  ],
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -1,
+                                  color: colors.foreground,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -347,17 +337,19 @@ class _SummaryValues extends StatelessWidget {
                         color: colors.foreground,
                       ),
                     ),
-                    const SizedBox(width: 5),
-                    Text(
-                      context.l10n.budgetCompanionSpentOf(formatCurrency(
-                          summary.budget!, currency,
-                          context: context)),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: colors.mutedForeground,
+                    if (hasBudget) ...[
+                      const SizedBox(width: 5),
+                      Text(
+                        context.l10n.budgetCompanionSpentOf(formatCurrency(
+                            summary.budget!, currency,
+                            context: context)),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.mutedForeground,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -365,19 +357,33 @@ class _SummaryValues extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            remaining! < 0
-                ? context.l10n.budgetCompanionOver(
-                    formatCurrency(remaining.abs(), currency, context: context))
-                : context.l10n.budgetCompanionLeft(
-                    formatCurrency(remaining, currency, context: context)),
+            hasBudget
+                ? (remaining! < 0
+                    ? context.l10n.budgetCompanionOver(formatCurrency(
+                        remaining.abs(), currency, context: context))
+                    : context.l10n.budgetCompanionLeft(
+                        formatCurrency(remaining, currency, context: context)))
+                : context.l10n.budgetCompanionNoBudget,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontSize: 12,
-              color: remaining < 0
+              color: hasBudget && remaining! < 0
                   ? colors.budgetDangerForeground
-                  : colors.budgetInfoForeground,
+                  : hasBudget
+                      ? colors.budgetInfoForeground
+                      : colors.mutedForeground,
               fontWeight: FontWeight.w700,
             ),
           ),
+          if (!hasBudget) ...[
+            const SizedBox(height: 8),
+            AdaptiveButton(
+              label: context.l10n.setBudget,
+              style: AdaptiveButtonStyle.plain,
+              useNative: false,
+              padding: EdgeInsets.zero,
+              onPressed: onBudgetTap,
+            ),
+          ],
         ],
       );
     });
@@ -450,6 +456,7 @@ class _AnimatedMascotState extends State<_AnimatedMascot>
     _slideAnimation = Tween<double>(begin: 12.0, end: 0.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
+
     _controller.forward();
   }
 
@@ -541,6 +548,7 @@ class _ChatBubbleState extends State<_ChatBubble>
         curve: const Interval(0.15, 1.0, curve: Curves.linear),
       ),
     );
+
     _controller.forward();
   }
 

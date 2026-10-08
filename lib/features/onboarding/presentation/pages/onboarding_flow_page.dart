@@ -183,10 +183,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       return null;
     }, const []);
 
-    useEffect(() {
-      return null;
-    }, [carouselIndex.value, showOrbitPage.value]);
-
     Future<void> enterPreAuthQuestions() async {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
       final current = store.load();
@@ -223,10 +219,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
           heardAboutSavedPayload.value = payloadKey;
         }
         await enterPreAuthQuestions();
-      } catch (error, stackTrace) {
-        debugPrint(
-          '[Onboarding] Heard-about response save failed: $error\n$stackTrace',
-        );
+      } catch (error) {
         if (!context.mounted) return;
         heardAboutError.value = context.l10n.onboardingHeardAboutSaveError;
       } finally {
@@ -1543,10 +1536,6 @@ class OnboardingFlowPage extends HookConsumerWidget {
     final aiLogSuccess = useState<AiLogSuccess?>(null);
     final isPrimaryBusy = useState(false);
     const totalSteps = 3;
-
-    useEffect(() {
-      return null;
-    }, [currentPage.value, fromSettings]);
 
     void goToPage(int targetPage) {
       if (!context.mounted) return;

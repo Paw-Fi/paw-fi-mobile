@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
@@ -308,6 +309,17 @@ void main() {
 
     expect(find.text('Spending'), findsWidgets);
     expect(find.text('Total Net Worth'), findsWidgets);
+
+    final overview = find.byKey(const ValueKey('wallets-overview-active'));
+    final surface = find.descendant(
+      of: overview,
+      matching: find.byKey(const ValueKey('wallets-overview-surface')),
+    );
+    expect(surface, findsOneWidget);
+    expect(tester.widget<Container>(surface).decoration, isNull);
+    expect(
+        find.byKey(const ValueKey('wallets-overview-currency')), findsNothing);
+    expect(find.text('Transfer'), findsOneWidget);
   });
 
   testWidgets('wallet stack updates both cards after a local transfer',
@@ -455,8 +467,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-      'wallet overview fits the title, totals, chart, and hint at large text',
+  testWidgets('wallet overview fits the title, totals, and hint at large text',
       (tester) async {
     tester.view.physicalSize = const Size(320, 800);
     tester.view.devicePixelRatio = 1;
@@ -464,7 +475,15 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final prefs = await SharedPreferences.getInstance();
 
-    for (final scale in [1.2, 1.3, 1.5, 2.0, 3.0]) {
+    final configurations = [
+      for (final theme in [AppTheme.lightTheme(), AppTheme.darkTheme()])
+        for (final scale in [1.0, 1.2, 1.3, 1.5, 2.0, 3.0])
+          (theme: theme, scale: scale, locale: const Locale('es')),
+      for (final scale in [1.0, 1.5, 2.0])
+        (theme: AppTheme.darkTheme(), scale: scale, locale: const Locale('ur')),
+    ];
+    for (final configuration in configurations) {
+      final scale = configuration.scale;
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -492,12 +511,14 @@ void main() {
             ),
           ],
           child: MaterialApp(
-            locale: const Locale('es'),
+            theme: configuration.theme,
+            locale: configuration.locale,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context).copyWith(
                 textScaler: TextScaler.linear(scale),
+                disableAnimations: configuration.locale.languageCode == 'ur',
               ),
               child: child!,
             ),
@@ -509,9 +530,13 @@ void main() {
 
       expect(tester.takeException(), isNull, reason: 'text scale $scale');
       final activeCard = find.byKey(const ValueKey('wallets-overview-active'));
+      final localization = Localizations.of<AppLocalizations>(
+        tester.element(activeCard),
+        AppLocalizations,
+      )!;
       final title = find.descendant(
         of: activeCard,
-        matching: find.text('Patrimonio neto total'),
+        matching: find.text(localization.totalNetWorth),
       );
       final monthLabel = find.descendant(
         of: activeCard,
@@ -530,11 +555,13 @@ void main() {
       expect(totalAmount, findsOneWidget);
       expect(tester.widget<Text>(totalAmountText).maxLines, 1);
       expect(tester.widget<Text>(totalAmountText).softWrap, isFalse);
-      expect(
-        tester.getTopLeft(monthLabel).dy,
-        greaterThan(tester.getBottomLeft(title).dy),
-        reason: 'the month must move below the title at scale $scale',
-      );
+      if (scale >= 1.2) {
+        expect(
+          tester.getTopLeft(monthLabel).dy,
+          greaterThan(tester.getBottomLeft(title).dy),
+          reason: 'the month must move below the title at scale $scale',
+        );
+      }
       final hint = find.descendant(
         of: activeCard,
         matching: find.byType(SwipeHintRow),
@@ -544,10 +571,21 @@ void main() {
         matching: find.byType(LineChart),
       );
       expect(hint, findsOneWidget);
-      expect(chart, findsOneWidget);
-      final chartBottom = tester.getRect(chart).bottom;
-      final hintTop = tester.getRect(hint).top;
-      expect(hintTop - chartBottom, closeTo(12, 1));
+      expect(chart, findsNothing);
+      expect(
+        find.descendant(
+          of: activeCard,
+          matching: find.byIcon(Icons.south_west_rounded),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: activeCard,
+          matching: find.byIcon(Icons.north_east_rounded),
+        ),
+        findsNothing,
+      );
       final pageBottom = tester.getRect(find.byType(PageView)).bottom;
       final hintBottom = tester.getRect(hint).bottom;
       expect(
@@ -770,8 +808,13 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('New Wallet'));
-    await tester.tap(find.text('New Wallet'));
+    expect(
+      tester.getBottomLeft(find.text('Add Wallet')).dy,
+      lessThan(tester.getTopLeft(find.byType(WalletStackCard)).dy),
+      reason: 'wallet creation must be discoverable above the wallet stack',
+    );
+    await tester.ensureVisible(find.text('Add Wallet'));
+    await tester.tap(find.text('Add Wallet'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -913,6 +956,7 @@ void main() {
 
     expect(find.text('Total Net Worth'), findsNothing);
     expect(find.text('New Wallet'), findsNothing);
+    expect(find.text('Add Wallet'), findsNothing);
   });
 
   testWidgets(
@@ -947,6 +991,7 @@ void main() {
 
     expect(find.text('Total Net Worth'), findsNothing);
     expect(find.text('New Wallet'), findsNothing);
+    expect(find.text('Add Wallet'), findsNothing);
     expect(find.text('No wallets yet'), findsNothing);
   });
 
@@ -1150,7 +1195,7 @@ void main() {
     expect(
         find.byKey(const ValueKey('wallets-overview-loading')), findsNothing);
     expect(find.text('Spending'), findsWidgets);
-    expect(find.text('New Wallet'), findsOneWidget);
+    expect(find.text('Add Wallet'), findsOneWidget);
 
     januaryCompleter.complete();
     await tester.pumpAndSettle();

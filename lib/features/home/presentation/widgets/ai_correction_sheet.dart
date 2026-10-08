@@ -75,7 +75,7 @@ class AiCorrectionSheet extends HookWidget {
             const SizedBox(height: 8),
             AdaptiveTextField(
                 controller: controller,
-                placeholder: context.l10n.aiClarificationCustomAnswer,
+                placeholder: context.l10n.typeYourOwnAnswer,
                 maxLines: 3),
             const SizedBox(height: 16),
             PrimaryAdaptiveButton(

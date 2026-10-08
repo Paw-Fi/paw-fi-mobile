@@ -120,6 +120,19 @@ extension AppColorScheme on ColorScheme {
       ? AppTheme.darkBackground
       : AppTheme.lightBackground;
 
+  List<Color> get seamlessHeaderBackdropGradient =>
+      brightness == Brightness.dark
+          ? recurringSummaryGradient
+          : [
+              const Color(0xFFDDE3EC).withValues(alpha: 0.38),
+              const Color(0xFFE5DDF2).withValues(alpha: 0.18),
+              surface.withValues(alpha: 0.0),
+            ];
+
+  Color get seamlessHeaderBackdropBorder => brightness == Brightness.dark
+      ? mutedForeground.withValues(alpha: 0.07)
+      : const Color(0xFF9AA3B3).withValues(alpha: 0.055);
+
   /// Bottom sheet and modal surface
   Color get sheetBackground => brightness == Brightness.dark
       ? AppTheme.darkSheetBg

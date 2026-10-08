@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
@@ -79,7 +78,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         retryCount == 0 &&
         !forceReload &&
         _activeLoadUserId == userId) {
-      debugPrint('[Analytics] Reusing in-flight load for $userId');
       return;
     }
 
@@ -89,8 +87,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
     final hydratedFromLocal = await hydrateFromLocalCache(userId);
     if (_loadOperationId != currentOperationId) {
-      debugPrint(
-          '[Analytics] Operation $currentOperationId superseded during local hydration');
       return;
     }
 
@@ -107,8 +103,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           hasLoadedOnce:
               true, // Mark as loaded so other providers don't wait forever
         );
-        debugPrint(
-            '[Analytics] Empty userId, setting error state with hasLoadedOnce=true');
+
         return;
       }
 
@@ -129,15 +124,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       List<DailyBudgetEntry> allBudgets = [];
 
       try {
-        debugPrint('[Analytics] Fetching via RPC (get_user_analytics_v2)...');
-        final stopwatch = Stopwatch()..start();
-
         final rpcResponse = await supabase.rpc('get_user_analytics_v2',
             params: {'p_user_id': userId}).timeout(_rpcTimeout);
-
-        stopwatch.stop();
-        debugPrint(
-            '[Analytics] RPC completed in ${stopwatch.elapsedMilliseconds}ms');
 
         if (rpcResponse != null) {
           final data = rpcResponse as Map<String, dynamic>;
@@ -166,53 +154,33 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           }
 
           rpcSucceeded = true;
-          debugPrint(
-            '[Analytics] RPC succeeded: ${rpcExpenses.length} expenses, ${allBudgets.length} budgets',
-          );
         }
       } catch (rpcError) {
-        debugPrint(
-            '[Analytics] RPC failed (will fallback to batched queries): $rpcError');
         // RPC might not be deployed yet - fall back to batched queries
       }
 
       // Use RPC data directly when available — eliminates redundant DB round-trip
       if (rpcSucceeded) {
         allExpenses = rpcExpenses;
-        debugPrint(
-          '[Analytics] Using RPC expenses as source of truth: ${allExpenses.length}',
-        );
       } else {
         // RPC failed — try direct DB fetch before falling back to batched queries
         try {
-          debugPrint('[Analytics] RPC failed, fetching expenses from DB...');
           final dbExpenses = await _loadExpensesFromDb(
             userId: userId,
             currentOperationId: currentOperationId,
           );
           allExpenses = dbExpenses;
-          debugPrint(
-            '[Analytics] DB expenses loaded: ${allExpenses.length}',
-          );
-        } catch (e) {
-          debugPrint('[Analytics] DB expenses load failed: $e');
-        }
+        } catch (e) {}
       }
 
       // Fallback to batched queries if RPC failed
       if (!rpcSucceeded && allExpenses.isEmpty) {
-        debugPrint('[Analytics] Using fallback batched queries...');
-        final fallbackStopwatch = Stopwatch()..start();
-
         try {
           final fallbackResult =
               await _loadDataWithBatchedQueries(userId, currentOperationId)
                   .timeout(_fallbackProcessTimeout);
 
           if (fallbackResult == null) {
-            debugPrint(
-                '[Analytics] Fallback returned null - operation superseded or failed');
-
             if (_loadOperationId == currentOperationId) {
               state = state.copyWith(
                 error: 'Failed to load analytics data',
@@ -223,28 +191,17 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             return;
           }
 
-          fallbackStopwatch.stop();
-          debugPrint(
-              '[Analytics] Fallback completed in ${fallbackStopwatch.elapsedMilliseconds}ms');
-
           fetchedContact = fallbackResult.contact;
           if (allExpenses.isEmpty) {
             allExpenses = fallbackResult.expenses;
           }
           allBudgets = fallbackResult.budgets;
         } on TimeoutException {
-          fallbackStopwatch.stop();
-          debugPrint(
-              '[Analytics] ❌ CRITICAL: Fallback timed out after ${_fallbackProcessTimeout.inSeconds}s!');
-          debugPrint(
-              '[Analytics] This suggests serious database or network issues');
           // Continue with empty data rather than hanging forever
           fetchedContact = null;
           allExpenses = [];
           allBudgets = [];
         } catch (e) {
-          fallbackStopwatch.stop();
-          debugPrint('[Analytics] ❌ Fallback failed with error: $e');
           fetchedContact = null;
           allExpenses = [];
           allBudgets = [];
@@ -253,8 +210,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
       // Check if this operation is still current
       if (_loadOperationId != currentOperationId) {
-        debugPrint(
-            '[Analytics] Operation $currentOperationId superseded before state update');
         return;
       }
 
@@ -280,28 +235,18 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         isLoading: false,
         hasLoadedOnce: true,
       );
-
-      debugPrint(
-          '✅ Analytics loaded: ${allExpenses.length} expenses, ${allBudgets.length} budgets');
     } catch (e) {
-      debugPrint('[Analytics] Error loading data: $e');
-
       // Check if this operation is still current
       if (_loadOperationId != currentOperationId) {
-        debugPrint(
-            '[Analytics] Operation $currentOperationId superseded during error handling');
         return;
       }
 
       // If we haven't exhausted retries, try again with exponential backoff
       if (retryCount < _maxRetries) {
         final backoffDelay = _baseRetryDelay * (1 << retryCount);
-        debugPrint(
-            '[Analytics] Scheduling retry ${retryCount + 1}/$_maxRetries after ${backoffDelay.inSeconds}s');
+
         await Future.delayed(backoffDelay);
         if (_loadOperationId != currentOperationId) {
-          debugPrint(
-              '[Analytics] Operation $currentOperationId superseded during error retry delay');
           return;
         }
         return loadData(userId, retryCount: retryCount + 1);
@@ -313,8 +258,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         isLoading: false,
         hasLoadedOnce: true,
       );
-      debugPrint(
-          '[Analytics] All retries exhausted, setting error state with hasLoadedOnce=true');
     } finally {
       if (_loadOperationId == currentOperationId) {
         _activeLoadUserId = null;
@@ -327,11 +270,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     String userId,
     int currentOperationId,
   ) async {
-    debugPrint('[Analytics] [FALLBACK] Starting batched query process...');
-
     // Fetch contacts with timeout
-    debugPrint('[Analytics] [FALLBACK] Fetching user contacts...');
-    final contactStopwatch = Stopwatch()..start();
 
     final contactsResponse = await supabase
         .from('user_contacts')
@@ -341,10 +280,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         .order('updated_at', ascending: false)
         .order('created_at', ascending: false)
         .timeout(const Duration(seconds: 5));
-
-    contactStopwatch.stop();
-    debugPrint(
-        '[Analytics] [FALLBACK] Contacts fetched in ${contactStopwatch.elapsedMilliseconds}ms');
 
     final contactsList =
         (contactsResponse as List).cast<Map<String, dynamic>>();
@@ -372,7 +307,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     // Fetch expenses
     List<ExpenseEntry> allExpenses = [];
     try {
-      debugPrint('[Analytics] 📊 Fetching expenses via batched DB query...');
       final rawExpenses = await _fetchExpensesInBatches(
         userId: userId,
         contactIds: contactIds,
@@ -381,28 +315,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         perBatchTimeout: _primaryQueryTimeout,
       );
       allExpenses = rawExpenses.map(ExpenseEntry.fromJson).toList();
-      debugPrint(
-          '[Analytics] ✅ Batched DB query succeeded: ${allExpenses.length} expenses');
-
-      // Log portfolio expenses specifically
-      final portfolioExpenses = allExpenses
-          .where((e) => e.householdId == 'a044d6af-d96a-4a6b-9c73-564dbe338d93')
-          .toList();
-      if (portfolioExpenses.isNotEmpty) {
-        debugPrint(
-            '[Analytics] 🎯 Portfolio expenses in results: ${portfolioExpenses.length}');
-        for (final exp in portfolioExpenses) {
-          debugPrint(
-              '[Analytics]   - ${exp.category}: ${exp.amount} ${exp.currency}');
-        }
-      } else {
-        debugPrint(
-            '[Analytics] ⚠️ No portfolio expenses found in final results');
-      }
     } catch (primaryError) {
-      debugPrint('[Analytics] Primary DB query failed: $primaryError');
       try {
-        debugPrint('[Analytics] Trying fallback batched query...');
         final fallbackRaw = await _fetchExpensesInBatches(
           userId: userId,
           contactIds: contactIds,
@@ -411,17 +325,13 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           perBatchTimeout: _fallbackQueryTimeout,
         );
         allExpenses = fallbackRaw.map(ExpenseEntry.fromJson).toList();
-        debugPrint(
-            '[Analytics] Fallback batched query succeeded: ${allExpenses.length} expenses');
       } catch (fallbackError) {
-        debugPrint('[Analytics] Fallback query also failed: $fallbackError');
         allExpenses = [];
       }
     }
 
     // Fetch budgets with timeout
-    debugPrint('[Analytics] [FALLBACK] Fetching budgets...');
-    final budgetStopwatch = Stopwatch()..start();
+
     List<DailyBudgetEntry> allBudgets = [];
     try {
       // If we have no contact IDs and no fetchedContact, we cannot
@@ -454,20 +364,12 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
             .map((b) => DailyBudgetEntry.fromJson(b as Map<String, dynamic>))
             .toList();
       }
-
-      budgetStopwatch.stop();
-      debugPrint(
-          '[Analytics] [FALLBACK] Budgets fetched in ${budgetStopwatch.elapsedMilliseconds}ms');
     } catch (budgetError) {
-      budgetStopwatch.stop();
-      debugPrint('[Analytics] [FALLBACK] Error fetching budgets: $budgetError');
       allBudgets = [];
     }
 
     // Check if operation is still current
     if (_loadOperationId != currentOperationId) {
-      debugPrint(
-          '[Analytics] Operation $currentOperationId superseded during batched queries');
       return null;
     }
 
@@ -513,7 +415,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       );
       return true;
     } catch (error) {
-      debugPrint('[Analytics] Local cache hydration failed: $error');
       return false;
     }
   }
@@ -534,16 +435,13 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         cacheable,
         syncStatus: localSyncStatusSynced,
       );
-    } catch (error) {
-      debugPrint('[Analytics] Failed to write local transaction cache: $error');
-    }
+    } catch (error) {}
   }
 
   Future<MonekoDatabase?> _localDatabaseOrNull() async {
     try {
       return await ref.read(localDatabaseProvider.future);
     } catch (error) {
-      debugPrint('[Analytics] Local database unavailable: $error');
       return null;
     }
   }
@@ -837,9 +735,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   /// was timing out on cold start because only user_contacts was warmed up.
   Future<void> _warmupConnection(String userId) async {
     try {
-      debugPrint('[Analytics] Warming up Supabase connection...');
-      final stopwatch = Stopwatch()..start();
-
       // Warmup both tables in parallel - this establishes connection paths
       // for both tables and primes the query planner
       await Future.wait([
@@ -865,14 +760,11 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       // This helps prevent race conditions on the first real query
       await Future.delayed(const Duration(milliseconds: 50));
 
-      stopwatch.stop();
       _connectionWarmedUp = true;
-      debugPrint(
-          '[Analytics] Connection warmed up in ${stopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       // If warmup fails, we'll still try the main query
       // The increased timeouts should handle it
-      debugPrint('[Analytics] Connection warmup failed (non-critical): $e');
+
       _connectionWarmedUp =
           true; // Mark as attempted to avoid repeated warmup failures
     }
@@ -888,12 +780,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     final results = <Map<String, dynamic>>[];
     int offset = 0;
     int batchNumber = 0;
-    final stopwatch = Stopwatch()..start();
 
     while (true) {
       if (batchNumber >= _maxExpenseBatches) {
-        debugPrint(
-            '[Analytics] Max expense batches ($_maxExpenseBatches) reached while fetching expenses');
         break;
       }
 
@@ -918,9 +807,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       await Future.delayed(_batchYieldDelay);
     }
 
-    stopwatch.stop();
-    debugPrint(
-        '[Analytics] Batched fetch completed in ${stopwatch.elapsedMilliseconds}ms across $batchNumber batches');
     return results;
   }
 
@@ -953,7 +839,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         .timeout(timeout);
     final results = (response as List).cast<Map<String, dynamic>>();
 
-    debugPrint('[Analytics] Batch $from-$to: ${results.length} expenses');
     return results;
   }
 

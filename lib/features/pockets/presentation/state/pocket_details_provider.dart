@@ -495,12 +495,7 @@ Future<List<PocketRolloverHistoryMonth>> _fetchPocketRolloverHistory({
         }..remove('p_budget_month'),
       );
     }
-  } catch (error, stackTrace) {
-    if (foundation.kDebugMode) {
-      foundation.debugPrint(
-        '[PocketDetails] Failed to load rollover history: $error\n$stackTrace',
-      );
-    }
+  } catch (error) {
     return const <PocketRolloverHistoryMonth>[];
   }
 
@@ -580,12 +575,7 @@ Future<PocketRolloverBreakdown?> _fetchPocketRolloverBreakdown({
     return PocketRolloverBreakdown.fromJson(
       Map<String, dynamic>.from(response),
     );
-  } catch (error, stackTrace) {
-    if (foundation.kDebugMode) {
-      foundation.debugPrint(
-        '[PocketDetails] Failed to load rollover breakdown: $error\n$stackTrace',
-      );
-    }
+  } catch (error) {
     return null;
   }
 }

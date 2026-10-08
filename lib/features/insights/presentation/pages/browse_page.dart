@@ -263,22 +263,16 @@ class _BrowsePageState extends ConsumerState<BrowsePage> {
       } else if (status.isGranted) {
         try {
           await ref.read(deviceRegistrationServiceProvider).initialize();
-        } catch (error) {
-          debugPrint('Error initializing notifications: $error');
-        }
+        } catch (error) {}
       } else {
         final newStatus = await Permission.notification.request();
         if (newStatus.isGranted) {
           try {
             await ref.read(deviceRegistrationServiceProvider).initialize();
-          } catch (error) {
-            debugPrint('Error initializing notifications: $error');
-          }
+          } catch (error) {}
         }
       }
-    } catch (error) {
-      debugPrint('Error handling notification toggle: $error');
-    }
+    } catch (error) {}
   }
 
   @override

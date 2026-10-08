@@ -22,8 +22,6 @@ class VersionService {
     try {
       // Dynamically detect platform
       final platform = Platform.isIOS ? 'ios' : 'android';
-      developer.log('Fetching version config for platform: $platform',
-          name: 'VersionService');
 
       final List<dynamic> response = await supabase
           .from('app_version_config')
@@ -33,17 +31,11 @@ class VersionService {
 
       // Safely parse list payload
       if (response.isEmpty) {
-        developer.log('No version config found in database',
-            name: 'VersionService');
         return null;
       }
 
       final first = response.first as Map<String, dynamic>;
       final config = AppVersionConfig.fromJson(first);
-      developer.log(
-        'Config loaded: latestVersion=${config.latestVersion}, forceUpdate=${config.forceUpdate}',
-        name: 'VersionService',
-      );
 
       return config;
     } catch (e) {
@@ -83,11 +75,6 @@ class VersionService {
     final currentVersion = await getCurrentVersion();
     // Using latestVersion as the minimum required version per new logic
     final comparison = compareVersions(currentVersion, config.latestVersion);
-
-    developer.log(
-      'Current: $currentVersion, Latest Required: ${config.latestVersion}, Update Required: ${comparison < 0}',
-      name: 'VersionService',
-    );
 
     return comparison <
         0; // Current version is older than latest (which is now properly enforced if forceUpdate is true)

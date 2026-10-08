@@ -83,7 +83,6 @@ final iosWalletCaptureSyncProvider =
         await drain(userId);
       }
     } catch (error) {
-      debugPrint('[WalletCapture] Pending sync will retry: $error');
     } finally {
       checkingPending = false;
     }

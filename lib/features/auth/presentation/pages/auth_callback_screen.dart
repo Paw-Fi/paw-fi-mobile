@@ -44,9 +44,7 @@ class AuthCallbackScreen extends HookConsumerWidget {
               if (refreshToken != null && refreshToken.isNotEmpty) {
                 try {
                   await supabase.auth.setSession(refreshToken);
-                } catch (e) {
-                  debugPrint('Failed to set session from callback: $e');
-                }
+                } catch (e) {}
               }
             }
           }
@@ -92,7 +90,6 @@ class AuthCallbackScreen extends HookConsumerWidget {
             }
           }
         } catch (error) {
-          debugPrint('OAuth callback processing error: $error');
           if (context.mounted) {
             context.go('/login');
             AppToast.error(
@@ -190,11 +187,7 @@ class AuthCallbackScreen extends HookConsumerWidget {
           'wallet_address': address,
           if (chain != null) 'chain': chain,
         }, onConflict: 'id');
-      } catch (e) {
-        debugPrint('⚠️ users upsert failed: $e');
-      }
-    } catch (e) {
-      debugPrint('⚠️ Web3 profile sync skipped: $e');
-    }
+      } catch (e) {}
+    } catch (e) {}
   }
 }

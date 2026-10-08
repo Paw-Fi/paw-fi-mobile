@@ -22,11 +22,12 @@ import 'package:moneko/features/home/presentation/state/budget_companion_provide
 import 'package:moneko/features/home/presentation/state/spending_daily_overview_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
+
 import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
@@ -56,8 +57,9 @@ class LazyDashboardBudgetHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final request = ref.watch(budgetCompanionRequestProvider);
     final headerData = ref.watch(budgetCompanionDataProvider.select(
-      (data) => (summary: data.summary, isRefreshing: data.isRefreshing),
+      (data) => (summary: data.summary, isRefreshing: data.isSummaryRefreshing),
     ));
+
     _ensureBudgetCompanionRecurringLoaded(ref);
     return DashboardBudgetHeader(
       key: ValueKey((request?.query, request?.pocketsScope)),
@@ -101,18 +103,22 @@ class LazyDashboardBudgetHeader extends ConsumerWidget {
 void _ensureBudgetCompanionRecurringLoaded(WidgetRef ref) {
   if (!ref.watch(previewModeProvider).isActive &&
       ref.watch(includeUpcomingRecurringInPocketsProvider)) {
-    final scope = ref.watch(householdScopeProvider);
-    _ensureRecurringTransactionsLoaded(
-        ref,
-        scope,
-        ref.watch(
-            recurringTransactionsProvider(scope.activeAccountHouseholdId)));
+    final householdId = ref.watch(householdScopeProvider
+        .select((scope) => scope.activeAccountHouseholdId));
+    final hasLoadedOnce = ref.watch(recurringTransactionsProvider(householdId)
+        .select((state) => state.hasLoadedOnce));
+    if (hasLoadedOnce) return;
+    _ensureRecurringTransactionsLoaded(ref, ref.read(householdScopeProvider),
+        ref.read(recurringTransactionsProvider(householdId)));
   }
 }
 
 void _retryBudgetCompanion(
     WidgetRef ref, BudgetCompanionRequest? request, BudgetCompanionData data) {
-  if (request == null) return;
+  if (request == null) {
+    ref.invalidate(dashboardUserContactProvider);
+    return;
+  }
   ref.invalidate(dashboardCalendarTransactionsProvider(request.query));
   final recurring =
       ref.read(recurringTransactionsProvider(request.query.householdId));
@@ -133,18 +139,7 @@ class LazyDashboardBudgetCompanionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final request = ref.watch(budgetCompanionRequestProvider);
     final data = ref.watch(budgetCompanionDataProvider);
-    logPreviewHomeLoading('companion-lazy-build', {
-      'preview': ref.read(previewModeProvider).isActive,
-      'requestPresent': request != null,
-      'scope': request?.pocketsScope.scope.name,
-      'mode': request?.mode.name,
-      'summaryLoading': data.summary.isLoading,
-      'summaryHasValue': data.summary.hasValue,
-      'summaryHasError': data.summary.hasError,
-      'categoriesLoading': data.categories.isLoading,
-      'categoriesHasValue': data.categories.hasValue,
-      'categoriesHasError': data.categories.hasError,
-    });
+
     _ensureBudgetCompanionRecurringLoaded(ref);
     return BudgetCompanionCard(
       key: ValueKey((request?.query, request?.pocketsScope)),
@@ -168,25 +163,6 @@ HomePeriodDateRange _selectedHomePeriodRange(WidgetRef ref) {
     return HomePeriodDateRange(start: now, end: now);
   }
   return ref.watch(homePeriodDateRangeProvider(userId));
-}
-
-void _homeSpendTrace(String _) {}
-
-double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
-  return entries.fold<double>(0, (sum, entry) {
-    final type = (entry.type ?? 'expense').toLowerCase();
-    if (type == 'income') return sum;
-    return sum + entry.amount.abs();
-  });
-}
-
-String _traceAmount(num value) => value.toStringAsFixed(2);
-
-String _traceDate(DateTime? value) {
-  if (value == null) return '<none>';
-  return '${value.year.toString().padLeft(4, '0')}-'
-      '${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
 }
 
 class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
@@ -215,15 +191,6 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         (!scope.hasSelectedHousehold ||
             (householdId != null &&
                 householdId != scope.activeAccountHouseholdId))) {
-      logPreviewHomeLoading('spending-lazy-skeleton', {
-        'reason': 'unresolved-or-mismatched-space',
-        'preview': ref.read(previewModeProvider).isActive,
-        'viewMode': scope.viewMode.name,
-        'hasSelectedHousehold': scope.hasSelectedHousehold,
-        'selectionLoading': scope.selected.isLoading,
-        'activeHousehold': scope.activeAccountHouseholdId ?? '<none>',
-        'widgetHousehold': householdId ?? '<none>',
-      });
       return _buildSpendingSkeleton(
           context, colorScheme, dateRange, currency, userNow);
     }
@@ -258,31 +225,9 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
           householdId: query.householdId);
     }
 
-    _homeSpendTrace(
-      'spending-build phase=precheck scope=${scope.activeAccountType.name} '
-      'household=${scope.activeAccountHouseholdId ?? '<personal>'} '
-      'currency=${selectedCurrency ?? '<none>'} '
-      'range=${_traceDate(range['from'])}..${_traceDate(range['to'])} '
-      'txLoading=${transactionsAsync.isLoading} txHasValue=${transactionsAsync.hasValue} '
-      'baseCount=${baseTransactions.length} baseTotal=${_traceAmount(_traceExpenseTotal(baseTransactions))} '
-      'overlayCount=${overlayTransactions.length} overlayTotal=${_traceAmount(_traceExpenseTotal(overlayTransactions))} '
-      'mergedActualCount=${transactions.length} mergedActualTotal=${_traceAmount(_traceExpenseTotal(transactions))} '
-      'recLoading=${recurringState.data.isLoading} recHasValue=${recurringState.data.hasValue} '
-      'recLoaded=${recurringState.hasLoadedOnce} recCount=${recurringState.data.valueOrNull?.length ?? 0} '
-      'recReady=${_isRecurringTransactionsReady(recurringState)} recError=${_hasRecurringTransactionsError(recurringState)}',
-    );
-
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      logPreviewHomeLoading('spending-lazy-skeleton', {
-        'reason': 'transactions-unresolved',
-        'preview': ref.read(previewModeProvider).isActive,
-        'household': query.householdId ?? '<personal>',
-        'start': query.startDate,
-        'end': query.endDate,
-      });
-      _homeSpendTrace('spending-render source=tx-skeleton');
       return _buildDashboardSwitcher(
         _buildSpendingSkeleton(
           context,
@@ -295,8 +240,6 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      _homeSpendTrace(
-          'spending-render source=tx-error error=${transactionsAsync.error}');
       return _buildDashboardSwitcher(
         _buildDashboardErrorCard(
           context,
@@ -317,12 +260,6 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     ));
     final overview = overviewAsync.valueOrNull;
     if (overview == null) {
-      logPreviewHomeLoading('spending-lazy-overview-missing', {
-        'preview': ref.read(previewModeProvider).isActive,
-        'loading': overviewAsync.isLoading,
-        'hasError': overviewAsync.hasError,
-        'render': overviewAsync.hasError ? 'error' : 'skeleton',
-      });
       return overviewAsync.hasError
           ? _buildDashboardErrorCard(
               context, colorScheme, context.l10n.errorLoadingDashboard,
@@ -345,18 +282,6 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
             ? const CurrencyRateTable(
                 baseCurrency: 'USD', rates: CurrencyRates.rates, isStale: true)
             : null;
-
-    _homeSpendTrace(
-      'spending-render source=data actualTotal=${_traceAmount(_traceExpenseTotal(transactions))} '
-      'actualCount=${transactions.length}',
-    );
-    logPreviewHomeLoading('spending-lazy-data', {
-      'preview': ref.read(previewModeProvider).isActive,
-      'rows': overview.transactions.length,
-      'previousLoading': overview.previousAverage.isLoading,
-      'previousHasValue': overview.previousAverage.hasValue,
-      'previousHasError': overview.previousAverage.hasError,
-    });
 
     return _buildDashboardSwitcher(
       buildSpendingCard(

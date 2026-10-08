@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/foundation.dart' as foundation;
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/constants/deep_links.dart';
@@ -22,17 +21,9 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/profile/domain/email_import_settings.dart';
 import 'package:moneko/features/profile/presentation/providers/email_import_settings_provider.dart';
-
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugPrint(String? message, {int? wrapWidth}) {
-  if (foundation.kDebugMode && _enableDebugLogs) {
-    foundation.debugPrint(message, wrapWidth: wrapWidth);
-  }
-}
 
 /// Deep link service that handles app links
 class DeepLinkService {
@@ -45,33 +36,30 @@ class DeepLinkService {
   final Set<String> _pendingSenderTokens = {};
   String? _activeSenderToken;
   bool _isSenderVerificationRunning = false;
+  String? _pendingSenderEmail;
+  bool _isSenderAddScheduled = false;
+  GoRouter? _senderAddRouter;
+  VoidCallback? _senderAddRouteListener;
+  final List<ProviderSubscription<dynamic>> _senderAddSubscriptions = [];
 
   /// Initialize the deep link listener
   Future<void> initialize(WidgetRef ref, BuildContext context) async {
-    _debugPrint('Initializing deep link service...');
-
     // Handle the initial link if the app was opened from a deep link
     try {
       final initialLink = await _appLinks.getInitialLink();
       if (initialLink != null) {
-        _debugPrint('🔗 Initial deep link received');
         // ignore: unawaited_futures
         _handleDeepLink(initialLink, ref);
       }
-    } catch (e) {
-      _debugPrint('❌ Error getting initial link');
-    }
+    } catch (e) {}
 
     // Subscribe to further deep link events
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) {
-        _debugPrint('🔗 Deep link received');
         // ignore: unawaited_futures
         _handleDeepLink(uri, ref);
       },
-      onError: (err) {
-        _debugPrint('❌ Deep link error');
-      },
+      onError: (err) {},
     );
   }
 
@@ -84,7 +72,23 @@ class DeepLinkService {
   /// Handle deep link navigation
   Future<void> _handleDeepLink(Uri uri, WidgetRef ref) async {
     // Only log deep link type, not sensitive parameters
-    _debugPrint('🔗 Handling deep link');
+
+    final senderEmail = DeepLinks.emailSenderToAdd(uri);
+    if (senderEmail != null && !_isDisposed) {
+      _pendingSenderEmail = senderEmail;
+      if (_senderAddRouter == null) {
+        _senderAddRouter = ref.read(routerProvider);
+        _senderAddRouteListener = () => _scheduleSenderAdd(ref);
+        _senderAddRouter!.routeInformationProvider
+            .addListener(_senderAddRouteListener!);
+        _senderAddSubscriptions.add(
+            ref.listenManual(authProvider, (_, __) => _scheduleSenderAdd(ref)));
+        _senderAddSubscriptions.add(ref.listenManual(
+            appLockControllerProvider, (_, __) => _scheduleSenderAdd(ref)));
+      }
+      _scheduleSenderAdd(ref);
+      return;
+    }
     final senderToken = DeepLinks.emailSenderVerificationToken(uri);
     if (senderToken != null) {
       if (senderToken != _activeSenderToken) {
@@ -93,14 +97,9 @@ class DeepLinkService {
       _consumeSenderVerification(ref);
       return;
     }
-    if (kDebugMode) {
-      _debugPrint(
-          '🔗 Query parameters present: ${uri.queryParameters.isNotEmpty}');
-    }
 
     // Handle Supabase OAuth callback: io.supabase.moneko://login-callback
     if (DeepLinks.isOAuthCallback(uri)) {
-      _debugPrint('🔐 Supabase OAuth callback received');
       // Don't log token presence - could leak info about auth state
 
       // Supabase auth tokens are in the URL fragment (#access_token=...)
@@ -117,7 +116,6 @@ class DeepLinkService {
 
     // Legacy OAuth callback support: moneko://auth/callback (kept for backward compatibility)
     if (DeepLinks.isLegacyOAuthCallback(uri)) {
-      _debugPrint('🔐 Legacy OAuth callback received');
       final navCtx = rootNavigatorKey.currentContext;
       if (navCtx?.mounted ?? false) {
         navCtx!.go('/auth/callback');
@@ -131,17 +129,11 @@ class DeepLinkService {
     }
 
     if (DeepLinks.isPlaidCallback(uri)) {
-      _debugPrint('🏦 Plaid deep link received');
-
       final params = uri.queryParameters;
       final errorCode = params['error_code'];
       final errorMessage = params['error_message'];
 
       // Only log non-sensitive status info
-      _debugPrint('🏦 Plaid callback status received');
-      if (errorCode != null) {
-        _debugPrint('🏦 Plaid callback contains error details');
-      }
 
       ref.invalidate(bankConnectionsProvider);
 
@@ -160,25 +152,21 @@ class DeepLinkService {
 
     // Widget quick actions: moneko://text, moneko://camera, moneko://pockets
     if (DeepLinks.isWidgetTextLink(uri)) {
-      _debugPrint('🧭 Widget deep link: text');
       ref.read(widgetLaunchProvider.notifier).state =
           const WidgetLaunchEvent(type: WidgetLaunchActionType.textInput);
       return;
     }
     if (DeepLinks.isWidgetCameraLink(uri)) {
-      _debugPrint('🧭 Widget deep link: camera');
       ref.read(widgetLaunchProvider.notifier).state =
           const WidgetLaunchEvent(type: WidgetLaunchActionType.cameraInput);
       return;
     }
     if (DeepLinks.isWidgetPocketsLink(uri)) {
-      _debugPrint('🧭 Widget deep link: pockets');
       ref.read(widgetLaunchProvider.notifier).state =
           const WidgetLaunchEvent(type: WidgetLaunchActionType.openPockets);
       return;
     }
     if (DeepLinks.isWidgetConfigureLink(uri)) {
-      _debugPrint('🧭 Widget deep link: configure');
       final widgetId = uri.queryParameters['widgetId'];
       if (widgetId != null) {
         ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchEvent(
@@ -200,7 +188,6 @@ class DeepLinkService {
     // Handle payment callback: moneko://payment?status=success/failed/canceled
     if (DeepLinks.isPaymentCallback(uri)) {
       final status = uri.queryParameters['status'];
-      _debugPrint('💳 Payment callback received');
 
       final sessionId = uri.queryParameters['session_id'];
 
@@ -225,9 +212,7 @@ class DeepLinkService {
                     'v': verificationNonce,
                 },
               );
-            } catch (e) {
-              _debugPrint('⚠️ verify-payment failed (best-effort)');
-            }
+            } catch (e) {}
           }
 
           // Poll because webhook + DB write can lag behind the redirect.
@@ -268,22 +253,17 @@ class DeepLinkService {
     if (DeepLinks.isWhatsAppVerification(uri)) {
       final otp = uri.queryParameters['otp'];
       // Don't log OTP - it's a secret
-      _debugPrint('📱 WhatsApp verification callback received');
 
       // Use global navigator key to get a valid context
       // This ensures the modal can be shown even when app comes from background
       final navigatorContext = rootNavigatorKey.currentContext;
 
       if (navigatorContext == null) {
-        _debugPrint('⚠️ Navigator context is null, waiting...');
         // Wait a bit longer and try again
         Future.delayed(const Duration(milliseconds: 1000), () {
           final retryContext = rootNavigatorKey.currentContext;
           if (retryContext != null && retryContext.mounted) {
-            _debugPrint('📱 Got context on retry, showing modal...');
             _showVerificationModal(retryContext, otp, ref);
-          } else {
-            _debugPrint('❌ Still no context after retry');
           }
         });
         return;
@@ -293,11 +273,9 @@ class DeepLinkService {
       Future.delayed(const Duration(milliseconds: 500), () {
         final delayedContext = rootNavigatorKey.currentContext;
         if (delayedContext == null || !delayedContext.mounted) {
-          _debugPrint('⚠️ Context lost after delay');
           return;
         }
 
-        _debugPrint('📱 Showing verification modal...');
         _showVerificationModal(delayedContext, otp, ref);
       });
       return;
@@ -306,19 +284,14 @@ class DeepLinkService {
     // Handle Telegram verification: moneko://verify-telegram?otp=123456
     if (DeepLinks.isTelegramVerification(uri)) {
       final otp = uri.queryParameters['otp'];
-      debugPrint('📱 Telegram verification callback received');
 
       final navigatorContext = rootNavigatorKey.currentContext;
 
       if (navigatorContext == null) {
-        debugPrint('⚠️ Navigator context is null, waiting...');
         Future.delayed(const Duration(milliseconds: 1000), () {
           final retryContext = rootNavigatorKey.currentContext;
           if (retryContext != null && retryContext.mounted) {
-            debugPrint('📱 Got context on retry, showing Telegram modal...');
             _showTelegramVerificationModal(retryContext, otp, ref);
-          } else {
-            debugPrint('❌ Still no context after retry');
           }
         });
         return;
@@ -327,15 +300,56 @@ class DeepLinkService {
       Future.delayed(const Duration(milliseconds: 500), () {
         final delayedContext = rootNavigatorKey.currentContext;
         if (delayedContext == null || !delayedContext.mounted) {
-          debugPrint('⚠️ Context lost after delay');
           return;
         }
 
-        debugPrint('📱 Showing Telegram verification modal...');
         _showTelegramVerificationModal(delayedContext, otp, ref);
       });
       return;
     }
+  }
+
+  void _scheduleSenderAdd(WidgetRef ref) {
+    if (_isDisposed || _pendingSenderEmail == null || _isSenderAddScheduled) {
+      return;
+    }
+    _isSenderAddScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isSenderAddScheduled = false;
+      if (_isDisposed || _pendingSenderEmail == null) return;
+      final context = rootNavigatorKey.currentContext;
+      if (context == null || !context.mounted) {
+        _scheduleSenderAdd(ref);
+        return;
+      }
+      final router = _senderAddRouter!;
+      final path = router.routeInformationProvider.value.uri.path;
+      if (ref.read(authProvider).isEmpty) {
+        if (path != '/login' &&
+            path != '/register' &&
+            !path.startsWith('/auth/')) {
+          router.go('/login');
+        }
+        return;
+      }
+      if (ref.read(appLockControllerProvider).shouldBlockApp ||
+          path == '/splash' ||
+          path == '/error' ||
+          path == '/onboarding' ||
+          path == '/avatar' ||
+          path == '/login' ||
+          path == '/register' ||
+          path.startsWith('/auth/') ||
+          path == '/app-lock') {
+        return;
+      }
+      final location = Uri(path: '/email-import-settings', queryParameters: {
+        'email': _pendingSenderEmail!,
+      }).toString();
+      _pendingSenderEmail = null;
+      router.push(location);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   Future<void> _consumeSenderVerification(WidgetRef ref) async {
@@ -440,7 +454,7 @@ class DeepLinkService {
       return false;
     }
     _pendingImportReview = null;
-    _debugPrint('Import review link received');
+
     context.push('/import-review/$reviewId', extra: secret);
     return true;
   }
@@ -452,8 +466,6 @@ class DeepLinkService {
       context,
       otpFromUrl: otp,
       onVerificationSuccess: () {
-        _debugPrint('✅ Verification success callback triggered');
-
         // Update WhatsApp binding status immediately without fetching from DB
         ref.read(whatsAppBindingProvider.notifier).setVerified();
 
@@ -469,7 +481,6 @@ class DeepLinkService {
       context,
       otpFromUrl: otp,
       onVerificationSuccess: () {
-        debugPrint('✅ Telegram verification success callback triggered');
         ref.read(telegramBindingProvider.notifier).setVerified();
         AppToast.success(context, context.l10n.telegramVerifiedSuccessfully);
       },
@@ -481,6 +492,15 @@ class DeepLinkService {
     _isDisposed = true;
     _pendingImportReview = null;
     _pendingSenderTokens.clear();
+    _pendingSenderEmail = null;
+    if (_senderAddRouteListener != null) {
+      _senderAddRouter?.routeInformationProvider
+          .removeListener(_senderAddRouteListener!);
+    }
+    for (final subscription in _senderAddSubscriptions) {
+      subscription.close();
+    }
+    _senderAddSubscriptions.clear();
     _linkSubscription?.cancel();
   }
 }

@@ -168,7 +168,6 @@ struct DataLoader {
             do {
                 pockets = try JSONDecoder().decode([PocketData].self, from: data)
             } catch {
-                print("Error decoding pockets: \(error)")
             }
         }
         

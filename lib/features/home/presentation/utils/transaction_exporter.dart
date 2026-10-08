@@ -33,9 +33,6 @@ Future<void> exportTransactionsAsExcelSheet(
   // Pre-calculate share origin before async gap
   final shareOrigin = _resolveShareOrigin(context);
 
-  debugPrint(
-      '[exportTransactionsAsExcelSheet] count=${expenses.length} web=$kIsWeb');
-
   try {
     final dataSource = TransactionExportDataSource(client);
     final exportExpenses = await dataSource.enrichExportExpenses(expenses);
@@ -67,10 +64,7 @@ Future<void> exportTransactionsAsExcelSheet(
         logPrefix: '[exportTransactionsAsExcelSheet]',
       );
     }
-  } catch (e, stack) {
-    debugPrint(
-      '[exportTransactionsAsExcelSheet] failed: $e\n$stack',
-    );
+  } catch (e) {
     if (context.mounted) {
       AppToast.error(
         context,
@@ -96,9 +90,6 @@ Future<void> exportAllTransactionsAsExcelSheet(
   }
 
   final shareOrigin = _resolveShareOrigin(context);
-
-  debugPrint(
-      '[exportAllTransactionsAsExcelSheet] count=${expenses.length} web=$kIsWeb');
 
   try {
     // NOTE: Receipt image downloads are temporarily disabled for export.
@@ -149,10 +140,7 @@ Future<void> exportAllTransactionsAsExcelSheet(
       );
     }
     // }
-  } catch (e, stack) {
-    debugPrint(
-      '[exportAllTransactionsAsExcelSheet] failed: $e\n$stack',
-    );
+  } catch (e) {
     if (context.mounted) {
       AppToast.error(
         context,
@@ -174,8 +162,6 @@ Future<void> exportAllReceiptsAsZip(
   }
 
   final shareOrigin = _resolveShareOrigin(context);
-
-  debugPrint('[exportAllReceiptsAsZip] count=${expenses.length} web=$kIsWeb');
 
   try {
     final receiptBundle = await _downloadReceiptImages(expenses);
@@ -206,8 +192,7 @@ Future<void> exportAllReceiptsAsZip(
         logPrefix: '[exportAllReceiptsAsZip]',
       );
     }
-  } catch (e, stack) {
-    debugPrint('[exportAllReceiptsAsZip] failed: $e\n$stack');
+  } catch (e) {
     if (context.mounted) {
       AppToast.error(
         context,
@@ -240,7 +225,6 @@ Future<ShareResult> _shareExcelBytes(
   final bytes = Uint8List.fromList(excelBytes);
 
   if (kIsWeb) {
-    debugPrint('$logPrefix sharing in web: $fileName');
     final result = await Share.shareXFiles(
       [
         XFile.fromData(
@@ -253,15 +237,14 @@ Future<ShareResult> _shareExcelBytes(
       subject: fileName,
       sharePositionOrigin: shareOrigin,
     );
-    debugPrint('$logPrefix share result: $result');
+
     return result;
   }
 
   final directory = await getTemporaryDirectory();
   final file = File('${directory.path}/$fileName');
-  debugPrint('$logPrefix temp file: ${file.path}');
+
   await file.writeAsBytes(bytes, flush: true);
-  debugPrint('$logPrefix share file');
 
   final result = await Share.shareXFiles(
     [
@@ -272,7 +255,7 @@ Future<ShareResult> _shareExcelBytes(
     subject: fileName,
     sharePositionOrigin: shareOrigin,
   );
-  debugPrint('$logPrefix share result: $result');
+
   return result;
 }
 
@@ -288,7 +271,6 @@ Future<ShareResult> _shareZipBytes(
   final bytes = Uint8List.fromList(zipBytes);
 
   if (kIsWeb) {
-    debugPrint('$logPrefix sharing in web: $fileName');
     final result = await Share.shareXFiles(
       [
         XFile.fromData(
@@ -300,15 +282,14 @@ Future<ShareResult> _shareZipBytes(
       subject: fileName,
       sharePositionOrigin: shareOrigin,
     );
-    debugPrint('$logPrefix share result: $result');
+
     return result;
   }
 
   final directory = await getTemporaryDirectory();
   final file = File('${directory.path}/$fileName');
-  debugPrint('$logPrefix temp file: ${file.path}');
+
   await file.writeAsBytes(bytes, flush: true);
-  debugPrint('$logPrefix share file');
 
   final result = await Share.shareXFiles(
     [
@@ -317,7 +298,7 @@ Future<ShareResult> _shareZipBytes(
     subject: fileName,
     sharePositionOrigin: shareOrigin,
   );
-  debugPrint('$logPrefix share result: $result');
+
   return result;
 }
 
@@ -326,7 +307,6 @@ void _showShareResultToast(
   ShareResult result, {
   required String logPrefix,
 }) {
-  debugPrint('$logPrefix handling share result status=${result.status}');
   switch (result.status) {
     case ShareResultStatus.success:
     case ShareResultStatus.unavailable:

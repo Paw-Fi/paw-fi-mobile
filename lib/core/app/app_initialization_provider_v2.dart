@@ -279,9 +279,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         storedCurrency = normalized;
       }
       storedCurrencies = await service.getSelectedCurrencies();
-    } catch (e) {
-      debugPrint('⚠️ [InitV2] Failed to load stored currency: $e');
-    }
+    } catch (e) {}
 
     final latestFilterState = ref.read(homeFilterProvider);
     final resolvedState = resolveInitializedCurrencyFilterState(
@@ -408,7 +406,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
           latestContact = Map<String, dynamic>.from(response);
         }
       } catch (error) {
-        debugPrint('⚠️ [InitV2] Failed to verify preferred currency: $error');
         return;
       }
 
@@ -447,11 +444,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         await ref
             .read(currencyPreferenceServiceProvider)
             .setSelectedCurrency(fallbackCurrency);
-      } catch (error) {
-        debugPrint(
-          '⚠️ [InitV2] Failed to backfill preferred currency during init: $error',
-        );
-      }
+      } catch (error) {}
     }));
   }
 
@@ -472,12 +465,8 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       final auth = ref.read(authProvider);
       final userId = auth.isEmpty ? null : auth.uid;
 
-      debugPrint(
-          '🚀 [InitV2] Starting initialization (user: ${userId != null ? 'present' : 'null'}, version: $_appVersion)');
-
       // If not authenticated, mark as initialized immediately
       if (userId == null) {
-        debugPrint('👋 [InitV2] No authenticated user, skipping data load');
         stopwatch.stop();
         state = state.copyWith(
           state: AppInitState.initialized,
@@ -524,17 +513,9 @@ class AppInitializationV2 extends _$AppInitializationV2 {
             data: initData,
             clearError: true,
           );
-
-          debugPrint(
-              '✅ [InitV2] Loaded from cache (${stopwatch.elapsedMilliseconds}ms)');
-          debugPrint(
-              '📊 [InitV2] Cache age: ${_cacheManager?.getCacheAge()?.toStringAsFixed(1)}h');
         } catch (e) {
-          debugPrint('⚠️ [InitV2] Failed to parse cached data: $e');
           // Continue to fresh fetch if cache is corrupted
         }
-      } else {
-        debugPrint('📭 [InitV2] No valid cache found, will fetch fresh data');
       }
 
       // STEP 2: Fetch fresh data in background
@@ -543,12 +524,10 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       stopwatch.stop();
 
       if (_operationId != operationId) {
-        debugPrint('⚠️ [InitV2] Operation $operationId superseded during init');
         return;
       }
 
       _recordError(e, stackTrace, stopwatch.elapsed);
-      debugPrint('❌ [InitV2] Initialization failed: $e');
     }
   }
 
@@ -556,18 +535,10 @@ class AppInitializationV2 extends _$AppInitializationV2 {
   Future<void> _fetchFreshData(
       String userId, int operationId, Stopwatch stopwatch) async {
     try {
-      debugPrint('🌐 [InitV2] Fetching fresh data from backend...');
-      final fetchStopwatch = Stopwatch()..start();
-
       // Single optimized RPC call for all init data
       final response = await _initializeRpcWithRetry(userId, operationId);
 
-      fetchStopwatch.stop();
-      debugPrint(
-          '✅ [InitV2] Backend responded in ${fetchStopwatch.elapsedMilliseconds}ms');
-
       if (_operationId != operationId) {
-        debugPrint('⚠️ [InitV2] Operation $operationId superseded after fetch');
         return;
       }
 
@@ -596,11 +567,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         clearError: true,
       );
 
-      debugPrint(
-          '✅ [InitV2] Initialization complete (${stopwatch.elapsedMilliseconds}ms total)');
-      debugPrint(
-          '📊 [InitV2] User: ${initData.user != null ? 'present' : 'null'}, Subscription: ${initData.subscription?.plan}, Households: ${initData.households.length}');
-
       // Save to cache for next startup
       if (_cacheManager != null && _appVersion != null) {
         unawaited(_cacheManager!.save(initData.toJson(), _appVersion!));
@@ -609,8 +575,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       // Record metrics
       _recordSuccessMetrics(stopwatch.elapsed, initData);
 
-      debugPrint(
-          '🏠 [InitV2] Loading households and initializing selected household...');
       ref.read(preloadedUserHouseholdsProvider(userId).notifier).state =
           initData.households;
       ref
@@ -619,7 +583,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       final householdsState = ref.read(userHouseholdsProvider(userId));
       final households = initData.households;
       if (!householdsState.hasError && households.isEmpty) {
-        debugPrint('📭 [InitV2] No households found for user after init');
         // Ensure scope defaults to personal when there are no spaces/accounts.
         // This prevents filtering out personal data due to a persisted household view mode.
         await ref.read(selectedHouseholdProvider.notifier).clearSelection();
@@ -632,11 +595,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
           await ref
               .read(selectedHouseholdProvider.notifier)
               .initialize(preloadedHouseholds: households);
-          debugPrint(
-              '✅ [InitV2] Selected household reconciled from fresh metadata');
-        } else {
-          debugPrint(
-              '⚠️ [InitV2] Households failed to load; keeping previous scope');
         }
       }
     } on TimeoutException {
@@ -646,8 +604,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
 
       // If we have cached data, just log the timeout and continue with cache
       if (state.data != null) {
-        debugPrint(
-            '⚠️ [InitV2] Fresh fetch timed out, continuing with cached data');
         _recordTimeoutWithCache(stopwatch.elapsed);
         return;
       }
@@ -662,8 +618,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         StackTrace.current,
         stopwatch.elapsed,
       );
-      debugPrint(
-          '❌ [InitV2] Critical: Fresh fetch timed out with no cache fallback');
     } catch (e, stackTrace) {
       stopwatch.stop();
 
@@ -671,8 +625,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
 
       // If we have cached data, log error but continue with cache
       if (state.data != null) {
-        debugPrint(
-            '⚠️ [InitV2] Fresh fetch failed, continuing with cached data: $e');
         _recordFetchErrorWithCache(e, stopwatch.elapsed);
         return;
       }
@@ -680,14 +632,11 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       // No cached data - move to failed state but avoid Crashlytics for network errors
       if (_isNetworkError(e)) {
         _setFailedState(e, stackTrace, stopwatch.elapsed);
-        debugPrint(
-            '❌ [InitV2] Critical (network): Fresh fetch failed with no cache fallback: $e');
+
         return;
       }
 
       _recordError(e, stackTrace, stopwatch.elapsed);
-      debugPrint(
-          '❌ [InitV2] Critical: Fresh fetch failed with no cache fallback: $e');
     }
   }
 
@@ -711,11 +660,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       }
 
       try {
-        if (attempt > 1) {
-          debugPrint(
-              '🔁 [InitV2] Retrying initialize_app_v2 (attempt $attempt/$_initRpcMaxAttempts)');
-        }
-
         final attemptStopwatch = Stopwatch()..start();
 
         final response = await supabase.rpc('initialize_app_v2',
@@ -760,8 +704,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
           DateTime.now().microsecondsSinceEpoch.remainder(250); // 0..249
       final backoff = _initRpcBaseRetryDelay * (1 << (attempt - 1));
       final delay = backoff + Duration(milliseconds: jitterMs);
-      debugPrint(
-          '⏳ [InitV2] Waiting ${delay.inMilliseconds}ms before retry (last error: ${lastError.runtimeType})');
+
       await Future.delayed(delay);
     }
 
@@ -882,7 +825,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
 
   /// Reset and re-initialize (e.g., after login/logout)
   void reset() {
-    debugPrint('🔄 [InitV2] Resetting initialization');
     _operationId++;
     state = const AppInitializationState(state: AppInitState.initializing);
     _initialize();
@@ -890,14 +832,12 @@ class AppInitializationV2 extends _$AppInitializationV2 {
 
   /// Clear cache and re-initialize
   Future<void> clearCacheAndReset() async {
-    debugPrint('🗑️ [InitV2] Clearing cache and resetting');
     await _cacheManager?.clear();
     reset();
   }
 
   /// Clear cache on logout
   Future<void> onLogout() async {
-    debugPrint('👋 [InitV2] User logged out, clearing cache');
     await _cacheManager?.clear();
     _operationId++;
     state = const AppInitializationState(state: AppInitState.uninitialized);

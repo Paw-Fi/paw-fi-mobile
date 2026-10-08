@@ -4,9 +4,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/widgets/budget_companion_card.dart';
 import 'package:moneko/features/home/presentation/widgets/dashboard_budget_header.dart';
+import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 String? _assetName(Image image) {
@@ -88,6 +91,80 @@ Future<void> _pump(
 }
 
 void main() {
+  testWidgets('category refresh and identical totals do not rebuild the header',
+      (tester) async {
+    final data = StateProvider<BudgetCompanionData>((ref) => _data());
+    final container = ProviderContainer(overrides: [
+      budgetCompanionDataProvider.overrideWith((ref) => ref.watch(data)),
+      budgetCompanionRequestProvider.overrideWithValue(BudgetCompanionRequest(
+        query: DashboardScopeQuery(
+            userId: 'user-1',
+            householdId: null,
+            selectedCurrency: 'USD',
+            startDate: DateTime(2026, 10),
+            endDate: DateTime(2026, 10, 31)),
+        pocketsScope: PocketsScopeParams(
+            scope: PocketsScopeType.personal,
+            periodMonth: DateTime(2026, 10),
+            currency: 'USD'),
+        mode: HomePeriodMode.monthly,
+        currency: 'USD',
+      )),
+      includeUpcomingRecurringInPocketsProvider.overrideWith((ref) => false),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(
+          body: SingleChildScrollView(child: LazyDashboardBudgetHeader()),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final finder = find.byType(DashboardBudgetHeader);
+    final initialWidget = tester.widget<DashboardBudgetHeader>(finder);
+    final initialElement = tester.element(finder);
+    final cached = _data();
+    for (var index = 0; index < 3; index++) {
+      container.read(data.notifier).state = BudgetCompanionData(
+        // Fresh but equal summaries must not replay the page header.
+        summary: _data().summary,
+        categories: const AsyncLoading<List<BudgetCompanionCategory>>()
+            .copyWithPrevious(cached.categories, isRefresh: false),
+        isRefreshing: true,
+      );
+      await tester.pump();
+      expect(tester.widget<DashboardBudgetHeader>(finder), same(initialWidget));
+      expect(
+          tester.widget<DashboardBudgetHeader>(finder).isRefreshing, isFalse);
+      container.read(data.notifier).state = _data();
+      await tester.pump();
+      expect(tester.widget<DashboardBudgetHeader>(finder), same(initialWidget));
+    }
+    container.read(data.notifier).state = BudgetCompanionData(
+      summary: const AsyncLoading<BudgetCompanionSummary>()
+          .copyWithPrevious(cached.summary, isRefresh: false),
+      categories: cached.categories,
+      isRefreshing: true,
+    );
+    await tester.pump();
+    expect(tester.widget<DashboardBudgetHeader>(finder).isRefreshing, isTrue);
+    expect(tester.element(finder), same(initialElement));
+    expect(find.byType(DashboardBudgetHeaderSkeleton), findsNothing);
+    container.read(data.notifier).state = _data(spent: 1900);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DashboardBudgetHeader>(finder).isRefreshing, isFalse);
+    expect(
+        tester.widget<DashboardBudgetHeader>(finder).summary.requireValue.spent,
+        1900);
+    expect(tester.element(finder), same(initialElement));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('page header renders independently of the category card',
       (tester) async {
     await _pump(tester, _data(), includeCategories: false);

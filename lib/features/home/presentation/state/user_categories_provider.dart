@@ -1,5 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/foundation.dart';
+
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
@@ -402,10 +402,7 @@ Future<String?> createUserCustomCategory({
     );
     final data = response.data;
     if (data is Map && data['success'] != true) return null;
-  } catch (error, stackTrace) {
-    debugPrint(
-      '[createUserCustomCategory] RPC failed: $error\n$stackTrace',
-    );
+  } catch (error) {
     return null;
   }
 
@@ -440,8 +437,7 @@ Future<bool> setUserCategoryHidden({
     );
     final data = response.data;
     if (data is Map && data['success'] != true) return false;
-  } catch (error, stackTrace) {
-    debugPrint('[setUserCategoryHidden] RPC failed: $error\n$stackTrace');
+  } catch (error) {
     return false;
   }
 
@@ -473,8 +469,7 @@ Future<bool> deleteUserCustomCategory({
     );
     final data = response.data;
     if (data is Map && data['success'] != true) return false;
-  } catch (error, stackTrace) {
-    debugPrint('[deleteUserCustomCategory] RPC failed: $error\n$stackTrace');
+  } catch (error) {
     return false;
   }
 
@@ -513,8 +508,7 @@ Future<bool> upsertUserCustomCategory({
     );
     final data = response.data;
     if (data is Map && data['success'] != true) return false;
-  } catch (error, stackTrace) {
-    debugPrint('[upsertUserCustomCategory] RPC failed: $error\n$stackTrace');
+  } catch (error) {
     return false;
   }
 
@@ -552,8 +546,7 @@ Future<bool> setUserCustomCategoryStyle({
     );
     final data = response.data;
     if (data is Map && data['success'] != true) return false;
-  } catch (error, stackTrace) {
-    debugPrint('[setUserCustomCategoryStyle] RPC failed: $error\n$stackTrace');
+  } catch (error) {
     return false;
   }
 
@@ -614,14 +607,9 @@ Future<bool> renameUserCustomCategory({
     );
     final data = response.data;
     if (data is Map && data['success'] != true) {
-      debugPrint(
-        '[renameUserCustomCategory] Edge function returned unsuccessful response: $data',
-      );
       return false;
     }
-  } catch (error, stackTrace) {
-    debugPrint(
-        '[renameUserCustomCategory] Edge function failed: $error\n$stackTrace');
+  } catch (error) {
     return false;
   }
 

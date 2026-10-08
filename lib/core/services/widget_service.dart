@@ -23,9 +23,7 @@ class WidgetService {
         'selected_widget_currency',
         normalizeHomeWidgetCurrency(currency),
       );
-    } catch (e) {
-      debugPrint('Error saving selected widget currency: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> reloadWidgets() async {
@@ -81,11 +79,7 @@ class WidgetService {
       if (shouldReloadWidgets) {
         await reloadWidgets();
       }
-
-      debugPrint('✅ Widget data updated: $spentStr / $budgetStr');
-    } catch (e) {
-      debugPrint('❌ Failed to update widget data: $e');
-    }
+    } catch (e) {}
   }
 
   /// Updates the widget data for a specific scope and currency
@@ -121,9 +115,7 @@ class WidgetService {
       if (shouldReloadWidgets) {
         await reloadWidgets();
       }
-    } catch (e) {
-      debugPrint('Error updating widget data for $scopeId/$currency: $e');
-    }
+    } catch (e) {}
   }
 
   /// Saves a separate list of \"top categories\" pockets for a scope/currency.
@@ -145,9 +137,7 @@ class WidgetService {
       if (shouldReloadWidgets) {
         await reloadWidgets();
       }
-    } catch (e) {
-      debugPrint('Error saving top categories for $scopeId/$currency: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> saveConfigurationOptions({
@@ -170,9 +160,7 @@ class WidgetService {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
         await _shortcutChannel.invokeMethod<void>('refreshDestinationCatalog');
       }
-    } catch (e) {
-      debugPrint('Error saving config options: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> saveWidgetConfiguration({
@@ -191,9 +179,7 @@ class WidgetService {
 
       // Trigger update so the widget re-reads the config and loads the correct data
       await reloadWidgets();
-    } catch (e) {
-      debugPrint('Error saving widget config: $e');
-    }
+    } catch (e) {}
   }
 }
 

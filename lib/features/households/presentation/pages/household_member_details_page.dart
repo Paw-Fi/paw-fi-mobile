@@ -1006,7 +1006,6 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
       return response?['avatar_url'] as String?;
     } catch (e) {
-      debugPrint('Error fetching user avatar: $e');
       return null;
     }
   }
@@ -1036,7 +1035,6 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
 
   //     return response == null; // Can send if no recent reminder found
   //   } catch (e) {
-  //     debugPrint('Error in _canSendReminder: $e');
   //     return true; // Allow on error
   //   }
   // }
@@ -1345,7 +1343,6 @@ class _ReminderModalContentState extends State<_ReminderModalContent> {
         throw Exception('Failed to send reminder');
       }
     } catch (e) {
-      debugPrint('Error sending reminder: $e');
       if (mounted) Navigator.of(context).pop();
       if (widget.parentContext.mounted) {
         AppToast.error(widget.parentContext,

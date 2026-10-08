@@ -3638,9 +3638,9 @@
   "emailSenderVerificationDescription": "ہم اس پتے پر تصدیقی لنک بھیجیں گے۔ رسیدیں تب درآمد ہوں گی جب میل باکس کا مالک اس اکاؤنٹ کو اجازت دے گا۔",
   "notificationRepairProcessing": "پش نوٹیفکیشنز کی جانچ ہو رہی ہے…",
   "emailFileImportAccountEmailAlreadyIncluded": "آپ کے Moneko اکاؤنٹ کی ای میل پہلے ہی مجاز بھیجنے والوں میں شامل ہے۔ اسے دوبارہ شامل کرنے کی ضرورت نہیں۔",
-  "aiClarificationNotSaved": "ان تفصیلات کی تصدیق کے بعد یہ محفوظ ہو جائیں گی۔",
+  "aiClarificationNotSaved": "تصدیق کرنے کے بعد یہ تفصیلات محفوظ ہو جائیں گی۔",
   "aiClarificationCustomAnswer": "اپنا جواب لکھیں",
-  "aiInputSavedForLater": "درج کی گئی معلومات اس ڈیوائس پر محفوظ کر دی گئی ہیں۔ انٹرنیٹ سے منسلک ہو کر Moneko کھولنے پر تجزیہ جاری ہو جائے گا۔",
+  "aiInputSavedForLater": "آپ کی معلومات اس ڈیوائس پر محفوظ ہو گئی ہیں۔ انٹرنیٹ سے منسلک ہونے کے بعد Moneko کھولیں، تجزیہ دوبارہ جاری ہو جائے گا۔",
   "unlockMonekoPlus": "Moneko Plus ان لاک کریں",
   "unlimitedAiExpenseCapture": "AI کے ذریعے لامحدود اخراجات ریکارڈ کریں",
   "unlimitedSpacesWallets": "لامحدود Spaces اور والیٹس",
@@ -3691,5 +3691,9 @@
   "budgetCompanionPlanning5": "پیسے کہاں جا رہے ہیں؟",
   "budgetCompanionPlanning6": "آج ہی ریکارڈ کرنا شروع کریں!",
   "budgetCompanionPlanning7": "آپ کا پلان یہاں سے شروع ہوتا ہے!",
-  "budgetCompanionPlanning8": "چھوٹے قدم، بڑی کامیابیاں!"
+  "budgetCompanionPlanning8": "چھوٹے قدم، بڑی کامیابیاں!",
+  "typeYourOwnAnswer": "اپنا جواب لکھیں",
+  "aiClarificationError": "{error}\nتصدیق کرنے کے بعد یہ تفصیلات محفوظ ہو جائیں گی۔",
+  "senderAccountConfirmation": "آپ اس بھیجنے والے کو اپنے Moneko اکاؤنٹ ({accountEmail}) میں شامل کر رہے ہیں۔ ہم بھیجنے والے کے ای میل پتے پر تصدیقی لنک بھیجیں گے۔ رسیدیں صرف بھیجنے والے کی تصدیق کے بعد درآمد کی جائیں گی۔",
+  "previouslyForwardedAttachmentNotice": "اگر آپ پہلے ہی کوئی اٹیچمنٹ فارورڈ کر چکے ہیں تو اس بھیجنے والے کی منظوری اور تصدیق کے بعد اسے دوبارہ فارورڈ کرنا ہوگا۔ پہلے فارورڈ کی گئی اٹیچمنٹس خودکار طور پر درآمد نہیں ہوں گی۔"
 }

@@ -46,23 +46,18 @@ import app_links
     openURLContexts URLContexts: Set<UIOpenURLContext>
   ) {
     for context in URLContexts {
-      forward(url: context.url, source: "scene-url")
+      forward(url: context.url)
     }
   }
 
   // Forward universal links to the same app_links stream.
   func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
     if let url = userActivity.webpageURL {
-      forward(url: url, source: "scene-activity")
+      forward(url: url)
     }
   }
 
-  private func forward(url: URL, source: String) {
-    var description = "scheme=\(url.scheme ?? ""), host=\(url.host ?? ""), path=\(url.path)"
-    if url.query != nil || url.fragment != nil {
-      description += ", hasQueryOrFragment=true"
-    }
-    print("[GoogleOAuth] iOS scene URL received (\(source)): \(description)")
+  private func forward(url: URL) {
     AppLinks.shared.handleLink(url: url)
   }
 }

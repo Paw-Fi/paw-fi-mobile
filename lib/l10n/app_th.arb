@@ -3709,7 +3709,7 @@
   "emailSenderVerificationDescription": "เราจะส่งลิงก์ยืนยันไปยังอีเมลนี้ ระบบจะนำเข้าใบเสร็จหลังจากเจ้าของกล่องจดหมายอนุญาตบัญชีนี้แล้ว",
   "notificationRepairProcessing": "กำลังตรวจสอบการแจ้งเตือนแบบพุช…",
   "emailFileImportAccountEmailAlreadyIncluded": "อีเมลบัญชี Moneko ของคุณอยู่ในรายชื่อผู้ส่งที่อนุญาตแล้ว ไม่ต้องเพิ่มอีกครั้ง",
-  "aiClarificationNotSaved": "รายละเอียดเหล่านี้จะถูกบันทึกหลังจากคุณยืนยัน",
+  "aiClarificationNotSaved": "รายละเอียดเหล่านี้จะถูกบันทึกเมื่อคุณยืนยัน",
   "aiClarificationCustomAnswer": "พิมพ์คำตอบของคุณเอง",
   "aiInputSavedForLater": "บันทึกข้อมูลไว้ในอุปกรณ์นี้แล้ว การวิเคราะห์จะดำเนินต่อเมื่อคุณเปิด Moneko ขณะเชื่อมต่ออินเทอร์เน็ต",
   "unlockMonekoPlus": "ปลดล็อก Moneko Plus",
@@ -3762,5 +3762,9 @@
   "budgetCompanionPlanning5": "เงินไปไหนบ้าง?",
   "budgetCompanionPlanning6": "เริ่มติดตามวันนี้เลย!",
   "budgetCompanionPlanning7": "แผนของคุณเริ่มตรงนี้!",
-  "budgetCompanionPlanning8": "ก้าวเล็ก ๆ สู่ผลลัพธ์ใหญ่!"
+  "budgetCompanionPlanning8": "ก้าวเล็ก ๆ สู่ผลลัพธ์ใหญ่!",
+  "typeYourOwnAnswer": "พิมพ์คำตอบของคุณ",
+  "aiClarificationError": "{error}\nรายละเอียดเหล่านี้จะถูกบันทึกเมื่อคุณยืนยัน",
+  "senderAccountConfirmation": "คุณกำลังเพิ่มผู้ส่งรายนี้ในบัญชี Moneko ของคุณ ({accountEmail}) เราจะส่งลิงก์ยืนยันไปยังอีเมลของผู้ส่ง ใบเสร็จจะถูกนำเข้าเมื่อคุณยืนยันผู้ส่งแล้วเท่านั้น",
+  "previouslyForwardedAttachmentNotice": "หากคุณเคยส่งต่อไฟล์แนบมาแล้ว โปรดส่งไฟล์แนบนั้นอีกครั้งหลังจากอนุมัติและยืนยันผู้ส่งรายนี้ ไฟล์แนบที่ส่งมาก่อนหน้านี้จะไม่ถูกนำเข้าโดยอัตโนมัติ"
 }

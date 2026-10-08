@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' as foundation;
+
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -111,7 +111,6 @@ Future<void> _retryCurrencySelectionSync({
       AppToast.success(toastContext, successMessage);
     }
   } catch (error) {
-    debugPrint('Failed to retry preferred currency update: $error');
     if (toastContext.mounted) {
       AppToast.error(toastContext, retryFailedMessage);
     }
@@ -172,9 +171,7 @@ class _CurrencySelectorScreenState
           _selectedCurrencies = selectedCurrencies;
         });
       }
-    } catch (e) {
-      debugPrint('Error loading currency preferences: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> _saveCustomOrder(List<String> order) async {
@@ -188,9 +185,7 @@ class _CurrencySelectorScreenState
           _stableCurrencyCodes = order;
         });
       }
-    } catch (e) {
-      debugPrint('Error saving currency order: $e');
-    }
+    } catch (e) {}
   }
 
   void _initializeStableCurrencyList(List<CurrencySummary> activeCurrencies,
@@ -306,8 +301,6 @@ class _CurrencySelectorScreenState
     try {
       await _syncPreferredCurrencyOnBackend(resolvedPrimary, context);
     } catch (error) {
-      debugPrint('Failed to update preferred currency on backend: $error');
-
       if (previousCurrency != null) {
         await _applyLocalCurrencySelection(
           container,
@@ -380,11 +373,6 @@ class _CurrencySelectorScreenState
         (summaryCurrencyCounts.isNotEmpty
             ? summaryCurrencyCounts
             : const <String, int>{});
-    if (foundation.kDebugMode) {
-      foundation.debugPrint(
-        '[CurrencySelector][Modal] build summariesLoading=${summariesAsync.isLoading} countsLoading=${currencyCountsAsync.isLoading} hasError=${summariesAsync.hasError || currencyCountsAsync.hasError} summaryCount=${summaries.length} selected=${filterState.selectedCurrency ?? '<none>'} counts=$currencyCounts summaryCounts=$summaryCurrencyCounts summaryError=${summariesAsync.error ?? '<none>'} countsError=${currencyCountsAsync.error ?? '<none>'}',
-      );
-    }
 
     // Get all supported currencies from backend
     final currencyOptions = getAvailableCurrencyOptions();

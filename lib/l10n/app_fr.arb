@@ -3692,9 +3692,9 @@
   "emailSenderVerificationDescription": "Nous enverrons un lien de vérification à cette adresse. Les reçus seront importés une fois que le propriétaire de la boîte mail aura autorisé ce compte.",
   "notificationRepairProcessing": "Vérification des notifications push…",
   "emailFileImportAccountEmailAlreadyIncluded": "L'adresse e-mail de votre compte Moneko figure déjà parmi les expéditeurs autorisés. Inutile de l'ajouter à nouveau.",
-  "aiClarificationNotSaved": "Ces informations seront enregistrées une fois que vous les aurez confirmées.",
+  "aiClarificationNotSaved": "Ces informations seront enregistrées une fois confirmées.",
   "aiClarificationCustomAnswer": "Saisissez votre propre réponse",
-  "aiInputSavedForLater": "Saisie enregistrée sur cet appareil. L'analyse reprendra lorsque vous ouvrirez Moneko avec une connexion Internet.",
+  "aiInputSavedForLater": "La saisie a été enregistrée sur cet appareil. L'analyse reprendra lorsque tu ouvriras Moneko avec une connexion Internet.",
   "unlockMonekoPlus": "Débloquez Moneko Plus",
   "unlimitedAiExpenseCapture": "Saisie illimitée des dépenses avec l'IA",
   "unlimitedSpacesWallets": "Spaces et portefeuilles illimités",
@@ -3745,5 +3745,9 @@
   "budgetCompanionPlanning5": "Où part ton argent ?",
   "budgetCompanionPlanning6": "Commence à suivre aujourd'hui !",
   "budgetCompanionPlanning7": "Ton plan commence ici !",
-  "budgetCompanionPlanning8": "Petits pas, grandes victoires !"
+  "budgetCompanionPlanning8": "Petits pas, grandes victoires !",
+  "typeYourOwnAnswer": "Saisis ta propre réponse",
+  "aiClarificationError": "{error}\nCes informations seront enregistrées une fois confirmées.",
+  "senderAccountConfirmation": "Tu ajoutes cet expéditeur à ton compte Moneko ({accountEmail}). Nous enverrons un lien de vérification à son adresse e-mail. Les reçus ne seront importés qu'après vérification de l'expéditeur.",
+  "previouslyForwardedAttachmentNotice": "Si tu as déjà transféré une pièce jointe, tu devras la transférer à nouveau après avoir approuvé et vérifié cet expéditeur. Les pièces jointes déjà transférées ne seront pas importées automatiquement."
 }

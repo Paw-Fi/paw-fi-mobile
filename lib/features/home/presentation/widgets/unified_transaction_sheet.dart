@@ -8,7 +8,7 @@ import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart' as foundation;
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
@@ -52,7 +52,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -78,9 +78,6 @@ import 'package:moneko/shared/widgets/merchant_logo.dart';
 import 'package:moneko/features/home/presentation/pages/merchant_selection_page.dart';
 import 'package:moneko/features/home/presentation/pages/merchant_bulk_update_page.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
-
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
 
 /// Format date with relative terms
 String _formatRelativeDate(
@@ -235,12 +232,6 @@ class _UnifiedTransactionSheetV2State
   bool _editedMerchantEvidenceAllowsStructuredLearning = false;
   bool _hasEditedMerchantIdentity = false;
 
-  void debugPrint(String? message, {int? wrapWidth}) {
-    if (foundation.kDebugMode && _enableDebugLogs) {
-      foundation.debugPrint(message, wrapWidth: wrapWidth);
-    }
-  }
-
   DateTime get _effectiveNow => DateTime.now().toLocal();
 
   DateTime _toTransactionWallTime(DateTime utcOrLocalInstant) =>
@@ -274,10 +265,6 @@ class _UnifiedTransactionSheetV2State
         : currentUserId;
 
     // Debug diagnostics (redacted)
-    if (widget.existingExpense != null) {
-      debugPrint('💸 [DEEP LINK TEST] Expense sheet opened');
-      debugPrint('🔗 [DEEP LINK TEST] Deep link path available');
-    }
 
     // Initialize time from existing expense or now
     if (widget.existingExpense != null) {
@@ -287,7 +274,6 @@ class _UnifiedTransactionSheetV2State
       _selectedTimeSecond = dateTime.second;
 
       // DEBUG: Log expense details for household sharing
-      debugPrint('🏠 [HOUSEHOLD SHARE] Existing expense context loaded');
 
       final scope = ref.read(householdScopeProvider);
       final existingHouseholdId = widget.existingExpense!.householdId;
@@ -314,26 +300,18 @@ class _UnifiedTransactionSheetV2State
         _isResolvingExistingSplit = true;
       }
 
-      debugPrint(
-          '🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
-
       // A household-scoped expense remains in the household even when auto-split
       // is disabled and no split group exists.
       if (isSharedSpace && widget.existingExpense!.householdId != null) {
-        debugPrint('🏠 [HOUSEHOLD SHARE] Initializing household selection');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            debugPrint('🏠 [EDIT EXPENSE] postFrameCallback executing');
             final householdId = widget.existingExpense!.householdId!;
-            debugPrint('🏠 [EDIT EXPENSE] Setting selected household state');
+
             ref.read(selectedHouseholdForSharingProvider.notifier).state =
                 householdId;
-            debugPrint('🏠 [EDIT EXPENSE] Loading household members');
+
             _loadMembers(householdId);
             _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
-          } else {
-            debugPrint(
-                '⚠️ [EDIT EXPENSE] Widget unmounted before postFrameCallback');
           }
         });
       }
@@ -356,7 +334,6 @@ class _UnifiedTransactionSheetV2State
       }
       // Auto-enable household sharing when in household view mode
       final scope = ref.read(householdScopeProvider);
-      debugPrint('🆕 [ADD EXPENSE] Initialized add flow');
 
       final defaultAccountType = () {
         switch (scope.activeAccountType) {
@@ -382,8 +359,6 @@ class _UnifiedTransactionSheetV2State
       // BEFORE build to avoid the first-household fallback firing.
       final selectedState = ref.read(selectedHouseholdProvider);
       final selected = selectedState.householdId ?? selectedState.household?.id;
-      debugPrint(
-          '🆕 [ADD EXPENSE] Selected household present: ${selected != null}');
 
       // Defer provider state modification to after widget tree is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -396,12 +371,9 @@ class _UnifiedTransactionSheetV2State
           ref.read(selectedHouseholdForSharingProvider.notifier).state =
               selected;
           if (_isSharedWithHousehold) {
-            debugPrint('🆕 [ADD EXPENSE] Sharing enabled; loading members');
             _loadMembers(selected);
           }
-        } else if (selected == null) {
-          debugPrint('⚠️ [ADD EXPENSE] No household selected in provider!');
-        }
+        } else {}
       });
     }
   }
@@ -522,7 +494,7 @@ class _UnifiedTransactionSheetV2State
 
   String? get receiptImageUrl {
     final url = widget.existingExpense?.receiptImageUrl;
-    debugPrint('🖼️ Receipt image detected on expense');
+
     return url;
   }
 
@@ -928,8 +900,6 @@ class _UnifiedTransactionSheetV2State
       return null;
     }
 
-    debugPrint('📷 Selecting receipt photo...');
-
     try {
       final source = await _chooseReceiptPhotoSource(pickerContext);
       if (source == null) return null;
@@ -942,16 +912,13 @@ class _UnifiedTransactionSheetV2State
 
       if (photo != null) {
         if (!mounted) return null;
-        debugPrint('📷 Receipt photo selected');
+
         setState(() {
           _localImagePath = photo.path;
         });
         return photo.path;
-      } else {
-        debugPrint('📷 Receipt photo selection cancelled');
       }
     } catch (e) {
-      debugPrint('❌ Error selecting receipt photo: $e');
       if (pickerContext.mounted) {
         AppToast.error(
           pickerContext,
@@ -1766,8 +1733,6 @@ class _UnifiedTransactionSheetV2State
     if (_isSharedWithHousehold &&
         householdList.isNotEmpty &&
         !hasValidSelection) {
-      debugPrint(
-          '🏠 [SHARE SECTION] No valid selected household found; using header selection');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final currentSelection = ref.read(selectedHouseholdForSharingProvider);
@@ -1811,8 +1776,6 @@ class _UnifiedTransactionSheetV2State
                 AdaptiveSwitch(
                   value: _selectedAccountType == ActiveWalletType.household,
                   onChanged: (value) {
-                    debugPrint(
-                        '🔀 [SHARE TOGGLE] User toggled sharing to: $value');
                     if (!value) {
                       final fallbackType = _lastNonHouseholdAccountType ==
                               ActiveWalletType.household
@@ -1843,8 +1806,6 @@ class _UnifiedTransactionSheetV2State
                         ) ??
                         householdList.first.id;
 
-                    debugPrint(
-                        '🔀 [SHARE TOGGLE] Selecting household: $preferredId');
                     _applyAccountSelection(
                       _AccountOption(
                         type: ActiveWalletType.household,
@@ -1940,8 +1901,6 @@ class _UnifiedTransactionSheetV2State
                     );
                   }).toList(),
                   onChanged: (value) {
-                    debugPrint(
-                        '🔄 [HOUSEHOLD DROPDOWN] User changed household to: $value');
                     if (value != null) {
                       setState(() {
                         _selectedAccountHouseholdId = value;
@@ -1952,8 +1911,7 @@ class _UnifiedTransactionSheetV2State
                           .read(selectedHouseholdForSharingProvider.notifier)
                           .state = value;
                       // Reset custom splits when changing household
-                      debugPrint(
-                          '🔄 [HOUSEHOLD DROPDOWN] Resetting splits and members');
+
                       setState(() {
                         _customSplitType = null;
                         _customSplits = null;
@@ -1969,8 +1927,6 @@ class _UnifiedTransactionSheetV2State
                       final isPortfolioSelection =
                           _isPortfolioHousehold(households, value);
                       if (!isPortfolioSelection) {
-                        debugPrint(
-                            '🔄 [HOUSEHOLD DROPDOWN] Calling _loadMembers for: $value');
                         _loadMembers(value);
                       }
 
@@ -2102,8 +2058,6 @@ class _UnifiedTransactionSheetV2State
                   onPayerChanged: (v) => setState(() {
                     _selectedPayerUserId = v;
                     _hasManuallyChangedPayer = true;
-                    debugPrint(
-                        '👥 [UI] Who paid changed to: $_selectedPayerUserId');
                   }),
                   totalAmount: currentAmount,
                   currencySymbol: currencySymbol,
@@ -2981,23 +2935,16 @@ class _UnifiedTransactionSheetV2State
   }
 
   Future<void> _loadMembers(String householdId) async {
-    debugPrint('👥 [LOAD MEMBERS] Starting member load');
-    debugPrint(
-        '👥 [LOAD MEMBERS] Existing payer selection present: ${_selectedPayerUserId != null}');
-
     setState(() {
       _isLoadingMembers = true;
       _membersError = null;
       _householdMembers = null;
     });
 
-    debugPrint('👥 [LOAD MEMBERS] Set loading state, cleared members');
-
     try {
       final repository = ref.read(householdRepositoryProvider);
-      debugPrint('👥 [LOAD MEMBERS] Fetching members from repository...');
+
       final members = await repository.getHouseholdMembers(householdId);
-      debugPrint('👥 [LOAD MEMBERS] Fetched ${members.length} members');
 
       if (mounted) {
         // If AI provided a payer hint (e.g. "paid by Bob"), resolve it to a
@@ -3028,9 +2975,6 @@ class _UnifiedTransactionSheetV2State
         final currentPayerId = _selectedPayerUserId;
         final payerExists = members.any((m) => m.userId == currentPayerId);
 
-        debugPrint('👥 [LOAD MEMBERS] Current payer selection present');
-        debugPrint('👥 [LOAD MEMBERS] Payer exists in members: $payerExists');
-
         final validPayerId = resolveHouseholdPayerAfterMemberLoad(
           currentPayerUserId: currentPayerId,
           currentMemberUserIds:
@@ -3040,17 +2984,8 @@ class _UnifiedTransactionSheetV2State
         );
 
         if (payerExists) {
-          debugPrint('✅ [LOAD MEMBERS] Current payer is valid');
         } else if (!isNewExpense && _effectiveSplitGroupId != null) {
-          debugPrint(
-              'ℹ️ [LOAD MEMBERS] Preserving historical payer until split load completes');
-        } else if (validPayerId != null) {
-          debugPrint(
-              '⚠️ [LOAD MEMBERS] Payer not found; defaulting to first member');
-        } else {
-          debugPrint(
-              '⚠️ [LOAD MEMBERS] No members found! Cannot set default payer.');
-        }
+        } else {}
 
         setState(() {
           _householdMembers = members;
@@ -3062,28 +2997,18 @@ class _UnifiedTransactionSheetV2State
         // expenses. Only applies when adding a fresh expense (not income,
         // not editing), and when no explicit split has been set yet.
         _maybeSeedAutoSplitDefaults(householdId: householdId, members: members);
-
-        debugPrint(
-            '✅ [LOAD MEMBERS] Successfully loaded and set ${members.length} members');
-        debugPrint('✅ [LOAD MEMBERS] Final payer selection set');
-      } else {
-        debugPrint('⚠️ [LOAD MEMBERS] Widget unmounted, skipping state update');
       }
     } catch (error) {
-      debugPrint('❌ [LOAD MEMBERS] Error loading members: $error');
       if (mounted) {
         setState(() {
           _membersError = '${context.l10n.errorLoadingMembers}: $error';
         });
-        debugPrint('❌ [LOAD MEMBERS] Set error state: $_membersError');
       }
     } finally {
       if (mounted) {
         setState(() {
           _isLoadingMembers = false;
         });
-        debugPrint(
-            '👥 [LOAD MEMBERS] Finished loading (isLoadingMembers = false)');
       }
     }
   }
@@ -3144,9 +3069,6 @@ class _UnifiedTransactionSheetV2State
       _customSplitType = SplitType.amount;
       _customSplits = amountEditorSplits;
     });
-    debugPrint(
-      '🌱 [AUTO SPLIT] Seeded editor from household default (storedType=$splitType, displayType=${_customSplitType?.name}, members=${amountEditorSplits.length})',
-    );
   }
 
   Future<String?> _resolveSplitGroupIdForExistingExpense({
@@ -3233,27 +3155,17 @@ class _UnifiedTransactionSheetV2State
           }
 
           if (match != null) {
-            debugPrint(
-                '🔎 [RESOLVE SPLIT] Found split group ${match.id} for expense ${expense.id} (attempt $attempt)');
             _markSplitCheck(resolvedId: match.id);
             if (loadSplitConfig) {
               await _loadExistingSplitConfiguration(match.id);
             }
             return match.id;
           }
-
-          if (attempt < maxAttempts) {
-            debugPrint(
-                '🔎 [RESOLVE SPLIT] No split group yet for expense ${expense.id}, retrying ($attempt/$maxAttempts)...');
-          }
         }
 
-        debugPrint(
-            '🔎 [RESOLVE SPLIT] No split group found for expense ${expense.id} after $maxAttempts attempt(s)');
         _markSplitCheck();
         return null;
       } catch (error) {
-        debugPrint('❌ [RESOLVE SPLIT] Failed to resolve split group: $error');
         _markSplitCheck();
         return null;
       }
@@ -3449,7 +3361,6 @@ class _UnifiedTransactionSheetV2State
   Future<void> _loadExistingSplitConfiguration(String splitGroupId) async {
     final cacheOwnerId = ref.read(authProvider).uid;
     bool ownsRead() => mounted && ref.read(authProvider).uid == cacheOwnerId;
-    debugPrint('🔄 [LOAD SPLIT] Loading existing split configuration');
 
     try {
       final householdId = widget.existingExpense!.householdId;
@@ -3503,12 +3414,7 @@ class _UnifiedTransactionSheetV2State
         });
       }
 
-      debugPrint('🔄 [LOAD SPLIT] Found split group: ${splitGroup.splitType}');
-      debugPrint(
-          '🔄 [LOAD SPLIT] Split lines: ${splitGroup.splitLines?.length ?? 0}');
-
       if (splitGroup.splitLines == null || splitGroup.splitLines!.isEmpty) {
-        debugPrint('⚠️ [LOAD SPLIT] No split lines found');
         return;
       }
 
@@ -3517,7 +3423,6 @@ class _UnifiedTransactionSheetV2State
       final waitStart = DateTime.now();
       while (_householdMembers == null && _isLoadingMembers) {
         if (DateTime.now().difference(waitStart) > maxWaitTime) {
-          debugPrint('⚠️ [LOAD SPLIT] Timeout waiting for household members');
           return;
         }
         await Future.delayed(const Duration(milliseconds: 100));
@@ -3525,7 +3430,6 @@ class _UnifiedTransactionSheetV2State
       }
 
       if (_householdMembers == null) {
-        debugPrint('⚠️ [LOAD SPLIT] Members not loaded');
         return;
       }
 
@@ -3582,19 +3486,12 @@ class _UnifiedTransactionSheetV2State
             includedInPercentage: included,
           ),
         );
-
-        debugPrint('🔄 [LOAD SPLIT] Split line mapped for member');
       }
 
       if (!mounted) return;
 
       final signature = _buildSplitSignature(uiSplitType, memberSplits);
-      debugPrint(
-        '✅ [LOAD SPLIT] Applying split state: type=$uiSplitType count=${memberSplits.length}',
-      );
-      debugPrint(
-        '✅ [LOAD SPLIT] Existing split state present: ${_customSplits != null}',
-      );
+
       setState(() {
         if (!_hasManuallyChangedPayer) {
           _selectedPayerUserId = splitGroup.payerUserId;
@@ -3604,16 +3501,7 @@ class _UnifiedTransactionSheetV2State
         _initialSplitSignature = signature;
         _loadedSplitGroupType = dbSplitType;
       });
-
-      debugPrint(
-        '✅ [LOAD SPLIT] Initialized split editor with existing configuration',
-      );
-      debugPrint(
-        '✅ [LOAD SPLIT] Split state updated',
-      );
-    } catch (error) {
-      debugPrint('❌ [LOAD SPLIT] Error loading split configuration: $error');
-    }
+    } catch (error) {}
   }
 
   Future<void> _refreshHouseholdUiAfterExpenseChange(String householdId) async {
@@ -3630,10 +3518,8 @@ class _UnifiedTransactionSheetV2State
   }
 
   void _refreshPersonalUiAfterExpenseChange(String userId) {
-    debugPrint('👤 [REFRESH] Refreshing personal UI after expense change');
     ref.read(analyticsProvider.notifier).refresh(userId);
 
-    debugPrint('🔄 [REFRESH] Pockets providers refresh from dashboard signal');
     ref.invalidate(pocketDetailsProvider);
     ref.read(walletActionsProvider).refreshAccountData();
 
@@ -3642,8 +3528,6 @@ class _UnifiedTransactionSheetV2State
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
         1;
-
-    debugPrint('✅ [REFRESH] Personal UI refresh complete');
   }
 
   ExpenseEntry _expenseEntryFromIncome(
@@ -3778,8 +3662,6 @@ class _UnifiedTransactionSheetV2State
       );
       return database;
     } catch (error) {
-      debugPrint(
-          '[LocalFirst] Failed to persist optimistic transaction: $error');
       return null;
     }
   }
@@ -4346,7 +4228,7 @@ class _UnifiedTransactionSheetV2State
 
     try {
       final user = ref.read(authProvider);
-      final viewMode = ref.read(viewModeProvider);
+
       final householdScope = ref.read(householdScopeProvider);
       final accountTarget = _resolveAccountTarget();
       final preferredTimezone =
@@ -4387,12 +4269,7 @@ class _UnifiedTransactionSheetV2State
             !isEffectivePortfolio &&
             (activeHousehold?.autoSplitEnabled != false ||
                 hasEditableSplitConfig);
-        debugPrint(
-          '🧩 [AUTO SPLIT SAVE] household=$effectiveHouseholdId '
-          'autoSplitEnabled=${activeHousehold?.autoSplitEnabled} '
-          'canSendSplits=$canUseHouseholdSplits '
-          'splitType=$_customSplitType splits=${_customSplits?.length ?? 0}',
-        );
+
         if (isEffectivePortfolio) {
           _selectedPayerUserId = ref.read(authProvider).uid;
           _customSplitType = null;
@@ -4481,21 +4358,15 @@ class _UnifiedTransactionSheetV2State
               expense.localImagePath ?? widget.localImagePath;
 
           if (imagePathToUpload != null) {
-            debugPrint(' Uploading receipt image');
             await ref
                 .read(expenseSaveNotifierProvider.notifier)
                 .uploadReceiptImage(File(imagePathToUpload), user.uid);
-            debugPrint(' Receipt upload completed');
-          } else {
-            debugPrint(' No local image path to upload');
           }
 
           //
-          debugPrint(' Triggering comprehensive UI refresh...');
 
           // Refresh the household where income was saved (if shared)
           if (effectiveHouseholdId != null) {
-            debugPrint(' Refreshing saved household UI');
             await _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
           }
 
@@ -4504,12 +4375,10 @@ class _UnifiedTransactionSheetV2State
           final currentHouseholdId = currentScope.selectedHouseholdId;
 
           if (currentScope.isHouseholdView && currentHouseholdId != null) {
-            debugPrint(' Also refreshing CURRENT household view');
             if (currentHouseholdId != effectiveHouseholdId) {
               await _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
-            debugPrint(' Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
@@ -4549,7 +4418,7 @@ class _UnifiedTransactionSheetV2State
           // After fix: Only pass selectedHousehold when _isSharedWithHousehold is true
           //
           // Save expense with time and custom splits (if configured)
-          debugPrint(' Saving expense with current view mode');
+
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
                 householdId: effectiveHouseholdId,
@@ -4562,7 +4431,6 @@ class _UnifiedTransactionSheetV2State
                     canUseHouseholdSplits ? _selectedPayerUserId : null,
               );
 
-          debugPrint(' Expense saved successfully');
           if (!mounted || !toastContext.mounted) {
             closeDialog();
             return;
@@ -4582,19 +4450,8 @@ class _UnifiedTransactionSheetV2State
           // This ensures ALL affected UIs update correctly.
           //
 
-          debugPrint(' Triggering comprehensive UI refresh...');
-          debugPrint('    Expense shared: $_isSharedWithHousehold');
-          debugPrint('    Household selected: ${effectiveHouseholdId != null}');
-          debugPrint('    Current view mode: ${viewMode.mode}');
-          debugPrint(
-              '    Payer selection present: ${_selectedPayerUserId != null}');
-          debugPrint('    Custom split type: $_customSplitType');
-          debugPrint(
-              '    Custom splits count: ${_customSplits?.length ?? 0} (null means default equal)');
-
           // Step 1: Refresh the household where expense was saved (if shared)
           if (effectiveHouseholdId != null) {
-            debugPrint(' Refreshing saved household UI');
             await _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
           }
 
@@ -4605,19 +4462,17 @@ class _UnifiedTransactionSheetV2State
 
           if (currentScope.isHouseholdView && currentHouseholdId != null) {
             // Currently viewing household mode - refresh it
-            debugPrint(' Also refreshing CURRENT household view');
+
             if (currentHouseholdId != effectiveHouseholdId) {
               // Different household than where we saved - need to refresh it too
               await _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
           } else {
             // Currently viewing personal mode - refresh it
-            debugPrint(' Also refreshing CURRENT personal view');
+
             _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
-          debugPrint(' All UI refresh triggers completed');
-          debugPrint(' Closing transaction sheet');
           if (!mounted) {
             closeDialog();
             return;
@@ -4764,12 +4619,10 @@ class _UnifiedTransactionSheetV2State
 
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
-          debugPrint(' Uploading new receipt image for existing expense');
           final receiptUrl = await expenseSaveNotifier.uploadReceiptImage(
             File(_localImagePath!),
             user.uid,
           );
-          debugPrint(' New receipt upload completed');
 
           if (receiptUrl != null) {
             updates['receipt_image_url'] = receiptUrl;
@@ -4992,9 +4845,6 @@ class _UnifiedTransactionSheetV2State
           );
         }
 
-        debugPrint(
-            ' Updating expense with changed fields=${updates.keys.toList()} hasExtraBody=${extraBody != null}');
-
         // Call update API (this already handles provider refresh internally)
         final success =
             await ref.read(transactionEditProvider.notifier).updateExpense(
@@ -5005,9 +4855,6 @@ class _UnifiedTransactionSheetV2State
                   optimisticMerchantDomain:
                       _hasEditedMerchantIdentity ? _editedMerchantDomain : null,
                 );
-        debugPrint(
-          '🧪 updateExpense result: success=$success updates=${updates.keys.toList()}',
-        );
 
         if (!mounted || !toastContext.mounted) {
           closeDialog();
@@ -5021,9 +4868,7 @@ class _UnifiedTransactionSheetV2State
             unawaited(ref
                 .read(expenseSaveNotifierProvider.notifier)
                 .deleteReceiptImage(replacedReceiptImageUrl)
-                .catchError((Object error) {
-              debugPrint(' Failed to delete replaced receipt image: $error');
-            }));
+                .catchError((Object error) {}));
           }
 
           // TransactionEditNotifier has already applied the authoritative row
@@ -5066,16 +4911,12 @@ class _UnifiedTransactionSheetV2State
           if (uploadedReplacementReceiptImageUrl != null) {
             unawaited(expenseSaveNotifier
                 .deleteReceiptImage(uploadedReplacementReceiptImageUrl)
-                .catchError((Object error) {
-              debugPrint(' Failed to clean up replacement receipt: $error');
-            }));
+                .catchError((Object error) {}));
           }
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
           final editState = ref.read(transactionEditProvider);
-          debugPrint(
-            '🧪 updateExpense failure state: error=${editState.error}',
-          );
+
           if (!toastContext.mounted) {
             closeDialog();
             return;
@@ -5095,14 +4936,11 @@ class _UnifiedTransactionSheetV2State
         }
       }
     } catch (error) {
-      debugPrint(' Error saving expense: $error');
       rollbackOptimisticSplitMutation();
       if (uploadedReplacementReceiptImageUrl != null) {
         unawaited(expenseSaveNotifier
             .deleteReceiptImage(uploadedReplacementReceiptImageUrl)
-            .catchError((Object cleanupError) {
-          debugPrint(' Failed to clean up replacement receipt: $cleanupError');
-        }));
+            .catchError((Object cleanupError) {}));
       }
       if (!mounted || !toastContext.mounted) {
         closeDialog();
@@ -5216,7 +5054,7 @@ class _UnifiedTransactionSheetV2State
 
     try {
       final failedToDeleteExpenseMsg = context.l10n.failedToDeleteExpense;
-      debugPrint(' Deleting expense');
+
       final deleted = await ref
           .read(transactionEditProvider.notifier)
           .deleteExpensesOptimistically(
@@ -5233,8 +5071,6 @@ class _UnifiedTransactionSheetV2State
         return;
       }
 
-      debugPrint(' Expense deleted successfully');
-
       if (!mounted || !toastContext.mounted) return;
 
       Navigator.of(context).pop(true);
@@ -5245,7 +5081,6 @@ class _UnifiedTransactionSheetV2State
         duration: const Duration(seconds: 4),
       );
     } catch (error) {
-      debugPrint(' Error deleting expense: $error');
       if (!toastContext.mounted) return;
       AppToast.error(
         toastContext,

@@ -262,7 +262,6 @@ void showScenarioResultSheet(
                                     // Toggle behavior: save when not yet saved, otherwise
                                     // ask for confirmation and delete.
                                     if (!isSaved) {
-                                      debugPrint('Saving scenario...');
                                       String? queuedMutationId;
                                       try {
                                         queuedMutationId =
@@ -481,7 +480,6 @@ void showScenarioResultSheet(
                                     ? null
                                     : () async {
                                         if (!isSaved) {
-                                          debugPrint('Saving scenario...');
                                           String? queuedMutationId;
                                           try {
                                             queuedMutationId =

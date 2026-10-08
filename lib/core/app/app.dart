@@ -51,7 +51,6 @@ class _AppState extends ConsumerState<App> {
     ref.read(notificationBadgeServiceProvider).start();
     _appLifecycleListener = AppLifecycleListener(
       onStateChange: (state) {
-        debugPrint('[OnboardingAnalytics] app lifecycle state=$state');
         final skipAppLockForImagePicker = isImagePickerActive;
         if (state == AppLifecycleState.resumed) {
           if (!skipAppLockForImagePicker) {
@@ -91,8 +90,6 @@ class _AppState extends ConsumerState<App> {
             FirebaseCrashlytics.instance
                 .recordError(e, s, fatal: false, reason: 'deeplink_init_error');
           } catch (_) {}
-          debugPrint('DeepLink initialization error: $e');
-          debugPrint(s.toString());
         }
         _deepLinkInitialized = true;
       }
@@ -189,7 +186,6 @@ class _AppState extends ConsumerState<App> {
 
   void _launchedFromWidget(Uri? uri) {
     if (uri != null) {
-      debugPrint('🚀 Launched from widget: $uri');
       if (uri.scheme == 'moneko') {
         if (uri.host == 'text') {
           ref.read(widgetLaunchProvider.notifier).state =

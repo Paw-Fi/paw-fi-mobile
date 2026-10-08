@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
@@ -30,9 +30,6 @@ class SubscriptionProductsNotifier
     } catch (e) {
       // iOS must still be able to render a paywall even if the backend catalog isn't ready.
       if (platform == 'ios') {
-        debugPrint(
-          '[SubscriptionProducts] Falling back to local iOS catalog: $e',
-        );
         return _publiclySelectableProducts(_fallbackIosProducts);
       }
       rethrow;
@@ -47,7 +44,6 @@ class SubscriptionProductsNotifier
   }
 
   Future<List<SubscriptionProduct>> _fetchProducts(String platform) async {
-    debugPrint('[SubscriptionProducts] Fetching products platform=$platform');
     try {
       final response = await supabase.functions.invoke(
         'get-subscription-products',
@@ -56,11 +52,6 @@ class SubscriptionProductsNotifier
           'platform': platform,
         },
       ).timeout(_subscriptionProductsRequestTimeout);
-
-      debugPrint(
-        '[SubscriptionProducts] Product response platform=$platform '
-        'status=${response.status}',
-      );
 
       if (response.status >= 400) {
         throw Exception('Failed to load products: ${response.status}');
@@ -80,16 +71,9 @@ class SubscriptionProductsNotifier
 
       final publicProducts = _publiclySelectableProducts(products);
       publicProducts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-      debugPrint(
-        '[SubscriptionProducts] Loaded ${publicProducts.length} public '
-        'products platform=$platform',
-      );
+
       return publicProducts;
     } catch (error) {
-      debugPrint(
-        '[SubscriptionProducts] Product request failed platform=$platform '
-        'error=$error',
-      );
       rethrow;
     }
   }
@@ -103,9 +87,6 @@ class SubscriptionProductsNotifier
         return await _fetchProducts(platform);
       } catch (e) {
         if (platform == 'ios') {
-          debugPrint(
-            '[SubscriptionProducts] Falling back to local iOS catalog: $e',
-          );
           return _publiclySelectableProducts(_fallbackIosProducts);
         }
         rethrow;

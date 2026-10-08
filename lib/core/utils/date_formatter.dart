@@ -30,8 +30,6 @@ String formatLocalizedDate(
 
     return DateFormat(pattern, intlLocale).format(date);
   } catch (e) {
-    debugPrint('Locale-specific date formatting failed: $e');
-
     try {
       // Fallback to just the normalized language code (no country)
       final pattern = includeYear
@@ -40,8 +38,6 @@ String formatLocalizedDate(
 
       return DateFormat(pattern, languageCode).format(date);
     } catch (e2) {
-      debugPrint('Generic date formatting failed: $e2');
-
       // Ultimate fallback: manual formatting
       return _manualFormatDate(date, languageCode, includeYear);
     }

@@ -479,8 +479,6 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     _recordingStartTime = null;
 
     final duration = DateTime.now().difference(startedAt);
-    debugPrint(
-        '🎙️ Recording finished. Duration: ${duration.inMilliseconds} ms');
 
     final isTooShort = duration.inMilliseconds < _minimumAudioRecordingMs;
     if (isTooShort) {
@@ -544,8 +542,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
 
     final bytes = await file.readAsBytes();
-    debugPrint('🎙️ Recording file path: $path');
-    debugPrint('🎙️ Recording byte length: ${bytes.length}');
+
     if (bytes.isEmpty) {
       if (widget.parentContext.mounted) {
         AppToast.error(
@@ -943,8 +940,6 @@ class _RecordingVisualizerState extends State<_RecordingVisualizer> {
 
       if (normalized < 0) normalized = 0;
       if (normalized > 1.0) normalized = 1.0;
-
-      debugPrint('🎙️ Amplitude current: $currentDb, normalized: $normalized');
 
       if (mounted) {
         setState(() {

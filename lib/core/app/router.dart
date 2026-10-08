@@ -216,9 +216,11 @@ GoRouter router(RouterRef ref) {
       ),
       GoRoute(
         path: '/email-import-settings',
-        builder: (context, state) => const PlusFeatureGuard(
+        builder: (context, state) => PlusFeatureGuard(
           feature: PlusFeature.emailReceiptImport,
-          child: EmailImportSettingsPage(),
+          child: EmailImportSettingsPage(
+            initialSenderEmail: state.uri.queryParameters['email'],
+          ),
         ),
       ),
 
@@ -278,21 +280,18 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/expense/:id',
         redirect: (context, state) {
-          debugPrint('🔗 Expense deep link, showing dashboard');
           return '/dashboard';
         },
       ),
       GoRoute(
         path: '/budget/:id',
         redirect: (context, state) {
-          debugPrint('🔗 Budget deep link, showing dashboard');
           return '/dashboard';
         },
       ),
       GoRoute(
         path: '/split/:id',
         redirect: (context, state) {
-          debugPrint('🔗 Split deep link, showing dashboard');
           return '/dashboard';
         },
       ),
@@ -367,9 +366,6 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/:id',
         redirect: (context, state) {
-          final id = state.pathParameters['id'] ?? '';
-          debugPrint(
-              '🔗 Catch-all route matched for ID: $id, redirecting to dashboard');
           return '/dashboard';
         },
       ),
@@ -406,8 +402,6 @@ GoRouter router(RouterRef ref) {
         // Handle invitation universal links - redirect to home page
         // The invitation modal is shown by deep_link_service.dart on top of the home page
         if (state.matchedLocation.startsWith('/invites/')) {
-          debugPrint(
-              '🔗 Invitation universal link detected: ${state.matchedLocation}');
           // Redirect to home page where modal will be shown
           return '/';
         }
@@ -444,11 +438,6 @@ GoRouter router(RouterRef ref) {
         final isPublicImportReview =
             state.matchedLocation.startsWith('/import-review/');
 
-        if (kDebugMode) {
-          debugPrint(
-              '🔐 Auth redirect [V2]: state=${appInitStateV2.state}, isAuth=$isAuthenticated, path=${state.matchedLocation}');
-        }
-
         final hasActiveSubscription = subscriptionAsync.maybeWhen(
           data: (subscription) => subscription?.isSubscribed ?? false,
           orElse: () => false,
@@ -459,8 +448,6 @@ GoRouter router(RouterRef ref) {
             appInitStateV2.state == AppInitState.failed &&
             appInitStateV2.data == null) {
           if (!isOnErrorPage) {
-            debugPrint(
-                '❌ [RouterV2] Init failed with no cache, showing error page');
             return '/error';
           }
           return null;
@@ -469,8 +456,6 @@ GoRouter router(RouterRef ref) {
         // V2: Don't block on splash - navigate immediately after auth check
         // Splash screen only shown briefly during initial app load
         if (isOnSplashPage) {
-          debugPrint(
-              '🚀 [RouterV2] On splash, redirecting immediately based on auth');
           if (isPreview) {
             return '/dashboard';
           }
@@ -539,12 +524,6 @@ GoRouter router(RouterRef ref) {
         if (isAuthenticated && isOnPostOnboardingPage) {
           if (!hasOnboarded) {
             return null;
-          }
-
-          if (kDebugMode) {
-            debugPrint(
-              '✅ [RouterV2] Post-auth onboarding already completed; redirecting away from ${state.matchedLocation}',
-            );
           }
 
           return '/dashboard';
@@ -626,8 +605,7 @@ GoRouter router(RouterRef ref) {
           FirebaseCrashlytics.instance
               .recordError(e, s, fatal: false, reason: 'router_redirect_error');
         } catch (_) {}
-        debugPrint('Router redirect error: $e');
-        debugPrint(s.toString());
+
         return '/splash';
       }
     },
@@ -646,15 +624,8 @@ class RouterNotifier extends ChangeNotifier {
         notifyListeners();
         // Reset initialization when auth changes
         if (previous?.uid != next.uid) {
-          if (kDebugMode) {
-            debugPrint('🔄 Auth changed: ${previous?.uid} -> ${next.uid}');
-          }
-
           // If logging out (going from authenticated to not authenticated)
           if (previous != null && !previous.isEmpty && next.isEmpty) {
-            if (kDebugMode) {
-              debugPrint('👋 User logged out, clearing cache (V2)');
-            }
             _ref.read(appInitializationV2Provider.notifier).onLogout();
             _ref.read(widgetSyncStateProvider.notifier).reset();
           } else {

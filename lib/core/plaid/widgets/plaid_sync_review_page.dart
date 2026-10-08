@@ -179,7 +179,6 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       );
       try {
         await _refreshAfterSync();
-        _debugRecurringReviewMatches(result.transactions);
       } catch (error) {
         if (mounted) {
           AppToast.error(context, error.toString());
@@ -197,11 +196,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           result.syncStatus?.historicalUpdateComplete != true) {
         unawaited(_refreshRecurringAfterHistoricalImport());
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       assert(() {
-        debugPrint(
-          '[PlaidSyncReview] preparation failed: $error\n$stackTrace',
-        );
         return true;
       }());
       if (!mounted) return;
@@ -423,68 +419,16 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                   widget.session.targetHouseholdId,
                 ).notifier)
                 .refresh(userId);
-            _debugRecurringReviewMatches(_transactions);
           }
           return;
         }
       } catch (error) {
         assert(() {
-          debugPrint(
-            '[PlaidSyncReview] historical status refresh failed: $error',
-          );
           return true;
         }());
       }
       await Future<void>.delayed(_historicalPollInterval);
     }
-  }
-
-  void _debugRecurringReviewMatches(List<SyncedTransaction> transactions) {
-    if (!mounted) return;
-    assert(() {
-      final recurringTransactions = ref
-              .read(recurringTransactionsProvider(
-                widget.session.targetHouseholdId,
-              ))
-              .data
-              .valueOrNull ??
-          const <RecurringTransaction>[];
-      final signatures = _buildRecurringReviewSignatures(
-        recurringTransactions,
-      );
-      final matched = transactions
-          .where((transaction) =>
-              _hasRecurringReviewSignature(transaction.expense, signatures))
-          .toList(growable: false);
-      debugPrint(
-        '[PlaidSyncReview][Recurring] templates=${recurringTransactions.length} '
-        'signatures=${signatures.length} transactions=${transactions.length} '
-        'matched=${matched.length}',
-      );
-      for (final transaction in recurringTransactions) {
-        final label = _normalizeRecurringReviewLabel(
-          transaction.merchant ?? transaction.description ?? transaction.source,
-        );
-        if (label != null) continue;
-        debugPrint(
-          '[PlaidSyncReview][RecurringTemplateMissingLabel] '
-          'id=${transaction.id} category=${transaction.category} '
-          'bankAccount=${transaction.bankAccountId} '
-          'wallet=${transaction.accountId} currency=${transaction.currency} '
-          'amountCents=${(transaction.amount * 100).round()}',
-        );
-      }
-      for (final transaction in matched) {
-        final expense = transaction.expense;
-        debugPrint(
-          '[PlaidSyncReview][RecurringMatch] id=${expense.id} '
-          'bankAccount=${expense.bankAccountId} wallet=${expense.walletId} '
-          'currency=${expense.currency} amountCents=${expense.amountCents} '
-          'label=${_normalizeRecurringReviewLabel(expense.merchant ?? expense.rawText)}',
-        );
-      }
-      return true;
-    }());
   }
 
   Future<void> _editSelectedWallet() async {

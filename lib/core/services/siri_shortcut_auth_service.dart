@@ -153,10 +153,7 @@ class SiriShortcutAuthService {
       // Preference transport must not block the separately durable save queue.
       try {
         await syncTransactionDefaults(defaults);
-      } catch (error) {
-        debugPrint(
-            '[Siri] Selection defaults will retry on session sync: $error');
-      }
+      } catch (error) {}
     }
   }
 

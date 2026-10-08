@@ -15,7 +15,7 @@ import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -299,13 +299,6 @@ class HomeHeaderSliver extends HookConsumerWidget {
     //   return null;
     // }, []);
 
-    final headerTrace = HomeDebugTrace(
-      label: 'HomeHeaderSpaceSwitch',
-      enabled: ref.read(homeDebugLoggingEnabledProvider),
-      logSink: ref.read(homeDebugLogSinkProvider),
-      contextFields: {'user': user.uid.isEmpty ? '<empty>' : user.uid},
-    );
-
     Future<void> handleBankSyncResult(BankSyncResult next) async {
       if (user.uid.isEmpty) return;
 
@@ -413,32 +406,24 @@ class HomeHeaderSliver extends HookConsumerWidget {
         financialMonthStartDay: ref.read(financialMonthStartDayProvider),
       );
       if (!context.mounted || exportRequest == null) {
-        debugPrint('[HomeHeaderSliver.export] export options canceled');
         return;
       }
-      debugPrint(
-        '[HomeHeaderSliver.export] selected format=${exportRequest.format.name} '
-        'space=${exportRequest.space.type.name}:${exportRequest.space.householdId ?? "<all>"} '
-        'range=${formatExportDateRange(exportRequest.dateRange)}',
-      );
 
       final rootNavigator = Navigator.of(context, rootNavigator: true);
       var dialogClosed = false;
       void closeBlockingDialog() {
         if (dialogClosed || !rootNavigator.mounted) return;
-        debugPrint('[HomeHeaderSliver.export] closing blocking dialog');
+
         rootNavigator.pop();
         dialogClosed = true;
       }
 
-      debugPrint('[HomeHeaderSliver.export] showing blocking dialog');
       showBlockingProcessingDialog(
         context: context,
         message: context.l10n.exportTransactions,
       );
       await WidgetsBinding.instance.endOfFrame;
       if (!context.mounted) {
-        debugPrint('[HomeHeaderSliver.export] context unmounted after dialog');
         closeBlockingDialog();
         return;
       }
@@ -483,10 +468,7 @@ class HomeHeaderSliver extends HookConsumerWidget {
         closeBlockingDialog();
         return;
       }
-      debugPrint(
-        '[HomeHeaderSliver.export] fetched ${exportableExpenses.length} rows '
-        'from expenses table',
-      );
+
       final householdNames = {
         for (final household in households) household.id: household.name,
         if (exportRequest.format == TransactionExportFormat.excel)
@@ -499,11 +481,6 @@ class HomeHeaderSliver extends HookConsumerWidget {
       }
       try {
         if (exportRequest.format == TransactionExportFormat.excel) {
-          debugPrint(
-            '[HomeHeaderSliver.export] exporting Excel '
-            'transactions=${exportableExpenses.length} '
-            'space=${exportRequest.space.label}',
-          );
           await exportAllTransactionsAsExcelSheet(
             context,
             exportableExpenses,
@@ -518,11 +495,6 @@ class HomeHeaderSliver extends HookConsumerWidget {
           );
         } else if (exportRequest.format ==
             TransactionExportFormat.receiptsZip) {
-          debugPrint(
-            '[HomeHeaderSliver.export] exporting receipts '
-            'transactions=${exportableExpenses.length} '
-            'space=${exportRequest.space.label}',
-          );
           await exportAllReceiptsAsZip(
             context,
             exportableExpenses,
@@ -641,14 +613,10 @@ class HomeHeaderSliver extends HookConsumerWidget {
 
         if (item.value == 'personal') {
           if (viewMode.mode != ViewMode.personal) {
-            headerTrace
-                .mark('space-switch-start', const {'target': 'personal-space'});
             ref.read(viewModeProvider.notifier).setPersonalMode();
             await refreshHomeDataForSelectedAccount(
               refreshCurrenciesNow: true,
             );
-            headerTrace.mark(
-                'space-switch-complete', const {'target': 'personal-space'});
           }
           return;
         }
@@ -665,25 +633,15 @@ class HomeHeaderSliver extends HookConsumerWidget {
         if (item.value is String &&
             (item.value as String).startsWith('household:')) {
           final householdId = (item.value as String).split(':').last;
-          headerTrace.mark('space-switch-start', {
-            'target': 'shared-or-private-space',
-            'spaceId': householdId,
-          });
+
           await ref
               .read(selectedHouseholdProvider.notifier)
               .selectHousehold(householdId);
 
-          if (kDebugMode) {
-            debugPrint('🔄 Switching to household mode');
-          }
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
           await refreshHomeDataForSelectedAccount(
             refreshCurrenciesNow: true,
           );
-          headerTrace.mark('space-switch-complete', {
-            'target': 'shared-or-private-space',
-            'spaceId': householdId,
-          });
         }
       },
     );

@@ -137,7 +137,6 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             notificationPostTimeMillis = sbn.postTime,
         )
         if (isDuplicate(dedupKey)) {
-            Log.d(TAG, "Duplicate notification blocked locally: $packageName")
             return
         }
 
@@ -264,7 +263,6 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                     return
                 }
                 config.removePendingCaptureByIdempotencyKey(idempotencyKey)
-                Log.d(TAG, "Transaction captured successfully from $packageName")
                 recordCaptureTelemetry(
                     action = "capture_success",
                     details = mapOf("statusCode" to initialResponse.statusCode)
@@ -276,7 +274,6 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                     recentHashes.remove(dedupKey)
                 } else {
                     config.removePendingCaptureByIdempotencyKey(idempotencyKey)
-                    Log.d(TAG, "Duplicate transaction detected server-side for $packageName")
                 }
             }
             401, 408, 429 -> {
@@ -464,7 +461,6 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             }
         }
         val message = "android_native_capture action=$action details=$safeDetails"
-        Log.d(TAG, message)
 
         try {
             val crashlytics = FirebaseCrashlytics.getInstance()

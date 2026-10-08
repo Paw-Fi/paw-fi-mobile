@@ -313,8 +313,7 @@ Future<Uint8List> _compressLogoBytes(Uint8List bytes) async {
     }
 
     return smallestResult ?? bytes;
-  } catch (error, stackTrace) {
-    debugPrint('Logo compression failed: $error\n$stackTrace');
+  } catch (error) {
     return bytes;
   }
 }

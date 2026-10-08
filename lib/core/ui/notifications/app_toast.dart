@@ -58,7 +58,6 @@ class AppToast {
 
     final effectiveContext = _findUsableContext(context);
     if (effectiveContext == null) {
-      debugPrint('AppToast: No mounted context available; toast dropped.');
       return;
     }
 
@@ -119,8 +118,6 @@ class AppToast {
 
     final effectiveContext = _findUsableContext(context);
     if (effectiveContext == null) {
-      debugPrint(
-          'AppToast: No mounted context available; action toast dropped.');
       return;
     }
 
@@ -179,8 +176,7 @@ class AppToast {
 
   static String _normalizeTechnicalToastMessage(String message) {
     final lowered = message.toLowerCase();
-    final looksTechnical =
-        lowered.contains('functionexception') ||
+    final looksTechnical = lowered.contains('functionexception') ||
         lowered.contains('postgrestexception') ||
         lowered.contains('exception:') ||
         lowered.contains('pgrst') ||
@@ -244,8 +240,6 @@ class AppToast {
   ) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null || !_hasMaterialLocalizations(context)) {
-      debugPrint(
-          'AppToast: No Overlay/ScaffoldMessenger or missing MaterialLocalizations; toast dropped.');
       return;
     }
 

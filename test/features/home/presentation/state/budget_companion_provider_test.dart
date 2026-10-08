@@ -10,6 +10,7 @@ import 'package:moneko/features/home/presentation/state/spending_daily_overview_
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection_provider.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
@@ -222,6 +223,7 @@ void main() {
       expect(data.categories.requireValue.single.amount, 10);
       expect(data.summary.requireValue.spent, 10);
       expect(data.isRefreshing, isTrue);
+      expect(data.isSummaryRefreshing, mode == HomePeriodMode.daily);
     });
   }
 
@@ -340,6 +342,8 @@ void main() {
         householdScopeProvider.overrideWithValue(scopeFixture),
         selectedHomeCurrencyCodeProvider.overrideWithValue('EUR'),
         homePeriodFinancialMonthStartDayProvider.overrideWithValue(17),
+        financialMonthStartDayStateProvider
+            .overrideWithValue(const AsyncData(17)),
         homePeriodClockProvider.overrideWithValue(() => DateTime(2026, 4, 20)),
         homePeriodSelectionStoreProvider.overrideWithValue(_Store()),
       ]);
@@ -348,6 +352,7 @@ void main() {
       container
           .read(homeFilterProvider.notifier)
           .setSelectedCurrencies(['EUR', 'USD']);
+      await container.pump();
       final request = container.read(budgetCompanionRequestProvider)!;
       final ringKey = buildHomePeriodPocketsScopeParams(
           scopeType: scope,

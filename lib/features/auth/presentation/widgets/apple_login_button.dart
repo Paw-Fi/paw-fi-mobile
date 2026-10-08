@@ -67,16 +67,12 @@ class AppleLoginButton extends HookConsumerWidget {
 
       try {
         if (kIsWeb || !(Platform.isIOS || Platform.isMacOS)) {
-          final result = await supabase.auth.signInWithOAuth(
-            OAuthProvider.apple,
-            redirectTo: kIsWeb ? null : DeepLinks.oauthCallback,
-            authScreenLaunchMode: kIsWeb
-                ? LaunchMode.platformDefault
-                : LaunchMode.externalApplication,
-          );
+          await supabase.auth.signInWithOAuth(OAuthProvider.apple,
+              redirectTo: kIsWeb ? null : DeepLinks.oauthCallback,
+              authScreenLaunchMode: kIsWeb
+                  ? LaunchMode.platformDefault
+                  : LaunchMode.externalApplication);
 
-          debugPrint(
-              '🔐 Apple OAuth initiated: ${result ? "Success" : "Failed"}');
           isLoading.value = false;
           return;
         }
@@ -133,7 +129,6 @@ class AppleLoginButton extends HookConsumerWidget {
           context.go(next);
         }
       } catch (e) {
-        debugPrint('❌ Apple sign-in error: $e');
         if (!context.mounted) return;
         error.value = formatAuthErrorMessage(e);
       } finally {

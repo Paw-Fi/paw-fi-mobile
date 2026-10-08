@@ -169,7 +169,6 @@ class AppLockPage extends HookConsumerWidget {
           // Supabase removes the local session before attempting remote token
           // revocation. The user is safely signed out on this device even when
           // that remote revocation request fails.
-          debugPrint('Remote sign-out cleanup failed: $error');
         }
 
         closeProcessingDialog();

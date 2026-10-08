@@ -272,9 +272,7 @@ class SettingsPage extends HookConsumerWidget {
             }
           }
         }
-      } catch (e) {
-        debugPrint('Error handling notification toggle: $e');
-      }
+      } catch (e) {}
     }
 
     Future<void> handleManualNotificationFix() async {
@@ -307,7 +305,6 @@ class SettingsPage extends HookConsumerWidget {
           AppToast.error(context, context.l10n.failedToUpdateAppSetting);
         }
       } catch (e) {
-        debugPrint('Error handling manual notification fix: $e');
         if (context.mounted) {
           AppToast.error(context, context.l10n.failedToUpdateAppSetting);
         }
@@ -607,9 +604,7 @@ class SettingsPage extends HookConsumerWidget {
       var dialogShown = false;
       try {
         rootNavigator = Navigator.of(context, rootNavigator: true);
-      } catch (e) {
-        debugPrint('Unable to capture root navigator for deletion flow: $e');
-      }
+      } catch (e) {}
 
       try {
         if (context.mounted) {
@@ -652,17 +647,14 @@ class SettingsPage extends HookConsumerWidget {
           await ref.read(userFinancialCacheCleanupProvider).clearForLogout(
                 userId: authState.uid,
               );
-        } catch (error, stackTrace) {
+        } catch (error) {
           // The account no longer exists remotely. Local cleanup must not keep
           // its deleted session alive if a cache operation fails.
-          debugPrint(
-              'Account deletion local cleanup failed: $error\n$stackTrace');
         } finally {
           try {
             await ref.read(authProvider.notifier).signOut();
-          } catch (error, stackTrace) {
+          } catch (error) {
             // Auth clears its persisted session before its remote request.
-            debugPrint('Post-delete sign out failed: $error\n$stackTrace');
           }
         }
         if (authState.uid.isNotEmpty) {
@@ -699,8 +691,7 @@ class SettingsPage extends HookConsumerWidget {
         if (context.mounted) {
           AppToast.success(context, l10n.settingsDeleteAccountSuccess);
         }
-      } catch (e, st) {
-        debugPrint('Account deletion failed: $e\n$st');
+      } catch (e) {
         if (context.mounted) {
           AppToast.error(context, '${l10n.failedToDelete}: $e');
         }
@@ -711,9 +702,7 @@ class SettingsPage extends HookConsumerWidget {
             rootNavigator.canPop()) {
           try {
             rootNavigator.pop();
-          } catch (e) {
-            debugPrint('Failed to dismiss delete account dialog: $e');
-          }
+          } catch (e) {}
         }
         if (context.mounted) {
           isAccountDeletionInProgress.value = false;
@@ -848,8 +837,7 @@ class SettingsPage extends HookConsumerWidget {
             exit(0);
           }
         }
-      } catch (e, st) {
-        debugPrint('Reset financial data failed: $e\n$st');
+      } catch (e) {
         if (context.mounted) {
           AppToast.error(
               context, context.l10n.failedToResetFinancialDataWithError(e));
@@ -1090,9 +1078,6 @@ class SettingsPage extends HookConsumerWidget {
                           },
                         );
                       } catch (e) {
-                        debugPrint(
-                          l10n.unexpectedAvatarUpdateError(e),
-                        );
                         if (context.mounted) {
                           AppToast.error(context, l10n.failedToSaveAvatar);
                         }
@@ -1912,10 +1897,6 @@ class SettingsPage extends HookConsumerWidget {
                         );
 
                         try {
-                          debugPrint(
-                            '🧹 Clearing all user-specific Riverpod state before logout',
-                          );
-
                           if (ref.read(previewModeProvider).isActive) {
                             if (context.mounted) {
                               AppToast.info(
@@ -1944,8 +1925,6 @@ class SettingsPage extends HookConsumerWidget {
                             ref.invalidate(goalSummaryProvider);
                             ref.invalidate(subscriptionManagementProvider);
                             ref.invalidate(userProfileProvider);
-
-                            debugPrint('✅ All user-specific state cleared');
                           }
                         } catch (error) {
                           if (context.mounted) {
@@ -1959,11 +1938,7 @@ class SettingsPage extends HookConsumerWidget {
                               ErrorHandler.getUserFriendlyMessage(error),
                             );
                           }
-                        } finally {
-                          if (context.mounted) {
-                            // Handled by router/auth state change
-                          }
-                        }
+                        } finally {}
                       },
                       child: material.Text(context.l10n.signOut,
                           style: const TextStyle(
@@ -2015,7 +1990,6 @@ class SettingsPage extends HookConsumerWidget {
 
       return (response?['wallet_capture_enabled'] as bool?) ?? false;
     } catch (e) {
-      debugPrint('Error checking wallet capture enabled status: $e');
       return false;
     }
   }
@@ -2035,7 +2009,6 @@ class SettingsPage extends HookConsumerWidget {
 
       return (response?['email_import_enabled'] as bool?) ?? false;
     } catch (e) {
-      debugPrint('Error checking email import enabled status: $e');
       return false;
     }
   }
@@ -2245,8 +2218,7 @@ Future<void> _showAvatarSourceSheet(
     if (context.mounted) {
       await _uploadAndSaveAvatar(context, file, onUpdated);
     }
-  } catch (e, st) {
-    debugPrint('Avatar flow failed: $e\n$st');
+  } catch (e) {
     if (context.mounted) {
       AppToast.error(context, context.l10n.failedToSaveAvatar);
     }
@@ -2469,15 +2441,13 @@ class _SupportSheet extends HookConsumerWidget {
           AppToast.success(context, messageText);
         }
       } on SupportTicketException catch (error) {
-        debugPrint('Support ticket submission failed: ${error.message}');
         if (context.mounted) {
           AppToast.error(
             context,
             error.message,
           );
         }
-      } catch (error, stack) {
-        debugPrint('Support submission failed: $error\n$stack');
+      } catch (error) {
         if (context.mounted) {
           AppToast.error(
             context,
@@ -2891,8 +2861,7 @@ Future<Uint8List?> _compressAttachment(File file) async {
       format: format,
       keepExif: true,
     );
-  } catch (error, stack) {
-    debugPrint('Attachment compression failed: $error\n$stack');
+  } catch (error) {
     return null;
   }
 }
@@ -3040,9 +3009,7 @@ Future<void> _uploadAndSaveAvatar(
   if (context.mounted) {
     try {
       rootNavigator = Navigator.of(context, rootNavigator: true);
-    } catch (e, st) {
-      debugPrint('Failed to get root navigator: $e\n$st');
-    }
+    } catch (e) {}
   }
 
   var dialogShown = false;
@@ -3065,9 +3032,7 @@ Future<void> _uploadAndSaveAvatar(
           );
           dialogShown = true;
         }
-      } catch (e, st) {
-        debugPrint('Failed to show avatar dialog: $e\n$st');
-      }
+      } catch (e) {}
     }
 
     final path = '${user.id}/avatar.jpg';
@@ -3106,17 +3071,14 @@ Future<void> _uploadAndSaveAvatar(
     onUpdated();
 
     showSuccessToast = true;
-  } catch (e, st) {
-    debugPrint('Failed to upload/save avatar: $e\n$st');
+  } catch (e) {
     errorToastMessage = l10n.failedToSaveAvatar;
   } finally {
     _isAvatarUploadInProgress = false;
     if (dialogShown && rootNavigator != null && rootNavigator.mounted) {
       try {
         rootNavigator.pop();
-      } catch (e, st) {
-        debugPrint('Failed to dismiss avatar dialog: $e\n$st');
-      }
+      } catch (e) {}
     }
 
     if (context.mounted && errorToastMessage != null) {

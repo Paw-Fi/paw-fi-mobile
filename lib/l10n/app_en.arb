@@ -3789,5 +3789,9 @@
   "budgetCompanionPlanning5": "Where does it go?",
   "budgetCompanionPlanning6": "Start tracking today!",
   "budgetCompanionPlanning7": "Your plan starts here!",
-  "budgetCompanionPlanning8": "Small steps, big wins!"
+  "budgetCompanionPlanning8": "Small steps, big wins!",
+  "typeYourOwnAnswer": "Type your own answer",
+  "aiClarificationError": "{error}\nThese details will be saved once you confirm them.",
+  "senderAccountConfirmation": "You are adding this sender to your Moneko account ({accountEmail}). We will email a verification link to the sender address. Receipts are imported only after you verify this sender.",
+  "previouslyForwardedAttachmentNotice": "If you have already forwarded an attachment, you must forward your attachment again after approving and verifying this sender. Previously forwarded attachments will not be imported automatically."
 }

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' as foundation;
+
 import 'package:flutter/material.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -17,7 +17,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/thai_language_prompt_logic.dart';
@@ -61,33 +61,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   late final SpotlightTourController _fabTourController;
   late final ProviderSubscription<HomePageCommand?>
       _homePageCommandSubscription;
-  late final HomeDebugTrace _homeTrace;
-  String? _lastHomeDebugSignature;
-  String? _lastHomePerfSignature;
-  String? _lastPersonalDashboardSignature;
-  bool _didLogFirstUsefulPaint = false;
 
-  static const bool _enableDebugLogs =
-      bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
   static const double _dashboardScrollCacheExtent = 900;
-
-  void _debugPrint(String? message, {int? wrapWidth}) {
-    if (foundation.kDebugMode && _enableDebugLogs) {
-      foundation.debugPrint(message, wrapWidth: wrapWidth);
-    }
-  }
 
   @override
   void initState() {
     super.initState();
 
     _fabTourController = ref.read(homeSpotlightControllerProvider);
-    _homeTrace = HomeDebugTrace(
-      label: 'HomePageOpen',
-      enabled: ref.read(homeDebugLoggingEnabledProvider),
-      logSink: ref.read(homeDebugLogSinkProvider),
-    );
-    _homeTrace.mark('page-mounted');
 
     // Initialize filters on first mount
     // NOTE: Analytics data is loaded by app_initialization_provider - no need to trigger here
@@ -119,43 +100,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       },
       fireImmediately: true,
     );
-  }
-
-  void _maybeLogHomeDebugSnapshot({
-    required HouseholdScope householdScope,
-    required Set<String> portfolioHouseholdIds,
-    required String? selectedCurrency,
-  }) {
-    if (!_enableDebugLogs) return;
-    final selected = ref.read(selectedHouseholdProvider);
-    final selectedHouseholdId =
-        selected.householdId ?? selected.household?.id ?? 'null';
-    final selectedHouseholdName = selected.household?.name ?? 'null';
-
-    final signature = [
-      'vm=${householdScope.viewMode}',
-      'selected=$selectedHouseholdId',
-      'portfolios=${portfolioHouseholdIds.length}',
-      'cur=${selectedCurrency ?? "null"}',
-      'portfolioIds=${portfolioHouseholdIds.length}',
-    ].join('|');
-
-    if (_lastHomeDebugSignature == signature) return;
-    _lastHomeDebugSignature = signature;
-
-    _debugPrint('🧭 [HomePageDebug] ===== Snapshot =====');
-    _debugPrint('🧭 [HomePageDebug] viewMode=${householdScope.viewMode}');
-    _debugPrint(
-        '🧭 [HomePageDebug] selectedHouseholdId=$selectedHouseholdId name=$selectedHouseholdName');
-    _debugPrint(
-        '🧭 [HomePageDebug] isPortfolioSelected=${householdScope.isPortfolioSelected}');
-    _debugPrint(
-        '🧭 [HomePageDebug] isHouseholdView=${householdScope.isHouseholdView}');
-    _debugPrint(
-        '🧭 [HomePageDebug] portfolioHouseholdIds(${portfolioHouseholdIds.length})=$portfolioHouseholdIds');
-    _debugPrint(
-        '🧭 [HomePageDebug] selectedCurrency=${selectedCurrency ?? "null"}');
-    _debugPrint('🧭 [HomePageDebug] ====================');
   }
 
   void _scheduleThaiLanguagePromptCheck(UserContact? contact) {
@@ -312,39 +256,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
     final householdsAsync = ref.watch(userHouseholdsProvider(userId));
     final householdScope = ref.watch(householdScopeProvider);
-    final portfolioHouseholdIds = householdScope.portfolioHouseholdIds;
 
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = selectedCurrencyRaw?.toUpperCase();
     final shouldShowFab = _shouldShowFAB(householdScope, householdsAsync);
-
-    final homePerfSignature = [
-      'scope=${householdScope.activeAccountType.name}',
-      'householdsLoading=${householdsAsync.isLoading}',
-      'householdsHasError=${householdsAsync.hasError}',
-      'householdsCount=${householdsAsync.valueOrNull?.length ?? 0}',
-      'shouldShowFab=$shouldShowFab',
-      'selectedCurrency=${selectedCurrency ?? '<none>'}',
-      'user=${userId.isEmpty ? '<empty>' : userId}',
-    ].join('|');
-    if (_lastHomePerfSignature != homePerfSignature) {
-      _lastHomePerfSignature = homePerfSignature;
-      _homeTrace.mark('page-state', {
-        'scope': householdScope.activeAccountType.name,
-        'householdsLoading': householdsAsync.isLoading,
-        'householdsHasError': householdsAsync.hasError,
-        'householdsCount': householdsAsync.valueOrNull?.length,
-        'shouldShowFab': shouldShowFab,
-        'selectedCurrency': selectedCurrency,
-        'user': userId.isEmpty ? '<empty>' : userId,
-      });
-    }
-
-    _maybeLogHomeDebugSnapshot(
-      householdScope: householdScope,
-      portfolioHouseholdIds: portfolioHouseholdIds,
-      selectedCurrency: selectedCurrency,
-    );
 
     _scheduleThaiLanguagePromptCheck(initUserContact);
 
@@ -358,15 +273,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       });
     }
 
-    if (!_didLogFirstUsefulPaint &&
-        (!householdScope.isHouseholdView || !householdsAsync.isLoading)) {
-      _didLogFirstUsefulPaint = true;
-      _homeTrace.mark('first-useful-paint', {
-        'scope': householdScope.activeAccountType.name,
-        'selectedCurrency': selectedCurrency,
-      });
-    }
-
     if (shouldShowFab && userId.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -374,10 +280,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       });
     }
 
+    final scrollViewKey =
+        'home_page_${householdScope.activeAccountType.name}_${householdScope.activeAccountHouseholdId ?? 'personal'}';
+
     final scrollView = CustomScrollView(
-      key: PageStorageKey<String>(
-        'home_page_${householdScope.activeAccountType.name}_${householdScope.activeAccountHouseholdId ?? 'personal'}',
-      ),
+      key: PageStorageKey<String>(scrollViewKey),
       physics: const AlwaysScrollableScrollPhysics(),
       cacheExtent: _dashboardScrollCacheExtent,
       slivers: [
@@ -419,21 +326,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
               final dashboardAsync =
                   ref.watch(personalDashboardProvider(userId));
-              final dashboardSignature = [
-                'loading=${dashboardAsync.isLoading}',
-                'hasError=${dashboardAsync.hasError}',
-                'hasValue=${dashboardAsync.hasValue}',
-                'count=${dashboardAsync.valueOrNull?.length ?? 0}',
-              ].join('|');
-              if (_lastPersonalDashboardSignature != dashboardSignature) {
-                _lastPersonalDashboardSignature = dashboardSignature;
-                _homeTrace.mark('personal-dashboard-async-state', {
-                  'loading': dashboardAsync.isLoading,
-                  'hasError': dashboardAsync.hasError,
-                  'hasValue': dashboardAsync.hasValue,
-                  'widgetCount': dashboardAsync.valueOrNull?.length,
-                });
-              }
 
               return dashboardAsync.when(
                 loading: () => const SliverToBoxAdapter(
@@ -548,7 +440,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               // Refresh based on current view mode
               if (householdScope.isHouseholdView) {
                 final householdId = householdScope.activeAccountHouseholdId;
-                _debugPrint('🔄 Pull-to-refresh: Refreshing household data');
+
                 if (householdId != null && householdId.isNotEmpty) {
                   ref
                       .read(cacheInvalidatorProvider)
@@ -586,11 +478,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 await ref
                     .read(transactionsFeedServiceProvider)
                     .refreshFromRemote(refreshQuery);
-              } catch (error) {
-                _debugPrint(
-                  '⚠️ Pull-to-refresh transaction sync failed; keeping cached data: $error',
-                );
-              }
+              } catch (error) {}
 
               await ref
                   .read(

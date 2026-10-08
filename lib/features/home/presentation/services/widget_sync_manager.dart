@@ -239,13 +239,11 @@ class WidgetSyncManager extends HookConsumerWidget {
     useEffect(() {
       // GUARD 1: App must be fully initialized (has data, not failed)
       if (!isAppReady) {
-        debugPrint('🔄 [WidgetSync] Skipping - app not ready yet');
         return null;
       }
 
       // GUARD 2: User must be authenticated
       if (user.uid.isEmpty) {
-        debugPrint('🔄 [WidgetSync] Skipping - no user');
         return null;
       }
 
@@ -253,7 +251,6 @@ class WidgetSyncManager extends HookConsumerWidget {
       if (analyticsData.hasLoadedOnce != true ||
           analyticsData.isLoading ||
           householdsAsync.isLoading) {
-        debugPrint('🔄 [WidgetSync] Skipping - data still loading');
         return null;
       }
 
@@ -262,14 +259,11 @@ class WidgetSyncManager extends HookConsumerWidget {
         selectedWidgetCurrency,
         widgetSyncVersion: widgetSyncVersion,
       )) {
-        debugPrint(
-            '🔄 [WidgetSync] Skipping - debounce (last sync ${syncState.lastAttemptTime})');
         return null;
       }
 
       // GUARD 5: Prevent concurrent syncs
       if (syncState.isSyncing) {
-        debugPrint('🔄 [WidgetSync] Skipping - sync already in progress');
         return null;
       }
 
@@ -470,9 +464,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                 personalBudgetIdsByCurrency[code] = id;
               }
             }
-          } catch (e) {
-            debugPrint('Error fetching personal budgets for widget: $e');
-          }
+          } catch (e) {}
 
           double aggregateBudgetForWidgetCurrency(
             Map<String, double> budgetsByCurrency,
@@ -562,9 +554,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 pockets: pockets,
               );
             } catch (e) {
-              debugPrint(
-                'Widget pockets RPC unavailable, using table fallback: $e',
-              );
               return null;
             }
           }
@@ -627,9 +616,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                     (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
               } catch (e) {
                 if (!_isMissingRolloverColumnError(e)) rethrow;
-                debugPrint(
-                  'Widget pockets fallback retrying legacy envelope select because rollover columns are unavailable.',
-                );
+
                 final envelopesRes = await client
                     .from('budget_envelopes')
                     .select('id,name,budget_amount_cents,color,icon')
@@ -647,9 +634,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 );
               }
               if (envRows.any((row) => row['rollover_enabled'] == true)) {
-                debugPrint(
-                  'Widget pockets fallback skipped because rollover is enabled and RPC data is unavailable.',
-                );
                 return null;
               }
 
@@ -743,8 +727,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 pockets: pockets,
               );
             } catch (e) {
-              debugPrint(
-                  'Error loading personal budget pockets for widget: $e');
               return null;
             }
           }
@@ -833,9 +815,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                     (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
               } catch (e) {
                 if (!_isMissingRolloverColumnError(e)) rethrow;
-                debugPrint(
-                  'Widget household pockets fallback retrying legacy envelope select because rollover columns are unavailable.',
-                );
+
                 final envelopesRes = await client
                     .from('budget_envelopes')
                     .select('id,name,budget_amount_cents,color,icon')
@@ -853,9 +833,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 );
               }
               if (envRows.any((row) => row['rollover_enabled'] == true)) {
-                debugPrint(
-                  'Widget pockets fallback skipped because rollover is enabled and RPC data is unavailable.',
-                );
                 return null;
               }
 
@@ -945,8 +922,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 pockets: pockets,
               );
             } catch (e) {
-              debugPrint(
-                  'Error loading household budget pockets for widget: $e');
               return null;
             }
           }
@@ -990,10 +965,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                     scopeId: scopeId,
                     currency: currency,
                   );
-                } catch (e) {
-                  debugPrint(
-                      'Error fetching personal expenses for widget ($currency): $e');
-                }
+                } catch (e) {}
 
                 final totalSpent = widgetCentsToAmount(
                   calculateWidgetSpentCents(scopeExpenses),
@@ -1090,8 +1062,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 // CIRCUIT BREAKER: Check if this scope+currency failed recently
                 final scopeKey = '$scopeId:$currency';
                 if (syncState.isScopeInCooldown(scopeKey)) {
-                  debugPrint(
-                      '🔄 [WidgetSync] Skipping $scopeKey - in cooldown');
                   continue;
                 }
 
@@ -1156,8 +1126,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 } catch (e) {
                   // Ignore unauthorized errors (logout/expired session) to avoid noisy logs
                   if (e is FunctionException && e.status == 401) {
-                    debugPrint(
-                        'Widget sync skipped (unauthorized) for scope $scopeId, currency $currency');
                     // Session is invalid - exit loops, finally will handle cleanup
                     return;
                   }
@@ -1166,10 +1134,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                   syncStateNotifier.recordScopeFailure(scopeId, currency);
 
                   // Only log if not in startup grace period to reduce noise
-                  if (!syncState.isInStartupGracePeriod) {
-                    debugPrint(
-                        '⚠️ [WidgetSync] Error fetching household summary ($scopeId, $currency): $e');
-                  }
+
                   // Continue to next currency/scope, don't crash
                   continue;
                 }
@@ -1221,11 +1186,8 @@ class WidgetSyncManager extends HookConsumerWidget {
 
           // If we reach here, sync completed successfully
           syncSucceeded = true;
-          debugPrint('✅ [WidgetSync] Sync completed successfully');
-        } catch (e, stackTrace) {
+        } catch (e) {
           // Mark sync as failed explicitly
-          debugPrint('❌ [WidgetSync] Sync failed with error: $e');
-          debugPrint(stackTrace.toString());
         } finally {
           // ALWAYS ensure sync state is properly reset to avoid deadlock
           if (syncSucceeded) {

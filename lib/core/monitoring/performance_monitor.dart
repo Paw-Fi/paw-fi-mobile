@@ -1,11 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'dart:async';
 
 /// Performance monitoring to track slow operations
 class PerformanceMonitor {
   static final Map<String, _OperationTracker> _activeOperations = {};
-  static Timer? _watchdogTimer;
 
   /// Start tracking an operation
   static void startOperation(String operationName, {String? details}) {
@@ -14,61 +11,11 @@ class PerformanceMonitor {
       details: details,
       startTime: DateTime.now(),
     );
-
-    debugPrint(
-        '🚀 [PERF] Started: $operationName ${details != null ? "($details)" : ""}');
-    _ensureWatchdog();
   }
 
   /// Complete tracking an operation
   static void endOperation(String operationName, {bool success = true}) {
-    final tracker = _activeOperations.remove(operationName);
-    if (tracker == null) return;
-
-    final duration = DateTime.now().difference(tracker.startTime);
-    final emoji = success ? '✅' : '❌';
-    final status = success ? 'Completed' : 'Failed';
-
-    debugPrint(
-        '$emoji [PERF] $status: ${tracker.name} in ${duration.inMilliseconds}ms');
-
-    // Log slow operations
-    if (duration.inSeconds > 3) {
-      debugPrint(
-          '⚠️ [PERF] SLOW OPERATION: ${tracker.name} took ${duration.inSeconds}s!');
-    }
-  }
-
-  /// Check for stuck operations
-  static void _ensureWatchdog() {
-    _watchdogTimer?.cancel();
-    _watchdogTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      final now = DateTime.now();
-      final stuckOps = <String>[];
-
-      _activeOperations.forEach((name, tracker) {
-        final duration = now.difference(tracker.startTime);
-        if (duration.inSeconds > 10) {
-          stuckOps.add(name);
-          debugPrint(
-              '🚨 [PERF] STUCK OPERATION: $name running for ${duration.inSeconds}s!');
-          if (tracker.details != null) {
-            debugPrint('   Details: ${tracker.details}');
-          }
-        }
-      });
-
-      if (stuckOps.isNotEmpty) {
-        debugPrint(
-            '🚨 [PERF] ${stuckOps.length} operations potentially stuck: ${stuckOps.join(", ")}');
-      }
-
-      // Stop watchdog if no operations
-      if (_activeOperations.isEmpty) {
-        _watchdogTimer?.cancel();
-        _watchdogTimer = null;
-      }
-    });
+    _activeOperations.remove(operationName);
   }
 
   /// Get currently running operations
@@ -83,9 +30,6 @@ class PerformanceMonitor {
   /// Clear all tracked operations (use on app reset)
   static void reset() {
     _activeOperations.clear();
-    _watchdogTimer?.cancel();
-    _watchdogTimer = null;
-    debugPrint('🔄 [PERF] Performance monitor reset');
   }
 }
 

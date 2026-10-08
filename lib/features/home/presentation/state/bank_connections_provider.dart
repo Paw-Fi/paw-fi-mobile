@@ -2,23 +2,15 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/bank_connection.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 
 final bankConnectionsProvider =
     FutureProvider.autoDispose<List<BankConnection>>((ref) async {
-  final trace = WalletsDebugTrace(
-    label: 'BankConnections',
-    enabled: ref.read(walletsDebugLoggingEnabledProvider),
-    logSink: ref.read(walletsDebugLogSinkProvider),
-  );
   final user = ref.watch(authProvider);
   if (user.uid.isEmpty) {
-    trace.mark('bank-connections-skipped', const {'reason': 'empty-user'});
     return const [];
   }
 
   try {
-    trace.mark('bank-connections-start', {'user': user.uid});
     final response = await supabase.rpc('list_mobile_bank_connections');
 
     final rows = (response as List?)?.cast<Map<String, dynamic>>() ?? const [];
@@ -28,10 +20,9 @@ final bankConnectionsProvider =
       (a, b) =>
           a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
     );
-    trace.mark('bank-connections-success', {'count': connections.length});
+
     return connections;
   } catch (error) {
-    trace.mark('bank-connections-error', {'error': error, 'user': user.uid});
     rethrow;
   }
 });

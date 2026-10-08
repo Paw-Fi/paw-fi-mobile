@@ -18,27 +18,16 @@ import 'package:moneko/firebase_options.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import 'package:flutter/foundation.dart' as foundation;
+
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/app/startup_guard.dart';
 import 'package:moneko/core/app/flutter_error_reporter.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugPrint(String? message, {int? wrapWidth}) {
-  if (foundation.kDebugMode && _enableDebugLogs) {
-    foundation.debugPrint(message, wrapWidth: wrapWidth);
-  }
-}
-
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  _debugPrint('[FCM] Background message received');
-
   // Initialize Firebase if not already initialized
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -230,7 +219,6 @@ void main() {
         FirebaseCrashlytics.instance.log('startup: supabase_initialized');
       }
     } catch (e, s) {
-      _debugPrint('[ERR] initApp failed');
       if (!kIsWeb) {
         FirebaseCrashlytics.instance
             .recordError(e, s, reason: 'initApp failed', fatal: false);
@@ -245,7 +233,6 @@ void main() {
       intl.Intl.defaultLocale = localeName;
       await initializeDateFormatting(localeName, null);
     } catch (e, s) {
-      _debugPrint('[ERR] initializeDateFormatting failed');
       if (!kIsWeb) {
         FirebaseCrashlytics.instance.recordError(
           e,
@@ -266,7 +253,6 @@ void main() {
       timeout: const Duration(seconds: 10),
       action: SharedPreferences.getInstance,
       onError: (error, stack) {
-        _debugPrint('[ERR] SharedPreferences init failed');
         if (!kIsWeb) {
           try {
             FirebaseCrashlytics.instance.recordError(
@@ -289,7 +275,6 @@ void main() {
         '${packageInfo.version}+${packageInfo.buildNumber}',
       );
     } catch (error, stackTrace) {
-      _debugPrint('[ERR] PackageInfo init failed');
       if (!kIsWeb) {
         FirebaseCrashlytics.instance.recordError(
           error,

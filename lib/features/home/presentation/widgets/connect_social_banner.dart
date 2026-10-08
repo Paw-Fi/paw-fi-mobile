@@ -45,7 +45,6 @@ final walletCaptureEnabledProvider =
 
     return (response?['wallet_capture_enabled'] as bool?) ?? false;
   } catch (error) {
-    debugPrint('Error checking wallet capture state: $error');
     return false;
   }
 });
@@ -59,7 +58,6 @@ final emailImportEnabledProvider =
     final settings = await EmailImportSettingsService().getSettings();
     return settings.enabled;
   } catch (error) {
-    debugPrint('Error checking email import state: $error');
     return false;
   }
 });
@@ -83,15 +81,6 @@ final dismissedChecklistStepsProvider = Provider<Set<String>>((ref) {
           const [];
   return stored.toSet();
 });
-
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugPrint(String? message) {
-  if (kDebugMode && _enableDebugLogs) {
-    debugPrint(message);
-  }
-}
 
 bool _asyncValueHasResolved<T>(AsyncValue<T> value) {
   return value.hasValue;
@@ -256,15 +245,6 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
 
     final bannerSnapshot = _lastResolvedSnapshot;
     if (bannerSnapshot == null) {
-      _debugPrint(
-        '[ConnectSocialBanner] waiting hasTransactionsLoading=${hasTransactionsAsync.isLoading} '
-        'whatsappLoading=${whatsappAsync.isLoading} '
-        'telegramLoading=${telegramAsync.isLoading} '
-        'walletLoading=${walletCaptureAsync.isLoading} '
-        'emailImportLoading=${emailImportAsync.isLoading} '
-        'recurringLoaded=${recurringState.hasLoadedOnce} '
-        'recurringLoading=${recurringState.data.isLoading}',
-      );
       return const SizedBox.shrink();
     }
 
@@ -291,15 +271,6 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       ),
       onEnableCapture: () => _openCaptureFlow(context, ref),
       onEnableEmailImport: () => _openEmailImportSettings(context, ref),
-    );
-
-    _debugPrint(
-      '[ConnectSocialBanner] scope=$recurringHouseholdId '
-      'loaded=${recurringState.hasLoadedOnce} '
-      'loading=${recurringState.data.isLoading} '
-      'stateCount=${bannerSnapshot.recurringCount} '
-      'hasRecurringExpense=${bannerSnapshot.hasRecurringExpense} '
-      'error=${recurringState.data.hasError}',
     );
 
     final visibleSteps = steps
@@ -441,9 +412,7 @@ class _ConnectSocialBannerState extends ConsumerState<ConnectSocialBanner> {
       final persisted = dismissed.toList()..sort();
       await prefs.setStringList(storageKey, persisted);
       ref.invalidate(dismissedChecklistStepsProvider);
-    } catch (error) {
-      debugPrint('Failed to dismiss checklist card: $error');
-    }
+    } catch (error) {}
   }
 
   List<_ChecklistStep> _buildSteps({

@@ -166,10 +166,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     final isPrimaryActionEnabled = isDone.value || setupError.value != null;
     final isGrantingOnboardingTrial = useRef(false);
 
-    useEffect(() {
-      return null;
-    }, const []);
-
     Future<void> applyCurrencyDefaults({
       required String fallbackUserId,
       required OnboardingPreauthDraft draft,
@@ -177,9 +173,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       try {
         final selectedCurrency = draft.selectedCurrency.trim().toUpperCase();
         if (selectedCurrency.isEmpty) {
-          debugPrint(
-            '[OnboardingPrep] No preauth currency selected, skipping currency sync',
-          );
           return;
         }
 
@@ -212,9 +205,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
         final userId = supabase.auth.currentSession?.user.id ?? fallbackUserId;
         if (userId.isEmpty) {
-          debugPrint(
-            '[OnboardingPrep] Missing user id, skipping backend currency sync',
-          );
           return;
         }
 
@@ -244,14 +234,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           );
         }
       } on TimeoutException {
-        debugPrint(
-          '[OnboardingPrep] Preferred currency sync timed out after $_kCurrencySyncTimeout',
-        );
-      } catch (error, stackTrace) {
-        debugPrint(
-          '[OnboardingPrep] Preferred currency sync failed: $error\n$stackTrace',
-        );
-      }
+      } catch (error) {}
     }
 
     Future<_ExistingAccountState> loadExistingAccountState(
@@ -464,10 +447,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             .limit(1)
             .maybeSingle();
         return row != null;
-      } catch (error, stackTrace) {
-        debugPrint(
-          '[OnboardingPrep] hasSubscriptionRow failed: $error\n$stackTrace',
-        );
+      } catch (error) {
         return null;
       }
     }
@@ -487,9 +467,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             .timeout(_kSubscriptionRefreshTimeout);
         if (!context.mounted) return false;
         if (!iapState.storeAvailable) {
-          debugPrint(
-            '[OnboardingPrep] App Store restore skipped because StoreKit is unavailable',
-          );
           return false;
         }
 
@@ -523,10 +500,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               ? ref.read(iapControllerProvider).valueOrNull?.lastError ?? ''
               : 'Onboarding closed',
         );
-      } catch (error, stackTrace) {
-        debugPrint(
-          '[OnboardingPrep] App Store restore check skipped: $error\n$stackTrace',
-        );
+      } catch (error) {
         return false;
       }
     }
@@ -552,20 +526,12 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       await ref
           .read(subscriptionManagementProvider.notifier)
           .refresh()
-          .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
-        debugPrint(
-          '[OnboardingPrep] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
-        );
-      });
+          .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {});
       if (!context.mounted) return false;
       await ref
           .read(subscriptionNotifierProvider.notifier)
           .refresh()
-          .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
-        debugPrint(
-          '[OnboardingPrep] subscriptionNotifier refresh timed out after $_kSubscriptionRefreshTimeout',
-        );
-      });
+          .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {});
       if (!context.mounted) return false;
 
       final subscriptionDetails =
@@ -573,31 +539,19 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final hasActiveSubscription =
           subscriptionDetails?.hasActiveSubscription ?? false;
       if (hasActiveSubscription) {
-        debugPrint(
-          '[OnboardingPrep] Active subscription detected; skipping onboarding trial bootstrap',
-        );
         return true;
       }
 
       final hasSubscriptionNow = await hasSubscriptionRow(userId);
       if (!context.mounted) return false;
       if (hasSubscriptionNow == null) {
-        debugPrint(
-          '[OnboardingPrep] Subscription row check unavailable; skipping onboarding trial bootstrap',
-        );
         return false;
       }
       if (hasSubscriptionNow || existingState.hasSubscriptionData) {
-        debugPrint(
-          '[OnboardingPrep] Existing non-active subscription found; leaving account unchanged for resubscribe flow',
-        );
         return true;
       }
 
       if (alreadyGrantedLocally) {
-        debugPrint(
-          '[OnboardingPrep] Local grant marker exists but no server subscription row was found; retrying activation',
-        );
         await prefs.remove(paywallReturnTrialGrantedKey(userId));
       }
       if (!context.mounted) return false;
@@ -612,9 +566,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           label: l10n
               .onboardingPreparingProgressInitial, // Use general word instead of activating free trial text
         );
-        debugPrint(
-          '[OnboardingPrep] No subscription detected; activating onboarding free trial',
-        );
+
         await subscriptionManagement
             .grantPaywallReturnTrial()
             .timeout(_kTrialGrantTimeout);
@@ -631,11 +583,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 .refresh()
                 .timeout(_kPostGrantRefreshTimeout);
           }
-        } catch (refreshError, refreshStackTrace) {
-          debugPrint(
-            '[OnboardingPrep] Post-grant refresh failed: $refreshError\n$refreshStackTrace',
-          );
-        }
+        } catch (refreshError) {}
 
         final hasGrantedSubscription = await hasSubscriptionRow(userId);
         if (hasGrantedSubscription != true) {
@@ -646,11 +594,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
         await prefs.setBool(trialWelcomePendingKey(userId), true);
         return true;
-      } on TimeoutException catch (error, stackTrace) {
-        debugPrint(
-          '[OnboardingPrep] Free trial activation timed out: $error\n$stackTrace',
-        );
-      } catch (error, stackTrace) {
+      } on TimeoutException catch (error) {
+      } catch (error) {
         final message = error.toString().toLowerCase();
         if (message.contains('already granted') ||
             message.contains('already has active subscription access')) {
@@ -661,9 +606,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             return true;
           }
         }
-        debugPrint(
-          '[OnboardingPrep] Free trial activation failed: $error\n$stackTrace',
-        );
+
         return false;
       } finally {
         isGrantingOnboardingTrial.value = false;
@@ -979,11 +922,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             }
           }
         }
-      } catch (error, stackTrace) {
-        debugPrint(
-          'Onboarding starter budget sync failed: $error\n$stackTrace',
-        );
-
+      } catch (error) {
         bool hasRequiredBudgets = false;
         try {
           hasRequiredBudgets = await hasRequiredStarterBudgets(
@@ -993,16 +932,9 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             shouldApplyStarterSync: shouldApplyStarterSync,
             expectedPocketCount: expectedPocketCount,
           );
-        } catch (verificationError, verificationStack) {
-          debugPrint(
-            'Onboarding starter budget verification failed: $verificationError\n$verificationStack',
-          );
-        }
+        } catch (verificationError) {}
 
         if (hasRequiredBudgets) {
-          debugPrint(
-            '[OnboardingPrep] Starter budget verification passed after sync error, continuing setup.',
-          );
         } else {
           final previousFailures = prefs.getInt(budgetSyncFailureKey) ?? 0;
           final nextFailures = previousFailures + 1;
@@ -1015,10 +947,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           if (shouldAllowDashboardFallback) {
             try {
               await store.markSyncedForUser(user.uid, preparedDraft);
-            } catch (syncMarkError, syncMarkStack) {
-              debugPrint(
-                'Onboarding fallback sync marker failed: $syncMarkError\n$syncMarkStack',
-              );
+            } catch (syncMarkError) {
               canUseDashboardFallback = false;
             }
           }

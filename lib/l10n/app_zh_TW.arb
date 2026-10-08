@@ -3638,7 +3638,7 @@
   "emailFileImportAccountEmailAlreadyIncluded": "你的 Moneko 帳號電子郵件已列為授權寄件者，不需要再次新增。",
   "aiClarificationNotSaved": "確認後，這些資訊就會儲存。",
   "aiClarificationCustomAnswer": "輸入你的回答",
-  "aiInputSavedForLater": "輸入內容已儲存在此裝置。連上網路後開啟 Moneko，系統會繼續分析。",
+  "aiInputSavedForLater": "輸入內容已儲存在此裝置上。連上網路後開啟 Moneko，分析將繼續進行。",
   "unlockMonekoPlus": "解鎖 Moneko Plus",
   "unlimitedAiExpenseCapture": "無限使用 AI 記錄支出",
   "unlimitedSpacesWallets": "無限 Space 和錢包",
@@ -3689,5 +3689,9 @@
   "budgetCompanionPlanning5": "錢都花去哪了?",
   "budgetCompanionPlanning6": "今天就開始記錄吧!",
   "budgetCompanionPlanning7": "你的計畫從這裡開始!",
-  "budgetCompanionPlanning8": "小小一步，大大進步!"
+  "budgetCompanionPlanning8": "小小一步，大大進步!",
+  "typeYourOwnAnswer": "輸入自己的回答",
+  "aiClarificationError": "{error}\n確認後，這些資訊就會儲存。",
+  "senderAccountConfirmation": "你正在將此寄件者加入你的 Moneko 帳號（{accountEmail}）。我們會將驗證連結寄到寄件者的電子郵件地址。完成寄件者驗證後，收據才會匯入。",
+  "previouslyForwardedAttachmentNotice": "如果你先前已轉寄附件，請在核准並驗證此寄件者後重新轉寄。先前轉寄的附件不會自動匯入。"
 }

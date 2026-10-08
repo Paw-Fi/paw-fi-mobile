@@ -3,6 +3,27 @@ import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:moneko/core/constants/deep_links.dart';
 
 void main() {
+  test(
+      'sender setup links decode the address but never accept account authority',
+      () {
+    expect(
+        DeepLinks.emailSenderToAdd(Uri.parse(
+            'moneko://add-email-sender?email=wickum%2Breceipts%40outlook.com')),
+        'wickum+receipts@outlook.com');
+    for (final link in [
+      'https://add-email-sender?email=user%40example.com',
+      'moneko://add-email-sender/?email=user%40example.com',
+      'moneko://user@add-email-sender?email=user%40example.com',
+      'moneko://add-email-sender:123?email=user%40example.com',
+      'moneko://add-email-sender?email=bad',
+      'moneko://add-email-sender?email=user%40example.com&userId=other',
+      'moneko://add-email-sender?email=a%40example.com&email=b%40example.com',
+      'moneko://add-email-sender?email=user%40example.com#token',
+    ]) {
+      expect(DeepLinks.emailSenderToAdd(Uri.parse(link)), isNull, reason: link);
+    }
+  });
+
   late DeepLinkService service;
 
   setUp(() {

@@ -71,9 +71,6 @@ class WalletDetailsPage extends HookConsumerWidget {
 
     useEffect(() {
       if (providerAccount != null) {
-        debugPrint(
-          '[AccountDetails] providerAccount accountId=${providerAccount.id} name=${providerAccount.name} color=${providerAccount.color} opening=${providerAccount.openingBalanceCents} current=${providerAccount.currentBalanceCents}',
-        );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!context.mounted) return;
           final latestServerAccount =
@@ -84,11 +81,6 @@ class WalletDetailsPage extends HookConsumerWidget {
           actions.reconcileOptimisticAccountWithServer(latestServerAccount);
         });
         latestDisplayedAccountState.value = providerAccount;
-      } else {
-        final cached = latestDisplayedAccountState.value;
-        debugPrint(
-          '[AccountDetails] providerAccount=null fallbackToCached accountId=${cached.id} name=${cached.name} color=${cached.color} opening=${cached.openingBalanceCents} current=${cached.currentBalanceCents}',
-        );
       }
       return null;
     }, [providerAccount, serverAccount]);
@@ -246,17 +238,6 @@ class WalletDetailsPage extends HookConsumerWidget {
     ]);
 
     useEffect(() {
-      if (walletFeedState.error != null) {
-        debugPrint(
-          '[WalletDetailsPage][transactionsFeedProvider] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$walletCurrencyCode includeUnassignedAccount=false error=${walletFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
-        );
-      }
-
-      if (monthFeedState.error != null) {
-        debugPrint(
-          '[WalletDetailsPage][monthFeedState] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$walletCurrencyCode startDate=${monthStart.toIso8601String()} endDate=${monthEnd.toIso8601String()} includeUnassignedAccount=false error=${monthFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
-        );
-      }
       return null;
     }, [
       walletFeedState.error,
@@ -757,10 +738,6 @@ class WalletDetailsPage extends HookConsumerWidget {
       if (result == null) return;
       if (!context.mounted) return;
 
-      debugPrint(
-        '[AccountDetails][Edit] save tapped accountId=${latestWallet.id} name=${result.name} icon=${result.icon} color=${result.color} logo=${result.logoUrl} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
-      );
-
       final retargetedCurrentBalanceCents =
           retargetWalletBalanceForOpeningChange(
         previousOpeningBalanceCents: latestWallet.openingBalanceCents,
@@ -802,12 +779,9 @@ class WalletDetailsPage extends HookConsumerWidget {
         if (context.mounted) {
           AppToast.success(context, context.l10n.walletUpdatedSuccessfully);
         }
-        debugPrint(
-            '[AccountDetails][Edit] refreshAccountData accountId=${latestWallet.id}');
+
         actions.refreshAccountData();
       } catch (error) {
-        debugPrint(
-            '[AccountDetails][Edit] error accountId=${latestWallet.id} error=$error');
         actions.clearOptimisticWallet(latestWallet.id);
         if (context.mounted) {
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));

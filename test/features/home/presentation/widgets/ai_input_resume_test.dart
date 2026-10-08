@@ -105,9 +105,12 @@ void main() {
     'dismiss',
     'owner-change',
     'retryable',
-    'offline'
+    'offline',
+    'receipt-dismiss'
   ]) {
     final cancel = scenario == 'cancel';
+    final isReceipt = scenario == 'receipt-dismiss';
+    const receiptQuestion = 'レシートの合計は？';
     testWidgets(
         'resumed analysis $scenario preserves durable capture ownership',
         (tester) async {
@@ -117,14 +120,46 @@ void main() {
       final database = MonekoDatabase.inMemory();
       final repository =
           AiInputCaptureRepository(database, directory: () async => root);
-      final capture = (await tester.runAsync(() => repository.capture(
-          userId: 'owner',
-          body: {'userId': 'owner', 'text': '買い物５０円'},
-          target: {'accountType': 'personal'})))!;
+      final capture = (await tester
+          .runAsync(() => repository.capture(userId: 'owner', body: {
+                'userId': 'owner',
+                if (isReceipt) 'accountId': 'selected-wallet',
+                if (isReceipt)
+                  'image': {'data': 'cmVjZWlwdA==', 'contentType': 'image/png'}
+                else
+                  'text': '買い物５０円',
+              }, target: {
+                'accountType': 'personal',
+                if (isReceipt) 'accountId': 'selected-wallet',
+                if (isReceipt) 'accountCurrency': 'JPY'
+              })))!;
       var requests = 0;
       requestHandler = (request) async {
         expect(request.url.path, '/functions/v1/analyze-expense');
         requests++;
+        if (isReceipt) {
+          final body = jsonDecode(request.body) as Map;
+          expect(body['accountId'], 'selected-wallet');
+          expect(body['image'],
+              {'data': 'cmVjZWlwdA==', 'contentType': 'image/png'});
+          expect(body['interactive'], {'version': 1, 'answers': []});
+          return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {
+                  'interactiveVersion': 1,
+                  'requireCorrection': true,
+                  'items': [],
+                  'correction': {
+                    'question': receiptQuestion,
+                    'choices': ['５０円', '５００円'],
+                    'allowCustomResponse': true
+                  }
+                }
+              }),
+              200,
+              headers: {'content-type': 'application/json'});
+        }
         return http.Response(
             jsonEncode({'success': false}), scenario == 'retryable' ? 503 : 200,
             headers: {'content-type': 'application/json'});
@@ -174,17 +209,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       final l10n = AppLocalizations.of(mountedContext)!;
       final showsDialog = scenario != 'offline' && scenario != 'retryable';
+      final dialogText = isReceipt ? receiptQuestion : l10n.failedToAnalyze;
       for (var attempt = 0;
           showsDialog &&
               attempt < 20 &&
-              find.text(l10n.failedToAnalyze).evaluate().isEmpty;
+              find.text(dialogText).evaluate().isEmpty;
           attempt++) {
         await tester.runAsync(
             () => Future<void>.delayed(const Duration(milliseconds: 50)));
         await tester.pump(const Duration(milliseconds: 50));
       }
       if (showsDialog) {
-        expect(find.text(l10n.failedToAnalyze), findsOneWidget);
+        expect(find.text(dialogText), findsOneWidget);
         if (scenario == 'owner-change') {
           (container.read(authProvider.notifier) as _Auth).changeUser();
           await tester.pump();
@@ -215,6 +251,14 @@ void main() {
         expect(requests, 1);
       } else {
         expect(pending.single.id, capture.id);
+        if (isReceipt) {
+          expect((pending.single.payload['question'] as Map)['question'],
+              receiptQuestion);
+          expect(
+              await File(pending.single.payload['localImagePath'] as String)
+                  .exists(),
+              isTrue);
+        }
       }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());

@@ -12,6 +12,8 @@ import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
+import 'package:moneko/shared/widgets/seamless_header_action.dart';
+import 'package:moneko/shared/widgets/header_month_label.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 
 class PocketsHeaderCard extends StatelessWidget {
@@ -37,6 +39,9 @@ class PocketsHeaderCard extends StatelessWidget {
     this.amountSpotlightKey,
     this.showSwipeHint = false,
     this.showSlider = false,
+    this.isSeamless = false,
+    this.showEditActions = true,
+    this.onAddPocket,
   });
 
   final double totalBudget;
@@ -60,6 +65,9 @@ class PocketsHeaderCard extends StatelessWidget {
   final GlobalKey? amountSpotlightKey;
   final bool showSwipeHint;
   final bool showSlider;
+  final bool isSeamless;
+  final bool showEditActions;
+  final VoidCallback? onAddPocket;
 
   @override
   Widget build(BuildContext context) {
@@ -121,109 +129,172 @@ class PocketsHeaderCard extends StatelessWidget {
       return '$symbol$localized';
     }
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTotalChanged == null
-          ? onBudgetEditBlocked
-          : () => _showBudgetInputSheet(
-                context,
-                currentAmount: effectiveBudget,
-                currencyCode: currency,
-                onChanged: (value) async {
-                  onTotalChanged?.call(value);
-                  await onSave?.call();
-                },
-              ),
+    final VoidCallback? editBudget = onTotalChanged == null
+        ? onBudgetEditBlocked
+        : () => _showBudgetInputSheet(
+              context,
+              currentAmount: effectiveBudget,
+              currencyCode: currency,
+              onChanged: (value) async {
+                onTotalChanged?.call(value);
+                await onSave?.call();
+              },
+            );
+
+    VoidCallback? editCurrencyBudget(MapEntry<String, double> entry) {
+      if (onCurrencyBudgetChanged == null || savingCurrency != null) {
+        return null;
+      }
+      return () => _showBudgetInputSheet(
+            context,
+            currentAmount: entry.value,
+            currencyCode: entry.key,
+            onChanged: (value) => onCurrencyBudgetChanged!(entry.key, value),
+          );
+    }
+
+    final monthSelector = GestureDetector(
+      onTap: () => _pickMonth(context),
       child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: colorScheme.pocketHeaderBorder,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.pocketHeaderShadow,
-              blurRadius: 32,
-              offset: const Offset(0, 10),
-              spreadRadius: -4,
+        constraints: isSeamless ? const BoxConstraints(minHeight: 48) : null,
+        padding: isSeamless
+            ? const EdgeInsets.symmetric(vertical: 8)
+            : const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: isSeamless
+            ? null
+            : BoxDecoration(
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(100),
+              ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  monthLabel,
+                  style: TextStyle(
+                    fontSize: isSeamless ? 12 : 13,
+                    fontWeight: isSeamless ? FontWeight.w500 : FontWeight.w600,
+                    color: isSeamless
+                        ? subTextColor
+                        : colorScheme.onSurfaceVariant,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              CupertinoIcons.chevron_down,
+              size: 11,
+              color: isSeamless
+                  ? subTextColor
+                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Month Selector Pill
-            GestureDetector(
-              onTap: () => _pickMonth(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      monthLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurfaceVariant,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      CupertinoIcons.chevron_down,
-                      size: 11,
-                      color:
-                          colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      ),
+    );
 
-            const SizedBox(height: 20),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: isSeamless ? null : editBudget,
+      child: Container(
+        width: double.infinity,
+        decoration: isSeamless
+            ? null
+            : BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: colorScheme.pocketHeaderBorder,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.pocketHeaderShadow,
+                    blurRadius: 32,
+                    offset: const Offset(0, 10),
+                    spreadRadius: -4,
+                  ),
+                ],
+              ),
+        padding: isSeamless
+            ? const EdgeInsets.fromLTRB(8, 16, 8, 20)
+            : const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment:
+              isSeamless ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+          children: [
+            if (isSeamless)
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 16,
+                runSpacing: 8,
+                children: [
+                  Text(
+                    context.l10n.monthlyBudget,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: subTextColor,
+                    ),
+                  ),
+                  HeaderMonthLabel(
+                    month: periodMonth,
+                    textKey: const ValueKey('pockets-header-month-label'),
+                  ),
+                ],
+              )
+            else
+              monthSelector,
+
+            SizedBox(height: isSeamless ? 12 : 20),
 
             // Budget Amount Hero (spotlight target)
             KeyedSubtree(
-              key: amountSpotlightKey,
+              key: isSeamless ? null : amountSpotlightKey,
               child: Column(
+                crossAxisAlignment: isSeamless
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    context.l10n.monthlyBudget.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: subTextColor,
-                      letterSpacing: 0.8,
+                  if (!isSeamless) ...[
+                    Text(
+                      context.l10n.monthlyBudget.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: subTextColor,
+                        letterSpacing: 0.8,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                  ],
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: isSeamless
+                        ? MainAxisAlignment.start
+                        : MainAxisAlignment.center,
                     children: [
                       Flexible(
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
-                            minHeight: 52,
+                            minHeight: isSeamless ? 48 : 52,
                             maxHeight:
                                 MediaQuery.textScalerOf(context).scale(16) > 20
                                     ? double.infinity
-                                    : 52,
+                                    : isSeamless
+                                        ? 48
+                                        : 52,
                           ),
                           child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 240),
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 240),
                             switchInCurve: Curves.easeOutCubic,
                             switchOutCurve: Curves.easeInCubic,
                             transitionBuilder: (child, animation) {
@@ -241,13 +312,18 @@ class PocketsHeaderCard extends StatelessWidget {
                             child: FittedBox(
                               key: ValueKey(effectiveBudget),
                               fit: BoxFit.scaleDown,
+                              alignment: isSeamless
+                                  ? AlignmentDirectional.centerStart
+                                  : Alignment.center,
                               child: Text(
                                 formatLocalizedCurrency(effectiveBudget),
                                 style: TextStyle(
-                                  fontSize: 44,
-                                  fontWeight: FontWeight.w700,
+                                  fontSize: isSeamless ? 40 : 44,
+                                  fontWeight: isSeamless
+                                      ? FontWeight.w800
+                                      : FontWeight.w700,
                                   color: textColor,
-                                  letterSpacing: -1.6,
+                                  letterSpacing: isSeamless ? -1.2 : -1.6,
                                   height: 1.1,
                                 ),
                               ),
@@ -255,7 +331,9 @@ class PocketsHeaderCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (!showCurrencyBreakdown && onTotalChanged != null) ...[
+                      if (!isSeamless &&
+                          !showCurrencyBreakdown &&
+                          onTotalChanged != null) ...[
                         const SizedBox(width: 8),
                         Icon(
                           CupertinoIcons.pencil,
@@ -337,7 +415,9 @@ class PocketsHeaderCard extends StatelessWidget {
                   ? Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: isSeamless
+                            ? CrossAxisAlignment.start
+                            : CrossAxisAlignment.center,
                         children: [
                           for (var index = 0;
                               index < nativeBudgets.length;
@@ -352,25 +432,13 @@ class PocketsHeaderCard extends StatelessWidget {
                                 nativeBudgets[index].key,
                               ),
                               colorScheme: colorScheme,
+                              isSeamless: isSeamless,
                               isSaving:
                                   savingCurrency == nativeBudgets[index].key,
-                              onTap: onCurrencyBudgetChanged == null ||
-                                      savingCurrency != null
-                                  ? null
-                                  : () => _showBudgetInputSheet(
-                                        context,
-                                        currentAmount:
-                                            nativeBudgets[index].value,
-                                        currencyCode: nativeBudgets[index].key,
-                                        onChanged: (value) =>
-                                            onCurrencyBudgetChanged!(
-                                          nativeBudgets[index].key,
-                                          value,
-                                        ),
-                                      ),
+                              onTap: editCurrencyBudget(nativeBudgets[index]),
                             ),
                             if (index < nativeBudgets.length - 1)
-                              const SizedBox(height: 4),
+                              SizedBox(height: isSeamless ? 8 : 4),
                           ],
                         ],
                       ),
@@ -378,9 +446,45 @@ class PocketsHeaderCard extends StatelessWidget {
                   : const SizedBox.shrink(),
             ),
 
+            if (isSeamless && showEditActions) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  if (onAddPocket != null)
+                    SeamlessHeaderAction(
+                      key: const ValueKey('pocket_add_button'),
+                      label: context.l10n.newPocketTitle,
+                      icon: CupertinoIcons.plus,
+                      onPressed: isSkeleton ? null : onAddPocket,
+                    ),
+                  KeyedSubtree(
+                    key: amountSpotlightKey,
+                    child: SeamlessHeaderAction(
+                      key: const ValueKey('budget_edit_button'),
+                      label: context.l10n.editBudget,
+                      icon: CupertinoIcons.pencil,
+                      onPressed: isSkeleton ? null : editBudget,
+                    ),
+                  ),
+                  if (showCurrencyBreakdown)
+                    for (final entry in nativeBudgets)
+                      SeamlessHeaderAction(
+                        key: ValueKey('currency_budget_edit_${entry.key}'),
+                        label: '${context.l10n.edit} ${entry.key}',
+                        icon: CupertinoIcons.pencil,
+                        onPressed:
+                            isSkeleton ? null : editCurrencyBudget(entry),
+                        isLoading: savingCurrency == entry.key,
+                      ),
+                ],
+              ),
+            ],
+
             if (showSwipeHint && !isSkeleton) ...[
               const SizedBox(height: 16),
-              const SwipeHintRow(text: 'Swipe right for previous months'),
+              SwipeHintRow(text: context.l10n.swipeRightPreviousMonths),
             ],
           ],
         ),
@@ -551,6 +655,7 @@ class _CurrencyBudgetRow extends StatelessWidget {
     required this.colorScheme,
     required this.isSaving,
     required this.onTap,
+    this.isSeamless = false,
   });
 
   final String currency;
@@ -558,99 +663,109 @@ class _CurrencyBudgetRow extends StatelessWidget {
   final ColorScheme colorScheme;
   final bool isSaving;
   final VoidCallback? onTap;
+  final bool isSeamless;
 
   @override
   Widget build(BuildContext context) {
     final flagPath = getCurrencyFlagPath(currency);
     return Semantics(
-      button: true,
-      enabled: onTap != null,
+      button: !isSeamless,
+      enabled: isSeamless ? null : onTap != null,
       label: '$currency $amount',
       child: Material(
         color: colorScheme.surface.withValues(alpha: 0),
         child: InkWell(
-          onTap: onTap,
+          onTap: isSeamless ? null : onTap,
           borderRadius: BorderRadius.circular(100),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: colorScheme.surface,
-                    border: Border.all(
-                      color: colorScheme.border.withValues(alpha: 0.25),
+            padding: EdgeInsets.symmetric(
+              horizontal: isSeamless ? 0 : 16,
+              vertical: isSeamless ? 4 : 8,
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.surface,
+                      border: Border.all(
+                        color: colorScheme.border.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: flagPath == null
+                        ? Icon(
+                            CupertinoIcons.money_dollar_circle,
+                            size: 18,
+                            color: colorScheme.mutedForeground,
+                          )
+                        : ClipOval(
+                            child: Image.asset(
+                              flagPath,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    currency,
+                    style: TextStyle(
+                      fontSize: isSeamless ? 13 : 15,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                      letterSpacing: 0.2,
                     ),
                   ),
-                  child: flagPath == null
-                      ? Icon(
-                          CupertinoIcons.money_dollar_circle,
-                          size: 18,
-                          color: colorScheme.mutedForeground,
-                        )
-                      : ClipOval(
-                          child: Image.asset(
-                            flagPath,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  currency,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                    letterSpacing: 0.2,
+                  const SizedBox(width: 8),
+                  Text(
+                    '•',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '•',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                  const SizedBox(width: 8),
+                  Text(
+                    amount,
+                    style: TextStyle(
+                      fontSize: isSeamless ? 15 : 16,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                      letterSpacing: -0.2,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  amount,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  child: isSaving
-                      ? SizedBox(
-                          key: const ValueKey('saving'),
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
-                          ),
-                        )
-                      : Icon(
-                          CupertinoIcons.chevron_forward,
-                          key: const ValueKey('chevron'),
-                          size: 13,
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.6),
-                        ),
-                ),
-              ],
+                  if (!isSeamless) ...[
+                    const SizedBox(width: 6),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: isSaving
+                          ? SizedBox(
+                              key: const ValueKey('saving'),
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            )
+                          : Icon(
+                              CupertinoIcons.chevron_forward,
+                              key: const ValueKey('chevron'),
+                              size: 13,
+                              color: colorScheme.mutedForeground
+                                  .withValues(alpha: 0.6),
+                            ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, debugPrint;
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -33,14 +33,6 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
-void _debugLog(Object? message) {
-  debugPrint(message?.toString() ?? 'null');
-}
-
-// Intentionally shadow dart:core print in this file so any existing purchase
-// flow logs never ship in release builds.
-// ignore: avoid_print
-void print(Object? message) => _debugLog(message);
 
 const bool forceUseStripeCheckout = false;
 const String purchaseOwnedByAnotherAccountCode =
@@ -142,10 +134,6 @@ class PaywallScreen extends HookConsumerWidget {
     final checkoutPlanOption = useRef<PlanOption?>(null);
     final lastPresentedPlanKey = useRef<String?>(null);
 
-    useEffect(() {
-      return null;
-    }, [mode]);
-
     void runAfterBuild(VoidCallback callback) {
       runAfterBuildIfMounted(context, callback);
     }
@@ -178,11 +166,7 @@ class PaywallScreen extends HookConsumerWidget {
           );
           if (!context.mounted) return;
         }
-        _debugLog(
-          '🚪 completePaywallFlowToDashboard -> context.go(/dashboard) '
-          '| source=$source provider=$provider option=${option.id} '
-          'mounted=${context.mounted}',
-        );
+
         if (provider == 'stripe') {
           AppToast.success(
             context,
@@ -190,11 +174,6 @@ class PaywallScreen extends HookConsumerWidget {
           );
         }
         context.go('/dashboard');
-      } else {
-        _debugLog(
-          '⚠️ completePaywallFlowToDashboard aborted because context is unmounted '
-          '| source=$source provider=$provider option=${option.id}',
-        );
       }
     }
 
@@ -204,7 +183,6 @@ class PaywallScreen extends HookConsumerWidget {
         dialogOpen: processingDialogOpen,
         dialogKind: processingDialogKind,
         reason: reason,
-        logger: _debugLog,
       );
     }
 
@@ -299,10 +277,7 @@ class PaywallScreen extends HookConsumerWidget {
           context,
           context.l10n.paywallErrorNotActivated,
         );
-      } catch (e, stack) {
-        _debugLog(
-            '❌ verifyIapSubscriptionAndCompleteCheckout failed | trigger=$trigger error=$e');
-        _debugLog('Stack: $stack');
+      } catch (e) {
         didInitiateCheckout.value = false;
         checkoutPlanOption.value = null;
 
@@ -326,18 +301,11 @@ class PaywallScreen extends HookConsumerWidget {
         final prevProcessing = prevState?.isProcessing ?? false;
         final nextProcessing = nextState?.isProcessing ?? false;
 
-        _debugLog(
-          '🧪 IAP state change | prevProcessing=$prevProcessing nextProcessing=$nextProcessing '
-          'prevError=${prevState?.lastError ?? ""} nextError=${nextState?.lastError ?? ""} '
-          'storeAvailable=${nextState?.storeAvailable ?? false} '
-          'dialogOpen=${processingDialogOpen.value}',
-        );
-
         if (next.hasError) {
           didInitiateCheckout.value = false;
           checkoutPlanOption.value = null;
           dismissProcessingDialog('provider error');
-          _debugLog('IAP provider error: ${next.error}');
+
           showIapError(
             context.l10n.paywallErrorGeneric,
             'provider error',
@@ -361,8 +329,7 @@ class PaywallScreen extends HookConsumerWidget {
 
         final nextError = nextState?.lastError;
         final prevError = prevState?.lastError;
-        _debugLog(
-            '🔍 Error check: nextError="$nextError" prevError="$prevError"');
+
         if (nextError != null &&
             nextError.isNotEmpty &&
             nextError != prevError) {
@@ -370,15 +337,13 @@ class PaywallScreen extends HookConsumerWidget {
               !didInitiateCheckout.value &&
               !didInitiateRestore.value) {
             didInitiateFamilyAutoRestore.value = false;
-            _debugLog('Auto family restore ended with IAP error: $nextError');
+
             return;
           }
-          _debugLog('🚨 IAP purchase error detected: $nextError');
-          _debugLog('🚨 Calling showIapError...');
+
           didInitiateCheckout.value = false;
           checkoutPlanOption.value = null;
           showIapError(nextError, 'lastError');
-          _debugLog('🚨 showIapError called');
         }
 
         // Check if a user-initiated purchase completed successfully
@@ -391,12 +356,9 @@ class PaywallScreen extends HookConsumerWidget {
             nextCompletedProductId != prevCompletedProductId;
 
         if (hasNewCompletion) {
-          _debugLog(
-              '✅ User-initiated purchase completed: $nextCompletedProductId');
           dismissProcessingDialog('user-initiated purchase completed');
 
           // User-initiated purchase completed successfully - navigate to dashboard
-          _debugLog('✅ Purchase successful! Refreshing subscription...');
 
           // Schedule async work without blocking the listener
           Future.microtask(
@@ -407,7 +369,6 @@ class PaywallScreen extends HookConsumerWidget {
         }
 
         if (!prevProcessing && nextProcessing) {
-          _debugLog('⏳ IAP processing started');
           didSeeIapProcessing.value = true;
         }
 
@@ -415,10 +376,6 @@ class PaywallScreen extends HookConsumerWidget {
             !nextProcessing &&
             nextError == null &&
             nextCompletedProductId == null) {
-          _debugLog(
-            '⚠️ IAP processing ended without error/completion marker; '
-            'dialogOpen=${processingDialogOpen.value} initiated=${nextState?.initiatedProductId}',
-          );
           if (didInitiateCheckout.value) {
             dismissProcessingDialog('iap processing ended without completion');
             Future.microtask(
@@ -584,10 +541,8 @@ class PaywallScreen extends HookConsumerWidget {
           } else {
             didInitiateFamilyAutoRestore.value = false;
           }
-        } catch (e, stack) {
+        } catch (e) {
           didInitiateFamilyAutoRestore.value = false;
-          _debugLog('Auto family restore skipped: $e');
-          _debugLog('Stack: $stack');
         }
       }());
 
@@ -602,38 +557,10 @@ class PaywallScreen extends HookConsumerWidget {
     ]);
 
     useEffect(() {
-      _debugLog(
-        '🧭 Paywall subscription snapshot '
-        '| hasActiveSubscription=$hasActiveSubscription '
-        'plan=${currentSub?.subscription?.plan} '
-        'status=${currentSub?.subscription?.status} '
-        'provider=${currentSub?.subscription?.provider} '
-        'didInitiateCheckout=${didInitiateCheckout.value} '
-        'didInitiateRestore=${didInitiateRestore.value} '
-        'didCompletePaywallFlow=${didCompletePaywallFlow.value}',
-      );
-      return null;
-    }, [
-      hasActiveSubscription,
-      currentSub?.subscription?.plan,
-      currentSub?.subscription?.status,
-      currentSub?.subscription?.provider,
-    ]);
-
-    useEffect(() {
       if (didCompletePaywallFlow.value) return null;
       if (hasActiveSubscription) {
-        _debugLog(
-          '✅ Active subscription detected on paywall; scheduling dashboard completion '
-          '| checkout=${didInitiateCheckout.value} restore=${didInitiateRestore.value} '
-          'mode=${mode.queryValue} option=${activePlanOption.id}',
-        );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           unawaited(() async {
-            _debugLog(
-              '🧭 Post-frame paywall completion callback running '
-              '| mounted=${context.mounted} option=${activePlanOption.id}',
-            );
             await completePaywallFlowToDashboard(
               option: activePlanOption,
               source: didInitiateFamilyAutoRestore.value
@@ -728,7 +655,6 @@ class PaywallScreen extends HookConsumerWidget {
     }
 
     Future<void> onManageStoreSubscription() async {
-      _debugLog('🧾 Open manage store subscription');
       final storeProductId = effectiveSubscription?.storeProductId;
       final uri = isAppStoreManagedSubscription ||
               (!isPlayStoreManagedSubscription &&
@@ -739,17 +665,13 @@ class PaywallScreen extends HookConsumerWidget {
             );
 
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      _debugLog('🧾 Manage subscription launchUrl result: $ok');
+
       if (!ok && context.mounted) {
         AppToast.error(context, context.l10n.paywallErrorOpenSettings);
       }
     }
 
     Future<void> startStripeCheckout(PlanOption option) async {
-      print('🔄 Starting Stripe checkout for plan: ${option.serverPlanId}');
-      _debugLog(
-        '🧾 Stripe checkout start | plan=${option.serverPlanId} interval=${option.billingInterval}',
-      );
       final noSessionError = context.l10n.paywallErrorNoSession;
       final startCheckoutError = context.l10n.paywallErrorStartCheckout;
       final noCheckoutUrlError = context.l10n.paywallErrorNoCheckoutUrl;
@@ -816,11 +738,6 @@ class PaywallScreen extends HookConsumerWidget {
 
     // Action Logic
     Future<void> onMainAction() async {
-      _debugLog(
-        '🧭 onMainAction start | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} storeReady=$isStoreReady useIap=$useIap',
-      );
-      print(
-          '🎯 Starting subscription flow for plan: ${activePlanOption.serverPlanId}');
       final infoAlreadyOnPlanMessage = context.l10n.paywallInfoAlreadyOnPlan;
       final storeUnavailableMessage =
           context.l10n.paywallErrorStoreUnavailableShort;
@@ -836,7 +753,6 @@ class PaywallScreen extends HookConsumerWidget {
       final paymentCanceledMessage = context.l10n.paymentCanceled;
 
       if (isCurrentPlan(activePlanOption)) {
-        print('⚠️ User already on this plan');
         // Already on this plan
         AppToast.info(context, infoAlreadyOnPlanMessage);
         return;
@@ -846,12 +762,9 @@ class PaywallScreen extends HookConsumerWidget {
       // with the existing PurchaseDetails. To avoid accidental double subscriptions,
       // we direct users to manage plan changes in Google Play for now.
 
-      _debugLog(
-        '🧾 Confirmed selection | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} useIap=$useIap',
-      );
       try {
         didInitiateCheckout.value = true;
-        print('🍎 App Store checkout enabled: $useIap');
+
         if (useIap) {
           checkoutPlanOption.value = activePlanOption;
           // Don't allow purchase attempts until the store/products are ready.
@@ -861,17 +774,13 @@ class PaywallScreen extends HookConsumerWidget {
           }
 
           final catalog = activePlanOption.catalogProduct;
-          print(
-              '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
+
           if (catalog == null) {
             throw Exception(missingProductMappingMessage);
           }
 
-          print('✅ catalogProduct is valid, proceeding...');
-
           // Show processing dialog before starting purchase
           if (context.mounted) {
-            print('🎬 Showing processing dialog...');
             lastIapErrorShown.value = null;
             // StoreKit can report a terminal result before Flutter renders
             // the intermediate processing state. This dialog is owned by the
@@ -880,33 +789,18 @@ class PaywallScreen extends HookConsumerWidget {
             didSeeIapProcessing.value = true;
             processingDialogOpen.value = true;
             processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
-            _debugLog(
-                '🧾 Dialog open set to true (iap). plan=${activePlanOption.id} '
-                'checkoutPending=${didSeeIapProcessing.value}');
+
             showBlockingProcessingDialog(
               context: context,
               message: processingPurchaseMessage,
             );
-            print('✅ Processing dialog shown');
-          } else {
-            print('⚠️ Context not mounted, skipping dialog');
           }
 
-          print(
-              '🔍 About to call buy() method with product: ${catalog.storeProductId}');
-          _debugLog(
-            '🧾 IAP buy start | product=${catalog.storeProductId} plan=${catalog.plan} interval=${catalog.billingInterval}',
-          );
           await ref.read(iapControllerProvider.notifier).buy(catalog);
-          print('✅ buy() method completed');
-          _debugLog('🧾 IAP buy completed');
-          _debugLog(
-              '🧾 IAP state after buy: processing=${iapStateAsync.valueOrNull?.isProcessing} lastError=${iapStateAsync.valueOrNull?.lastError ?? ""}');
+
           // Dialog will remain open until purchase completes
           // Navigation in _onPurchaseUpdated will automatically dismiss the dialog
         } else {
-          print('💳 Starting Stripe checkout');
-
           isStripeProcessing.value = true;
 
           try {
@@ -923,13 +817,9 @@ class PaywallScreen extends HookConsumerWidget {
           }
         }
       } catch (e) {
-        print('❌ Error in subscription flow: $e');
-
         dismissProcessingDialog('main action catch');
 
         if (context.mounted) {
-          _debugLog('Purchase flow threw: $e');
-
           final raw = e.toString();
           final lower = raw.toLowerCase();
           final isCanceled =
@@ -983,7 +873,7 @@ class PaywallScreen extends HookConsumerWidget {
           context.l10n.paywallErrorStoreUnavailableShort;
       if (context.mounted) {
         processingDialogOpen.value = true;
-        _debugLog('🧾 Dialog open set to true (restore purchases)');
+
         showBlockingProcessingDialog(
           context: context,
           message: context.l10n.paywallRestoringPurchases,

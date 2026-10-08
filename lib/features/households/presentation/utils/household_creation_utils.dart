@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
@@ -34,10 +34,6 @@ class HouseholdCreationUtils {
 
   static Future<String> _uploadImage(File imageFile, String userId) async {
     try {
-      debugPrint('📤 Uploading image:');
-      debugPrint('  - Path: ${imageFile.path}');
-      debugPrint('  - Exists: ${await imageFile.exists()}');
-
       if (!await imageFile.exists()) {
         throw Exception('File not found at path: ${imageFile.path}');
       }
@@ -47,7 +43,6 @@ class HouseholdCreationUtils {
         imageFile,
         config: ImageCompressConfig.householdCover,
       );
-      debugPrint('  - Size: ${bytes.length} bytes (compressed)');
 
       if (!StorageConfig.isValidFileSize(bytes.length)) {
         throw Exception(
@@ -64,11 +59,6 @@ class HouseholdCreationUtils {
 
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_$userId.jpg';
       final filePath = '${StorageConfig.householdCoversPath}/$fileName';
-
-      debugPrint('📤 Uploading to Supabase Storage:');
-      debugPrint('  - Bucket: ${StorageConfig.publicBucket}');
-      debugPrint('  - Path: $filePath');
-      debugPrint('  - Content-Type: image/jpeg');
 
       try {
         await Supabase.instance.client.storage
@@ -87,18 +77,11 @@ class HouseholdCreationUtils {
             .from(StorageConfig.publicBucket)
             .getPublicUrl(filePath);
 
-        debugPrint('✅ Upload successful! URL: $publicUrl');
         return publicUrl;
       } catch (storageError) {
-        debugPrint('❌ Supabase Storage Error:');
-        debugPrint('  - Type: ${storageError.runtimeType}');
-        debugPrint('  - Message: $storageError');
         rethrow;
       }
-    } catch (e, stackTrace) {
-      debugPrint('❌ Upload failed:');
-      debugPrint('  - Error: $e');
-      debugPrint('  - Stack: $stackTrace');
+    } catch (e) {
       throw Exception('Failed to upload image: $e');
     }
   }

@@ -3692,9 +3692,9 @@
   "emailSenderVerificationDescription": "このアドレスに確認リンクを送信します。メールボックスの所有者がこのアカウントを許可すると、レシートのインポートが開始されます。",
   "notificationRepairProcessing": "プッシュ通知を確認しています…",
   "emailFileImportAccountEmailAlreadyIncluded": "Monekoアカウントのメールアドレスは、すでに許可済みの送信元です。再度追加する必要はありません。",
-  "aiClarificationNotSaved": "内容を確認すると保存されます。",
+  "aiClarificationNotSaved": "確認すると、これらの内容が保存されます。",
   "aiClarificationCustomAnswer": "自由に回答を入力",
-  "aiInputSavedForLater": "入力内容をこの端末に保存しました。インターネット接続中にMonekoを開くと、分析を再開します。",
+  "aiInputSavedForLater": "入力内容はこの端末に保存されました。インターネットに接続した状態でMonekoを開くと、分析が続行されます。",
   "unlockMonekoPlus": "Moneko Plusを利用する",
   "unlimitedAiExpenseCapture": "AIによる支出記録が無制限",
   "unlimitedSpacesWallets": "Spaceとウォレットが無制限",
@@ -3745,5 +3745,9 @@
   "budgetCompanionPlanning5": "何に使ってる?",
   "budgetCompanionPlanning6": "今日から記録しよう!",
   "budgetCompanionPlanning7": "ここから計画スタート!",
-  "budgetCompanionPlanning8": "小さな一歩が大きな成果に!"
+  "budgetCompanionPlanning8": "小さな一歩が大きな成果に!",
+  "typeYourOwnAnswer": "自分で回答を入力",
+  "aiClarificationError": "{error}\n確認すると、これらの内容が保存されます。",
+  "senderAccountConfirmation": "この送信者をMonekoアカウント（{accountEmail}）に追加します。送信者のメールアドレスに確認リンクを送信します。領収書は送信者の確認後にのみ取り込まれます。",
+  "previouslyForwardedAttachmentNotice": "すでに添付ファイルを転送している場合は、この送信者を承認・確認した後でもう一度転送してください。以前に転送した添付ファイルは自動では取り込まれません。"
 }

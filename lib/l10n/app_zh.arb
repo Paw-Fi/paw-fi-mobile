@@ -3688,9 +3688,9 @@
   "emailSenderVerificationDescription": "我们会向此地址发送验证链接。邮箱所有者授权此账号后，系统才会开始导入收据。",
   "notificationRepairProcessing": "正在检查推送通知…",
   "emailFileImportAccountEmailAlreadyIncluded": "你的 Moneko 账号邮箱已列为授权发件人，无需再次添加。",
-  "aiClarificationNotSaved": "确认后，这些信息就会保存。",
+  "aiClarificationNotSaved": "确认后，这些信息将会保存。",
   "aiClarificationCustomAnswer": "输入你的回答",
-  "aiInputSavedForLater": "输入内容已保存在此设备上。连接网络后打开 Moneko，系统会继续分析。",
+  "aiInputSavedForLater": "输入内容已保存在此设备上。连接网络后打开 Moneko，分析将继续进行。",
   "unlockMonekoPlus": "解锁 Moneko Plus",
   "unlimitedAiExpenseCapture": "无限使用 AI 记录支出",
   "unlimitedSpacesWallets": "无限 Space 和钱包",
@@ -3741,5 +3741,9 @@
   "budgetCompanionPlanning5": "钱都花哪儿了?",
   "budgetCompanionPlanning6": "今天就开始记录吧!",
   "budgetCompanionPlanning7": "你的计划从这里开始!",
-  "budgetCompanionPlanning8": "小小一步，大大进步!"
+  "budgetCompanionPlanning8": "小小一步，大大进步!",
+  "typeYourOwnAnswer": "输入自己的回答",
+  "aiClarificationError": "{error}\n确认后，这些信息将会保存。",
+  "senderAccountConfirmation": "你正在将此发件人添加到你的 Moneko 账户（{accountEmail}）。我们会向发件人的邮箱发送验证链接。验证此发件人后，收据才会被导入。",
+  "previouslyForwardedAttachmentNotice": "如果你之前已经转发过附件，请在批准并验证此发件人后重新转发。之前转发的附件不会自动导入。"
 }

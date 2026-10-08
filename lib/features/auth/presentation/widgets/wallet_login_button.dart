@@ -59,8 +59,6 @@ class WalletLoginButton extends HookConsumerWidget {
           return; // User cancelled
         }
 
-        debugPrint('🔐 [Web3] Starting authentication for $chain');
-
         // Step 2: Call web3SignIn from JS interop
         final sessionData = await web3SignIn(
           chain: chain,
@@ -76,24 +74,14 @@ class WalletLoginButton extends HookConsumerWidget {
         final walletAddress = sessionData['wallet_address']?.toString();
         final chainFromJs = sessionData['chain']?.toString();
 
-        debugPrint(
-          '🔐 [Web3] Session tokens received. Wallet: $walletAddress, chain: $chainFromJs',
-        );
-
         // Step 3: Set session in Supabase Flutter client
         await _setSupabaseSession(sessionData);
-
-        debugPrint('🔐 [Web3] Session established in Flutter client');
 
         // Step 3b: Persist wallet address as display name + users.wallet_address
         if (walletAddress != null && walletAddress.isNotEmpty) {
           final session = supabase.auth.currentSession;
           final chain =
               chainFromJs ?? session?.user.userMetadata?['chain']?.toString();
-
-          debugPrint(
-            '🔐 [Web3] Persisting wallet to profile. Wallet: $walletAddress, chain: $chain',
-          );
 
           try {
             await supabase.auth.updateUser(
@@ -106,9 +94,7 @@ class WalletLoginButton extends HookConsumerWidget {
                 },
               ),
             );
-          } catch (e) {
-            debugPrint('⚠️ [Web3] Failed to update auth metadata: $e');
-          }
+          } catch (e) {}
 
           try {
             if (session != null) {
@@ -122,9 +108,7 @@ class WalletLoginButton extends HookConsumerWidget {
                 onConflict: 'id',
               );
             }
-          } catch (e) {
-            debugPrint('⚠️ [Web3] Failed to upsert users row: $e');
-          }
+          } catch (e) {}
         }
 
         // Step 4: Navigate to callback screen (consistent with OAuth flow)
@@ -135,8 +119,6 @@ class WalletLoginButton extends HookConsumerWidget {
           context.go(uri.toString());
         }
       } catch (e) {
-        debugPrint('❌ [Web3] Authentication error: $e');
-
         if (!context.mounted) return;
 
         // Normalize error message for display

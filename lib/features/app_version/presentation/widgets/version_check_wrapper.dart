@@ -35,8 +35,6 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
     // Initial version check after app launches
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        developer.log('Initial check after navigation settled',
-            name: 'VersionCheck');
         _checkVersion();
       }
     });
@@ -54,7 +52,6 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
 
     // Check version when app comes back to foreground
     if (state == AppLifecycleState.resumed && mounted && !_shouldShowDialog) {
-      developer.log('App resumed, checking version...', name: 'VersionCheck');
       _checkVersion();
     }
   }
@@ -62,30 +59,21 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
   Future<void> _checkVersion() async {
     // Prevent multiple simultaneous checks
     if (_shouldShowDialog || _isCheckingVersion) {
-      developer.log('Dialog already showing, skipping...',
-          name: 'VersionCheck');
       return;
     }
 
     _isCheckingVersion = true;
 
     try {
-      developer.log('Starting version check...', name: 'VersionCheck');
-
       // Check if update is required
       final updateRequired = await ref.read(isUpdateRequiredProvider.future);
 
-      developer.log('Update required: $updateRequired', name: 'VersionCheck');
-
       if (updateRequired && mounted) {
-        developer.log('Fetching version data...', name: 'VersionCheck');
-
         // Get version data
         final versionConfig = await ref.read(versionConfigProvider.future);
         final currentVersion = await ref.read(currentAppVersionProvider.future);
 
         if (!mounted || versionConfig == null) {
-          developer.log('Widget unmounted or no config', name: 'VersionCheck');
           return;
         }
 
@@ -93,9 +81,6 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
         setState(() {
           _shouldShowDialog = true;
         });
-
-        developer.log('Showing force update dialog imperatively',
-            name: 'VersionCheck');
 
         // Wait until current frame work is complete so we don't show dialogs
         // while widgets are being deactivated/rebuilt during route transitions.
@@ -119,8 +104,6 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
             _shouldShowDialog = false;
           });
         }
-      } else {
-        developer.log('No update required', name: 'VersionCheck');
       }
     } catch (e, stack) {
       developer.log('Exception in version check: $e',

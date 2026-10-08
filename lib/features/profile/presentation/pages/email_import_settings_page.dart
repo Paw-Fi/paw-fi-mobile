@@ -19,10 +19,14 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 class EmailImportSettingsPage extends HookConsumerWidget {
-  const EmailImportSettingsPage({super.key});
+  const EmailImportSettingsPage({super.key, this.initialSenderEmail});
+
+  final String? initialSenderEmail;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,6 +38,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
         ref.read(emailImportSettingsProvider(authState.uid).notifier);
     final isSaving = useState(false);
     final pendingDeleteEmail = useState<String?>(null);
+    final hasOpenedSenderIntent = useRef(false);
 
     final householdsAsync = authState.uid.isNotEmpty
         ? ref.watch(userHouseholdsProvider(authState.uid))
@@ -145,7 +150,7 @@ class EmailImportSettingsPage extends HookConsumerWidget {
           label: context.l10n.personal,
           value: {
             'scopeId': 'personal',
-            'scopeName': 'Personal',
+            'scopeName': context.l10n.personal,
             'isPortfolio': false,
           },
           icon: Icons.person_rounded,
@@ -221,28 +226,38 @@ class EmailImportSettingsPage extends HookConsumerWidget {
       );
     }
 
-    Future<void> addWhitelistEmail() async {
+    Future<void> addWhitelistEmail({String? initialEmail}) async {
+      final actorId = authState.uid;
       final hasAccess = await PlusLockedSheet.ensureAccess(context, ref,
           feature: PlusFeature.emailReceiptImport);
-      if (!hasAccess || !context.mounted) return;
-      final result = await MonekoAlertDialog.show(
+      if (!hasAccess ||
+          !context.mounted ||
+          actorId.isEmpty ||
+          ref.read(authProvider).uid != actorId) {
+        return;
+      }
+      final result = await MonekoBottomSheet.show<String>(
         context: context,
+        isScrollControlled: true,
         title: context.l10n.emailFileImportAddSenderTitle,
-        description: context.l10n.emailSenderVerificationDescription,
-        confirmLabel: context.l10n.confirm,
-        cancelLabel: context.l10n.cancel,
-        inputConfig: MonekoAlertDialogInputConfig(
-          placeholder: "name@example.com",
-          isRequired: true,
-          keyboardType: TextInputType.emailAddress,
-          validationPattern: RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$'),
-          validationMessage: context.l10n.emailFileImportInvalidEmail,
+        onCloseWithContext: (sheetContext) {
+          if (ModalRoute.of(sheetContext)?.isCurrent == true) {
+            Navigator.of(sheetContext).pop();
+          }
+        },
+        builder: (_) => _AddEmailSenderSheet(
+          initialEmail: initialEmail,
+          accountEmail: authState.email,
         ),
       );
 
-      if (result?.confirmed != true) return;
+      if (result == null ||
+          !context.mounted ||
+          ref.read(authProvider).uid != actorId) {
+        return;
+      }
 
-      final normalized = normalizeWhitelistEmail(result?.text ?? '');
+      final normalized = normalizeWhitelistEmail(result);
       if (normalized == null) {
         if (context.mounted) {
           AppToast.error(context, context.l10n.emailFileImportInvalidEmail);
@@ -287,6 +302,30 @@ class EmailImportSettingsPage extends HookConsumerWidget {
         isSaving.value = false;
       }
     }
+
+    useEffect(() {
+      final email = normalizeWhitelistEmail(initialSenderEmail ?? '');
+      if (email == null ||
+          email.length > 320 ||
+          settings == null ||
+          authState.uid.isEmpty ||
+          hasOpenedSenderIntent.value) {
+        return null;
+      }
+      var cancelled = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (cancelled ||
+            !context.mounted ||
+            hasOpenedSenderIntent.value ||
+            ref.read(authProvider).uid != authState.uid ||
+            ModalRoute.of(context)?.isCurrent == false) {
+          return;
+        }
+        hasOpenedSenderIntent.value = true;
+        addWhitelistEmail(initialEmail: email);
+      });
+      return () => cancelled = true;
+    }, [initialSenderEmail, settings != null, authState.uid]);
 
     Future<void> removeWhitelistEmail(String email) async {
       final confirmed = await MonekoAlertDialog.show(
@@ -445,7 +484,9 @@ class EmailImportSettingsPage extends HookConsumerWidget {
                           iconColor: colorScheme.foreground,
                           iconBackgroundColor: colorScheme.muted,
                           title: context.l10n.defaultSpace,
-                          subtitle: current.scopeName,
+                          subtitle: current.scopeId == 'personal'
+                              ? context.l10n.personal
+                              : current.scopeName,
                           enabled: current.enabled,
                           trailing: Icon(
                             Icons.chevron_right_rounded,
@@ -544,6 +585,106 @@ class EmailImportSettingsPage extends HookConsumerWidget {
                   ],
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddEmailSenderSheet extends HookWidget {
+  const _AddEmailSenderSheet({
+    required this.initialEmail,
+    required this.accountEmail,
+  });
+
+  final String? initialEmail;
+  final String accountEmail;
+
+  @override
+  Widget build(BuildContext context) {
+    final emailController = useTextEditingController(text: initialEmail ?? '');
+    final formKey = useMemoized(() => GlobalKey<FormState>());
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    void confirm() {
+      if (ModalRoute.of(context)?.isCurrent != true ||
+          !(formKey.currentState?.validate() ?? false)) {
+        return;
+      }
+      Navigator.of(context).pop(normalizeWhitelistEmail(emailController.text));
+    }
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+              MonekoBottomSheet.horizontalPadding,
+              8,
+              MonekoBottomSheet.horizontalPadding,
+              20),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.senderAccountConfirmation(accountEmail),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.foreground,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(context.l10n.emailAddress, style: textTheme.labelLarge),
+                const SizedBox(height: 8),
+                Semantics(
+                  label: context.l10n.emailAddress,
+                  textField: true,
+                  child: AdaptiveTextFormField(
+                    controller: emailController,
+                    placeholder:
+                        context.l10n.emailFileImportAddSenderPlaceholder,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    validator: (value) {
+                      final email = normalizeWhitelistEmail(value ?? '');
+                      return email == null || email.length > 320
+                          ? context.l10n.emailFileImportInvalidEmail
+                          : null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  context.l10n.previouslyForwardedAttachmentNotice,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                PrimaryAdaptiveButton(
+                  onPressed: confirm,
+                  child: Text(context.l10n.confirm),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      if (ModalRoute.of(context)?.isCurrent == true) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text(context.l10n.cancel),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

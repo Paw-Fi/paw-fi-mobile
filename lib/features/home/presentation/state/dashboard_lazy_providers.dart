@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -13,24 +12,13 @@ import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_sqlite_cache.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-void _homeSpendTrace(String _) {}
-
-double _traceExpenseTotal(Iterable<ExpenseEntry> entries) {
-  return entries.fold<double>(
-    0,
-    (sum, entry) => sum + entry.spendingEffect,
-  );
-}
-
-String _traceAmount(num value) => value.toStringAsFixed(2);
 
 abstract class DashboardDataService {
   Future<DashboardSnapshotSummary> fetchSnapshot(DashboardScopeQuery query);
@@ -156,20 +144,6 @@ class SupabaseDashboardDataService implements DashboardDataService {
   @override
   Future<DashboardSnapshotSummary> fetchSnapshot(
       DashboardScopeQuery query) async {
-    final trace = HomeDebugTrace(
-      label: 'DashboardSnapshotRpc',
-      enabled: foundation.kDebugMode,
-      logSink: foundation.debugPrint,
-      contextFields: {
-        'user': query.userId,
-        'household': query.householdId ?? '<none>',
-        'currency': query.normalizedCurrency ?? '<none>',
-        'currencies': query.normalizedCurrencies ?? const <String>[],
-        'start': query.startDate,
-        'end': query.endDate,
-      },
-    );
-    trace.mark('rpc-start');
     final response = await _client.rpc(
       'get_dashboard_snapshot_v1',
       params: <String, dynamic>{
@@ -215,11 +189,7 @@ class SupabaseDashboardDataService implements DashboardDataService {
       categorySummaries: categorySummaries,
       periodTotals: periodTotals,
     );
-    trace.mark('rpc-success', {
-      'transactionCount': summary.transactionCount,
-      'expenseTotal': summary.expenseTotal,
-      'incomeTotal': summary.incomeTotal,
-    });
+
     return summary;
   }
 
@@ -227,19 +197,6 @@ class SupabaseDashboardDataService implements DashboardDataService {
   Future<List<ExpenseEntry>> fetchRecentTransactions(
     DashboardRecentTransactionsRequest request,
   ) async {
-    final trace = HomeDebugTrace(
-      label: 'DashboardRecentTransactionsRpc',
-      enabled: foundation.kDebugMode,
-      logSink: foundation.debugPrint,
-      contextFields: {
-        'user': request.query.userId,
-        'household': request.query.householdId ?? '<none>',
-        'currency': request.query.normalizedCurrency ?? '<none>',
-        'currencies': request.query.normalizedCurrencies ?? const <String>[],
-        'limit': request.limit,
-      },
-    );
-    trace.mark('rpc-start');
     final response = await _client.rpc(
       'get_dashboard_recent_transactions_v2',
       params: <String, dynamic>{
@@ -251,27 +208,13 @@ class SupabaseDashboardDataService implements DashboardDataService {
     );
 
     final entries = _parseExpenseEntries(response);
-    trace.mark('rpc-success', {'count': entries.length});
+
     return entries;
   }
 
   @override
   Future<List<ExpenseEntry>> fetchCalendarTransactions(
       DashboardScopeQuery query) async {
-    final trace = HomeDebugTrace(
-      label: 'DashboardCalendarTransactionsRpc',
-      enabled: foundation.kDebugMode,
-      logSink: foundation.debugPrint,
-      contextFields: {
-        'user': query.userId,
-        'household': query.householdId ?? '<none>',
-        'currency': query.normalizedCurrency ?? '<none>',
-        'currencies': query.normalizedCurrencies ?? const <String>[],
-        'start': query.startDate,
-        'end': query.endDate,
-      },
-    );
-    trace.mark('rpc-start');
     final response = await _client.rpc(
       'get_dashboard_calendar_transactions_v2',
       params: <String, dynamic>{
@@ -284,7 +227,7 @@ class SupabaseDashboardDataService implements DashboardDataService {
     );
 
     final entries = _parseExpenseEntries(response);
-    trace.mark('rpc-success', {'count': entries.length});
+
     return entries;
   }
 
@@ -311,7 +254,6 @@ Future<TransactionsFeedService> _dashboardTransactionFeedService(
     Ref ref) async {
   final current = ref.watch(transactionsFeedServiceProvider);
   if (current is! EmptyTransactionsFeedService) {
-    _homeSpendTrace('dashboard-feed-service source=${current.runtimeType}');
     return current;
   }
 
@@ -326,13 +268,9 @@ Future<TransactionsFeedService> _dashboardTransactionFeedService(
       remote: remote,
       remoteEnabled: hasNetworkAccess,
     );
-    _homeSpendTrace(
-      'dashboard-feed-service source=local-after-empty remoteEnabled=$hasNetworkAccess',
-    );
+
     return service;
   } catch (error) {
-    _homeSpendTrace(
-        'dashboard-feed-service source=remote-fallback error=$error');
     return remote;
   }
 }
@@ -604,10 +542,7 @@ final dashboardLocalOverlayTransactionsProvider =
       localOverlay: localOnlyOverlay,
       query: query,
     );
-    _homeSpendTrace(
-      'dashboard-overlay scope=personal analyticsCount=${localOnlyOverlay.length} '
-      'overlayCount=${overlay.length} overlayTotal=${_traceAmount(_traceExpenseTotal(overlay))}',
-    );
+
     return overlay;
   }
 
@@ -626,11 +561,7 @@ final dashboardLocalOverlayTransactionsProvider =
     localOverlay: optimistic,
     query: query,
   );
-  _homeSpendTrace(
-    'dashboard-overlay scope=household household=$householdId '
-    'optimisticCount=${optimistic.length} overlayCount=${overlay.length} '
-    'overlayTotal=${_traceAmount(_traceExpenseTotal(overlay))}',
-  );
+
   return overlay;
 });
 
@@ -1046,10 +977,7 @@ Future<List<ExpenseEntry>> _loadDashboardCalendarTransactions(
     final entries = await ref
         .read(dashboardDataServiceProvider)
         .fetchCalendarTransactions(query);
-    _homeSpendTrace(
-      'dashboard-calendar source=preview count=${entries.length} '
-      'total=${_traceAmount(_traceExpenseTotal(entries))}',
-    );
+
     return entries;
   }
 
@@ -1059,12 +987,7 @@ Future<List<ExpenseEntry>> _loadDashboardCalendarTransactions(
   final entries = await feedService.fetchAllPages(
     dashboardTransactionsQuery(query, pageSize: 500),
   );
-  _homeSpendTrace(
-    'dashboard-calendar source=${feedService.runtimeType} '
-    'count=${entries.length} total=${_traceAmount(_traceExpenseTotal(entries))} '
-    'user=${query.userId} household=${query.householdId ?? '<personal>'} '
-    'currency=${query.normalizedCurrency ?? '<none>'} currencies=${query.normalizedCurrencies ?? const <String>[]}',
-  );
+
   return entries;
 }
 

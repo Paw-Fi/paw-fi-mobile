@@ -92,19 +92,6 @@ final ImagePicker _imagePicker = ImagePicker();
 
 final isAiFabOpenProvider = StateProvider<bool>((ref) => false);
 
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugPrint(String? message, {int? wrapWidth}) {
-  if (foundation.kDebugMode && _enableDebugLogs) {
-    foundation.debugPrint(message, wrapWidth: wrapWidth);
-  }
-}
-
-void homeSpendTrace(String _) {}
-
-String traceAiAmount(num value) => value.toStringAsFixed(2);
-
 String _friendlyProgressMessage(
     AnalysisProgressEvent event, BuildContext context) {
   final l10n = context.l10n;
@@ -471,9 +458,7 @@ Future<_AutoSplitContext?> _loadAutoSplitContext(
         }
         return fresh;
       }
-    } catch (error) {
-      _debugPrint('⚠️ Failed to load fresh household split settings: $error');
-    }
+    } catch (error) {}
     if (selectedHousehold != null) return selectedHousehold;
     return await container.read(householdProvider(householdId).future);
   }
@@ -533,9 +518,7 @@ Future<void> _maybeRequestReviewAfterExpenseSave({
     if (!available) return;
 
     await inAppReview.requestReview();
-  } catch (error) {
-    _debugPrint('[REVIEW] Failed to request review: $error');
-  }
+  } catch (error) {}
 }
 
 Future<void> _persistAiTransactions(
@@ -639,15 +622,8 @@ Future<void> _persistAiTransactions(
         cacheable,
         syncStatus: localSyncStatusSynced,
       );
-    } catch (error) {
-      _debugPrint('⚠️ Failed to cache AI saved transactions locally: $error');
-    }
+    } catch (error) {}
 
-    final savedHousehold = householdId ?? '<personal>';
-    homeSpendTrace(
-      'ai-saved-cache count=${cacheable.length} household=$savedHousehold '
-      'total=${traceAiAmount(cacheable.fold<double>(0, (sum, entry) => sum + (((entry.type ?? 'expense').toLowerCase() == 'income') ? 0 : entry.amount.abs())))}',
-    );
     container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     container
         .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
@@ -665,11 +641,7 @@ Future<void> _persistAiTransactions(
         savedEntry: savedEntry,
         clientMutationId: metadata.clientMutationId,
       );
-    } catch (error) {
-      _debugPrint(
-        '⚠️ Failed to replace local AI optimistic transaction: $error',
-      );
-    }
+    } catch (error) {}
   }
 
   String? normalizeBucketId(String? value) {
@@ -882,17 +854,11 @@ Future<void> _persistAiTransactions(
             syncStatus: localSyncStatusSynced,
             preserveLocalPending: false,
           );
-        } catch (error) {
-          _debugPrint(
-            '⚠️ Failed to persist AI split group ids locally: $error',
-          );
-        }
+        } catch (error) {}
       }
 
       return updatedEntries;
-    } catch (error) {
-      _debugPrint('❌ [AI Batch Save] Failed to attach split groups: $error');
-    }
+    } catch (error) {}
     return const <String, ExpenseEntry>{};
   }
 
@@ -912,9 +878,6 @@ Future<void> _persistAiTransactions(
       );
     } catch (error) {
       receiptUploadError = error;
-      _debugPrint(
-        '⚠️ Receipt upload failed before AI transaction queueing; continuing without receipt image: $error',
-      );
     }
   }
   var shouldDeferForReceiptUpload = hasReceiptExpense &&
@@ -933,9 +896,6 @@ Future<void> _persistAiTransactions(
     } catch (error) {
       if (capturedInput != null) rethrow;
       shouldDeferForReceiptUpload = false;
-      _debugPrint(
-        '⚠️ Failed to keep receipt image for retry; saving without receipt: $error',
-      );
     }
   }
 
@@ -977,16 +937,6 @@ Future<void> _persistAiTransactions(
     // request would let a stale client override a newly disabled household
     // setting.
     final effectiveCustomSplits = explicitCustomSplits;
-    homeSpendTrace(
-      '[HouseholdDefaultSplitDecisionTrace] stage=mobile-request '
-      'trace=$batchTraceBase household=${householdId ?? '<personal>'} '
-      'amount=${tx.amount} type=${tx.isIncome ? 'income' : 'expense'} '
-      'localAutoEnabled=$autoSplitEnabled localConfig='
-      '${jsonEncode(autoSplitContext?.household.autoSplitConfig)} '
-      'aiCustomSplits=${jsonEncode(item.raw['customSplits'])} '
-      'requestCustomSplits=${jsonEncode(effectiveCustomSplits)} '
-      'payer=${payerUserId ?? '<caller>'}',
-    );
 
     final resolvedAccountIdForTransaction = resolveAccountIdForCurrency(
       tx.currency,
@@ -1098,16 +1048,10 @@ Future<void> _persistAiTransactions(
       await database.writeOptimisticTransactionBatch(localMutations);
     }
     queuedLocally = true;
-    final queuedHousehold = householdId ?? '<personal>';
-    homeSpendTrace(
-      'ai-local-queued count=${preparedMutations.length} '
-      'household=$queuedHousehold '
-      'total=${traceAiAmount(preparedMutations.fold<double>(0, (sum, item) => sum + (item.item.transaction.isIncome ? 0 : item.item.transaction.amount.abs())))}',
-    );
+
     container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     container.read(dashboardRefreshSignalProvider.notifier).state += 1;
   } catch (error) {
-    _debugPrint('⚠️ Failed to queue AI transactions locally: $error');
     if (capturedInput != null) rethrow;
   }
 
@@ -1118,9 +1062,6 @@ Future<void> _persistAiTransactions(
   }
 
   if (shouldDeferForReceiptUpload && queuedLocally) {
-    _debugPrint(
-      '📦 Keeping queued AI transaction(s) for receipt upload retry',
-    );
     scheduleMobileOutboxDrain(
       container,
       maxMutations: max(20, preparedMutations.length),
@@ -1129,10 +1070,6 @@ Future<void> _persistAiTransactions(
   }
 
   try {
-    _debugPrint(
-        '[AI Batch Save] Saving ${batchTransactions.length} transactions in single request');
-    _debugPrint('[AI Batch Save] Function: save-transactions-batch');
-
     final batches = chunkList(batchTransactions, _maxBatchSize);
     var batchOffset = 0;
 
@@ -1143,8 +1080,6 @@ Future<void> _persistAiTransactions(
 
     for (var batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       final batch = batches[batchIndex];
-      _debugPrint(
-          '[AI Batch Save] Batch ${batchIndex + 1}/${batches.length} size=${batch.length}');
 
       final response = await supabase.functions.invoke(
         'save-transactions-batch',
@@ -1165,7 +1100,7 @@ Future<void> _persistAiTransactions(
 
       final responseData = _unwrapFunctionData(response.data);
       final results = _asMapList(responseData['results']);
-      final summary = _asStringDynamicMap(responseData['summary']);
+
       final backendSucceeded = responseData['success'] == true;
       final hasStructuredResults = results.isNotEmpty;
 
@@ -1173,9 +1108,6 @@ Future<void> _persistAiTransactions(
         final backendError = responseData['error']?.toString();
         throw Exception(backendError ?? 'Batch save failed');
       }
-
-      _debugPrint(
-          '[AI Batch Save] Result: ${summary?['succeeded'] ?? 0} succeeded, ${summary?['failed'] ?? 0} failed');
 
       if (hasStructuredResults) {
         // Map results back to optimistic entries by index
@@ -1186,9 +1118,6 @@ Future<void> _persistAiTransactions(
           final data = _asStringDynamicMap(result['data']);
 
           if (index == null) {
-            _debugPrint(
-              '⚠️ Batch result missing index, ignoring item: $result',
-            );
             continue;
           }
 
@@ -1235,14 +1164,8 @@ Future<void> _persistAiTransactions(
                 AppMutationErrorEvent(
                     id: prepared.metadata.clientMutationId,
                     feature: 'transaction');
-            _debugPrint(
-                '❌ Failed to persist transaction at index $originalIndex: ${result['error'] ?? 'unknown error'}');
           }
         }
-      } else {
-        _debugPrint(
-          '⚠️ Batch response returned no per-item results; preserving optimistic entries and continuing',
-        );
       }
 
       batchOffset += batch.length;
@@ -1286,14 +1209,9 @@ Future<void> _persistAiTransactions(
       ));
     }
   } catch (error) {
-    _debugPrint('❌ Batch save failed: $error');
-
     final shouldFallback = shouldFallbackForBatchError(error);
 
     if (shouldFallback) {
-      _debugPrint(
-          '⚠️ Batch endpoint not available, falling back to individual saves');
-
       // Save transactions individually using existing endpoints
       var savedCount = 0;
       var savedExpenseCount = 0;
@@ -1331,11 +1249,7 @@ Future<void> _persistAiTransactions(
                 'No saved transaction data returned from ${prepared.functionName}');
           }
         } catch (itemError) {
-          _debugPrint('❌ Failed to save individual transaction: $itemError');
           if (queuedLocally && _shouldKeepQueuedLocalMutation(itemError)) {
-            _debugPrint(
-              '📦 Keeping queued AI transaction ${item.optimisticId} for background retry',
-            );
             keptQueuedForRetry = true;
             continue;
           }
@@ -1351,9 +1265,6 @@ Future<void> _persistAiTransactions(
           );
         }
       }
-
-      _debugPrint(
-          '[AI Fallback Save] Saved $savedCount/${transactions.length} transactions');
 
       if (savedExpenseEntriesById.isNotEmpty) {
         final splitAdjustedEntries =
@@ -1409,9 +1320,6 @@ Future<void> _persistAiTransactions(
     }
 
     if (queuedLocally && _shouldKeepQueuedLocalMutation(error)) {
-      _debugPrint(
-        '📦 Keeping ${preparedMutations.length} queued AI transaction(s) for background retry',
-      );
       container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
       container.read(dashboardRefreshSignalProvider.notifier).state += 1;
       scheduleMobileOutboxDrain(
@@ -1696,8 +1604,6 @@ Future<void> handleAiCameraCapture(
   void Function(AiLogSuccess success)? onSuccess,
   bool isOnboarding = false,
 }) async {
-  _debugPrint('🎥 Starting camera capture...');
-
   try {
     final captured = await Navigator.of(context, rootNavigator: true)
         .push<AiCameraCaptureResult>(
@@ -1708,8 +1614,6 @@ Future<void> handleAiCameraCapture(
         ),
       ),
     );
-
-    _debugPrint('🎥 Photo captured: ${captured != null}');
 
     if (captured != null) {
       if (context.mounted) {
@@ -1722,8 +1626,6 @@ Future<void> handleAiCameraCapture(
           isOnboarding: isOnboarding,
         );
       }
-    } else {
-      _debugPrint('🎥 User cancelled or permission denied');
     }
   } catch (e) {
     if (context.mounted) {
@@ -2063,8 +1965,6 @@ Future<Map<String, dynamic>?> _processWithSSE({
   final sseUrl =
       Uri.parse('$supabaseUrl/functions/v1/analyze-expense?stream=true');
 
-  _debugPrint('[SSE] Starting streaming request');
-
   Map<String, dynamic>? result;
 
   await for (final event in SSEService.streamRequest(
@@ -2077,11 +1977,8 @@ Future<Map<String, dynamic>?> _processWithSSE({
   )) {
     // Check for cancellation
     if (onCancelCheck()) {
-      _debugPrint('[SSE] Cancelled by user');
       throw Exception('Cancelled');
     }
-
-    _debugPrint('[SSE] Received event: ${event.event}');
 
     switch (event.event) {
       case 'progress':
@@ -2255,8 +2152,7 @@ Future<void> _processExpense(
       pendingCapture?.payload['localAudioPath'] != null;
   final hasTextInput = text != null && text.trim().isNotEmpty;
   final useInteractiveAnalysis = !preview.isActive &&
-      (hasTextInput || hasAudioInput) &&
-      !hasImageInput &&
+      (hasTextInput || hasAudioInput || hasImageInput) &&
       !hasAttachments;
   final isPdfUpload = attachments?.any((a) =>
           a['contentType']?.toString().contains('pdf') == true ||
@@ -2341,6 +2237,7 @@ Future<void> _processExpense(
         'date': defaultDateYmd,
         'language': languageTag,
         'typeHint': 'mixed',
+        if (inputTarget.accountId != null) 'accountId': inputTarget.accountId,
         if (!preview.isActive)
           'captureContext': {
             'version': 1,
@@ -2370,10 +2267,11 @@ Future<void> _processExpense(
         body['currency'] = effectiveCurrency;
       }
 
-      // Add either text, image, audio, or file attachments to the request
+      // Preserve the original source and accompanying instructions together.
       if (text != null) {
         body['text'] = text;
-      } else if (imagePath != null) {
+      }
+      if (imagePath != null) {
         // Read image bytes and convert to base64
         final imageFile = File(imagePath);
         final bytes = await imageFile.readAsBytes();
@@ -2412,10 +2310,7 @@ Future<void> _processExpense(
           await providerContainer.read(aiInputCaptureRepositoryProvider.future);
       capture ??= await captureRepository!.capture(
         userId: user.uid,
-        body: {
-          ...analysisRequestBody,
-          if (inputTarget.accountId != null) 'accountId': inputTarget.accountId
-        },
+        body: analysisRequestBody,
         target: {
           'accountType':
               aiInputTargetAccountTypeToStorage(inputTarget.accountType),
@@ -2478,10 +2373,7 @@ Future<void> _processExpense(
     if (useInteractiveAnalysis && responseData == null) {
       responseData = await runInteractiveAiAnalysis(
         preferredTimezone: preferredTimezone,
-        body: {
-          ...body,
-          if (inputTarget.accountId != null) 'accountId': inputTarget.accountId
-        },
+        body: body,
         isActive: isActive,
         initialAnswers: (capture?.payload['answers'] as List? ?? [])
             .map((answer) => Map<String, String>.from(answer as Map))
@@ -2537,8 +2429,10 @@ Future<void> _processExpense(
           final result = await MonekoAlertDialog.show(
             context: context,
             title: context.l10n.failedToAnalyze,
-            description:
-                '${ErrorHandler.getUserFriendlyMessage(error, context: BackendErrorContext.analyzeExpense)}\n${context.l10n.aiClarificationNotSaved}',
+            description: context.l10n.aiClarificationError(
+              ErrorHandler.getUserFriendlyMessage(error,
+                  context: BackendErrorContext.analyzeExpense),
+            ),
             confirmLabel: context.l10n.retry,
             cancelLabel: context.l10n.cancel,
           );
@@ -2596,7 +2490,6 @@ Future<void> _processExpense(
           onCancelCheck: () => dialogController?.isCancelled ?? false,
         );
       } catch (e) {
-        _debugPrint('[SSE] Failed, falling back to regular request: $e');
         // Fall through to regular request
         responseData = null;
       }
@@ -2641,8 +2534,6 @@ Future<void> _processExpense(
       return;
     }
 
-    _debugPrint('Analysis response received');
-
     if (responseData != null && responseData['success'] == true) {
       final innerData = _asStringDynamicMap(responseData['data']);
       final isInteractiveResult = innerData?['interactiveVersion'] == 1;
@@ -2656,20 +2547,7 @@ Future<void> _processExpense(
 
       if (innerData != null && innerData['items'] is List) {
         List items = List.from(innerData['items'] as List);
-        _debugPrint(
-          '[AI] Analysis split fields: ${jsonEncode(items.map((rawItem) {
-            final item = rawItem is Map
-                ? Map<String, dynamic>.from(rawItem)
-                : <String, dynamic>{};
-            return <String, dynamic>{
-              'amount': item['amount'],
-              'description': item['description'],
-              'payerUserId': item['payerUserId'],
-              'customSplits': item['customSplits'],
-            };
-          }).toList(growable: false))}',
-          wrapWidth: 1024,
-        );
+
         if (items.isNotEmpty) {
           if (capture != null && capture!.readyResponse == null) {
             final destinations = isInteractiveResult
@@ -2770,7 +2648,6 @@ Future<void> _processExpense(
                   }
                 }
                 if (accountingDate == null) {
-                  _debugPrint('Skipping AI item with invalid date');
                   return null;
                 }
                 final isIncome =
@@ -2778,7 +2655,6 @@ Future<void> _processExpense(
                 final amount = _parseAmountValue(item['amount']);
                 final currency = item['currency']?.toString().trim();
                 if (amount == null || currency == null || currency.isEmpty) {
-                  _debugPrint('Skipping AI item with invalid amount/currency');
                   return null;
                 }
                 final resolvedCategory = resolveAiParsedCategory(
@@ -2910,14 +2786,7 @@ Future<void> _processExpense(
                     entry: entry,
                     householdId: householdId,
                   );
-                  final optimisticType = entry.type ?? 'expense';
-                  final optimisticCurrency = entry.currency ?? '<none>';
-                  final optimisticHousehold = householdId ?? '<personal>';
-                  homeSpendTrace(
-                    'ai-optimistic-added id=${entry.id} type=$optimisticType '
-                    'amount=${traceAiAmount(entry.amount)} currency=$optimisticCurrency '
-                    'household=$optimisticHousehold',
-                  );
+
                   if (optimisticSplitGroup != null) {
                     ref
                         .read(householdOptimisticSplitsProvider.notifier)
@@ -3093,11 +2962,7 @@ Future<void> _processExpense(
             );
             return;
           }
-        } catch (queueError) {
-          _debugPrint(
-            '⚠️ Failed to queue AI input for background retry: $queueError',
-          );
-        }
+        } catch (queueError) {}
       }
       if (context.mounted) {
         processingOverlay?.complete(
@@ -3117,8 +2982,6 @@ Future<void> _processExpense(
       }
     }
   } catch (e) {
-    _debugPrint('Error in analysis: $e');
-
     if (!preview.isActive && shouldQueueAiInputForRetry(e)) {
       try {
         final queued = await queueCurrentAiInputForRetry();
@@ -3137,10 +3000,7 @@ Future<void> _processExpense(
           );
           return;
         }
-      } catch (queueError) {
-        _debugPrint(
-            '⚠️ Failed to queue AI input for background retry: $queueError');
-      }
+      } catch (queueError) {}
     }
 
     if (context.mounted) {

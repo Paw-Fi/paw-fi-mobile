@@ -91,7 +91,6 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
         });
       }
     } catch (e) {
-      debugPrint('Error verifying Telegram code: $e');
       if (!mounted) return;
 
       setState(() {

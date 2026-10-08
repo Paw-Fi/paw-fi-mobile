@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -30,7 +29,6 @@ class TelegramBinding extends AsyncNotifier<bool> {
       final chatId = row['telegram_chat_id'] as String?;
       return chatId != null && chatId.isNotEmpty;
     } catch (error) {
-      debugPrint('Error checking Telegram binding: $error');
       return false;
     }
   }

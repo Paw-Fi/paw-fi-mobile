@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' as foundation;
 
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -14,15 +13,6 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
-
-const bool _enableRecentTransactionDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugRecentTransactions(String message) {
-  if (foundation.kDebugMode && _enableRecentTransactionDebugLogs) {
-    foundation.debugPrint(message);
-  }
-}
 
 bool _isOptimisticTransactionId(String id) => id.startsWith('optimistic_');
 
@@ -132,11 +122,6 @@ List<ExpenseEntry> _dedupeRecentOptimisticReplacements(
     if (_shouldPreferRecentDuplicate(candidate: entry, current: existing)) {
       deduped[existingIndex] = entry;
     }
-    _debugRecentTransactions(
-      '[RecentTransactions] De-duped optimistic replacement: '
-      'kept=${deduped[existingIndex].id} dropped=${deduped[existingIndex].id == entry.id ? existing.id : entry.id} '
-      'fingerprint=$fingerprint',
-    );
   }
 
   return deduped;

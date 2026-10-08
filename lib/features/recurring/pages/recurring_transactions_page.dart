@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:moneko/features/recurring/presentation/widgets/confirm_recurring_occurrence_sheet.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/foundation.dart' as foundation;
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
@@ -38,19 +36,10 @@ import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
-import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+import 'package:moneko/shared/widgets/seamless_header_background.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
-
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugPrint(String? message, {int? wrapWidth}) {
-  if (foundation.kDebugMode && _enableDebugLogs) {
-    foundation.debugPrint(message, wrapWidth: wrapWidth);
-  }
-}
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -153,15 +142,6 @@ class _RecurringTransactionsPageState
       });
     }
 
-    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    _debugPrint('🏠 [RecurringPage] BUILD');
-    _debugPrint('   IsHouseholdView: ${householdScope.isHouseholdView}');
-    _debugPrint('   IsPersonalView: ${householdScope.isPersonalView}');
-    _debugPrint(
-        '   IsPortfolioSelected: ${householdScope.isPortfolioSelected}');
-    _debugPrint('   HouseholdId: $householdId');
-    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
     final filterState = ref.watch(homeFilterProvider);
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
     final selectedCurrencies = filterState.normalizedSelectedCurrencies;
@@ -217,60 +197,67 @@ class _RecurringTransactionsPageState
 
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
-      body: Column(
+      body: Stack(
         children: [
-          Padding(
-            key: _recurringTabBarSpotlightKey,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: MonekoSegmentedControl(
-              labels: [
-                context.l10n.expenses,
-                context.l10n.income,
-              ],
-              selectedIndex: selectedRecurringTab,
-              onValueChanged: selectRecurringTab,
-            ),
-          ),
-          AsyncRefreshStrip(isRefreshing: isRefreshing),
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (index) {
-                ref.read(selectedRecurringTabProvider.notifier).state = index;
-              },
-              children: [
-                _buildRecurringTabView(
-                  colorScheme: colorScheme,
-                  slivers: _buildExpensesSlivers(
-                    recurringExpenses,
-                    colorScheme,
-                    selectedCurrency,
-                    selectedCurrencies,
-                    householdId,
-                    seriesQuery,
-                    userNow,
-                    rateTable,
-                  ),
-                  seriesQuery: seriesQuery,
-                  isLoading: recurringExpenses.isLoading,
+          const Positioned.fill(child: SeamlessHeaderBackground()),
+          Column(
+            children: [
+              Padding(
+                key: _recurringTabBarSpotlightKey,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: MonekoSegmentedControl(
+                  labels: [
+                    context.l10n.expenses,
+                    context.l10n.income,
+                  ],
+                  selectedIndex: selectedRecurringTab,
+                  onValueChanged: selectRecurringTab,
                 ),
-                _buildRecurringTabView(
-                  colorScheme: colorScheme,
-                  slivers: _buildIncomesSlivers(
-                    recurringIncomes,
-                    colorScheme,
-                    selectedCurrency,
-                    selectedCurrencies,
-                    householdId,
-                    seriesQuery,
-                    userNow,
-                    rateTable,
-                  ),
-                  seriesQuery: seriesQuery,
-                  isLoading: recurringIncomes.isLoading,
+              ),
+              AsyncRefreshStrip(isRefreshing: isRefreshing),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    ref.read(selectedRecurringTabProvider.notifier).state =
+                        index;
+                  },
+                  children: [
+                    _buildRecurringTabView(
+                      colorScheme: colorScheme,
+                      slivers: _buildExpensesSlivers(
+                        recurringExpenses,
+                        colorScheme,
+                        selectedCurrency,
+                        selectedCurrencies,
+                        householdId,
+                        seriesQuery,
+                        userNow,
+                        rateTable,
+                      ),
+                      seriesQuery: seriesQuery,
+                      isLoading: recurringExpenses.isLoading,
+                    ),
+                    _buildRecurringTabView(
+                      colorScheme: colorScheme,
+                      slivers: _buildIncomesSlivers(
+                        recurringIncomes,
+                        colorScheme,
+                        selectedCurrency,
+                        selectedCurrencies,
+                        householdId,
+                        seriesQuery,
+                        userNow,
+                        rateTable,
+                      ),
+                      seriesQuery: seriesQuery,
+                      isLoading: recurringIncomes.isLoading,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -669,234 +656,125 @@ class _RecurringTransactionsPageState
     final subtext = isIncome
         ? context.l10n.activePaycheckCount(activeCount)
         : context.l10n.activeBillCount(activeCount);
-    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
 
-    final isDark = colorScheme.brightness == Brightness.dark;
-
-    final content = Padding(
-      padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 16, 8, 20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (isLargeText)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.mutedForeground,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                if (showCurrencyBreakdown)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Semantics(
-                      button: true,
-                      label: label,
-                      child: InkWell(
-                        onTap: () => showMultiCurrencyTotalBreakdownSheet(
-                          context: context,
-                          colorScheme: colorScheme,
-                          currencyTypeTotals: currencyTotals,
-                          rates: rateTable,
-                          targetCurrency: currencyCode,
-                          totalSpent: total,
-                          title: label,
-                          allowSingleCurrency: true,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.info_outline_rounded,
-                                size: 12,
-                                color: colorScheme.mutedForeground,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'CONVERTED',
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w700,
-                                  color: colorScheme.mutedForeground,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            )
-          else
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.mutedForeground,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-                if (showCurrencyBreakdown)
-                  Semantics(
-                    button: true,
-                    label: label,
-                    child: InkWell(
-                      onTap: () => showMultiCurrencyTotalBreakdownSheet(
-                        context: context,
-                        colorScheme: colorScheme,
-                        currencyTypeTotals: currencyTotals,
-                        rates: rateTable,
-                        targetCurrency: currencyCode,
-                        totalSpent: total,
-                        title: label,
-                        allowSingleCurrency: true,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              size: 12,
-                              color: colorScheme.mutedForeground,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'CONVERTED',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.mutedForeground,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          const SizedBox(height: 12),
-          if (isLargeText)
-            Wrap(
-              spacing: 6,
-              runSpacing: 2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  '$symbol$localizedTotal',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
-                    letterSpacing: -1,
-                  ),
-                ),
-                Text(
-                  currencyCode,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-              ],
-            )
-          else
-            Row(
-              textBaseline: TextBaseline.alphabetic,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              children: [
-                Text(
-                  '$symbol$localizedTotal',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
-                    letterSpacing: -1,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  currencyCode,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          const SizedBox(height: 8),
           Text(
-            subtext,
+            label,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: colorScheme.mutedForeground,
             ),
           ),
-        ],
-      ),
-    );
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colorScheme.recurringSummaryGradient,
-        ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? colorScheme.homeCardShadow
-                : Colors.black.withValues(alpha: 0.04),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-            spreadRadius: -6,
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              textBaseline: TextBaseline.alphabetic,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              children: [
+                Text(
+                  '$symbol$localizedTotal',
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    letterSpacing: -1.2,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  currencyCode,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
           ),
-          BoxShadow(
-            color: isDark
-                ? colorScheme.homeCardShadow
-                : Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: -2,
+          const SizedBox(height: 16),
+          Text(
+            subtext,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.mutedForeground,
+            ),
           ),
+          if (showCurrencyBreakdown) ...[
+            const SizedBox(height: 16),
+            Semantics(
+              button: true,
+              label: label,
+              child: DecoratedBox(
+                decoration: ShapeDecoration(
+                  color: colorScheme.cardSurface,
+                  shape: StadiumBorder(
+                    side: BorderSide(color: colorScheme.controlBorder),
+                  ),
+                ),
+                child: AdaptiveButton.child(
+                  onPressed: () => showMultiCurrencyTotalBreakdownSheet(
+                    context: context,
+                    colorScheme: colorScheme,
+                    currencyTypeTotals: currencyTotals,
+                    rates: rateTable,
+                    targetCurrency: currencyCode,
+                    totalSpent: total,
+                    title: label,
+                    allowSingleCurrency: true,
+                  ),
+                  useNative: false,
+                  style: AdaptiveButtonStyle.plain,
+                  borderRadius: BorderRadius.circular(100),
+                  minSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: colorScheme.mutedForeground,
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'CONVERTED',
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.foreground,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: isDark
-            ? BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: content,
-              )
-            : content,
       ),
     );
   }
@@ -1032,11 +910,6 @@ class _RecurringTransactionsPageState
 
   Future<void> _deleteTransaction(
       RecurringTransaction transaction, String? householdId) async {
-    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    _debugPrint('🗑️ [RecurringPage] Delete tapped');
-    _debugPrint(
-        '   txId=${transaction.id} type=${transaction.type} txHouseholdId=${transaction.householdId} scopeHouseholdId=$householdId');
-
     final l10n = context.l10n;
     final result = await MonekoAlertDialog.show(
       context: context,
@@ -1049,8 +922,6 @@ class _RecurringTransactionsPageState
     );
 
     if (result == null || result.action == MonekoAlertDialogAction.cancel) {
-      _debugPrint('⏭️  [RecurringPage] Delete cancelled');
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
@@ -1063,9 +934,8 @@ class _RecurringTransactionsPageState
 
     final user = ref.read(authProvider);
     if (user.uid.isEmpty) {
-      _debugPrint('⚠️  [RecurringPage] Delete aborted: user is empty');
       AppToast.error(context, unauthenticatedMessage);
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       return;
     }
 
@@ -1130,9 +1000,6 @@ class _RecurringTransactionsPageState
     } finally {
       closeDialog();
     }
-
-    _debugPrint('✅ [RecurringPage] Delete operation completed');
-    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }
 

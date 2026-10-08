@@ -94,7 +94,7 @@ class EmailImportSettings {
       enabled: json['enabled'] as bool? ?? false,
       ownerUserId: _optionalString(json['userId']),
       scopeId: (json['scopeId'] as String?) ?? 'personal',
-      scopeName: (json['scopeName'] as String?) ?? 'Personal',
+      scopeName: (json['scopeName'] as String?) ?? '',
       isPortfolio: json['isPortfolio'] as bool? ?? false,
       accountId: _optionalString(json['accountId']),
       accountName: _optionalString(json['accountName']),
@@ -118,7 +118,7 @@ class EmailImportSettings {
     return EmailImportSettings(
       enabled: false,
       scopeId: 'personal',
-      scopeName: 'Personal',
+      scopeName: '',
       isPortfolio: false,
       accountId: null,
       accountName: null,

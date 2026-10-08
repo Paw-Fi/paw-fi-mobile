@@ -10514,7 +10514,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get emailFileImportAccountEmailAlreadyIncluded => 'อีเมลบัญชี Moneko ของคุณอยู่ในรายชื่อผู้ส่งที่อนุญาตแล้ว ไม่ต้องเพิ่มอีกครั้ง';
 
   @override
-  String get aiClarificationNotSaved => 'รายละเอียดเหล่านี้จะถูกบันทึกหลังจากคุณยืนยัน';
+  String get aiClarificationNotSaved => 'รายละเอียดเหล่านี้จะถูกบันทึกเมื่อคุณยืนยัน';
 
   @override
   String get aiClarificationCustomAnswer => 'พิมพ์คำตอบของคุณเอง';
@@ -10675,4 +10675,20 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get budgetCompanionPlanning8 => 'ก้าวเล็ก ๆ สู่ผลลัพธ์ใหญ่!';
+
+  @override
+  String get typeYourOwnAnswer => 'พิมพ์คำตอบของคุณ';
+
+  @override
+  String aiClarificationError(Object error) {
+    return '$error\nรายละเอียดเหล่านี้จะถูกบันทึกเมื่อคุณยืนยัน';
+  }
+
+  @override
+  String senderAccountConfirmation(Object accountEmail) {
+    return 'คุณกำลังเพิ่มผู้ส่งรายนี้ในบัญชี Moneko ของคุณ ($accountEmail) เราจะส่งลิงก์ยืนยันไปยังอีเมลของผู้ส่ง ใบเสร็จจะถูกนำเข้าเมื่อคุณยืนยันผู้ส่งแล้วเท่านั้น';
+  }
+
+  @override
+  String get previouslyForwardedAttachmentNotice => 'หากคุณเคยส่งต่อไฟล์แนบมาแล้ว โปรดส่งไฟล์แนบนั้นอีกครั้งหลังจากอนุมัติและยืนยันผู้ส่งรายนี้ ไฟล์แนบที่ส่งมาก่อนหน้านี้จะไม่ถูกนำเข้าโดยอัตโนมัติ';
 }

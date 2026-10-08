@@ -80,8 +80,6 @@ final iosSiriTransactionDefaultsSyncProvider =
       'isPortfolio': next.isPortfolio,
       'accountId': next.accountId,
       'walletsReady': next.walletsReady,
-    }).catchError((Object error) {
-      debugPrint('[Siri] Selection defaults could not sync: $error');
-    }));
+    }).catchError((Object error) {}));
   }, fireImmediately: true);
 });

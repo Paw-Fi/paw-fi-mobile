@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
@@ -12,39 +11,29 @@ import 'package:moneko/features/home/presentation/models/currency_summary.dart';
 import 'package:moneko/features/home/presentation/models/daily_budget_entry.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 final dashboardUserContactProvider =
     FutureProvider.autoDispose<UserContact?>((ref) async {
-  final trace = HomeDebugTrace(
-    label: 'DashboardUserContact',
-    enabled: ref.read(homeDebugLoggingEnabledProvider),
-    logSink: ref.read(homeDebugLogSinkProvider),
-  );
   ref.watch(dashboardRefreshSignalProvider);
   final preview = ref.watch(previewModeProvider);
   if (preview.isActive) {
-    trace.mark('preview-hit');
     return PreviewMockData.contact;
   }
 
   final userId = ref.watch(authProvider.select((user) => user.uid));
   if (userId.isEmpty) {
-    trace.mark('load-skipped', const {'reason': 'empty-user'});
     return null;
   }
 
   final cachedContact = ref
       .watch(appInitializationV2Provider.select((state) => state.data?.user));
-  if (cachedContact != null) {
-    trace.mark('cache-hit', {'user': userId});
+  if (cachedContact != null && cachedContact.userId == userId) {
     return cachedContact;
   }
-
-  trace.mark('load-start', {'user': userId});
 
   final response = await supabase
       .from('user_contacts')
@@ -56,35 +45,25 @@ final dashboardUserContactProvider =
       .maybeSingle();
 
   if (response == null) {
-    trace.mark('load-success', const {'hasContact': false});
     return null;
   }
-  trace.mark('load-success', const {'hasContact': true});
+
   return UserContact.fromJson(Map<String, dynamic>.from(response));
 });
 
 final dashboardPersonalBudgetsProvider =
     FutureProvider.autoDispose<List<DailyBudgetEntry>>((ref) async {
-  final trace = HomeDebugTrace(
-    label: 'DashboardPersonalBudgets',
-    enabled: ref.read(homeDebugLoggingEnabledProvider),
-    logSink: ref.read(homeDebugLogSinkProvider),
-  );
   ref.watch(dashboardRefreshSignalProvider);
   final preview = ref.watch(previewModeProvider);
   if (preview.isActive) {
-    trace.mark('preview-hit');
     return const <DailyBudgetEntry>[];
   }
 
   final contact = await ref.watch(dashboardUserContactProvider.future);
   final contactId = contact?.id;
   if (contactId == null || contactId.isEmpty) {
-    trace.mark('load-skipped', const {'reason': 'missing-contact'});
     return const <DailyBudgetEntry>[];
   }
-
-  trace.mark('load-start', {'contactId': contactId});
 
   ref.watch(dashboardCacheInvalidationProvider);
   final bypassPersistedCache =
@@ -95,7 +74,6 @@ final dashboardPersonalBudgetsProvider =
   if (sessionCached != null &&
       DateTime.now().difference(sessionCached.cachedAt) <=
           dashboardBudgetsCacheTtl) {
-    trace.mark('session-cache-hit', {'count': sessionCached.value.length});
     return sessionCached.value;
   }
 
@@ -115,7 +93,7 @@ final dashboardPersonalBudgetsProvider =
           .map((row) =>
               DailyBudgetEntry.fromJson(Map<String, dynamic>.from(row)))
           .toList(growable: false);
-      trace.mark('persisted-cache-hit', {'count': budgets.length});
+
       writeDashboardSessionCache(cacheKey, budgets);
       return budgets;
     }
@@ -139,7 +117,7 @@ final dashboardPersonalBudgetsProvider =
       'items': budgets.map((item) => item.toJson()).toList(growable: false),
     },
   }));
-  trace.mark('load-success', {'count': budgets.length});
+
   return budgets;
 });
 
@@ -220,20 +198,6 @@ final dashboardCurrencySummariesRefreshSignalProvider =
 final _currencySummariesRefreshGenerationByKey = <String, int>{};
 final _currencyCountsRefreshGenerationByKey = <String, int>{};
 
-void _debugCurrencySummaries(String message) {
-  if (foundation.kDebugMode) {
-    foundation.debugPrint('[CurrencySelector][Summaries] $message');
-  }
-}
-
-String _summaryCountsDebug(Iterable<CurrencySummary> summaries) {
-  final counts = <String, int>{
-    for (final summary in summaries)
-      summary.currencyCode: summary.transactionCount,
-  };
-  return counts.toString();
-}
-
 final dashboardCurrencySummariesProvider =
     FutureProvider.autoDispose<List<CurrencySummary>>((ref) async {
   final refreshGeneration =
@@ -263,15 +227,12 @@ final dashboardCurrencySummariesProvider =
       );
     }
     final previewSummaries = rollup.values.toList(growable: false);
-    _debugCurrencySummaries(
-      'preview summaries=${previewSummaries.length} counts=${_summaryCountsDebug(previewSummaries)}',
-    );
+
     return previewSummaries;
   }
 
   final userId = ref.watch(authProvider.select((user) => user.uid));
   if (userId.isEmpty) {
-    _debugCurrencySummaries('skip fetch: empty user id');
     return const <CurrencySummary>[];
   }
 
@@ -285,21 +246,13 @@ final dashboardCurrencySummariesProvider =
   );
   final shouldBypassCache = refreshGeneration > 0 &&
       _currencySummariesRefreshGenerationByKey[cacheKey] != refreshGeneration;
-  _debugCurrencySummaries(
-    'start user=$userId scope=${scope.activeAccountType.name} household=${activeHouseholdId ?? '<personal>'} refreshGeneration=$refreshGeneration cacheKey=$cacheKey bypass=$shouldBypassCache',
-  );
+
   final cachedFallback = _readCachedCurrencySummaries(ref, cacheKey);
   if (!shouldBypassCache && cachedFallback != null) {
-    _debugCurrencySummaries(
-      'cache-hit key=$cacheKey summaries=${cachedFallback.length} counts=${_summaryCountsDebug(cachedFallback)}',
-    );
     return cachedFallback;
   }
 
   try {
-    _debugCurrencySummaries(
-      'rpc-start p_user_id=$userId p_household_id=${activeHouseholdId ?? '<null>'}',
-    );
     final budgetsFuture = scope.activeAccountType == ActiveWalletType.personal
         ? ref.watch(dashboardPersonalBudgetsProvider.future)
         : Future<List<DailyBudgetEntry>>.value(const <DailyBudgetEntry>[]);
@@ -325,9 +278,7 @@ final dashboardCurrencySummariesProvider =
     }
 
     final rows = (response as List? ?? const []).cast<Map>();
-    _debugCurrencySummaries(
-      'rpc-raw rows=${rows.length} raw=${rows.take(8).map((row) => Map<String, dynamic>.from(row)).toList(growable: false)}',
-    );
+
     final summaries = rows.map((row) {
       final code = (row['currency'] as String? ?? '').toUpperCase();
       return CurrencySummary(
@@ -348,18 +299,10 @@ final dashboardCurrencySummariesProvider =
             summaries.map(_currencySummaryToCacheJson).toList(growable: false),
       },
     }));
-    _debugCurrencySummaries(
-      'rpc-success key=$cacheKey summaries=${summaries.length} counts=${_summaryCountsDebug(summaries)}',
-    );
+
     return summaries;
-  } catch (error, stackTrace) {
-    _debugCurrencySummaries(
-      'rpc-error key=$cacheKey error=$error stack=$stackTrace',
-    );
+  } catch (error) {
     if (cachedFallback != null) {
-      _debugCurrencySummaries(
-        'fallback-cache key=$cacheKey summaries=${cachedFallback.length} counts=${_summaryCountsDebug(cachedFallback)}',
-      );
       return cachedFallback;
     }
     rethrow;
@@ -381,13 +324,12 @@ final dashboardCurrencyTransactionCountsProvider =
       if (code.isEmpty) continue;
       counts[code] = (counts[code] ?? 0) + 1;
     }
-    _debugCurrencySummaries('direct-counts preview counts=$counts');
+
     return counts;
   }
 
   final userId = ref.watch(authProvider.select((user) => user.uid));
   if (userId.isEmpty) {
-    _debugCurrencySummaries('direct-counts skip fetch: empty user id');
     return const <String, int>{};
   }
 
@@ -403,17 +345,10 @@ final dashboardCurrencyTransactionCountsProvider =
       _currencyCountsRefreshGenerationByKey[cacheKey] != refreshGeneration;
   final cachedFallback = _readCachedCurrencyTransactionCounts(ref, cacheKey);
   if (!shouldBypassCache && cachedFallback != null) {
-    _debugCurrencySummaries(
-      'direct-counts cache-hit key=$cacheKey counts=$cachedFallback',
-    );
     return cachedFallback;
   }
 
   try {
-    _debugCurrencySummaries(
-      'direct-counts query-start user=$userId scope=${scope.activeAccountType.name} household=${activeHouseholdId ?? '<personal>'} key=$cacheKey bypass=$shouldBypassCache',
-    );
-
     final counts = await _fetchDashboardCurrencyTransactionCounts(
       userId: userId,
       householdId: activeHouseholdId,
@@ -426,18 +361,10 @@ final dashboardCurrencyTransactionCountsProvider =
       'cached_at': DateTime.now().toIso8601String(),
       'state': {'counts': counts},
     }));
-    _debugCurrencySummaries(
-      'direct-counts query-success key=$cacheKey counts=$counts',
-    );
+
     return counts;
-  } catch (error, stackTrace) {
-    _debugCurrencySummaries(
-      'direct-counts query-error key=$cacheKey error=$error stack=$stackTrace',
-    );
+  } catch (error) {
     if (cachedFallback != null) {
-      _debugCurrencySummaries(
-        'direct-counts fallback-cache key=$cacheKey counts=$cachedFallback',
-      );
       return cachedFallback;
     }
     rethrow;
@@ -478,9 +405,7 @@ final dashboardCurrencySummaryTransactionCountsProvider =
     for (final summary in summaries)
       summary.currencyCode: summary.transactionCount,
   };
-  _debugCurrencySummaries(
-    'summary-derived-counts summaries=${summaries.length} counts=$counts',
-  );
+
   return counts;
 });
 
@@ -496,16 +421,12 @@ List<CurrencySummary>? _readCachedCurrencySummaries(Ref ref, String cacheKey) {
   if (sessionCached != null &&
       DateTime.now().difference(sessionCached.cachedAt) <=
           dashboardCurrencySummariesCacheTtl) {
-    _debugCurrencySummaries(
-      'session-cache-read key=$cacheKey age=${DateTime.now().difference(sessionCached.cachedAt).inSeconds}s count=${sessionCached.value.length}',
-    );
     return sessionCached.value;
   }
 
   final bypassPersistedCache =
       ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
   if (bypassPersistedCache) {
-    _debugCurrencySummaries('persisted-cache-skip key=$cacheKey bypass=true');
     return null;
   }
 
@@ -519,9 +440,6 @@ List<CurrencySummary>? _readCachedCurrencySummaries(Ref ref, String cacheKey) {
       cachedAt == null ||
       DateTime.now().difference(cachedAt) >
           dashboardCurrencySummariesCacheTtl) {
-    _debugCurrencySummaries(
-      'persisted-cache-miss key=$cacheKey hasState=${statePayload != null} cachedAt=${cachedAt?.toIso8601String() ?? '<none>'}',
-    );
     return null;
   }
 
@@ -532,9 +450,7 @@ List<CurrencySummary>? _readCachedCurrencySummaries(Ref ref, String cacheKey) {
           ))
       .toList(growable: false);
   writeDashboardSessionCache(cacheKey, summaries);
-  _debugCurrencySummaries(
-    'persisted-cache-read key=$cacheKey age=${DateTime.now().difference(cachedAt).inSeconds}s summaries=${summaries.length} counts=${_summaryCountsDebug(summaries)}',
-  );
+
   return summaries;
 }
 
@@ -546,18 +462,12 @@ Map<String, int>? _readCachedCurrencyTransactionCounts(
   if (sessionCached != null &&
       DateTime.now().difference(sessionCached.cachedAt) <=
           dashboardCurrencyTransactionCountsCacheTtl) {
-    _debugCurrencySummaries(
-      'direct-counts session-cache-read key=$cacheKey age=${DateTime.now().difference(sessionCached.cachedAt).inSeconds}s counts=${sessionCached.value}',
-    );
     return sessionCached.value;
   }
 
   final bypassPersistedCache =
       ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
   if (bypassPersistedCache) {
-    _debugCurrencySummaries(
-      'direct-counts persisted-cache-skip key=$cacheKey bypass=true',
-    );
     return null;
   }
 
@@ -571,17 +481,11 @@ Map<String, int>? _readCachedCurrencyTransactionCounts(
       cachedAt == null ||
       DateTime.now().difference(cachedAt) >
           dashboardCurrencyTransactionCountsCacheTtl) {
-    _debugCurrencySummaries(
-      'direct-counts persisted-cache-miss key=$cacheKey hasState=${statePayload != null} cachedAt=${cachedAt?.toIso8601String() ?? '<none>'}',
-    );
     return null;
   }
 
   final rawCounts = statePayload['counts'];
   if (rawCounts is! Map) {
-    _debugCurrencySummaries(
-      'direct-counts persisted-cache-invalid key=$cacheKey raw=$rawCounts',
-    );
     return null;
   }
 
@@ -591,9 +495,7 @@ Map<String, int>? _readCachedCurrencyTransactionCounts(
           (entry.value is num ? (entry.value as num).toInt() : 0),
   }..removeWhere((key, value) => key.isEmpty);
   writeDashboardSessionCache(cacheKey, counts);
-  _debugCurrencySummaries(
-    'direct-counts persisted-cache-read key=$cacheKey age=${DateTime.now().difference(cachedAt).inSeconds}s counts=$counts',
-  );
+
   return counts;
 }
 

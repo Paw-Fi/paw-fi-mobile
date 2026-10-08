@@ -172,16 +172,7 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
           },
           data: (calculation) {
             final rows = calculation.rows;
-            if (kDebugMode) {
-              final breakdownNet = calculateSettlementBreakdownRowsNetCents(
-                rows: rows,
-              );
-              if (breakdownNet != calculation.netCents) {
-                debugPrint(
-                  '[SettlementBreakdownPage] household=$householdId member=$memberUserId canonicalNet=${calculation.netCents} breakdownNet=$breakdownNet rows=${rows.length}',
-                );
-              }
-            }
+            if (kDebugMode) {}
 
             return _buildPageBody(
               key: const ValueKey('settlement-breakdown-data'),

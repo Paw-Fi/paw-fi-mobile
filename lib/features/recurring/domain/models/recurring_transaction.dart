@@ -2,18 +2,9 @@
 /// Represents a recurring income or expense transaction
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart' as foundation;
+
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
-
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugLog(String message) {
-  if (foundation.kDebugMode && _enableDebugLogs) {
-    foundation.debugPrint(message);
-  }
-}
 
 DateTime? _parseRecurrenceCalendarDate(dynamic value) {
   return parseCalendarDateFromFlexibleInput(value?.toString());
@@ -129,9 +120,7 @@ class RecurringTransaction {
           if (parsed is Map<String, dynamic>) {
             parsedRecurrenceRule = RecurrenceRule.fromJson(parsed);
           }
-        } catch (e) {
-          _debugLog('Failed to parse recurrence rule string');
-        }
+        } catch (e) {}
       } else if (recurrenceRuleData is Map<String, dynamic>) {
         // Already a map, parse directly
         parsedRecurrenceRule = RecurrenceRule.fromJson(recurrenceRuleData);
@@ -252,7 +241,6 @@ class RecurringTransaction {
               .toList();
         }
       } catch (e) {
-        _debugLog('Error parsing attachments string');
         return [];
       }
       return [];
@@ -264,7 +252,6 @@ class RecurringTransaction {
             .map((e) => Attachment.fromJson(e as Map<String, dynamic>))
             .toList();
       } catch (e) {
-        _debugLog('Error parsing attachments list');
         return [];
       }
     }

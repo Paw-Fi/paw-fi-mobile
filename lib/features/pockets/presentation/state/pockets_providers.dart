@@ -26,19 +26,13 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/data/pocket_month_mutation_service.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_cache_store.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
+
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-
-void _debugLog(String message) {
-  if (foundation.kDebugMode) {
-    foundation.debugPrint(message);
-  }
-}
 
 const rolloverBackendUnavailableMessage =
     'Pocket rollover is not available until the app backend is updated.';
@@ -1231,9 +1225,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
     for (final item in enrichedRows) {
       try {
         transactions.add(RecurringTransaction.fromJson(item));
-      } catch (error) {
-        _debugLog('[Pockets] Failed to parse recurring transaction: $error');
-      }
+      } catch (error) {}
     }
     if (localTransactions.isEmpty ||
         (pendingRecurringIds.isEmpty && pendingDeletedRecurringIds.isEmpty)) {
@@ -1303,9 +1295,6 @@ Future<List<Map<String, dynamic>>> _enrichRecurringRowsWithSplitPayer({
       splitPayerByGroupId: splitPayerByGroupId,
     );
   } catch (error) {
-    _debugLog(
-      '[Pockets] Failed to enrich recurring rows with split payer: $error',
-    );
     return rows;
   }
 }
@@ -1995,18 +1984,14 @@ class PocketsState {
   bool get hasChanges {
     // Check if budget has changed
     if ((totalBudget - savedTotalBudget).abs() > 0.01) {
-      _debugLog(
-          'hasChanges: true (budget changed from $savedTotalBudget to $totalBudget)');
       return true;
     }
 
     if (saved.length != editing.length) {
-      _debugLog('hasChanges: true (pocket count changed)');
       return true;
     }
     for (var i = 0; i < saved.length; i++) {
       if (_pocketHasUserEditableChanges(saved[i], editing[i])) {
-        _debugLog('hasChanges: true (pocket ${saved[i].name} changed)');
         return true;
       }
     }
@@ -2017,10 +2002,9 @@ class PocketsState {
       baselineCategories,
       envelopeCategories,
     )) {
-      _debugLog('hasChanges: true (pocket categories changed)');
       return true;
     }
-    _debugLog('hasChanges: false');
+
     return false;
   }
 
@@ -3184,7 +3168,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     final authUser = ref.read(authProvider);
     if (authUser.isEmpty && !_isPreview) {
-      _debugLog('[Pockets] No auth user, cannot load');
       if (!mounted) return;
       state = state.copyWith(isLoading: false, error: 'Not authenticated');
       return;
@@ -3224,11 +3207,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           await ref
               .read(transactionsFeedServiceProvider)
               .refreshFromRemote(query);
-        } catch (error) {
-          _debugLog(
-            '[Pockets] Transaction refresh failed; preserving cached data: $error',
-          );
-        }
+        } catch (error) {}
       }
     }
 
@@ -3237,22 +3216,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
   Future<void> _load({bool bypassCache = false}) async {
     final refreshRevision = _refreshRevision;
-    final trace = _createPocketsTrace(
-      ref,
-      label: 'PocketsLoad',
-      contextFields: {
-        ..._describePocketsScopeParams(params),
-        'bypassCache': bypassCache,
-      },
-    );
-    trace.mark('load-start');
+
     if (!mounted) return;
 
     // Ensure global invalidation listeners are registered.
     ref.watch(_pocketsMonthCacheInvalidationProvider);
 
     if (_isPreview) {
-      trace.mark('preview-state-applied');
       state = state.copyWith(isLoading: true, clearError: true);
       _applyPreviewState();
       return;
@@ -3286,7 +3256,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           params.householdId ?? (_isPreview ? 'preview-house-1' : null);
 
       if (isHousehold && householdId == null) {
-        trace.mark('load-empty-state', const {'reason': 'missing-household'});
         if (!mounted) return;
         state = PocketsState(
           isLoading: false,
@@ -3309,7 +3278,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       if (isPortfolio && householdId == null) {
-        trace.mark('load-error-state', const {'reason': 'missing-portfolio'});
         if (!mounted) return;
         state = PocketsState(
           isLoading: false,
@@ -3384,11 +3352,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         if (cached != null) {
           final isFresh = !hasPendingLocalChanges &&
               _pocketsMonthCache.isFresh(cacheKey, now, monthStart);
-          trace.mark('cache-hit', {
-            'editingCount': cached.editing.length,
-            'isFresh': isFresh,
-            'totalBudget': cached.totalBudget,
-          });
+
           // Serve cached state immediately.
           if (!mounted) return;
           final cachedWithReviewDraft = await _withNeedsReviewPocketDraft(
@@ -3404,7 +3368,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           if (!isFresh && !isOffline) {
             final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
             if (existingInFlight == null) {
-              trace.mark('background-refresh-start');
               final backgroundRefreshRevision = _refreshRevision;
               unawaited(
                 _refreshFromBackend(
@@ -3416,7 +3379,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   initialCurrency: initialCurrency,
                   allowCurrencyFallback: allowCurrencyFallback,
                   showLoadingIndicator: false,
-                  trace: trace,
                 ).then((loaded) async {
                   if (!mounted) return;
                   if (_refreshRevision != backgroundRefreshRevision) return;
@@ -3430,12 +3392,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                     return;
                   }
                   state = _withPendingCategoryAssignments(reviewed);
-                }).catchError((Object error, StackTrace stackTrace) {
-                  trace.mark('background-refresh-error', {'error': error});
-                }),
+                }).catchError((Object error, StackTrace stackTrace) {}),
               );
-            } else {
-              trace.mark('background-refresh-inflight-hit');
             }
           }
           return;
@@ -3458,11 +3416,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   ? now.difference(cachedAt) <=
                       _pocketsCacheTtl(cacheKey, monthStart)
                   : false;
-              trace.mark('persisted-cache-hit', {
-                'editingCount': persistedState.editing.length,
-                'isFresh': isFresh,
-                'totalBudget': persistedState.totalBudget,
-              });
+
               _pocketsMonthCache.set(cacheKey, persistedState, now);
               if (!mounted) return;
               final persistedWithReviewDraft =
@@ -3487,7 +3441,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                       initialCurrency: initialCurrency,
                       allowCurrencyFallback: allowCurrencyFallback,
                       showLoadingIndicator: false,
-                      trace: trace,
                     );
                     if (!mounted) return;
                     if (_refreshRevision != backgroundRefreshRevision) return;
@@ -3500,9 +3453,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                       return;
                     }
                     state = _withPendingCategoryAssignments(reviewed);
-                  } catch (error) {
-                    trace.mark('background-refresh-error', {'error': error});
-                  }
+                  } catch (error) {}
                 });
               }
               return;
@@ -3512,7 +3463,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       if (isOffline) {
-        trace.mark('offline-cache-miss', {'periodMonth': periodMonth});
         if (state.hasDisplayData) {
           state = state.copyWith(isLoading: false, clearError: true);
         } else {
@@ -3540,15 +3490,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       // No cache (or bypass requested), show loader.
-      trace.mark('cache-miss', {'periodMonth': periodMonth});
+
       if (!state.hasDisplayData) {
         state = state.copyWith(isLoading: true, clearError: true);
       } else {
         state = state.copyWith(isLoading: false, clearError: true);
       }
-
-      _debugLog(
-          '[Pockets] Using currency: $selectedCurrency (params: ${params.currency}, fallback: $fallbackCurrency, allowFallback: $allowCurrencyFallback)');
 
       final loadedState = await _refreshFromBackend(
         cacheKey: cacheKey,
@@ -3559,11 +3506,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         initialCurrency: initialCurrency,
         allowCurrencyFallback: allowCurrencyFallback,
         showLoadingIndicator: true,
-        trace: trace,
       );
       if (!mounted) return;
       if (_refreshRevision != refreshRevision) {
-        trace.mark('load-superseded');
         return;
       }
       final loadedWithReviewDraft = await _withNeedsReviewPocketDraft(
@@ -3572,17 +3517,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       );
       if (!mounted || _refreshRevision != refreshRevision) return;
       state = _withPendingCategoryAssignments(loadedWithReviewDraft);
-      trace.mark('load-success', {
-        'editingCount': loadedState.editing.length,
-        'totalBudget': loadedState.totalBudget,
-        'uncategorizedCount': loadedState.uncategorized.length,
-      });
+
       return;
     } catch (e) {
-      trace.mark('load-error', {'error': e});
       if (!mounted) return;
       if (_refreshRevision != refreshRevision) {
-        trace.mark('load-error-superseded');
         return;
       }
       state = state.copyWith(
@@ -3635,9 +3574,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (!_isMissingRpcFunctionError(error, 'get_pockets_month_v4')) {
         rethrow;
       }
-      _debugLog(
-        '[Pockets] RPC get_pockets_month_v4 missing; using v3 without revision support',
-      );
+
       try {
         final response = await supabase.rpc(
           'get_pockets_month_v3',
@@ -3690,23 +3627,16 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required String initialCurrency,
     required bool allowCurrencyFallback,
     required bool showLoadingIndicator,
-    required PocketsDebugTrace trace,
   }) async {
     final refreshRevision = _refreshRevision;
     final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
     if (existingInFlight != null) {
-      trace.mark('backend-inflight-hit');
       return existingInFlight;
     }
 
     Future<PocketsState> doFetch() async {
       final authUser = ref.read(authProvider);
       var selectedCurrency = initialCurrency;
-
-      trace.mark('rpc-start', {
-        'periodMonth': periodMonth,
-        'requestedCurrency': initialCurrency,
-      });
 
       final selectedCurrencies = params.normalizedSelectedCurrencies;
       final hasMultiCurrencySelection =
@@ -3834,9 +3764,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           for (final row in envRows) {
             row['logo_url'] = logoUrlByEnvelopeId[row['id'] as String];
           }
-        } catch (error) {
-          _debugLog('[Pockets] logo_url enrichment skipped: $error');
-        }
+        } catch (error) {}
       }
 
       final allocationRows = payloads
@@ -3868,12 +3796,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         categoriesByEnvelopeId.putIfAbsent(envId, () => []).add(category);
       }
 
-      final actualExpenseRows = payloads
-          .expand(
-              (payload) => ((payload['actual_expenses'] as List?) ?? const []))
-          .cast<Map>()
-          .map((row) => Map<String, dynamic>.from(row))
-          .toList(growable: false);
       // CRITICAL: treat RPC actual_expenses as persisted rows only.
       // STRICT REQUIREMENT: the recurring month projection is merged below on
       // purpose. Do not mix recurring template rows into actual_expenses or the
@@ -3927,17 +3849,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         filteredActualExpenses,
         localOverlayExpenses,
       );
-      trace.mark('rpc-success', {
-        'budgetId': budgetId ?? '<none>',
-        'envelopeCount': envRows.length,
-        'actualExpenseCount': actualExpenseRows.length,
-        'filteredActualExpenseCount': filteredActualExpenses.length,
-        'pendingLocalExpenseCount': pendingLocalExpenses.length,
-        'inMemoryOverlayExpenseCount': inMemoryOverlayExpenses.length,
-        'selectedCurrency': selectedCurrency,
-      });
 
-      trace.mark('projection-start');
       final recurringTransactions = params.includeUpcomingRecurring
           ? await loadScopedRecurringTransactions(
               userId: authUser.uid,
@@ -3978,9 +3890,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         confirmedOccurrenceSuppressionEntries:
             occurrenceResolution.suppressionEntries,
       );
-      trace.mark('projection-success', {
-        'projectedRecurringCount': projectedRecurringExpenses.length,
-      });
+
       // CRITICAL: keep projected recurring expenses in the monthly pocket
       // calculation.
       // STRICT REQUIREMENT: pocket totals/spent amounts must include recurring
@@ -4297,7 +4207,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final loaded = await future;
       final completedAt = DateTime.now();
       if (_refreshRevision != refreshRevision) {
-        trace.mark('backend-state-superseded');
         return loaded;
       }
       _pocketsMonthCache.set(cacheKey, loaded, completedAt);
@@ -4358,11 +4267,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           },
         ),
       );
-      trace.mark('backend-state-ready', {
-        'editingCount': loaded.editing.length,
-        'totalBudget': loaded.totalBudget,
-        'unallocatedSpend': loaded.unallocatedSpend,
-      });
+
       return loaded;
     } finally {
       _pocketsMonthCache.clearInFlight(cacheKey);
@@ -4455,7 +4360,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
       return filterPocketActualExpenses(items);
     } catch (error) {
-      _debugLog('[Pockets] Failed to load pending local expenses: $error');
       return const <ExpenseEntry>[];
     }
   }
@@ -4554,13 +4458,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
   void updateTotalBudget(double newTotal) {
     if (newTotal < 0) return;
-    _debugLog(
-        'updateTotalBudget: $newTotal (saved: ${state.savedTotalBudget})');
+
     state = applyRebalancedBudgetToPocketsState(
       state: state,
       newTotalBudget: newTotal,
     );
-    _debugLog('After update - hasChanges: ${state.hasChanges}');
   }
 
   Future<void> applyNativeBudgetProjection(
@@ -4592,10 +4494,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         periodMonth: _formatDate(state.periodMonth),
         currency: state.currency,
       );
-    } catch (error) {
-      _debugLog(
-          '[Pockets] Failed to persist aggregate budget projection: $error');
-    }
+    } catch (error) {}
   }
 
   void reusePreviousBudget(double amount) {
@@ -4653,30 +4552,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final explicitCurrency = params.isBootstrapCurrency
         ? null
         : params.currency?.trim().toUpperCase();
-    final filter = ref.read(homeFilterProvider);
-
-    _debugLog(
-        '[Pockets][Copy] Starting copyPocketsFromMonth for scope=${params.scope}, householdId=${params.householdId}, targetMonth=${params.periodMonth}');
-    _debugLog(
-        '[Pockets][Copy] Input sourceMonth=$sourceMonth (will normalize to month start)');
-
-    // Always log the current target budget row so we can detect mismatches
-    // (e.g., budget.period_month != targetPeriodMonth, or budget.currency != selected currency).
-    try {
-      final currentBudgetId = state.budgetId;
-      if (currentBudgetId != null && currentBudgetId.isNotEmpty) {
-        final row = await supabase
-            .from('budgets')
-            .select(
-                'id,currency,period_month,total_budget_cents,household_id,user_id')
-            .eq('id', currentBudgetId)
-            .maybeSingle();
-        _debugLog(
-            '[Pockets][Copy] Target budget row: id=${row?['id']}, period_month=${row?['period_month']}, currency=${row?['currency']}, total_budget_cents=${row?['total_budget_cents']}, household_id=${row?['household_id']}, user_id=${row?['user_id']}');
-      }
-    } catch (_) {
-      // ignore
-    }
 
     // Currency resolution:
     // - If user explicitly selected a currency, use that.
@@ -4708,8 +4583,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           if (c != null && c.isNotEmpty) {
             effectiveCurrency = c;
           }
-          _debugLog(
-              '[Pockets][Copy] Current budget row: id=${row?['id']}, period_month=${row?['period_month']}, currency=${row?['currency']}, total_budget_cents=${row?['total_budget_cents']}, household_id=${row?['household_id']}, user_id=${row?['user_id']}');
         }
       } catch (_) {
         // ignore
@@ -4720,9 +4593,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       effectiveCurrency =
           (analytics.preferredCurrency?.toUpperCase().trim() ?? 'USD');
     }
-
-    _debugLog(
-        '[Pockets][Copy] Currency resolution: filter.selectedCurrency=${filter.selectedCurrency}, hasExplicitCurrency=$hasExplicitCurrency, effectiveCurrency=$effectiveCurrency');
 
     final scopeType = params.scope;
     final isHouseholdScope = scopeType == PocketsScopeType.household;
@@ -4770,9 +4640,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       );
       currentBudgetId = (resolvedTargetBudget?['id'] as String?)?.trim();
     }
-
-    _debugLog(
-        '[Pockets][Copy] targetPeriodMonth=$targetPeriodMonth (budgetId=$currentBudgetId), sourcePeriodMonth=$sourcePeriodMonth');
 
     final selectedCurrencies = params.normalizedSelectedCurrencies;
     if (selectedCurrencies != null && selectedCurrencies.length > 1) {
@@ -4826,33 +4693,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final rows =
             await candidates.order('updated_at', ascending: false).limit(10);
         final list = (rows as List?)?.cast<Map<String, dynamic>>() ?? const [];
-        final summary = list
-            .map((r) =>
-                '{id=${r['id']}, currency=${r['currency']}, total=${r['total_budget_cents']}}')
-            .toList();
-        _debugLog(
-            '[Pockets][Copy] Source-month budget candidates (up to 10): $summary');
 
         for (final r in list) {
           final bid = r['id'] as String?;
           if (bid == null || bid.isEmpty) continue;
           try {
-            final env = await supabase
+            await supabase
                 .from('budget_envelopes')
                 .select(
                     'id,name,currency,budget_amount_cents,rollover_group_id,rollover_enabled,rollover_negative,rollover_cap_cents,opening_rollover_cents')
                 .eq('budget_id', bid)
                 .order('name')
                 .limit(20);
-            final envRows =
-                (env as List?)?.cast<Map<String, dynamic>>() ?? const [];
-            final sample = envRows
-                .take(8)
-                .map((e) =>
-                    '{name=${e['name']}, currency=${e['currency']}, amount=${e['budget_amount_cents']}}')
-                .toList();
-            _debugLog(
-                '[Pockets][Copy] Candidate budget $bid envelopes: count=${envRows.length}, sample=$sample');
           } catch (_) {
             // ignore
           }
@@ -4886,8 +4738,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final sourceTotalBudgetCents =
           (sourceBudgetRow?['total_budget_cents'] as num?)?.toInt() ?? 0;
 
-      _debugLog(
-          '[Pockets][Copy] Selected source budget: id=$sourceBudgetId, total_budget_cents=$sourceTotalBudgetCents, currency=$effectiveCurrency');
       if (sourceBudgetId == null || sourceBudgetId.isEmpty) {
         if (!mounted) return const <String, String>{};
         state = state.copyWith(
@@ -4918,9 +4768,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
       } catch (e) {
         if (!isMissingRolloverColumnError(e)) rethrow;
-        _debugLog(
-          '[Pockets][Copy] Rollover columns unavailable; retrying legacy source envelope select.',
-        );
+
         var envelopesQuery = supabase
             .from('budget_envelopes')
             .select('id,name,budget_amount_cents,color,icon,logo_url')
@@ -4936,16 +4784,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
       }
 
-      _debugLog(
-          '[Pockets][Copy] Source envelopes fetched: count=${envRows.length}');
-      if (envRows.isNotEmpty) {
-        final sample = envRows
-            .take(8)
-            .map((r) =>
-                '{name=${r['name']}, budget_amount_cents=${r['budget_amount_cents']}, id=${r['id']}}')
-            .toList();
-        _debugLog('[Pockets][Copy] Source envelope sample: $sample');
-      }
       if (envRows.isEmpty) {
         if (!mounted) return const <String, String>{};
         state = state.copyWith(
@@ -4974,9 +4812,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               (row['envelope_id'] as String):
                   (row['amount_cents'] as num?)!.toInt(),
       };
-
-      _debugLog(
-          '[Pockets][Copy] Source allocations fetched: count=${allocationRows.length}, nonZeroCount=${allocationCentsByEnvelopeId.length}');
 
       final categoryLinksRes = await supabase
           .from('envelope_category_links')
@@ -5075,9 +4910,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       _prepareFreshMutationReload();
       await _load(bypassCache: true);
 
-      _debugLog(
-          '[Pockets][Copy] Reload complete: totalBudget=${state.totalBudget}, pockets=${state.editing.length}, periodMonth=${state.periodMonth}');
-
       // Refresh analytics + widgets so other surfaces reflect the copied pockets.
       ref.read(analyticsProvider.notifier).refresh(authUser.uid);
       ref.read(widgetSyncVersionProvider.notifier).state++;
@@ -5115,8 +4947,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       state.currency,
     );
     final restored = normalizedSaved.map((p) => p.copyWith()).toList();
-    _debugLog(
-        'revertChanges: restoring budget from ${state.totalBudget} to ${state.savedTotalBudget}');
+
     state = state.copyWith(
       saved: normalizedSaved,
       editing: restored,
@@ -5795,9 +5626,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         envRows = (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
       } catch (e) {
         if (!isMissingRolloverColumnError(e)) rethrow;
-        _debugLog(
-          '[Pockets][Copy] Rollover columns unavailable; retrying legacy current-month source envelope select.',
-        );
+
         var envelopesQuery = supabase
             .from('budget_envelopes')
             .select('id,name,budget_amount_cents,color,icon,logo_url')
@@ -6492,19 +6321,6 @@ final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
   return PocketsNotifier(ref, params);
 });
 
-PocketsDebugTrace _createPocketsTrace(
-  Ref ref, {
-  required String label,
-  Map<String, Object?> contextFields = const <String, Object?>{},
-}) {
-  return PocketsDebugTrace(
-    label: label,
-    enabled: ref.read(pocketsDebugLoggingEnabledProvider),
-    logSink: ref.read(pocketsDebugLogSinkProvider),
-    contextFields: contextFields,
-  );
-}
-
 bool _shouldKeepQueuedLocalMutation(Object error) {
   if (error is PocketMonthWriteRejected ||
       isTerminalPocketDatabaseError(error)) {
@@ -6518,18 +6334,6 @@ bool _shouldKeepQueuedLocalMutation(Object error) {
 
 bool shouldKeepQueuedPocketsMutation(Object error) =>
     _shouldKeepQueuedLocalMutation(error);
-
-Map<String, Object?> _describePocketsScopeParams(PocketsScopeParams params) {
-  return {
-    'scope': params.scope.name,
-    'household': params.householdId ?? '<none>',
-    'month': params.periodMonth,
-    'currency': (params.currency ?? '<none>').toUpperCase(),
-    'currencies': params.normalizedSelectedCurrencies ?? const <String>[],
-    'bootstrapCurrency': params.isBootstrapCurrency,
-    'includeRecurring': params.includeUpcomingRecurring,
-  };
-}
 
 String _formatDate(DateTime date) {
   final y = date.year.toString().padLeft(4, '0');

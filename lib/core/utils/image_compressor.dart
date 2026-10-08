@@ -34,11 +34,9 @@ class ImageCompressor {
 
       if (result == null || result.isEmpty) {
         if (!config.preserveSourceFormat) {
-          debugPrint('⚠️ ImageCompressor: compression returned null');
           throw StateError('Image compression failed');
         }
-        debugPrint('⚠️ ImageCompressor: compression returned null, '
-            'using original (${originalBytes.length} bytes)');
+
         return originalBytes;
       }
 
@@ -47,18 +45,11 @@ class ImageCompressor {
       if (useOriginalWhenSmaller &&
           config.preserveSourceFormat &&
           result.length >= originalBytes.length) {
-        debugPrint('ℹ️ ImageCompressor: compressed is not smaller '
-            '(${result.length} >= ${originalBytes.length}), using original');
         return originalBytes;
       }
 
-      final savings =
-          ((1 - result.length / originalBytes.length) * 100).toStringAsFixed(0);
-      debugPrint('✅ ImageCompressor: ${originalBytes.length} → '
-          '${result.length} bytes ($savings% reduction)');
       return result;
-    } catch (e, stack) {
-      debugPrint('⚠️ ImageCompressor.compressFile failed: $e\n$stack');
+    } catch (e) {
       if (!config.preserveSourceFormat) {
         rethrow;
       }
@@ -87,29 +78,20 @@ class ImageCompressor {
 
       if (result.isEmpty) {
         if (!config.preserveSourceFormat) {
-          debugPrint('⚠️ ImageCompressor: compressWithList returned empty');
           throw StateError('Image compression failed');
         }
-        debugPrint('⚠️ ImageCompressor: compressWithList returned empty, '
-            'using original (${bytes.length} bytes)');
+
         return bytes;
       }
 
       if (useOriginalWhenSmaller &&
           config.preserveSourceFormat &&
           result.length >= bytes.length) {
-        debugPrint('ℹ️ ImageCompressor: compressed is not smaller '
-            '(${result.length} >= ${bytes.length}), using original');
         return bytes;
       }
 
-      final savings =
-          ((1 - result.length / bytes.length) * 100).toStringAsFixed(0);
-      debugPrint('✅ ImageCompressor: ${bytes.length} → '
-          '${result.length} bytes ($savings% reduction)');
       return Uint8List.fromList(result);
-    } catch (e, stack) {
-      debugPrint('⚠️ ImageCompressor.compressBytes failed: $e\n$stack');
+    } catch (e) {
       if (!config.preserveSourceFormat) {
         rethrow;
       }

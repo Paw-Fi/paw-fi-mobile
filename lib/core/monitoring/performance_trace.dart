@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
+
 import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
@@ -88,8 +88,6 @@ class PerformanceTrace {
     final sink = testSink;
     if (sink != null) {
       sink(normalized);
-    } else {
-      debugPrint('[MonekoPerf] ${jsonEncode(normalized)}');
     }
   }
 }

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dashboard_config.dart';
@@ -61,9 +61,7 @@ class DashboardRepository {
       //   await _saveLocalPersonal(userId, configs);
       //   return configs;
       // }
-    } catch (e) {
-      debugPrint('Error loading personal layout: $e');
-    }
+    } catch (e) {}
     return null;
   }
 
@@ -79,7 +77,6 @@ class DashboardRepository {
         'home_layout': jsonList,
       }).eq('id', userId);
     } catch (e) {
-      debugPrint('Error saving personal layout to Supabase: $e');
       // Non-blocking error, we rely on local storage
     }
   }
@@ -122,9 +119,7 @@ class DashboardRepository {
       //   await _saveLocalHousehold(householdId, configs);
       //   return configs;
       // }
-    } catch (e) {
-      debugPrint('Error loading household layout: $e');
-    }
+    } catch (e) {}
     return null;
   }
 
@@ -140,7 +135,6 @@ class DashboardRepository {
     //     'dashboard_layout': jsonList,
     //   }).eq('id', householdId);
     // } catch (e) {
-    //   debugPrint('Error saving household layout to Supabase: $e');
     // }
   }
 

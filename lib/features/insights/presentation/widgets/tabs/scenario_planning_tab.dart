@@ -137,14 +137,10 @@ class _ScenarioPlanningTabContentState
       // Try locale-specific formatting first
       return DateFormat(dateFormat, localeName).format(date);
     } catch (e) {
-      debugPrint('Locale-specific date formatting failed: $e');
-
       try {
         // Fallback to locale without country code
         return DateFormat(dateFormat).format(date);
       } catch (e2) {
-        debugPrint('Generic date formatting failed: $e2');
-
         // Ultimate fallback based on language family
         return _formatDateByLanguageFamily(date, languageCode);
       }

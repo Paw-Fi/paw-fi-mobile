@@ -43,6 +43,7 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/home/presentation/state/state.dart'
     as home_state;
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
+
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -392,9 +393,7 @@ Future<void> _syncMobileTransactions(
             try {
               if (!guard.isActive) return;
               await ref.read(iosWalletCaptureSyncProvider)(userId);
-            } catch (error) {
-              debugPrint('[WalletCapture] Foreground sync will retry: $error');
-            }
+            } catch (error) {}
           },
           () => _drainMobileOutbox(ref, guard),
           () => _syncCategoryRemaps(ref, userId, guard),
@@ -999,7 +998,9 @@ class MainShell extends HookConsumerWidget {
                         right: 0,
                         child: ReconcileProgressBar(
                           key: syncKey.value,
-                          onComplete: () => isSyncing.value = false,
+                          onComplete: () {
+                            isSyncing.value = false;
+                          },
                         ),
                       ),
                   ],

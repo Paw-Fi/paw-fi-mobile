@@ -28,22 +28,17 @@ class _HouseholdInvitationHandlerPageState
   @override
   void initState() {
     super.initState();
-    debugPrint(
-        '🏠 [HouseholdInvitationHandler] Initializing with token: ${widget.token}');
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _acceptInvite());
   }
 
   Future<void> _acceptInvite() async {
-    debugPrint(
-        '🏠 [HouseholdInvitationHandler] Starting invitation acceptance flow');
     final repo = ref.read(householdRepositoryProvider);
     try {
       // First, validate the invite to get household_id
       // This avoids trying to re-accept an already accepted invite
-      debugPrint('🏠 [HouseholdInvitationHandler] Validating invitation...');
+
       final validateResponse = await repo.validateInvite(widget.token);
-      debugPrint(
-          '🏠 [HouseholdInvitationHandler] Validation response: $validateResponse');
 
       final householdId = validateResponse['household']?['id'] as String?;
       final errorCode =
@@ -51,8 +46,6 @@ class _HouseholdInvitationHandlerPageState
 
       // Treat ALREADY_MEMBER as success even if valid=false
       if (errorCode == 'ALREADY_MEMBER' && householdId != null) {
-        debugPrint(
-            '🏠 [HouseholdInvitationHandler] User already a member, navigating to household');
         setState(() {
           _accepted = true;
           _householdId = householdId;
@@ -64,11 +57,8 @@ class _HouseholdInvitationHandlerPageState
         if (householdId != null) {
           // Invite is valid and not already accepted, proceed to accept
           try {
-            debugPrint(
-                '🏠 [HouseholdInvitationHandler] Accepting invitation...');
             final data = await repo.acceptInvite(widget.token);
-            debugPrint(
-                '🏠 [HouseholdInvitationHandler] Successfully accepted! Household ID: ${data['household_id']}');
+
             setState(() {
               _accepted = true;
               _householdId = data['household_id'] as String? ?? householdId;
@@ -77,21 +67,15 @@ class _HouseholdInvitationHandlerPageState
             // If accept fails with 409 (already member), still navigate
             if (e.toString().contains('409') ||
                 e.toString().contains('already')) {
-              debugPrint(
-                  '🏠 [HouseholdInvitationHandler] Already a member (from accept call), navigating anyway');
               setState(() {
                 _accepted = true;
                 _householdId = householdId;
               });
             } else {
-              debugPrint(
-                  '❌ [HouseholdInvitationHandler] Error accepting invite: $e');
               rethrow;
             }
           }
         } else {
-          debugPrint(
-              '❌ [HouseholdInvitationHandler] Missing household ID in validation response');
           setState(() =>
               _error = 'Invalid invitation: missing household information');
         }
@@ -99,13 +83,10 @@ class _HouseholdInvitationHandlerPageState
         // Validation failed
         final errorMsg =
             validateResponse['error'] as String? ?? 'Invalid invitation';
-        debugPrint(
-            '❌ [HouseholdInvitationHandler] Validation failed: $errorMsg');
+
         setState(() => _error = errorMsg);
       }
     } catch (e) {
-      debugPrint(
-          '❌ [HouseholdInvitationHandler] Exception during invitation flow: $e');
       setState(() => _error = e.toString());
     }
   }

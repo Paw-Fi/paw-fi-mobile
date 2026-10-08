@@ -162,24 +162,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     Object? error,
   }) {
     if (!kDebugMode) return;
-    String errorSummary() {
-      if (error == null) return '-';
-      final normalized = error.toString().replaceAll(RegExp(r'\s+'), ' ');
-      return normalized.length <= 160
-          ? normalized
-          : '${normalized.substring(0, 160)}…';
-    }
-
-    debugPrint(
-      '[SettlementConfirmationTrace] stage=$stage '
-      'household=${_shortTraceId(widget.householdId)} member=${_shortTraceId(memberId)} '
-      'currency=${currencyCode ?? '-'} remoteSplits=${remoteSplitCount ?? '-'} '
-      'drained=${drainedMutations ?? '-'} '
-      'pendingTx=${pendingTransactions ?? '-'} '
-      'pendingSettlement=${pendingSettlement ?? '-'} '
-      'txBlocker=${transactionBlocker ?? '-'} '
-      'maxCents=${maxCents ?? '-'} error=${errorSummary()}',
-    );
   }
 
   @override
@@ -361,11 +343,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       ),
     );
 
-    if (kDebugMode) {
-      debugPrint(
-        '[SettleUpSheet] recompute v2 household=${widget.householdId} member=$memberId currency=$currencyCode net=${balance.netCents} splitTo=${balance.splitToCents} splitFrom=${balance.splitFromCents} paidTo=${balance.paidToCents} paidFrom=${balance.paidFromCents}',
-      );
-    }
     final netYouOwe = balance.youOweCents;
     final netYouAreOwed = balance.youAreOwedCents;
 
@@ -374,12 +351,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         : widget.settleTheyOweYou
             ? netYouAreOwed
             : netYouOwe;
-
-    if (kDebugMode) {
-      debugPrint(
-        '[SettleUpSheet] paidTo=${balance.paidToCents} paidFrom=${balance.paidFromCents} net=${balance.netCents} netYouOwe=$netYouOwe netYouAreOwed=$netYouAreOwed maxSettle=$maxSettleCents',
-      );
-    }
 
     setState(() {
       _youOweCents = netYouOwe;

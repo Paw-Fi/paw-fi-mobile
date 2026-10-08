@@ -11,7 +11,7 @@ import '../pages/household_onboarding_page.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
@@ -41,21 +41,10 @@ class HouseholdHomeContent extends ConsumerStatefulWidget {
 
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   String? _dashboardWarmupKey;
-  late final HomeDebugTrace _householdTrace;
-  String? _lastHouseholdTraceSignature;
-  String? _lastSelectedHouseholdTraceSignature;
-  String? _lastDashboardConfigTraceSignature;
-  bool _didLogFirstUsefulPaint = false;
 
   @override
   void initState() {
     super.initState();
-    _householdTrace = HomeDebugTrace(
-      label: 'HouseholdHomeContent',
-      enabled: ref.read(homeDebugLoggingEnabledProvider),
-      logSink: ref.read(homeDebugLogSinkProvider),
-    );
-    _householdTrace.mark('widget-mounted');
   }
 
   /// Calculate user's personal share of household expenses
@@ -159,18 +148,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   }) async {
     if (!mounted) return;
 
-    final warmupTrace = HomeDebugTrace(
-      label: 'HouseholdDashboardWarmup',
-      enabled: ref.read(homeDebugLoggingEnabledProvider),
-      logSink: ref.read(homeDebugLogSinkProvider),
-      contextFields: {
-        'household': household.id,
-        'currency': selectedCurrency,
-      },
-    );
-    warmupTrace.mark('warmup-start', {
-      'widgetCount': configs.length,
-    });
     final visibleConfigs = configs.where((config) => config.isVisible).toList();
 
     final calendarQueries = <DashboardScopeQuery>{};
@@ -257,50 +234,33 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
       if (!recurringState.hasLoadedOnce) {
         warmupTasks.add(() async {
           try {
-            warmupTrace.mark('warmup-recurring-start');
             await ref
                 .read(recurringProvider.notifier)
                 .loadRecurringTransactions(userId);
             if (!mounted) return;
-            warmupTrace.mark('warmup-recurring-success');
-          } catch (error) {
-            warmupTrace.mark('warmup-recurring-error', {'error': error});
-          }
+          } catch (error) {}
         }());
       }
     }
 
     if (needsMembers) {
       ref.read(householdMembersProvider(household.id));
-      warmupTrace.mark('warmup-members-read');
     }
     if (needsBudgets) {
       ref.read(householdBudgetsProvider(household.id));
-      warmupTrace.mark('warmup-budgets-read');
     }
 
     for (final query in calendarQueries) {
       warmupTasks.add(() async {
         try {
-          warmupTrace.mark('warmup-calendar-start', {
-            'rangeStart': query.formattedStartDate,
-            'rangeEnd': query.formattedEndDate,
-          });
           if (!mounted) return;
           await ref.read(dashboardCalendarTransactionsProvider(query).future);
           if (!mounted) return;
-          warmupTrace.mark('warmup-calendar-success');
-        } catch (error) {
-          warmupTrace.mark('warmup-calendar-error', {'error': error});
-        }
+        } catch (error) {}
       }());
     }
 
     await Future.wait(warmupTasks);
-
-    warmupTrace.mark('warmup-complete', {
-      'calendarQueryCount': calendarQueries.length,
-    });
   }
 
   String _buildDashboardWarmupKey({
@@ -378,24 +338,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
     final householdsAsync = ref.watch(userHouseholdsProvider(userId));
 
-    final householdsSignature = [
-      'user=$userId',
-      'loading=${householdsAsync.isLoading}',
-      'hasError=${householdsAsync.hasError}',
-      'count=${householdsAsync.valueOrNull?.length ?? 0}',
-      'refresh=$dashboardRefreshSignal',
-    ].join('|');
-    if (_lastHouseholdTraceSignature != householdsSignature) {
-      _lastHouseholdTraceSignature = householdsSignature;
-      _householdTrace.mark('households-async-state', {
-        'user': userId,
-        'loading': householdsAsync.isLoading,
-        'hasError': householdsAsync.hasError,
-        'count': householdsAsync.valueOrNull?.length,
-        'refreshSignal': dashboardRefreshSignal,
-      });
-    }
-
     return householdsAsync.when(
       loading: () => SliverFillRemaining(
         hasScrollBody: false,
@@ -411,8 +353,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
       ),
       data: (households) {
         if (households.isEmpty) {
-          _householdTrace
-              .mark('content-blocked', const {'reason': 'no-households'});
           // Show onboarding when user has no households
           // Use SliverToBoxAdapter with LayoutBuilder to provide proper sizing
           return SliverToBoxAdapter(
@@ -444,27 +384,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             }
           }
           if (household == null) {
-            _householdTrace.mark(
-              'content-blocked',
-              {'reason': 'selection-not-canonical', 'selectedId': selectedId},
-            );
             return const SliverToBoxAdapter(child: SizedBox.shrink());
           }
           final resolvedHousehold = household;
-
-          final selectedHouseholdTraceSignature = [
-            'household=${resolvedHousehold.id}',
-            'selectedId=${selectedId ?? '<none>'}',
-          ].join('|');
-          if (_lastSelectedHouseholdTraceSignature !=
-              selectedHouseholdTraceSignature) {
-            _lastSelectedHouseholdTraceSignature =
-                selectedHouseholdTraceSignature;
-            _householdTrace.mark('selected-household', {
-              'household': resolvedHousehold.id,
-              'selectedId': selectedId,
-            });
-          }
 
           // Filters
           final selectedCurrencyFilter = ref.watch(
@@ -498,25 +420,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
           final dashboardAsync =
               ref.watch(householdDashboardProvider(resolvedHousehold.id));
-
-          final dashboardConfigTraceSignature = [
-            'household=${resolvedHousehold.id}',
-            'loading=${dashboardAsync.isLoading}',
-            'hasError=${dashboardAsync.hasError}',
-            'hasValue=${dashboardAsync.hasValue}',
-            'widgetCount=${dashboardAsync.valueOrNull?.length ?? 0}',
-          ].join('|');
-          if (_lastDashboardConfigTraceSignature !=
-              dashboardConfigTraceSignature) {
-            _lastDashboardConfigTraceSignature = dashboardConfigTraceSignature;
-            _householdTrace.mark('dashboard-config-async-state', {
-              'household': resolvedHousehold.id,
-              'loading': dashboardAsync.isLoading,
-              'hasError': dashboardAsync.hasError,
-              'hasValue': dashboardAsync.hasValue,
-              'widgetCount': dashboardAsync.valueOrNull?.length,
-            });
-          }
 
           return dashboardAsync.when(
             loading: () =>
@@ -552,15 +455,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 financialMonthStartDay: financialMonthStartDay,
                 selectedPeriod: selectedPeriod,
               );
-
-              if (!_didLogFirstUsefulPaint) {
-                _didLogFirstUsefulPaint = true;
-                _householdTrace.mark('first-useful-paint', {
-                  'household': resolvedHousehold.id,
-                  'widgetCount': configs.length,
-                  'selectedCurrency': selectedCurrency,
-                });
-              }
 
               return DraggableDashboardList(
                 configs: configs,

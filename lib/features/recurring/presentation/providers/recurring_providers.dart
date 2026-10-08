@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -38,17 +37,6 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/app/router.dart';
-
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugPrint(String? message, {int? wrapWidth}) {
-  if (foundation.kDebugMode && _enableDebugLogs) {
-    foundation.debugPrint(message, wrapWidth: wrapWidth);
-  }
-}
-
-void _homeSpendTrace(String _) {}
 
 void _publishRecurringMutation(Ref ref) {
   ref.read(recurringReadRefreshSignalProvider.notifier).state += 1;
@@ -651,11 +639,7 @@ final recurringOccurrenceTimelineProvider = FutureProvider.family<
         .where((entry) => entry.scheduledOccurrenceDate != null)
         .map(RecurringOccurrenceTimelineItem.fromLocalEntry)
         .toList(growable: false);
-    _recurringProjectionTrace(
-      'timeline-local recurring=${query.recurringId} household=${query.householdId ?? '-'} '
-      'range=${formatDateOnlyYmd(query.startDate)}..${formatDateOnlyYmd(query.endDate)} '
-      'rows=${localItems.length}',
-    );
+
     try {
       final response = await supabase.functions.invoke(
         'list-recurring-occurrences',
@@ -692,17 +676,7 @@ final recurringOccurrenceTimelineProvider = FutureProvider.family<
           persistedItems.add(item);
         }
       }
-      _recurringProjectionTrace(
-        'timeline-remote recurring=${query.recurringId} rows=${persistedItems.length} '
-        'confirmed=${persistedItems.where((item) => item.isConfirmed).length} '
-        'actuals=[${persistedItems.map((item) {
-          final actual = item.actualTransaction;
-          return '${formatDateOnlyYmd(item.scheduledOccurrenceDate)}:${item.status}:'
-              '${actual?.id ?? item.actualTransactionId ?? '-'}:${actual?.amountCents ?? item.amountCents ?? '-'}:'
-              '${actual?.parentRecurringId ?? '-'}:'
-              '${actual?.scheduledOccurrenceDate == null ? '-' : formatDateOnlyYmd(actual!.scheduledOccurrenceDate!)}';
-        }).join(',')}]',
-      );
+
       // The occurrence ledger is the authoritative identity source for a
       // materialized occurrence. Hydrate an older cached feed row that missed
       // these columns so every later local-first consumer (not just the
@@ -727,10 +701,6 @@ final recurringOccurrenceTimelineProvider = FutureProvider.family<
             ));
       return merged;
     } catch (error) {
-      _recurringProjectionTrace(
-        'timeline-error recurring=${query.recurringId} error=$error '
-        'fallingBackToLocal=${localItems.length}',
-      );
       return localItems;
     }
   },
@@ -765,11 +735,6 @@ final recurringOccurrenceProjectionResolutionProvider = Provider.family<
     );
     occurrencesByRecurringId[transaction.id] = occurrencesAsync.valueOrNull ??
         const <RecurringOccurrenceTimelineItem>[];
-    _recurringProjectionTrace(
-      'resolution-source recurring=${transaction.id} '
-      'state=${occurrencesAsync.isLoading ? 'loading' : occurrencesAsync.hasError ? 'error' : 'data'} '
-      'items=${occurrencesByRecurringId[transaction.id]!.length}',
-    );
   }
 
   return buildRecurringOccurrenceProjectionResolution(
@@ -848,20 +813,12 @@ RecurringOccurrenceProjectionResolution
     }
   }
 
-  _recurringProjectionTrace(
-    'resolution-ready recurring=${occurrencesByRecurringId.length} '
-    'suppression=[${suppressionEntries.map((entry) => '${entry.parentRecurringId}@${formatDateOnlyYmd(entry.scheduledOccurrenceDate ?? entry.date)}').join(',')}] '
-    'actualIds=[${occurrencesByActualTransactionId.keys.join(',')}]',
-  );
-
   return RecurringOccurrenceProjectionResolution(
     suppressionEntries: suppressionEntries,
     occurrencesByActualTransactionId: occurrencesByActualTransactionId,
     recurringIdsByActualTransactionId: recurringIdsByActualTransactionId,
   );
 }
-
-void _recurringProjectionTrace(String _) {}
 
 final recurringOccurrenceConfirmationProvider =
     Provider<RecurringOccurrenceConfirmationController>(
@@ -1679,18 +1636,11 @@ class RecurringTransactionsNotifier
     int limit = 250,
     bool forceRefresh = false,
   }) async {
-    final household = householdId ?? '<personal>';
-    final traceUser = userId.isEmpty ? '<empty>' : userId;
     if (_loadInProgress && !forceRefresh) {
-      _homeSpendTrace('recurring-load skip=in-progress household=$household');
       return;
     }
     _loadInProgress = true;
-    _homeSpendTrace(
-      'recurring-load start user=$traceUser household=$household force=$forceRefresh '
-      'hasLoaded=${state.hasLoadedOnce} stateLoading=${state.data.isLoading} '
-      'stateHasValue=${state.data.hasValue} stateCount=${state.data.valueOrNull?.length ?? 0}',
-    );
+
     try {
       if (_isPreview) {
         final mockData = PreviewMockData.recurringTransactions;
@@ -1698,8 +1648,7 @@ class RecurringTransactionsNotifier
           data: AsyncValue.data(mockData),
           hasLoadedOnce: true,
         );
-        _homeSpendTrace(
-            'recurring-load return=preview count=${mockData.length}');
+
         return;
       }
 
@@ -1715,8 +1664,6 @@ class RecurringTransactionsNotifier
         );
         if (hydrated) {
           if (!isOffline) {
-            _homeSpendTrace(
-                'recurring-load hydrated-local schedule=remote-refresh household=$household');
             unawaited(_refreshRecurringTransactionsFromNetwork(
               userId,
               limit,
@@ -1734,8 +1681,7 @@ class RecurringTransactionsNotifier
               : const AsyncValue.data(<RecurringTransaction>[]),
           hasLoadedOnce: true,
         );
-        _homeSpendTrace(
-            'recurring-load return=offline-empty household=$household');
+
         return;
       }
 
@@ -1745,8 +1691,6 @@ class RecurringTransactionsNotifier
           ) ??
           false;
       if (state.hasLoadedOnce && !forceRefresh && !currentHasIncompleteRules) {
-        _homeSpendTrace(
-            'recurring-load skip=already-loaded household=$household');
         return;
       }
       if (!state.hasLoadedOnce || forceRefresh) {
@@ -1819,9 +1763,7 @@ class RecurringTransactionsNotifier
         for (final item in typedRows) {
           try {
             allTransactions.add(RecurringTransaction.fromJson(item));
-          } catch (parseError) {
-            _debugPrint('[RecurringTx] Error parsing row: $parseError');
-          }
+          } catch (parseError) {}
         }
         if (typedRows.length < pageSize) break;
         offset += pageSize;
@@ -1848,23 +1790,9 @@ class RecurringTransactionsNotifier
         data: AsyncValue.data(mergedTransactions),
         hasLoadedOnce: true,
       );
-      final household = householdId ?? '<personal>';
-      _homeSpendTrace(
-        'recurring-remote-success household=$household '
-        'serverCount=${allTransactions.length} pendingCount=${pendingOptimistic.length} '
-        'mergedCount=${mergedTransactions.length}',
-      );
-      unawaited(_cacheRecurringTransactions(allTransactions, userId));
 
-      _debugPrint(
-          '[RecurringTx] Loaded ${allTransactions.length} recurring transactions');
+      unawaited(_cacheRecurringTransactions(allTransactions, userId));
     } catch (e, st) {
-      _debugPrint('[RecurringTx] Load failed: $e');
-      final household = householdId ?? '<personal>';
-      _homeSpendTrace(
-        'recurring-remote-error household=$household error=$e '
-        'preserveCached=$preserveCachedDataOnError hasValue=${state.data.hasValue}',
-      );
       if (!mounted) return;
       if (preserveCachedDataOnError && state.data.hasValue) {
         return;
@@ -1884,7 +1812,6 @@ class RecurringTransactionsNotifier
     required int limit,
     required bool allowIncompleteRecurrenceRules,
   }) async {
-    final household = householdId ?? '<personal>';
     try {
       final database = await ref.read(localDatabaseProvider.future);
       final rows = await database.getRecurringTransactions(
@@ -1892,14 +1819,7 @@ class RecurringTransactionsNotifier
         householdId: householdId,
         limit: limit,
       );
-      final expenseCents = rows.fold<int>(0, (sum, entry) {
-        final type = (entry.type ?? 'expense').toLowerCase();
-        return type == 'income' ? sum : sum + entry.amountCents.abs();
-      });
-      _homeSpendTrace(
-        'recurring-hydrate-local household=$household count=${rows.length} '
-        'expenseTotal=${(expenseCents / 100.0).toStringAsFixed(2)}',
-      );
+
       if (rows.isEmpty || !mounted) return false;
 
       final cachedTransactions = rows
@@ -1909,10 +1829,6 @@ class RecurringTransactionsNotifier
         (transaction) => transaction.recurrenceRule == null,
       );
       if (hasMissingRecurrenceRules && !allowIncompleteRecurrenceRules) {
-        _homeSpendTrace(
-          'recurring-hydrate-local incomplete-rules household=$household '
-          'count=${rows.length}',
-        );
         return false;
       }
 
@@ -1922,9 +1838,6 @@ class RecurringTransactionsNotifier
       );
       return true;
     } catch (error) {
-      _homeSpendTrace(
-          'recurring-hydrate-local error household=$household error=$error');
-      _debugPrint('[RecurringTx] Local hydrate failed: $error');
       return false;
     }
   }
@@ -1944,9 +1857,7 @@ class RecurringTransactionsNotifier
             .where((entry) => entry.userId?.trim().isNotEmpty == true)
             .toList(growable: false),
       );
-    } catch (error) {
-      _debugPrint('[RecurringTx] Local cache write failed: $error');
-    }
+    } catch (error) {}
   }
 
   /// Refresh recurring transactions list
@@ -2115,9 +2026,6 @@ class RecurringTransactionsNotifier
         },
       );
 
-      _debugPrint(
-          '✅ [RecurringTx] delete-expense response status=${response.status}');
-
       if (response.data is Map<String, dynamic> &&
           (response.data as Map<String, dynamic>)['success'] == true) {
         final lazyHandle = lazyOptimisticHandle;
@@ -2135,8 +2043,6 @@ class RecurringTransactionsNotifier
         ref.invalidate(pocketsProvider);
         ref.invalidate(currencyTransactionCountsProvider);
 
-        _debugPrint('✅ [RecurringTx] DELETE SUCCEEDED');
-        _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.success();
       }
 
@@ -2146,8 +2052,6 @@ class RecurringTransactionsNotifier
               ? 'Request failed (${response.status})'
               : null);
 
-      _debugPrint('❌ [RecurringTx] DELETE FAILED: $errorMessage');
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (deletedEntries.isNotEmpty) {
         await localDatabase?.rollbackOptimisticTransactionDelete(
           entries: deletedEntries,
@@ -2165,8 +2069,6 @@ class RecurringTransactionsNotifier
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
     } catch (e) {
-      _debugPrint('❌ [RecurringTx] DELETE EXCEPTION: $e');
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
         ref.invalidate(pocketsProvider);
         ref.invalidate(currencyTransactionCountsProvider);
@@ -2213,14 +2115,6 @@ class RecurringTransactionsNotifier
     RecurringSeriesOptimisticHandle? lazyOptimisticHandle;
     RecurringOccurrenceOptimisticHandle? occurrenceOptimisticHandle;
     try {
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      _debugPrint('⏭️ [RecurringTx] SKIP OCCURRENCE REQUESTED');
-      _debugPrint(
-          '   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
-      _debugPrint('   User context present');
-      _debugPrint('   TransactionId: $transactionId');
-      _debugPrint('   DateToSkip: $dateToSkip');
-
       if (!mounted) {
         return const DeleteRecurringResult.failure('Provider unmounted');
       }
@@ -2233,15 +2127,11 @@ class RecurringTransactionsNotifier
       });
 
       if (target == null) {
-        _debugPrint('❌ [RecurringTx] SKIP FAILED: Transaction not found');
-        _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.failure('Transaction not found');
       }
 
       final rule = target!.recurrenceRule;
       if (rule == null) {
-        _debugPrint('❌ [RecurringTx] SKIP FAILED: No recurrence rule');
-        _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.failure('No recurrence rule');
       }
 
@@ -2313,8 +2203,6 @@ class RecurringTransactionsNotifier
       unawaited(drainMobileOutbox(ref));
       return const DeleteRecurringResult.success();
     } catch (e) {
-      _debugPrint('❌ [RecurringTx] SKIP EXCEPTION: $e');
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (originalEntry != null && updatedEntry != null) {
         await localDatabase?.rollbackOptimisticTransactionUpdate(
           originalEntry: originalEntry,
@@ -2790,8 +2678,6 @@ class RecurringTransactionSaveNotifier
         );
         state = AsyncValue.data(expense);
 
-        _debugPrint(
-            '🔄 [SaveRecurring] Saved successfully, optimistic row reconciled');
         ref.invalidate(pocketsProvider);
         ref.invalidate(currencyTransactionCountsProvider);
 
@@ -2831,10 +2717,7 @@ class RecurringTransactionSaveNotifier
               );
           ref.invalidate(pocketsProvider);
           ref.invalidate(currencyTransactionCountsProvider);
-        } catch (refreshError) {
-          _debugPrint(
-              '⚠️ [SaveRecurring] Post-save reconciliation failed: $refreshError');
-        }
+        } catch (refreshError) {}
         state = AsyncValue.data(committedTransaction);
         return committedTransaction;
       }
@@ -3069,8 +2952,6 @@ class RecurringTransactionSaveNotifier
         );
         state = AsyncValue.data(income);
 
-        _debugPrint(
-            '🔄 [SaveRecurring] Saved successfully, optimistic row reconciled');
         ref.invalidate(pocketsProvider);
         ref.invalidate(currencyTransactionCountsProvider);
 
@@ -3109,10 +2990,7 @@ class RecurringTransactionSaveNotifier
               );
           ref.invalidate(pocketsProvider);
           ref.invalidate(currencyTransactionCountsProvider);
-        } catch (refreshError) {
-          _debugPrint(
-              '⚠️ [SaveRecurring] Post-save reconciliation failed: $refreshError');
-        }
+        } catch (refreshError) {}
         state = AsyncValue.data(committedTransaction);
         return committedTransaction;
       }
@@ -3428,11 +3306,6 @@ class RecurringTransactionSaveNotifier
       updates['merchant_id'] = merchantId;
       updates['merchant_structured_name'] = merchantStructuredName;
 
-      _debugPrint('📝 [UpdateRecurring] Building update-expense request body');
-      _debugPrint('   userId: $userId');
-      _debugPrint('   expenseId: $expenseId');
-      _debugPrint('   updates prepared');
-
       // Build base request body
       mutationMetadata = buildTransactionMutationMetadataForRecord(
         clientRecordId: expenseId,
@@ -3504,22 +3377,9 @@ class RecurringTransactionSaveNotifier
       // DEBUG: log outgoing update payload for recurring expense, including
       // splitUpdate/customSplits and payerUserId so we can confirm that
       // split edits are actually being sent to the backend.
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      _debugPrint(
-          '💾 [UpdateRecurring] Sending update-expense for recurring expense');
-      _debugPrint('   expenseId: $expenseId');
-      _debugPrint('   userId: $userId');
-      _debugPrint('   householdId (target): $householdId');
-      _debugPrint('   previousHouseholdId: $previousHouseholdId');
-      _debugPrint('   payer update present: ${payerUserId != null}');
-      _debugPrint('   updates prepared');
-      if (requestBody.containsKey('customSplits')) {
-        _debugPrint('   customSplits payload included');
-      }
-      if (requestBody.containsKey('splitUpdate')) {
-        _debugPrint('   splitUpdate payload included');
-      }
-      _debugPrint('   Request key count: ${requestBody.length}');
+
+      if (requestBody.containsKey('customSplits')) {}
+      if (requestBody.containsKey('splitUpdate')) {}
 
       final optimisticExpense = _buildOptimisticRecurringTransaction(
         userId: userId,
@@ -3618,13 +3478,6 @@ class RecurringTransactionSaveNotifier
           clientMutationId: mutationMetadata.clientMutationId,
         );
         state = AsyncValue.data(updatedExpense);
-        _debugPrint(
-            '✅ [UpdateRecurring] update-expense succeeded for $expenseId');
-        _debugPrint(
-            '   Updated expense householdId: ${updatedExpense.householdId}');
-        _debugPrint(
-            '   Updated amount: ${updatedExpense.amount} ${updatedExpense.currency}');
-        _debugPrint('   Updated category: ${updatedExpense.category}');
 
         // Optimistically update the unified recurring transactions list so
         // the Recurring page reflects the edited values immediately without
@@ -3635,16 +3488,10 @@ class RecurringTransactionSaveNotifier
           ref
               .read(recurringTransactionsProvider(scopeKey).notifier)
               .updateRecurring(updatedExpense);
-        } catch (e, st) {
-          _debugPrint(
-              '⚠️ [UpdateRecurring] Failed to optimistically update list: $e');
-          _debugPrint('   Stack: $st');
-        }
+        } catch (e) {}
 
         // Force refresh the list provider to show the updated transaction
         // Don't use optimistic update as we'll invalidate in the sheet
-        _debugPrint(
-            '🔄 [UpdateRecurring] Updated successfully, transaction will be reloaded by invalidation');
 
         return updatedExpense;
       } else {
@@ -3677,10 +3524,7 @@ class RecurringTransactionSaveNotifier
               .updateRecurring(committedTransaction);
           ref.invalidate(pocketsProvider);
           ref.invalidate(currencyTransactionCountsProvider);
-        } catch (refreshError) {
-          _debugPrint(
-              '⚠️ [UpdateRecurring] Post-update reconciliation failed: $refreshError');
-        }
+        } catch (refreshError) {}
         state = AsyncValue.data(committedTransaction);
         return committedTransaction;
       }
@@ -3995,8 +3839,6 @@ class RecurringTransactionSaveNotifier
 
         // Force refresh the list provider to show the updated transaction
         // Don't use optimistic update as we'll invalidate in the sheet
-        _debugPrint(
-            '🔄 [UpdateRecurring] Updated successfully, transaction will be reloaded by invalidation');
 
         return updatedIncome;
       } else {
@@ -4027,10 +3869,7 @@ class RecurringTransactionSaveNotifier
               .updateRecurring(committedTransaction);
           ref.invalidate(pocketsProvider);
           ref.invalidate(currencyTransactionCountsProvider);
-        } catch (refreshError) {
-          _debugPrint(
-              '⚠️ [UpdateRecurring] Post-update reconciliation failed: $refreshError');
-        }
+        } catch (refreshError) {}
         state = AsyncValue.data(committedTransaction);
         return committedTransaction;
       }
@@ -4118,7 +3957,6 @@ class RecurringTransactionSaveNotifier
       );
       return database;
     } catch (error) {
-      _debugPrint('[RecurringTx] Local recurring queue unavailable: $error');
       return null;
     }
   }

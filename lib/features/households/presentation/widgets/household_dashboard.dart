@@ -327,8 +327,7 @@ class HouseholdDashboard extends ConsumerWidget {
                   : expenses.length, // Show max 5 recent
               itemBuilder: (context, index) {
                 final expense = expenses[index];
-                debugPrint(
-                    '🔍 Expense ${expense.id}: userName=${expense.userName}, userId=${expense.userId}');
+
                 return _ExpenseActivityCard(
                   expense: expense,
                   recurringTransactionsById: recurringTransactionsById,

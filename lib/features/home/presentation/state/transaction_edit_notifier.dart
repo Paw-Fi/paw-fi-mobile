@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
@@ -22,12 +21,6 @@ import 'package:moneko/features/households/presentation/providers/cached_provide
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-void _debugPrint(String? message, {int? wrapWidth}) {
-  if (foundation.kDebugMode) {
-    foundation.debugPrint(message, wrapWidth: wrapWidth);
-  }
-}
 
 final RegExp _serverExpenseIdPattern = RegExp(
   r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
@@ -99,7 +92,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         durableOriginalExpense =
             await database.getTransactionByIdOrClientRecordId(expenseId);
       } catch (error) {
-        _debugPrint('⚠️ Local transaction lookup unavailable: $error');
         localDatabase = null;
       }
       final effectiveExpenseId = durableOriginalExpense?.id ?? expenseId;
@@ -137,8 +129,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           optimisticMerchantDomain: optimisticMerchantDomain,
         );
         originalForRollback = storageOriginal;
-
-        _debugPrint('💾 Applying optimistic update');
 
         // 3. Update UI immediately (optimistic)
         state = state.copyWith(optimisticUpdate: optimisticExpense);
@@ -189,16 +179,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         if (localDatabase != null) {
           await _refreshAfterLocalTransactionMutation(user.uid);
         }
-      } else {
-        // Expense not in cache - likely a household expense
-        // This is NOT an error, just skip optimistic update
-        _debugPrint(
-            '💾 Expense not in local cache; skipping optimistic update');
       }
 
       if (wroteLocalUpdate && localDatabase != null) {
         unawaited(drainMobileOutbox(ref).catchError((Object error) {
-          _debugPrint('⚠️ Background transaction edit sync deferred: $error');
           return 0;
         }));
         state = state.copyWith(
@@ -216,7 +200,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // We continue regardless of whether optimistic update was applied.
       // ═══════════════════════════════════════════════════════════════
       final supabaseClient = ref.read(transactionEditSupabaseClientProvider);
-      _debugPrint('🌐 Calling update-expense API...');
 
       final requestBody = <String, dynamic>{
         ...mutationMetadata.toRequestJson(),
@@ -248,9 +231,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       if (responseData == null) {
         throw Exception('Invalid response from server');
       }
-      _debugPrint(
-        '📥 update-expense response: success=${responseData['success']} code=${responseData['code']} error=${responseData['error']}',
-      );
 
       if (responseData['success'] != true) {
         final errorMessage =
@@ -265,18 +245,11 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         final responseCategory = _normalizeCategoryValue(
           (responseData['data'] as Map<String, dynamic>?)?['category'],
         );
-        _debugPrint(
-          '🏷️ category update check: requested="$requestedCategory" response="$responseCategory" expenseId=$expenseId',
-        );
 
         if (requestedCategory.isNotEmpty &&
             responseCategory != requestedCategory) {
-          _debugPrint(
-            '⚠️ Category mismatch after update (requested=$requestedCategory, got=$responseCategory). Retrying category-only update.',
-          );
-
           try {
-            final retryResponse = await supabaseClient.functions.invoke(
+            await supabaseClient.functions.invoke(
               'update-expense',
               body: {
                 'userId': user.uid,
@@ -288,30 +261,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
                     DateTime.now().timeZoneOffset.inMinutes,
               },
             ).timeout(_transactionUpdateRequestTimeout);
-
-            final retryData = _responseMap(retryResponse.data);
-            final retrySuccess = retryData?['success'] == true;
-            final retryCategory = _normalizeCategoryValue(
-              (retryData?['data'] as Map<String, dynamic>?)?['category'],
-            );
-            _debugPrint(
-              '🔁 category retry result: success=$retrySuccess responseCategory="$retryCategory" rawError=${retryData?['error']} rawCode=${retryData?['code']}',
-            );
-
-            if (!retrySuccess || retryCategory != requestedCategory) {
-              _debugPrint(
-                '⚠️ CATEGORY_UPDATE_MISMATCH (soft): requested="$requestedCategory" response="$retryCategory". Continuing after backend success to avoid false-negative UI failures.',
-              );
-            }
-          } catch (retryError) {
-            _debugPrint(
-              '⚠️ CATEGORY_UPDATE_MISMATCH (soft): retry threw "$retryError". Continuing after backend success to avoid false-negative UI failures.',
-            );
-          }
+          } catch (retryError) {}
         }
       }
-
-      _debugPrint('✅ Backend update successful');
 
       final responseExpense = _expenseFromResponseData(
         responseData['data'],
@@ -373,11 +325,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
                   mutationMetadata.clientMutationId,
                 );
           await reconciliation.timeout(_localCommitReconciliationTimeout);
-        } catch (error) {
-          _debugPrint(
-            '⚠️ Backend update committed but local reconciliation was deferred: $error',
-          );
-        }
+        } catch (error) {}
       }
 
       // Notify derived local-first consumers immediately. The edited-entry
@@ -404,18 +352,13 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     } catch (e) {
       // 6. Error: Rollback optimistic update
       if (backendCommitted) {
-        _debugPrint(
-          '⚠️ Backend update succeeded; keeping the confirmed optimistic state despite refresh failure',
-        );
         try {
           if (optimisticExpense != null) {
             ref.read(transactionsFeedEditedEntryProvider.notifier).state =
                 TransactionsFeedEditedEntry(entry: optimisticExpense);
           }
           ref.read(walletActionsProvider).refreshAccountData();
-        } catch (refreshError) {
-          _debugPrint('⚠️ Post-update invalidation failed: $refreshError');
-        }
+        } catch (refreshError) {}
         state = state.copyWith(
           isLoading: false,
           clearOptimisticUpdate: true,
@@ -423,8 +366,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         );
         return true;
       }
-
-      _debugPrint('❌ Update failed: $e');
 
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
         ref.read(walletActionsProvider).refreshAccountData();
@@ -466,12 +407,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           final user = ref.read(authProvider);
           await ref.read(analyticsProvider.notifier).loadData(user.uid);
           ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-
-          _debugPrint('🔄 Rolled back optimistic update');
         }
-      } catch (rollbackError) {
-        _debugPrint('⚠️ Failed to rollback');
-      }
+      } catch (rollbackError) {}
 
       try {
         final rollbackEntry = originalForRollback ?? originalExpense;
@@ -480,9 +417,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
               TransactionsFeedEditedEntry(entry: rollbackEntry);
           await _refreshAfterLocalTransactionMutation(user.uid);
         }
-      } catch (refreshError) {
-        _debugPrint('⚠️ Failed to refresh rolled-back update: $refreshError');
-      }
+      } catch (refreshError) {}
 
       state = state.copyWith(
         isLoading: false,
@@ -595,9 +530,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
             await clearHouseholdTransactionPersistentCacheForHousehold(
               householdId,
             );
-          } catch (error) {
-            _debugPrint('⚠️ Failed to clear household cache: $error');
-          }
+          } catch (error) {}
         }),
       );
 
@@ -613,23 +546,16 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       return true;
     } catch (e) {
       if (backendCommitted) {
-        _debugPrint(
-          '⚠️ Backend delete succeeded; preserving the optimistic deletion despite refresh failure',
-        );
         // The remote delete is authoritative at this point. Leaving the
         // in-memory tombstone behind would make settlement preflight treat a
         // completed delete as permanently pending for this process lifetime.
         _clearOptimisticDeletedIds(serverTargets);
         try {
           await _refreshAfterLocalTransactionMutation(user.uid);
-        } catch (refreshError) {
-          _debugPrint('⚠️ Post-delete invalidation failed: $refreshError');
-        }
+        } catch (refreshError) {}
         state = state.copyWith(clearError: true);
         return true;
       }
-
-      _debugPrint('❌ Delete failed: $e');
 
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
         await _refreshAfterLocalTransactionMutation(user.uid);
@@ -671,8 +597,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         error: 'Deleted before sync completed',
       );
     } catch (error) {
-      _debugPrint(
-          '⚠️ Local optimistic delete cancellation unavailable: $error');
       return false;
     }
   }
@@ -693,7 +617,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       );
       return database;
     } catch (error) {
-      _debugPrint('⚠️ Local optimistic update unavailable: $error');
       return null;
     }
   }
@@ -713,7 +636,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       );
       return database;
     } catch (error) {
-      _debugPrint('⚠️ Local optimistic delete unavailable: $error');
       return null;
     }
   }
@@ -771,11 +693,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       if (affectedHouseholdIds.isEmpty) {
         await ref.read(analyticsProvider.notifier).loadData(userId);
       }
-      _debugPrint('✅ Background expense update reconciliation completed');
     } catch (error) {
       // The backend commit and confirmed local row remain authoritative. A
       // later app/tab refresh will retry reconciliation naturally.
-      _debugPrint('⚠️ Background expense update reconciliation failed: $error');
     }
   }
 

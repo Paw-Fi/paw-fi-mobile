@@ -9,7 +9,8 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/spending_daily_overview_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
+import 'package:moneko/features/home/presentation/state/financial_month_start_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -48,6 +49,15 @@ class BudgetCompanionSummary {
     if (ratio >= .6) return BudgetCompanionReaction.encouraging;
     return BudgetCompanionReaction.happy;
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is BudgetCompanionSummary &&
+      other.spent == spent &&
+      other.budget == budget;
+
+  @override
+  int get hashCode => Object.hash(spent, budget);
 }
 
 class BudgetCompanionCategory {
@@ -99,13 +109,7 @@ final budgetCompanionMonthlySummaryProvider = Provider.autoDispose
   if (ref.watch(previewModeProvider).isActive) {
     // Match the existing Pocket preview totals without creating a live notifier.
     final pockets = PreviewMockData.pockets;
-    logPreviewHomeLoading('companion-monthly', {
-      'source': 'mock-pockets',
-      'count': pockets.length,
-      'scope': params.scope.name,
-      'household': params.householdId ?? '<personal>',
-      'period': params.periodMonth,
-    });
+
     return AsyncData(BudgetCompanionSummary(
       spent: pockets.fold<double>(0, (sum, pocket) => sum + pocket.spent),
       budget: pockets.fold<double>(
@@ -113,15 +117,7 @@ final budgetCompanionMonthlySummaryProvider = Provider.autoDispose
     ));
   }
   final pockets = ref.watch(pocketsProvider(params));
-  logPreviewHomeLoading('companion-monthly', {
-    'source': 'live-pockets',
-    'hasDisplayData': pockets.hasDisplayData,
-    'loading': pockets.isLoading,
-    'hasError': pockets.error != null,
-    'period': pockets.periodMonth,
-    'scope': params.scope.name,
-    'household': params.householdId ?? '<personal>',
-  });
+
   return budgetCompanionPocketsSummary(pockets);
 });
 
@@ -131,16 +127,7 @@ final budgetCompanionPeriodSummaryProvider = Provider.autoDispose
     .family<AsyncValue<TransactionsFeedSummary>, DashboardScopeQuery>(
         (ref, query) {
   final actual = ref.watch(spendingScopedActualTransactionsProvider(query));
-  logPreviewHomeLoading('companion-period', {
-    'preview': ref.read(previewModeProvider).isActive,
-    'loading': actual.isLoading,
-    'hasValue': actual.hasValue,
-    'hasError': actual.hasError,
-    'rows': actual.valueOrNull?.length,
-    'household': query.householdId ?? '<personal>',
-    'start': query.startDate,
-    'end': query.endDate,
-  });
+
   if (!actual.hasValue) {
     return actual.hasError
         ? AsyncError(actual.error!, actual.stackTrace ?? StackTrace.current)
@@ -220,6 +207,17 @@ class BudgetCompanionRequest {
   final PocketsScopeParams pocketsScope;
   final HomePeriodMode mode;
   final String currency;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BudgetCompanionRequest &&
+      other.query == query &&
+      other.pocketsScope == pocketsScope &&
+      other.mode == mode &&
+      other.currency == currency;
+
+  @override
+  int get hashCode => Object.hash(query, pocketsScope, mode, currency);
 }
 
 class BudgetCompanionData {
@@ -231,6 +229,8 @@ class BudgetCompanionData {
   final AsyncValue<BudgetCompanionSummary> summary;
   final AsyncValue<List<BudgetCompanionCategory>> categories;
   final bool isRefreshing;
+
+  bool get isSummaryRefreshing => summary.isLoading && summary.hasValue;
 }
 
 final budgetCompanionRequestProvider = Provider<BudgetCompanionRequest?>((ref) {
@@ -241,26 +241,18 @@ final budgetCompanionRequestProvider = Provider<BudgetCompanionRequest?>((ref) {
       ? PreviewMockData.contact.userId ?? 'preview-user'
       : authenticatedUserId;
   if (userId.isEmpty) {
-    logPreviewHomeLoading('companion-request-null', {
-      'reason': 'empty-user',
-      'preview': isPreview,
-    });
+    return null;
+  }
+  if (!ref.watch(financialMonthStartDayStateProvider).hasValue) {
     return null;
   }
   final selection = ref.watch(homePeriodSelectionProvider(userId));
+  if (!selection.isHydrated) return null;
   final range = ref.watch(homePeriodDateRangeProvider(userId));
   final financialStartDay = ref.watch(homePeriodFinancialMonthStartDayProvider);
   final scope = ref.watch(householdScopeProvider);
   // An unresolved Space selection must not briefly publish Personal totals.
   if (scope.viewMode == ViewMode.household && !scope.hasSelectedHousehold) {
-    logPreviewHomeLoading('companion-request-null', {
-      'reason': 'unresolved-space',
-      'preview': isPreview,
-      'authenticatedUserPresent': authenticatedUserId.isNotEmpty,
-      'viewMode': scope.viewMode.name,
-      'selectionLoading': scope.selected.isLoading,
-      'selectedHousehold': scope.selectedHouseholdId ?? '<none>',
-    });
     return null;
   }
   final filter = ref.watch(homeFilterProvider);
@@ -274,16 +266,7 @@ final budgetCompanionRequestProvider = Provider<BudgetCompanionRequest?>((ref) {
   final householdId = scopeType == PocketsScopeType.personal
       ? null
       : scope.activeAccountHouseholdId;
-  logPreviewHomeLoading('companion-request-ready', {
-    'preview': isPreview,
-    'scope': scopeType.name,
-    'household': householdId ?? '<personal>',
-    'currency': currency,
-    'selectedCurrencies': filter.normalizedSelectedCurrencies,
-    'mode': selection.mode.name,
-    'start': range.start,
-    'end': range.end,
-  });
+
   return BudgetCompanionRequest(
     query: DashboardScopeQuery(
       userId: userId,
@@ -312,10 +295,16 @@ final budgetCompanionDataProvider =
     Provider.autoDispose<BudgetCompanionData>((ref) {
   final request = ref.watch(budgetCompanionRequestProvider);
   if (request == null) {
-    logPreviewHomeLoading('companion-data-skeleton', {
-      'reason': 'null-request',
-      'preview': ref.read(previewModeProvider).isActive,
-    });
+    final financialDay = ref.watch(financialMonthStartDayStateProvider);
+    if (financialDay.hasError && !financialDay.hasValue) {
+      return BudgetCompanionData(
+        summary: AsyncError(
+            financialDay.error!, financialDay.stackTrace ?? StackTrace.current),
+        categories: AsyncError(
+            financialDay.error!, financialDay.stackTrace ?? StackTrace.current),
+      );
+    }
+
     return const BudgetCompanionData(
         summary: AsyncLoading(), categories: AsyncLoading());
   }
@@ -335,14 +324,7 @@ final budgetCompanionDataProvider =
   }
   final current =
       ref.watch(budgetCompanionMonthlySummaryProvider(request.pocketsScope));
-  logPreviewHomeLoading('companion-data-monthly', {
-    'summaryLoading': current.isLoading,
-    'summaryHasValue': current.hasValue,
-    'summaryHasError': current.hasError,
-    'categoriesLoading': categories.isLoading,
-    'categoriesHasValue': categories.hasValue,
-    'categoriesHasError': categories.hasError,
-  });
+
   return BudgetCompanionData(
     summary: current,
     categories: categories,

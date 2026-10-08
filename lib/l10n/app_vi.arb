@@ -3693,7 +3693,7 @@
   "emailFileImportAccountEmailAlreadyIncluded": "Email tài khoản Moneko của bạn đã nằm trong danh sách người gửi được phép. Không cần thêm lại.",
   "aiClarificationNotSaved": "Các thông tin này sẽ được lưu sau khi bạn xác nhận.",
   "aiClarificationCustomAnswer": "Nhập câu trả lời của bạn",
-  "aiInputSavedForLater": "Nội dung nhập đã được lưu trên thiết bị này. Phân tích sẽ tiếp tục khi bạn mở Moneko trong lúc có kết nối Internet.",
+  "aiInputSavedForLater": "Nội dung đã được lưu trên thiết bị này. Quá trình phân tích sẽ tiếp tục khi bạn mở Moneko và có kết nối internet.",
   "unlockMonekoPlus": "Mở khóa Moneko Plus",
   "unlimitedAiExpenseCapture": "Ghi nhận chi tiêu bằng AI không giới hạn",
   "unlimitedSpacesWallets": "Không giới hạn Space và ví",
@@ -3744,5 +3744,9 @@
   "budgetCompanionPlanning5": "Tiền đi đâu nhỉ?",
   "budgetCompanionPlanning6": "Bắt đầu theo dõi hôm nay!",
   "budgetCompanionPlanning7": "Kế hoạch bắt đầu từ đây!",
-  "budgetCompanionPlanning8": "Bước nhỏ, thành quả lớn!"
+  "budgetCompanionPlanning8": "Bước nhỏ, thành quả lớn!",
+  "typeYourOwnAnswer": "Nhập câu trả lời của bạn",
+  "aiClarificationError": "{error}\nCác thông tin này sẽ được lưu sau khi bạn xác nhận.",
+  "senderAccountConfirmation": "Bạn đang thêm người gửi này vào tài khoản Moneko ({accountEmail}). Chúng tôi sẽ gửi liên kết xác minh đến địa chỉ email của người gửi. Biên lai chỉ được nhập sau khi bạn xác minh người gửi này.",
+  "previouslyForwardedAttachmentNotice": "Nếu bạn đã chuyển tiếp tệp đính kèm trước đó, hãy chuyển tiếp lại sau khi phê duyệt và xác minh người gửi này. Các tệp đính kèm đã chuyển tiếp trước đó sẽ không được tự động nhập."
 }

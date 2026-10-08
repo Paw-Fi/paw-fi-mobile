@@ -67,6 +67,25 @@ class DeepLinks {
     return uri.fragment;
   }
 
+  static String? emailSenderToAdd(Uri uri) {
+    if (uri.scheme != appScheme ||
+        uri.host != 'add-email-sender' ||
+        uri.path.isNotEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasPort ||
+        uri.hasFragment ||
+        uri.queryParametersAll.length != 1 ||
+        uri.queryParametersAll['email']?.length != 1) {
+      return null;
+    }
+    final email = uri.queryParameters['email']!;
+    if (email.length > 320 ||
+        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      return null;
+    }
+    return email.toLowerCase();
+  }
+
   // ==================== Household Invitation Deep Links ====================
 
   /// Household invitation callback URL

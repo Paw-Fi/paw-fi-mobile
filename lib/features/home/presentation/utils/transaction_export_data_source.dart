@@ -30,13 +30,6 @@ class TransactionExportDataSource {
     final rows = <Map<String, dynamic>>[];
     var offset = 0;
 
-    debugPrint(
-      '[TransactionExportDataSource] fetching expenses '
-      'user=$userId personalContacts=${contactIds.length} '
-      'space=${space.type.name}:${space.householdId ?? "<all>"} '
-      'range=${formatDateOnlyYmd(dateRange.start)}..${formatDateOnlyYmd(dateRange.end)}',
-    );
-
     for (var page = 0; page < _maxPages; page++) {
       final batch = await _fetchExpensePage(
         userId: userId,
@@ -47,11 +40,6 @@ class TransactionExportDataSource {
         to: offset + _pageSize - 1,
       );
       rows.addAll(batch);
-
-      debugPrint(
-        '[TransactionExportDataSource] page=${page + 1} '
-        'offset=$offset count=${batch.length} total=${rows.length}',
-      );
 
       if (batch.length < _pageSize) {
         final includedRows = rows

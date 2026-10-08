@@ -4,7 +4,7 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -125,17 +125,6 @@ final householdScopeProvider = Provider<HouseholdScope>((ref) {
   final resolvedViewMode = isPreview && !canonicalSelection.hasSelection
       ? ViewMode.personal
       : viewMode;
-  logPreviewHomeLoading('household-scope', {
-    'preview': isPreview,
-    'authenticatedUserPresent': userId.isNotEmpty,
-    'viewMode': viewMode.name,
-    'resolvedViewMode': resolvedViewMode.name,
-    'rawSelectedHousehold':
-        selected.householdId ?? selected.household?.id ?? '<none>',
-    'canonicalSelectedHousehold': canonicalSelection.householdId ?? '<none>',
-    'selectionLoading': selected.isLoading,
-    'catalogCount': households.length,
-  });
 
   return HouseholdScope(
     viewMode: resolvedViewMode,

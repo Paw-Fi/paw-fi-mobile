@@ -5,7 +5,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'package:moneko/features/utils/currency.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -32,19 +32,7 @@ class BudgetCompanionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    logPreviewHomeLoading('companion-render', {
-      'branch': data.categories.hasValue
-          ? 'data'
-          : data.categories.hasError
-              ? 'error'
-              : 'skeleton',
-      'categoriesLoading': data.categories.isLoading,
-      'categoriesHasValue': data.categories.hasValue,
-      'categoriesHasError': data.categories.hasError,
-      'ancestorSkeletonEnabled':
-          context.getInheritedWidgetOfExactType<SkeletonizerScope>()?.enabled ??
-              false,
-    });
+
     final content = Column(
       key: const ValueKey('budget-companion-content'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -237,6 +225,7 @@ class _CategoryBar extends StatelessWidget {
         child: ExcludeSemantics(
             child: Tooltip(
                 message: '$label: $amount',
+                triggerMode: TooltipTriggerMode.tap,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [

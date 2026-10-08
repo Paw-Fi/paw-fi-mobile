@@ -269,8 +269,6 @@ class PreferredLanguageSyncService {
   }) async {
     try {
       await syncForUser(userId: userId, locale: locale, force: force);
-    } catch (error) {
-      debugPrint('Preferred preference sync failed: $error');
-    }
+    } catch (error) {}
   }
 }

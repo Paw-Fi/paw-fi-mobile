@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Manages caching of app initialization data for instant startup
@@ -35,10 +35,7 @@ class InitCacheManager {
         _prefs.setInt(_timestampKey, DateTime.now().millisecondsSinceEpoch),
         _prefs.setString(_versionKey, appVersion),
       ]);
-      debugPrint('✅ [InitCache] Saved cache for version $appVersion');
-    } catch (e) {
-      debugPrint('⚠️ [InitCache] Failed to save cache: $e');
-    }
+    } catch (e) {}
   }
 
   /// Load cached initialization data
@@ -53,39 +50,31 @@ class InitCacheManager {
       // Check version first - invalidate if app was updated
       final cachedVersion = _prefs.getString(_versionKey);
       if (cachedVersion != currentAppVersion) {
-        debugPrint(
-            '📱 [InitCache] App version changed ($cachedVersion → $currentAppVersion), invalidating cache');
         return null;
       }
 
       // Check timestamp - invalidate if expired
       final timestamp = _prefs.getInt(_timestampKey);
       if (timestamp == null) {
-        debugPrint('🕒 [InitCache] No timestamp found');
         return null;
       }
 
       final cacheAge = DateTime.now().millisecondsSinceEpoch - timestamp;
-      final ageHours = (cacheAge / 1000 / 3600).toStringAsFixed(1);
 
       if (cacheAge > _cacheValidity.inMilliseconds) {
-        debugPrint('⏰ [InitCache] Cache expired (age: ${ageHours}h)');
         return null;
       }
 
       // Load and parse cached data
       final cached = _prefs.getString(_cacheKey);
       if (cached == null) {
-        debugPrint('📭 [InitCache] No cached data found');
         return null;
       }
 
       final data = jsonDecode(cached) as Map<String, dynamic>;
-      debugPrint(
-          '✅ [InitCache] Loaded cache (age: ${ageHours}h, version: $currentAppVersion)');
+
       return data;
     } catch (e) {
-      debugPrint('❌ [InitCache] Failed to load cache: $e');
       return null;
     }
   }
@@ -102,37 +91,24 @@ class InitCacheManager {
       // Check timestamp - invalidate if expired
       final timestamp = _prefs.getInt(_timestampKey);
       if (timestamp == null) {
-        debugPrint('🕒 [InitCache] (best-effort) No timestamp found');
         return null;
       }
 
       final cacheAge = DateTime.now().millisecondsSinceEpoch - timestamp;
-      final ageHours = (cacheAge / 1000 / 3600).toStringAsFixed(1);
 
       if (cacheAge > _cacheValidity.inMilliseconds) {
-        debugPrint(
-            '⏰ [InitCache] (best-effort) Cache expired (age: ${ageHours}h)');
         return null;
       }
 
       final cached = _prefs.getString(_cacheKey);
       if (cached == null) {
-        debugPrint('📭 [InitCache] (best-effort) No cached data found');
         return null;
       }
 
-      final cachedVersion = _prefs.getString(_versionKey);
-      if (cachedVersion != null && cachedVersion != currentAppVersion) {
-        debugPrint(
-            '📱 [InitCache] (best-effort) Using cache from previous app version ($cachedVersion → $currentAppVersion)');
-      }
-
       final data = jsonDecode(cached) as Map<String, dynamic>;
-      debugPrint(
-          '✅ [InitCache] (best-effort) Loaded cache (age: ${ageHours}h, current version: $currentAppVersion)');
+
       return data;
     } catch (e) {
-      debugPrint('❌ [InitCache] (best-effort) Failed to load cache: $e');
       return null;
     }
   }
@@ -149,36 +125,24 @@ class InitCacheManager {
     try {
       final timestamp = _prefs.getInt(_timestampKey);
       if (timestamp == null) {
-        debugPrint('🕒 [InitCache] (stale) No timestamp found');
         return null;
       }
 
       final cacheAge = DateTime.now().millisecondsSinceEpoch - timestamp;
-      final ageHours = (cacheAge / 1000 / 3600).toStringAsFixed(1);
+
       if (cacheAge > maxAge.inMilliseconds) {
-        debugPrint(
-            '⏰ [InitCache] (stale) Cache too old for fallback (age: ${ageHours}h, max: ${maxAge.inHours}h)');
         return null;
       }
 
       final cached = _prefs.getString(_cacheKey);
       if (cached == null) {
-        debugPrint('📭 [InitCache] (stale) No cached data found');
         return null;
       }
 
-      final cachedVersion = _prefs.getString(_versionKey);
-      if (cachedVersion != null && cachedVersion != currentAppVersion) {
-        debugPrint(
-            '📱 [InitCache] (stale) Using cache from previous app version ($cachedVersion → $currentAppVersion)');
-      }
-
       final data = jsonDecode(cached) as Map<String, dynamic>;
-      debugPrint(
-          '✅ [InitCache] (stale) Loaded cache (age: ${ageHours}h, current version: $currentAppVersion)');
+
       return data;
     } catch (e) {
-      debugPrint('❌ [InitCache] (stale) Failed to load cache: $e');
       return null;
     }
   }
@@ -196,10 +160,7 @@ class InitCacheManager {
         _prefs.remove(_timestampKey),
         _prefs.remove(_versionKey),
       ]);
-      debugPrint('🗑️ [InitCache] Cache cleared');
-    } catch (e) {
-      debugPrint('⚠️ [InitCache] Failed to clear cache: $e');
-    }
+    } catch (e) {}
   }
 
   /// Check if cache exists and is valid

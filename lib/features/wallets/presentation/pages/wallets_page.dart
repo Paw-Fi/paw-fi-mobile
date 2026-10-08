@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -28,7 +27,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/widgets/plus_locked_sheet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
-import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
+
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
@@ -38,6 +37,7 @@ import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_bi
 import 'package:moneko/features/wallets/presentation/widgets/add_wallet_option_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -47,6 +47,9 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
+import 'package:moneko/shared/widgets/seamless_header_background.dart';
+import 'package:moneko/shared/widgets/seamless_header_action.dart';
+import 'package:moneko/shared/widgets/header_month_label.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -62,7 +65,6 @@ class AccountsPage extends HookConsumerWidget {
     final previewSelectedMonthState = useState<DateTime?>(null);
     final monthPageController = usePageController(viewportFraction: 0.96);
     final measuredOverviewHeight = useState<MapEntry<String, double>?>(null);
-    final colorScheme = Theme.of(context).colorScheme;
     final isExpandedHeader = MonekoTextScale.isAtLeast(context, 1.2);
     final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
@@ -71,34 +73,8 @@ class AccountsPage extends HookConsumerWidget {
     final auth = ref.watch(authProvider);
     final walletAuthHeaders = ref.watch(walletAuthHeadersProvider);
     final prefs = ref.read(sharedPreferencesProvider);
-    final pageTraceRef = useRef<WalletsDebugTrace?>(null);
-    pageTraceRef.value ??= WalletsDebugTrace(
-      label: 'WalletsPageOpen',
-      enabled: ref.read(walletsDebugLoggingEnabledProvider),
-      logSink: ref.read(walletsDebugLogSinkProvider),
-      contextFields: {
-        'user': auth.uid.isEmpty ? '<empty>' : auth.uid,
-      },
-    );
-    final pageTrace = pageTraceRef.value!;
-
-    useEffect(() {
-      pageTrace.mark('page-mounted');
-      return null;
-    }, const []);
-
-    useEffect(() {
-      pageTrace.mark('auth-state', {
-        'hasUser': auth.uid.isNotEmpty,
-        'hasWalletAuthHeaders': walletAuthHeaders != null,
-      });
-      return null;
-    }, [auth.uid, walletAuthHeaders != null]);
 
     if (!isPreviewMode && auth.uid.isEmpty) {
-      pageTrace.mark('page-blocked-before-wallet-load', {
-        'reason': 'empty-user',
-      });
       return const StatusBarOverlayRegion(
         child: AdaptiveScaffold(
           body: SafeArea(
@@ -109,9 +85,6 @@ class AccountsPage extends HookConsumerWidget {
     }
 
     if (!isPreviewMode && walletAuthHeaders == null) {
-      pageTrace.mark('page-blocked-before-wallet-load', {
-        'reason': 'missing-auth-headers',
-      });
       return const StatusBarOverlayRegion(
         child: AdaptiveScaffold(
           body: SafeArea(
@@ -211,59 +184,6 @@ class AccountsPage extends HookConsumerWidget {
       return null;
     }, [selectedMonthIndex, availableMonths.length]);
 
-    useEffect(() {
-      pageTrace.mark('wallets-async-state', {
-        'loading': walletsAsync.isLoading,
-        'hasValue': walletsAsync.hasValue,
-        'hasError': walletsAsync.hasError,
-        'error': walletsAsync.hasError ? walletsAsync.error : null,
-        'walletCount': walletsAsync.valueOrNull?.length,
-      });
-      return null;
-    }, [
-      walletsAsync.isLoading,
-      walletsAsync.hasValue,
-      walletsAsync.hasError,
-      walletsAsync.valueOrNull?.length,
-    ]);
-
-    useEffect(() {
-      pageTrace.mark('wallets-page-state-async', {
-        'enabled': !isPreviewMode,
-        'loading': walletsPageStateAsync?.isLoading ?? false,
-        'hasValue': walletsPageStateAsync?.hasValue ?? false,
-        'hasError': walletsPageStateAsync?.hasError ?? false,
-        'error': walletsPageStateAsync?.hasError == true
-            ? walletsPageStateAsync?.error
-            : null,
-        'visibleMonths':
-            walletsPageStateAsync?.valueOrNull?.visibleMonths.length,
-      });
-      return null;
-    }, [
-      isPreviewMode,
-      walletsPageStateAsync?.isLoading ?? false,
-      walletsPageStateAsync?.hasValue ?? false,
-      walletsPageStateAsync?.hasError ?? false,
-      walletsPageStateAsync?.valueOrNull?.visibleMonths.length,
-    ]);
-
-    useEffect(() {
-      pageTrace.mark('bank-connections-async-state', {
-        'loading': bankConnectionsAsync.isLoading,
-        'hasValue': bankConnectionsAsync.hasValue,
-        'hasError': bankConnectionsAsync.hasError,
-        'error':
-            bankConnectionsAsync.hasError ? bankConnectionsAsync.error : null,
-        'count': bankConnectionsAsync.valueOrNull?.length,
-      });
-      return null;
-    }, [
-      bankConnectionsAsync.isLoading,
-      bankConnectionsAsync.hasValue,
-      bankConnectionsAsync.hasError,
-      bankConnectionsAsync.valueOrNull?.length,
-    ]);
     final plaidConnections =
         (bankConnectionsAsync.valueOrNull ?? const <BankConnection>[])
             .where(
@@ -288,32 +208,6 @@ class AccountsPage extends HookConsumerWidget {
         ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh(),
       ]);
     }
-
-    final readyForUsefulPaint =
-        walletsAsync.hasValue || isPreviewMode || walletsPageState != null;
-    final didLogUsefulPaintRef = useRef<bool>(false);
-
-    useEffect(() {
-      if (!readyForUsefulPaint || didLogUsefulPaintRef.value) {
-        return null;
-      }
-      didLogUsefulPaintRef.value = true;
-      pageTrace.mark('first-useful-paint', {
-        'hasOverview': isPreviewMode || walletsPageState != null,
-        'hasWallets': walletsAsync.hasValue,
-        'walletCount': effectiveWallets.length,
-        'visibleMonths': walletsPageState?.visibleMonths.length ?? 0,
-        'selectedMonth': walletsPageState?.selectedMonthStart,
-      });
-      return null;
-    }, [
-      readyForUsefulPaint,
-      isPreviewMode || walletsPageState != null,
-      walletsAsync.hasValue,
-      effectiveWallets.length,
-      walletsPageState?.visibleMonths.length,
-      walletsPageState?.selectedMonthStart,
-    ]);
 
     useEffect(() {
       final targetIndex = availableMonths.indexOf(activeCarouselMonth);
@@ -393,7 +287,8 @@ class AccountsPage extends HookConsumerWidget {
     }
 
     // Start wallets spotlight tour when on wallets tab and data is loaded
-    if (currentTabIndex == 3 &&
+    if (!isPreviewMode &&
+        currentTabIndex == 3 &&
         !walletsAsync.isLoading &&
         !walletsAsync.hasError &&
         auth.uid.isNotEmpty) {
@@ -516,6 +411,49 @@ class AccountsPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> onTransfer() async {
+      if (isPreviewMode) {
+        AppToast.info(context, context.l10n.previewMockUpdatesApplied);
+        return;
+      }
+      final wallets = ref.read(effectiveScopeWalletsProvider);
+      final transferWallets = wallets
+          .where((wallet) => wallets.any((other) =>
+              other.id != wallet.id && other.currency == wallet.currency))
+          .toList(growable: false);
+      if (transferWallets.length < 2) {
+        AppToast.info(context, context.l10n.needTwoWalletsForTransfer);
+        return;
+      }
+
+      final result = await showWalletTransferSheet(
+        context,
+        wallets: transferWallets,
+        onSubmit: (result) async {
+          final operation = await actions.createTransfer(
+            fromAccountId: result.fromAccountId,
+            toAccountId: result.toAccountId,
+            amountCents: result.amountCents,
+            currency: result.currency,
+            date: result.date,
+            time: result.time,
+            note: result.note,
+          );
+          unawaited(operation.completion.then((result) {
+            if (context.mounted &&
+                result != null &&
+                result is! List<ExpenseEntry>) {
+              AppToast.error(
+                  context, ErrorHandler.getUserFriendlyMessage(result));
+            }
+          }));
+        },
+      );
+      if (result != null && context.mounted) {
+        AppToast.success(context, context.l10n.transferCompletedSuccessfully);
+      }
+    }
+
     useEffect(() {
       if (addWalletSheetRequest == 0 || currentTabIndex != 3) {
         return null;
@@ -533,6 +471,7 @@ class AccountsPage extends HookConsumerWidget {
         child: AdaptiveScaffold(
       body: Stack(
         children: [
+          const Positioned.fill(child: SeamlessHeaderBackground()),
           SafeArea(
             child: Builder(builder: (context) {
               final wallets = effectiveWallets;
@@ -624,11 +563,11 @@ class AccountsPage extends HookConsumerWidget {
                       child: SizedBox(
                         height: overviewHeight ??
                             (isExpandedHeader
-                                ? 500
+                                ? 400
                                 : (!hasDismissedSwipeHintState.value &&
                                         availableMonths.length > 1)
-                                    ? 290
-                                    : 260),
+                                    ? 240
+                                    : 210),
                         child: PageView.builder(
                           itemCount: availableMonths.length,
                           controller: monthPageController,
@@ -708,15 +647,11 @@ class AccountsPage extends HookConsumerWidget {
                                         : null,
                                     availableMonths: availableMonths,
                                     monthStart: monthStart,
-                                    selectedMonthStart: selectedMonth,
                                     snapshot: monthSnapshot != null
                                         ? accountsSnapshotForMonth(
                                             monthSnapshot,
                                           )
                                         : displayedSelectedSnapshot,
-                                    history: isPreviewMode
-                                        ? previewWalletsData?.history
-                                        : walletsPageState?.history,
                                     currencyCode: selectedCurrencyCode,
                                     hasDismissedSwipeHint:
                                         hasDismissedSwipeHintState.value,
@@ -732,27 +667,38 @@ class AccountsPage extends HookConsumerWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    if (!isPreviewMode)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            KeyedSubtree(
+                              key: newWalletSpotlightKey,
+                              child: SeamlessHeaderAction(
+                                label: context.l10n.addWallet,
+                                icon: Icons.add_rounded,
+                                onPressed: onAddAccount,
+                              ),
+                            ),
+                            SeamlessHeaderAction(
+                              label: context.l10n.transfer,
+                              icon: Icons.swap_horiz_rounded,
+                              onPressed: onTransfer,
+                            ),
+                          ],
+                        ),
+                      ),
                     if (!hasWalletsContent && walletsAsync.isLoading)
                       const Padding(
                         padding: EdgeInsets.only(bottom: 24, top: 12),
                         child: _WalletStackLoadingSection(),
                       )
                     else if (wallets.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: colorScheme.sheetBackground,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: colorScheme.border),
-                        ),
-                        child: Text(
-                          context.l10n.noWalletsYet,
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                      EmptyWalletStackCard(
+                        key: const ValueKey('wallets-empty-add-card'),
+                        onAddWallet: onAddAccount,
                       )
                     else
                       RepaintBoundary(
@@ -773,20 +719,6 @@ class AccountsPage extends HookConsumerWidget {
                           ),
                         ),
                       ),
-                    Container(
-                      key: newWalletSpotlightKey,
-                      child: TextButton.icon(
-                        onPressed: onAddAccount,
-                        icon: Icon(Icons.add, color: colorScheme.primary),
-                        label: Text(
-                          context.l10n.newWallet,
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               );
@@ -815,7 +747,9 @@ class _AnimatedNumberText extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: value),
-      duration: const Duration(milliseconds: 600),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
       builder: (context, val, child) {
         return Text(
@@ -833,9 +767,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
   final ValueChanged<double>? onHeightChanged;
   final List<DateTime> availableMonths;
   final DateTime monthStart;
-  final DateTime selectedMonthStart;
   final _AccountsSnapshot snapshot;
-  final WalletsHistorySummary? history;
   final String currencyCode;
   final bool hasDismissedSwipeHint;
   final bool isLoading;
@@ -845,9 +777,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
     this.onHeightChanged,
     required this.availableMonths,
     required this.monthStart,
-    required this.selectedMonthStart,
     required this.snapshot,
-    required this.history,
     required this.currencyCode,
     required this.hasDismissedSwipeHint,
     required this.isLoading,
@@ -870,300 +800,146 @@ class _WalletsOverviewCard extends HookConsumerWidget {
       });
     }
     final colorScheme = Theme.of(context).colorScheme;
-    final isExpandedHeader = MonekoTextScale.isAtLeast(context, 1.2);
-    final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final symbol = resolveCurrencySymbol(currencyCode);
-    final monthLabel =
-        MaterialLocalizations.of(context).formatMonthYear(monthStart);
-    final rawTargetMonthIndex = availableMonths.indexOf(selectedMonthStart);
-    final targetMonthIndex = rawTargetMonthIndex >= 0 ? rawTargetMonthIndex : 0;
-
-    final spots = useMemoized(() {
-      final timeAscendingMonths = availableMonths.reversed.toList();
-      final pointByMonth = <DateTime, int>{
-        for (final point
-            in history?.netWorthSeries ?? const <WalletNetWorthPoint>[])
-          DateTime(point.monthStart.year, point.monthStart.month):
-              point.netWorthCents,
-      };
-      final newSpots = <FlSpot>[];
-      final currentListSize = timeAscendingMonths.length - targetMonthIndex;
-      for (int i = 0; i < currentListSize; i++) {
-        final monthKey = DateTime(
-          timeAscendingMonths[i].year,
-          timeAscendingMonths[i].month,
-        );
-        final netWorthCents = pointByMonth[monthKey] ?? 0;
-        newSpots.add(FlSpot(i.toDouble(), netWorthCents / 100.0));
-      }
-      return newSpots;
-    }, [availableMonths, history, targetMonthIndex]);
-
-    final timeAscendingMonthsSize = availableMonths.length;
-    final highlightX =
-        (timeAscendingMonthsSize - 1 - targetMonthIndex).toDouble();
-
+    final monthLabel = HeaderMonthLabel.format(context, monthStart);
     Widget buildMetric(String label, double value) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      return Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
+            maxLines: 1,
+            softWrap: false,
             style: TextStyle(
               color: colorScheme.mutedForeground,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(width: 4),
           _AnimatedNumberText(
             value: value,
             symbol: symbol,
+            singleLine: true,
             style: TextStyle(
               color: colorScheme.foreground,
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
             ),
           ),
         ],
       );
     }
 
-    return Container(
+    return KeyedSubtree(
       key: cardKey,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: colorScheme.pocketHeaderBorder,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.pocketHeaderShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flex(
-            direction: isExpandedHeader ? Axis.vertical : Axis.horizontal,
-            crossAxisAlignment: isExpandedHeader
-                ? CrossAxisAlignment.start
-                : CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                context.l10n.totalNetWorth,
-                style: TextStyle(
-                  color: colorScheme.foreground,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (isExpandedHeader) const SizedBox(height: 8),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: Container(
-                  key: ValueKey(monthLabel),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    monthLabel,
-                    key: const ValueKey('wallets-overview-month-label'),
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
+      child: Container(
+        key: const ValueKey('wallets-overview-surface'),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(8, 16, 8, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Text(
+                  context.l10n.totalNetWorth,
+                  style: TextStyle(
+                    color: colorScheme.mutedForeground,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            key: isLoading
-                ? const ValueKey('wallets-overview-loading')
-                : ValueKey('wallets-overview-loaded-$monthLabel'),
-            child: Skeletonizer(
-              enabled: isLoading,
-              child: error != null
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        error.toString(),
-                        style: TextStyle(
-                          color: colorScheme.destructive,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FittedBox(
-                          key: const ValueKey('wallets-overview-total-amount'),
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: _AnimatedNumberText(
-                            value: snapshot.netWorth,
-                            symbol: symbol,
-                            singleLine: true,
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w800,
-                              color: colorScheme.foreground,
-                              letterSpacing: 0,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        isLargeText
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  buildMetric(
-                                    context.l10n.totalIncome,
-                                    snapshot.totalIncome,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  buildMetric(
-                                    context.l10n.totalSpent,
-                                    snapshot.totalSpent,
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  Expanded(
-                                    child: buildMetric(
-                                      context.l10n.totalIncome,
-                                      snapshot.totalIncome,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: buildMetric(
-                                      context.l10n.totalSpent,
-                                      snapshot.totalSpent,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ],
-                    ),
+                HeaderMonthLabel(
+                  month: monthStart,
+                  textKey: const ValueKey('wallets-overview-month-label'),
+                ),
+              ],
             ),
-          ),
-          if (timeAscendingMonthsSize > 1) const SizedBox(height: 16),
-          if (timeAscendingMonthsSize > 1)
-            SizedBox(
-              height: 60,
-              width: double.infinity,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 800),
-                curve: Curves.easeOutCubic,
-                builder: (context, animationValue, child) {
-                  // Interpolate spots from 0 to actual values
-                  final animatedSpots = spots.map((spot) {
-                    return FlSpot(
-                      spot.x,
-                      spot.y * animationValue,
-                    );
-                  }).toList();
-
-                  return LineChart(
-                    LineChartData(
-                      minX: 0,
-                      maxX: (timeAscendingMonthsSize - 1).toDouble(),
-                      lineTouchData: LineTouchData(
-                        handleBuiltInTouches: true,
-                        touchTooltipData: LineTouchTooltipData(
-                          getTooltipColor: (touchedSpot) =>
-                              colorScheme.surfaceContainerHighest,
-                          tooltipRoundedRadius: 12,
-                          tooltipPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          tooltipBorder: BorderSide(
-                              color: colorScheme.border.withValues(alpha: 0.5)),
-                          getTooltipItems: (touchedSpots) {
-                            return touchedSpots.map((spot) {
-                              return LineTooltipItem(
-                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(spot.y)))}',
-                                TextStyle(
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  letterSpacing: 0,
-                                ),
-                              );
-                            }).toList();
-                          },
-                        ),
-                      ),
-                      gridData: const FlGridData(show: false),
-                      titlesData: const FlTitlesData(show: false),
-                      borderData: FlBorderData(show: false),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: animatedSpots,
-                          isCurved: true,
-                          color: colorScheme.primary,
-                          barWidth: 3,
-                          isStrokeCapRound: true,
-                          dotData: FlDotData(
-                            show: true,
-                            checkToShowDot: (spot, barData) {
-                              return spot.x.toInt() == highlightX.toInt();
-                            },
-                            getDotPainter: (spot, percent, barData, index) {
-                              return FlDotCirclePainter(
-                                radius: 5,
-                                color: colorScheme.cardSurface,
-                                strokeWidth: 3,
-                                strokeColor: colorScheme.primary,
-                              );
-                            },
-                          ),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            gradient: LinearGradient(
-                              colors: [
-                                colorScheme.primary
-                                    .withValues(alpha: 0.3 * animationValue),
-                                colorScheme.primary.withValues(alpha: 0.0),
-                              ],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          if (!hasDismissedSwipeHint && availableMonths.length > 1) ...[
             const SizedBox(height: 12),
-            SwipeHintRow(text: context.l10n.swipeRightPreviousMonths),
+            Container(
+              key: isLoading
+                  ? const ValueKey('wallets-overview-loading')
+                  : ValueKey('wallets-overview-loaded-$monthLabel'),
+              child: Skeletonizer(
+                enabled: isLoading,
+                child: error != null
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          error.toString(),
+                          style: TextStyle(
+                            color: colorScheme.destructive,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          FittedBox(
+                            key:
+                                const ValueKey('wallets-overview-total-amount'),
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: _AnimatedNumberText(
+                              value: snapshot.netWorth,
+                              symbol: symbol,
+                              singleLine: true,
+                              style: TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.w800,
+                                color: colorScheme.foreground,
+                                letterSpacing: -1.2,
+                                height: 1.05,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          FittedBox(
+                            key: const ValueKey('wallets-overview-metrics'),
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                buildMetric(
+                                  context.l10n.income,
+                                  snapshot.totalIncome,
+                                ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  height: 15,
+                                  child: VerticalDivider(
+                                    width: 1,
+                                    color: colorScheme.controlBorder,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                buildMetric(
+                                  context.l10n.spent,
+                                  snapshot.totalSpent,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            if (!hasDismissedSwipeHint && availableMonths.length > 1) ...[
+              const SizedBox(height: 12),
+              SwipeHintRow(text: context.l10n.swipeRightPreviousMonths),
+            ],
+            SizedBox(key: contentEndKey, height: 0),
           ],
-          SizedBox(key: contentEndKey, height: 0),
-        ],
+        ),
       ),
     );
   }
@@ -1752,85 +1528,68 @@ class _WalletsPageSkeleton extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(
             16, 8, 16, PlatformInfo.isIOS26OrHigher() ? 120 : 24),
         children: [
-          // Skeleton for _WalletsOverviewCard
-          Container(
-            width: double.infinity,
-            height: 260,
-            decoration: BoxDecoration(
-              color: colorScheme.cardSurface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: colorScheme.pocketHeaderBorder,
-                width: 1,
-              ),
-            ),
-            padding: const EdgeInsets.all(20),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header row with title and month chip
-                Row(
+                Flex(
+                  direction: MonekoTextScale.isAtLeast(context, 1.2)
+                      ? Axis.vertical
+                      : Axis.horizontal,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Bone.text(words: 2, fontSize: 15),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: const Bone.text(words: 1, fontSize: 12),
-                    ),
+                    const Bone.text(words: 2, fontSize: 13),
+                    if (MonekoTextScale.isAtLeast(context, 1.2))
+                      const SizedBox(height: 8),
+                    const Bone.text(words: 2, fontSize: 12),
                   ],
                 ),
                 const SizedBox(height: 12),
-                // Large amount
-                const Bone.text(words: 1, fontSize: 36),
+                const Bone.text(words: 1, fontSize: 40),
                 const SizedBox(height: 16),
-                // Chart placeholder
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Bone.text(words: 1, fontSize: 12),
+                      SizedBox(width: 4),
+                      Bone.text(words: 1, fontSize: 15),
+                      SizedBox(width: 12),
+                      Bone(width: 1, height: 15),
+                      SizedBox(width: 12),
+                      Bone.text(words: 1, fontSize: 12),
+                      SizedBox(width: 4),
+                      Bone.text(words: 1, fontSize: 15),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                // Income/Spent row
-                const Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Bone.text(words: 1, fontSize: 12),
-                          SizedBox(height: 4),
-                          Bone.text(words: 1, fontSize: 16),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Bone.text(words: 1, fontSize: 12),
-                          SizedBox(height: 4),
-                          Bone.text(words: 1, fontSize: 16),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(8, 8, 8, 28),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                Bone(
+                  height: 48,
+                  width: 144,
+                  borderRadius: BorderRadius.all(Radius.circular(100)),
+                ),
+                Bone(
+                  height: 48,
+                  width: 128,
+                  borderRadius: BorderRadius.all(Radius.circular(100)),
+                ),
+              ],
+            ),
+          ),
           // Skeleton for wallet stack - 3 skeleton cards
           SizedBox(
             height: 400,
@@ -1865,25 +1624,6 @@ class _WalletsPageSkeleton extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          // Skeleton buttons
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Bone.icon(size: 20),
-              SizedBox(width: 8),
-              Bone.text(words: 2, fontSize: 14),
-            ],
-          ),
-          const SizedBox(height: 4),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Bone.icon(size: 20),
-              SizedBox(width: 8),
-              Bone.text(words: 2, fontSize: 14),
-            ],
           ),
         ],
       ),

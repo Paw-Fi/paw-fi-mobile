@@ -36,8 +36,7 @@ class _HouseholdInvitationSheetState
   @override
   void initState() {
     super.initState();
-    debugPrint(
-        '🏠 [HouseholdInvitationSheet] Initializing with token: ${widget.token}');
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _acceptInvite();
@@ -55,11 +54,7 @@ class _HouseholdInvitationSheetState
 
     try {
       await ref.read(userHouseholdsProvider(userId).notifier).load();
-      debugPrint(
-          '✅ [HouseholdInvitationSheet] Household list refreshed successfully');
     } catch (e) {
-      debugPrint(
-          '⚠️ [HouseholdInvitationSheet] Failed to refresh household list: $e');
       // Continue anyway - this is not a critical failure
     }
   }
@@ -67,15 +62,11 @@ class _HouseholdInvitationSheetState
   Future<void> _acceptInvite() async {
     if (!mounted) return;
 
-    debugPrint(
-        '🏠 [HouseholdInvitationSheet] Starting invitation acceptance flow');
     final repo = ref.read(householdRepositoryProvider);
     try {
       // First, validate the invite to get household_id
-      debugPrint('🏠 [HouseholdInvitationSheet] Validating invitation...');
+
       final validateResponse = await repo.validateInvite(widget.token);
-      debugPrint(
-          '🏠 [HouseholdInvitationSheet] Validation response: $validateResponse');
 
       final householdId = validateResponse['household']?['id'] as String?;
       final householdName = validateResponse['household']?['name'] as String?;
@@ -84,9 +75,6 @@ class _HouseholdInvitationSheetState
 
       // Treat ALREADY_MEMBER as success even if valid=false
       if (errorCode == 'ALREADY_MEMBER' && householdId != null) {
-        debugPrint(
-            '🏠 [HouseholdInvitationSheet] User already a member, showing success');
-
         // Ensure household list is refreshed even if already a member
         // This handles cases where the household might not be in the local cache
         await _refreshHouseholdList();
@@ -105,10 +93,8 @@ class _HouseholdInvitationSheetState
         if (householdId != null) {
           // Invite is valid and not already accepted, proceed to accept
           try {
-            debugPrint('🏠 [HouseholdInvitationSheet] Accepting invitation...');
             final data = await repo.acceptInvite(widget.token);
-            debugPrint(
-                '🏠 [HouseholdInvitationSheet] Successfully accepted! Household ID: ${data['household_id']}');
+
             if (!mounted) return;
             setState(() {
               _accepted = true;
@@ -120,9 +106,6 @@ class _HouseholdInvitationSheetState
             // If accept fails with 409 (already member), still show success
             if (e.toString().contains('409') ||
                 e.toString().contains('already')) {
-              debugPrint(
-                  '🏠 [HouseholdInvitationSheet] Already a member (from accept call), showing success anyway');
-
               // Refresh household list to ensure consistency
               await _refreshHouseholdList();
 
@@ -134,14 +117,10 @@ class _HouseholdInvitationSheetState
                 _isProcessing = false;
               });
             } else {
-              debugPrint(
-                  '❌ [HouseholdInvitationSheet] Error accepting invite: $e');
               rethrow;
             }
           }
         } else {
-          debugPrint(
-              '❌ [HouseholdInvitationSheet] Missing household ID in validation response');
           if (!mounted) return;
           setState(() {
             _error = context.l10n.invalidInvitationMissingInfo;
@@ -152,7 +131,7 @@ class _HouseholdInvitationSheetState
         // Validation failed
         final errorMsg =
             validateResponse['error'] as String? ?? 'Invalid invitation';
-        debugPrint('❌ [HouseholdInvitationSheet] Validation failed: $errorMsg');
+
         if (!mounted) return;
         setState(() {
           _error = errorMsg;
@@ -160,8 +139,6 @@ class _HouseholdInvitationSheetState
         });
       }
     } catch (e) {
-      debugPrint(
-          '❌ [HouseholdInvitationSheet] Exception during invitation flow: $e');
       if (!mounted) return;
       setState(() {
         _error = e.toString();

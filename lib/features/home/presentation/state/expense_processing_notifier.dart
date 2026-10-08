@@ -1,21 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart' as foundation;
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/processing_state.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
-
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
-void _debugPrint(String? message, {int? wrapWidth}) {
-  if (foundation.kDebugMode && _enableDebugLogs) {
-    foundation.debugPrint(message, wrapWidth: wrapWidth);
-  }
-}
 
 /// Expense processing notifier
 class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
@@ -80,9 +71,7 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               currency: expenseData['currency'],
               receiptImageUrl: expenseData['receipt_image_url'],
             );
-          } catch (parseError) {
-            _debugPrint('Error parsing expense data: $parseError');
-          }
+          } catch (parseError) {}
         } else if (responseData != null &&
             responseData['items'] != null &&
             responseData['items'].isNotEmpty) {
@@ -101,9 +90,7 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               currency: item['currency'] ?? 'USD',
               receiptImageUrl: null,
             );
-          } catch (parseError) {
-            _debugPrint('Error parsing items data: $parseError');
-          }
+          } catch (parseError) {}
         }
 
         // Mark as complete
@@ -186,12 +173,7 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               currency: expenseData['currency'],
               receiptImageUrl: expenseData['receipt_image_url'],
             );
-            _debugPrint('Expense entry parsed successfully');
-          } catch (parseError) {
-            _debugPrint('Error parsing expense data: $parseError');
-          }
-        } else {
-          _debugPrint('No expense rows returned from processing response');
+          } catch (parseError) {}
         }
 
         // Mark as complete

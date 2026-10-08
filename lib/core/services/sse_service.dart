@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
+
 import 'package:moneko/core/utils/text_sanitizer.dart';
 
 /// Server-Sent Events (SSE) service for streaming responses
@@ -30,8 +30,6 @@ class SSEService {
       // Set body
       request.body = jsonEncode(body);
 
-      debugPrint('[SSEService] Sending request to ${url.toString()}');
-
       // Send request and get streaming response
       response = await client.send(request).timeout(timeout);
 
@@ -39,8 +37,6 @@ class SSEService {
         throw Exception(
             'HTTP ${response.statusCode}: ${response.reasonPhrase}');
       }
-
-      debugPrint('[SSEService] Connected, streaming events...');
 
       // Parse SSE stream
       String buffer = '';
@@ -76,10 +72,7 @@ class SSEService {
           }
         }
       }
-
-      debugPrint('[SSEService] Stream completed');
     } catch (e) {
-      debugPrint('[SSEService] Error: $e');
       rethrow;
     } finally {
       client?.close();

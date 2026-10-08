@@ -176,11 +176,6 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
               contactId.value = response['id'] as String?;
               remoteEnabled =
                   (response['wallet_capture_enabled'] as bool?) ?? false;
-              debugPrint(
-                  '[NotificationCapture] loadAll: contactId=${contactId.value} remoteEnabled=$remoteEnabled');
-            } else {
-              debugPrint(
-                  '[NotificationCapture] loadAll: no user_contacts row found for uid=${authState.uid}');
             }
           }
 
@@ -196,7 +191,6 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             await syncCredentials();
           }
         } catch (e) {
-          debugPrint('Failed to load notification capture config: $e');
         } finally {
           isLoading.value = false;
         }
@@ -319,9 +313,6 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       final previousEnabled = previous.enabled;
       config.value = config.value.copyWith(enabled: enabled);
 
-      debugPrint(
-          '[NotificationCapture] toggleEnabled called: enabled=$enabled uid=${authState.uid} contactId=${contactId.value}');
-
       try {
         WalletEntity? walletToPersist;
         if (enabled) {
@@ -344,7 +335,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         }
 
         // Write to Android native layer.
-        debugPrint('[NotificationCapture] Writing to Android native...');
+
         await NotificationCaptureService.instance.setConfig(
           enabled: enabled,
           accountId: walletToPersist?.id,
@@ -352,11 +343,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           accountCurrency: walletToPersist?.currency.trim().toUpperCase(),
           clearAccount: enabled && walletToPersist == null,
         );
-        debugPrint('[NotificationCapture] Android native write succeeded');
 
         // Write to Supabase via the update-wallet-capture-setting edge function
         // (service role bypasses RLS — same pattern as iOS wallet capture).
-        debugPrint('[NotificationCapture] Calling edge function...');
+
         final fnResponse = await Supabase.instance.client.functions.invoke(
           'update-wallet-capture-setting',
           body: {'enabled': enabled},
@@ -369,11 +359,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         if (newContactId != null) {
           contactId.value = newContactId;
         }
-        debugPrint(
-            '[NotificationCapture] Edge function OK — contactId=${contactId.value}');
-      } catch (e, st) {
-        debugPrint('[NotificationCapture] toggleEnabled error: $e');
-        debugPrint('[NotificationCapture] Stack trace: $st');
+      } catch (e) {
         try {
           await NotificationCaptureService.instance
               .setConfig(enabled: previousEnabled);

@@ -90,7 +90,6 @@ class _WhatsAppVerificationModalState extends State<WhatsAppVerificationModal> {
         });
       }
     } catch (e) {
-      debugPrint('Error verifying WhatsApp code: $e');
       if (!mounted) return;
 
       setState(() {

@@ -64,16 +64,10 @@ class OnboardingFlowAnalyticsService {
   }) async {
     if (!enableTracking) return;
 
-    _log(
-        'beginPage flow=$flowName page=$pageId step=$stepIndex startNew=$startNewSession');
-
     await _ensureLoaded();
     await _ensureSession(flowName: flowName, forceNew: startNewSession);
 
     if (_isExcluded || _isCompleted || _sessionId == null) {
-      _log(
-        'beginPage skipped session=$_sessionId excluded=$_isExcluded completed=$_isCompleted',
-      );
       return;
     }
 
@@ -90,8 +84,7 @@ class OnboardingFlowAnalyticsService {
         stepIndex: stepIndex,
         properties: properties,
       );
-      _log(
-          'beginPage restored session=$_sessionId page=$pageId step=$stepIndex');
+
       return;
     }
 
@@ -115,7 +108,6 @@ class OnboardingFlowAnalyticsService {
       stepIndex: stepIndex,
       properties: properties,
     );
-    _log('beginPage active session=$_sessionId page=$pageId step=$stepIndex');
   }
 
   Future<void> trackAction({
@@ -130,15 +122,9 @@ class OnboardingFlowAnalyticsService {
   }) async {
     if (!enableTracking) return;
 
-    _log(
-        'trackAction flow=$flowName page=$pageId action=$actionId result=$result step=$stepIndex');
-
     await _ensureLoaded();
     await _ensureSession(flowName: flowName);
     if (_isExcluded || _isCompleted || _sessionId == null) {
-      _log(
-        'trackAction skipped session=$_sessionId excluded=$_isExcluded completed=$_isCompleted',
-      );
       return;
     }
 
@@ -146,7 +132,6 @@ class OnboardingFlowAnalyticsService {
         ? null
         : '${_sessionId!}:$pageId:$actionId:$dedupeKey';
     if (scopedDedupeKey != null && !_dedupeKeys.add(scopedDedupeKey)) {
-      _log('trackAction deduped key=$scopedDedupeKey');
       return;
     }
 
@@ -169,12 +154,9 @@ class OnboardingFlowAnalyticsService {
   }) async {
     await _ensureLoaded();
     if (_sessionId == null || _isExcluded || _isCompleted) {
-      _log(
-          'endPage skipped session=$_sessionId excluded=$_isExcluded completed=$_isCompleted');
       return;
     }
-    _log(
-        'endPage session=$_sessionId reason=$reason transitionTo=$transitionTo page=$_currentPageId');
+
     await _endCurrentPage(reason: reason, transitionTo: transitionTo);
     _currentPageId = null;
     _currentStepIndex = null;
@@ -193,15 +175,9 @@ class OnboardingFlowAnalyticsService {
   }) async {
     if (!enableTracking) return;
 
-    _log(
-        'trackEvent flow=$flowName page=$pageId event=$eventName step=$stepIndex');
-
     await _ensureLoaded();
     await _ensureSession(flowName: flowName);
     if (_isExcluded || _isCompleted || _sessionId == null) {
-      _log(
-        'trackEvent skipped session=$_sessionId excluded=$_isExcluded completed=$_isCompleted',
-      );
       return;
     }
 
@@ -209,7 +185,6 @@ class OnboardingFlowAnalyticsService {
         ? null
         : '${_sessionId!}:$pageId:$eventName:$dedupeKey';
     if (scopedDedupeKey != null && !_dedupeKeys.add(scopedDedupeKey)) {
-      _log('trackEvent deduped key=$scopedDedupeKey');
       return;
     }
 
@@ -232,15 +207,9 @@ class OnboardingFlowAnalyticsService {
   }) async {
     if (!enableTracking) return;
 
-    _log(
-      'classifySession flow=$flowName page=$pageId classification=$classification excluded=$excludedFromMetrics',
-    );
-
     await _ensureLoaded();
     await _ensureSession(flowName: flowName);
     if (_sessionId == null || _isCompleted) {
-      _log(
-          'classifySession skipped session=$_sessionId completed=$_isCompleted');
       return;
     }
 
@@ -271,21 +240,15 @@ class OnboardingFlowAnalyticsService {
     Map<String, Object?> properties = const <String, Object?>{},
   }) async {
     if (!enableTracking) {
-      _log('completeSession disabled tracking, resetting local session');
       await resetSession();
       return;
     }
 
     await _ensureLoaded();
     if (_sessionId == null || _isCompleted) {
-      _log(
-          'completeSession skipped session=$_sessionId completed=$_isCompleted');
       await resetSession();
       return;
     }
-
-    _log(
-        'completeSession flow=$flowName page=$pageId step=$stepIndex session=$_sessionId');
 
     await _endCurrentPage(reason: 'complete', transitionTo: null);
     _isCompleted = true;
@@ -301,7 +264,6 @@ class OnboardingFlowAnalyticsService {
   }
 
   Future<void> resetSession() async {
-    _log('resetSession session=$_sessionId');
     _sessionId = null;
     _flowName = null;
     _currentPageId = null;
@@ -330,12 +292,8 @@ class OnboardingFlowAnalyticsService {
   }
 
   Future<void> handleLifecycleState(AppLifecycleState state) async {
-    _log('lifecycle state=$state session=$_sessionId page=$_currentPageId');
     await _ensureLoaded();
     if (_sessionId == null || _isExcluded || _isCompleted) {
-      _log(
-        'lifecycle skipped session=$_sessionId excluded=$_isExcluded completed=$_isCompleted',
-      );
       return;
     }
 
@@ -343,12 +301,10 @@ class OnboardingFlowAnalyticsService {
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused) {
       if (_isBackgrounded) {
-        _log('lifecycle background ignored because already backgrounded');
         return;
       }
       _isBackgrounded = true;
-      _log(
-          'lifecycle background flush start session=$_sessionId page=$_currentPageId');
+
       await _endCurrentPage(reason: 'background', transitionTo: null);
       await flushPendingEvents();
       return;
@@ -357,8 +313,6 @@ class OnboardingFlowAnalyticsService {
     if (state == AppLifecycleState.resumed) {
       await flushPendingEvents();
       if (!_isBackgrounded || _currentPageId == null || _flowName == null) {
-        _log(
-            'lifecycle resume ignored background=$_isBackgrounded page=$_currentPageId flow=$_flowName');
         return;
       }
       _isBackgrounded = false;
@@ -371,7 +325,6 @@ class OnboardingFlowAnalyticsService {
         stepIndex: _currentStepIndex,
         properties: const <String, Object?>{'source': 'app_resume'},
       );
-      _log('lifecycle resumed session=$_sessionId page=$_currentPageId');
     }
   }
 
@@ -421,10 +374,6 @@ class OnboardingFlowAnalyticsService {
       _hasRestoredSession = true;
     }
 
-    _log(
-      'loaded session=$_sessionId page=$_currentPageId step=$_currentStepIndex pending=${_pendingEvents.length} excluded=$_isExcluded completed=$_isCompleted',
-    );
-
     await flushPendingEvents();
   }
 
@@ -441,7 +390,7 @@ class OnboardingFlowAnalyticsService {
     if (!shouldReset) {
       _flowName = flowName;
       await _persistState();
-      _log('ensureSession reused session=$_sessionId flow=$flowName');
+
       return;
     }
 
@@ -465,8 +414,6 @@ class OnboardingFlowAnalyticsService {
       pageId: 'session',
       properties: const <String, Object?>{},
     );
-    _log(
-        'ensureSession created session=$_sessionId anonymous=$_anonymousId flow=$flowName');
   }
 
   Future<void> _endCurrentPage({
@@ -476,8 +423,6 @@ class OnboardingFlowAnalyticsService {
     final pageId = _currentPageId;
     final flowName = _flowName;
     if (pageId == null || flowName == null || _sessionId == null) {
-      _log(
-          'endCurrentPage skipped session=$_sessionId page=$pageId flow=$flowName');
       return;
     }
 
@@ -494,10 +439,6 @@ class OnboardingFlowAnalyticsService {
       dwellMs: dwellMs,
       transitionTo: transitionTo,
       properties: <String, Object?>{'reason': reason},
-    );
-
-    _log(
-      'endCurrentPage session=$_sessionId page=$pageId step=$_currentStepIndex dwellMs=$dwellMs reason=$reason transitionTo=$transitionTo',
     );
 
     _currentPageEnteredAt = null;
@@ -529,9 +470,7 @@ class OnboardingFlowAnalyticsService {
     );
     _lastEventAt = createdAt;
     unawaited(_persistState());
-    _log(
-      'sendEvent session=$_sessionId event=$eventName page=$pageId step=$stepIndex stage=$_maxStageRank pending=${_pendingEvents.length}',
-    );
+
     unawaited(
       _upsertSessionSnapshot(
         createdAt: createdAt,
@@ -557,30 +496,23 @@ class OnboardingFlowAnalyticsService {
   Future<void> flushPendingEvents() async {
     await _ensureLoaded();
     if (_isFlushingQueue || _pendingEvents.isEmpty) {
-      _log(
-        'flushPendingEvents skipped flushing=$_isFlushingQueue pending=${_pendingEvents.length}',
-      );
       return;
     }
 
     _isFlushingQueue = true;
-    _log('flushPendingEvents start pending=${_pendingEvents.length}');
+
     try {
       while (_pendingEvents.isNotEmpty) {
         final nextEvent = Map<String, Object?>.from(_pendingEvents.first);
         final inserted = await _insertEvent(nextEvent);
         if (!inserted) {
-          _log(
-              'flushPendingEvents stopped after failed insert pending=${_pendingEvents.length}');
           break;
         }
         _pendingEvents.removeAt(0);
         await _persistPendingEvents();
-        _log('flushPendingEvents success remaining=${_pendingEvents.length}');
       }
     } finally {
       _isFlushingQueue = false;
-      _log('flushPendingEvents end pending=${_pendingEvents.length}');
     }
   }
 
@@ -606,9 +538,7 @@ class OnboardingFlowAnalyticsService {
     );
     _pendingEvents.add(payload);
     await _persistPendingEvents();
-    _log(
-      'enqueueEvent session=$_sessionId event=$eventName page=$pageId queued=${_pendingEvents.length}',
-    );
+
     await flushPendingEvents();
   }
 
@@ -643,17 +573,9 @@ class OnboardingFlowAnalyticsService {
   Future<bool> _insertEvent(Map<String, Object?> payload) async {
     try {
       await _client.from('onboarding_flow_events').insert(payload);
-      _log(
-        'insertEvent success session=${payload['session_id']} event=${payload['event_name']} page=${payload['page_id']}',
-      );
+
       return true;
-    } catch (error, stackTrace) {
-      debugPrint(
-        'OnboardingFlowAnalyticsService insert failed: $error\n$stackTrace',
-      );
-      _log(
-        'insertEvent failed session=${payload['session_id']} event=${payload['event_name']} page=${payload['page_id']} error=$error',
-      );
+    } catch (error) {
       return false;
     }
   }
@@ -699,17 +621,7 @@ class OnboardingFlowAnalyticsService {
           }),
         }..removeWhere((key, value) => value == null),
       );
-      _log(
-        'upsertSession success session=$_sessionId page=${_currentPageId ?? pageId} event=$eventName step=${_currentStepIndex ?? stepIndex} classification=$_classification excluded=$_isExcluded',
-      );
-    } catch (error, stackTrace) {
-      debugPrint(
-        'OnboardingFlowAnalyticsService session upsert failed: $error\n$stackTrace',
-      );
-      _log(
-        'upsertSession failed session=$_sessionId page=${_currentPageId ?? pageId} event=$eventName error=$error',
-      );
-    }
+    } catch (error) {}
   }
 
   Future<String> _resolveAppVersion() async {
@@ -761,7 +673,6 @@ class OnboardingFlowAnalyticsService {
       _pendingEventsKey,
       _pendingEvents.map(jsonEncode).toList(growable: false),
     );
-    _log('persistPendingEvents count=${_pendingEvents.length}');
   }
 
   String _newId({required String prefix}) {
@@ -827,10 +738,6 @@ class OnboardingFlowAnalyticsService {
     if (pageId == 'onboarding_intro') return 2;
     if (pageId == 'onboarding_preview') return 1;
     return 0;
-  }
-
-  void _log(String message) {
-    debugPrint('[OnboardingAnalytics] $message');
   }
 }
 

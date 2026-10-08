@@ -1274,7 +1274,6 @@ private func submitWalletCaptureRequestBodyOnce(
   if let key = body["idempotencyKey"] as? String { request.setValue(key, forHTTPHeaderField: "x-idempotency-key") }
 
   let containsNotificationContent = endpoint != "save-wallet-transaction"
-  NSLog("[MonekoCap] Calling %@", endpoint)
   SiriShortcutDiagnostics.record(
     source: "shortcut",
     action: "wallet-request-start",
@@ -1292,7 +1291,6 @@ private func submitWalletCaptureRequestBodyOnce(
   do {
     (data, response) = try await URLSession.shared.data(for: request)
   } catch {
-    NSLog("[MonekoCap] Network error: %@", error.localizedDescription)
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-request-network-error",
@@ -1304,7 +1302,6 @@ private func submitWalletCaptureRequestBodyOnce(
     throw SiriShortcutIntentError.networkFailure
   }
   guard let httpResponse = response as? HTTPURLResponse else {
-    NSLog("[MonekoCap] Response is not HTTPURLResponse")
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-request-invalid-response",
@@ -1317,7 +1314,6 @@ private func submitWalletCaptureRequestBodyOnce(
   let diagnosticResponseBody = containsNotificationContent
     ? "<redacted notification capture response>"
     : truncateDiagnosticsBody(responseBody)
-  NSLog("[MonekoCap] HTTP %d from %@", httpResponse.statusCode, endpoint)
   SiriShortcutDiagnostics.record(
     source: "shortcut",
     action: "wallet-request-finished",
@@ -1355,7 +1351,6 @@ private func submitWalletCaptureRequestBodyOnce(
   }
 
   guard (200...299).contains(httpResponse.statusCode) else {
-    NSLog("[MonekoCap] saveFailed — non-2xx status %d", httpResponse.statusCode)
     throw resolveWalletCaptureIntentError(
       statusCode: httpResponse.statusCode,
       data: data
@@ -1366,7 +1361,6 @@ private func submitWalletCaptureRequestBodyOnce(
     WalletCaptureRetryPolicy.isConfirmedSuccess(responseBody: data),
     let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
   else {
-    NSLog("[MonekoCap] %@ failed — response JSON missing success:true", endpoint)
     throw SiriShortcutIntentError.networkFailure
   }
 
@@ -1550,14 +1544,8 @@ private func performWalletPaymentIntegrationCapture(
       "currency": normalizedCurrencyCode ?? "",
     ]
   )
-  NSLog(
-    "[MonekoCap] performWalletPaymentIntegrationCapture called — merchant=%@, amount=%@",
-    merchantName ?? "<nil>",
-    amount.map(String.init(describing:)) ?? "<nil>"
-  )
 
   guard let amount, amount > 0 else {
-    NSLog("[MonekoCap] invalidInput — amount missing or <= 0")
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-invalid-amount",
@@ -1574,7 +1562,6 @@ private func performWalletPaymentIntegrationCapture(
   let resolvedMerchantName = normalizedMerchantName
 
   guard let resolvedMerchantName, !resolvedMerchantName.isEmpty else {
-    NSLog("[MonekoCap] invalidInput — no usable merchant value")
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-invalid-merchant",
@@ -1584,7 +1571,6 @@ private func performWalletPaymentIntegrationCapture(
   }
 
   guard let context = SiriShortcutAuthContext.load() else {
-    NSLog("[MonekoCap] notConfigured — SiriShortcutAuthContext.load() returned nil")
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-auth-missing",
@@ -1592,10 +1578,8 @@ private func performWalletPaymentIntegrationCapture(
     )
     throw SiriShortcutIntentError.notConfigured
   }
-  NSLog("[MonekoCap] Auth context loaded — userId=%@, tokenExpired=%d", context.userId, context.isAccessTokenExpired ? 1 : 0)
 
   guard let scope = loadWalletCaptureScope(expectedUserId: context.userId) else {
-    NSLog("[MonekoCap] notConfigured — loadWalletCaptureScope() returned nil")
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-scope-missing",
@@ -1603,7 +1587,6 @@ private func performWalletPaymentIntegrationCapture(
     )
     throw SiriShortcutIntentError.notConfigured
   }
-  NSLog("[MonekoCap] Wallet scope loaded — householdId=%@", scope.householdId ?? "<personal>")
   let accountId = loadWalletCaptureAccountId()
 
   let idempotencyKey = makeWalletIdempotencyKey(
@@ -2244,7 +2227,6 @@ private enum SiriShortcutDiagnostics {
     message: String,
     details: [String: Any] = [:]
   ) {
-    NSLog("[MonekoDebug][%@/%@] %@ %@", source, action, message, String(describing: details))
 
     guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
       return

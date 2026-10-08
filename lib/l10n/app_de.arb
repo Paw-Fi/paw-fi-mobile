@@ -3694,7 +3694,7 @@
   "emailFileImportAccountEmailAlreadyIncluded": "Die E-Mail-Adresse deines Moneko-Kontos ist bereits als Absender freigegeben. Du musst sie nicht erneut hinzufügen.",
   "aiClarificationNotSaved": "Diese Angaben werden gespeichert, sobald du sie bestätigst.",
   "aiClarificationCustomAnswer": "Eigene Antwort eingeben",
-  "aiInputSavedForLater": "Eingabe auf diesem Gerät gespeichert. Die Analyse wird fortgesetzt, sobald du Moneko mit Internetverbindung öffnest.",
+  "aiInputSavedForLater": "Die Eingabe wurde auf diesem Gerät gespeichert. Die Analyse wird fortgesetzt, sobald du Moneko mit einer Internetverbindung öffnest.",
   "unlockMonekoPlus": "Moneko Plus freischalten",
   "unlimitedAiExpenseCapture": "Unbegrenzte Ausgabenerfassung mit KI",
   "unlimitedSpacesWallets": "Unbegrenzte Spaces und Wallets",
@@ -3745,5 +3745,9 @@
   "budgetCompanionPlanning5": "Wohin geht dein Geld?",
   "budgetCompanionPlanning6": "Heute noch loslegen!",
   "budgetCompanionPlanning7": "Dein Plan startet hier!",
-  "budgetCompanionPlanning8": "Kleine Schritte, große Erfolge!"
+  "budgetCompanionPlanning8": "Kleine Schritte, große Erfolge!",
+  "typeYourOwnAnswer": "Eigene Antwort eingeben",
+  "aiClarificationError": "{error}\nDiese Angaben werden gespeichert, sobald du sie bestätigst.",
+  "senderAccountConfirmation": "Du fügst diesen Absender deinem Moneko-Konto ({accountEmail}) hinzu. Wir senden einen Bestätigungslink an die E-Mail-Adresse des Absenders. Belege werden erst importiert, nachdem du den Absender bestätigt hast.",
+  "previouslyForwardedAttachmentNotice": "Falls du bereits einen Anhang weitergeleitet hast, musst du ihn nach der Freigabe und Bestätigung dieses Absenders erneut weiterleiten. Bereits weitergeleitete Anhänge werden nicht automatisch importiert."
 }

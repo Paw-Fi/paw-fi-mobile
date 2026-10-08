@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -208,9 +207,6 @@ String resolveCurrencySymbol(String? currencyCode) {
 
   // Validate currency code before use
   if (!isSupportedCurrencyCode(code)) {
-    if (kDebugMode) {
-      debugPrint('⚠️ Invalid currency code: $code, falling back to default');
-    }
     return _defaultCurrencySymbol;
   }
 

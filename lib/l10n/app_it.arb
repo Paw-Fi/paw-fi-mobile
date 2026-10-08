@@ -3639,9 +3639,9 @@
   "emailSenderVerificationDescription": "Invieremo un link di verifica a questo indirizzo. Le ricevute verranno importate dopo che il proprietario della casella di posta avrà autorizzato questo account.",
   "notificationRepairProcessing": "Controllo delle notifiche push…",
   "emailFileImportAccountEmailAlreadyIncluded": "L'email del tuo account Moneko è già tra i mittenti autorizzati. Non serve aggiungerla di nuovo.",
-  "aiClarificationNotSaved": "Questi dettagli verranno salvati dopo la tua conferma.",
+  "aiClarificationNotSaved": "Questi dettagli verranno salvati dopo la conferma.",
   "aiClarificationCustomAnswer": "Scrivi la tua risposta",
-  "aiInputSavedForLater": "I dati inseriti sono stati salvati su questo dispositivo. L'analisi continuerà quando aprirai Moneko con una connessione Internet.",
+  "aiInputSavedForLater": "I dati sono stati salvati su questo dispositivo. L'analisi continuerà quando aprirai Moneko con una connessione a Internet.",
   "unlockMonekoPlus": "Sblocca Moneko Plus",
   "unlimitedAiExpenseCapture": "Registrazione illimitata delle spese con IA",
   "unlimitedSpacesWallets": "Space e portafogli illimitati",
@@ -3692,5 +3692,9 @@
   "budgetCompanionPlanning5": "Dove vanno i tuoi soldi?",
   "budgetCompanionPlanning6": "Inizia a tenere traccia oggi!",
   "budgetCompanionPlanning7": "Il tuo piano parte da qui!",
-  "budgetCompanionPlanning8": "Piccoli passi, grandi risultati!"
+  "budgetCompanionPlanning8": "Piccoli passi, grandi risultati!",
+  "typeYourOwnAnswer": "Scrivi la tua risposta",
+  "aiClarificationError": "{error}\nQuesti dettagli verranno salvati dopo la conferma.",
+  "senderAccountConfirmation": "Stai aggiungendo questo mittente al tuo account Moneko ({accountEmail}). Invieremo un link di verifica all'indirizzo del mittente. Le ricevute verranno importate solo dopo aver verificato il mittente.",
+  "previouslyForwardedAttachmentNotice": "Se hai già inoltrato un allegato, dovrai inoltrarlo di nuovo dopo aver approvato e verificato questo mittente. Gli allegati inoltrati in precedenza non verranno importati automaticamente."
 }

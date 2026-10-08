@@ -78,10 +78,7 @@ Future<bool?> _hasSubscriptionRow(String userId) async {
         .limit(1)
         .maybeSingle();
     return row != null;
-  } catch (error, stackTrace) {
-    debugPrint(
-      '[OnboardingPostAuth] Subscription row check failed: $error\n$stackTrace',
-    );
+  } catch (error) {
     return null;
   }
 }
@@ -94,19 +91,11 @@ Future<bool> _ensurePostAuthTrial(ProviderContainer container) async {
     await container
         .read(subscriptionManagementProvider.notifier)
         .refresh()
-        .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
-      debugPrint(
-        '[OnboardingPostAuth] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
-      );
-    });
+        .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {});
     await container
         .read(subscriptionNotifierProvider.notifier)
         .refresh()
-        .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
-      debugPrint(
-        '[OnboardingPostAuth] subscriptionNotifier refresh timed out after $_kSubscriptionRefreshTimeout',
-      );
-    });
+        .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {});
 
     final subscriptionDetails =
         container.read(subscriptionManagementProvider).valueOrNull;
@@ -118,9 +107,6 @@ Future<bool> _ensurePostAuthTrial(ProviderContainer container) async {
     if (hasSubscription == true) return true;
     if (hasSubscription == null) return false;
 
-    debugPrint(
-      '[OnboardingPostAuth] No subscription detected; retrying onboarding free trial activation',
-    );
     await container
         .read(subscriptionManagementProvider.notifier)
         .grantPaywallReturnTrial()
@@ -140,10 +126,7 @@ Future<bool> _ensurePostAuthTrial(ProviderContainer container) async {
       await prefs.setBool(trialWelcomePendingKey(userId), true);
     }
     return granted;
-  } catch (error, stackTrace) {
-    debugPrint(
-      '[OnboardingPostAuth] Free trial activation failed: $error\n$stackTrace',
-    );
+  } catch (error) {
     return await _hasSubscriptionRow(userId) == true;
   }
 }
@@ -241,11 +224,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
         final notificationsAction =
             ref.read(onboardingPostAuthNotificationsActionProvider);
         unawaited(
-          notificationsAction(ref, uid).catchError((error, stackTrace) {
-            debugPrint(
-              '[OnboardingPostAuth] Notification setup failed: $error\n$stackTrace',
-            );
-          }),
+          notificationsAction(ref, uid).catchError((error, stackTrace) {}),
         );
         notificationFlowCompleted.value = true;
         next();
@@ -308,11 +287,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
             'other_text': null,
           });
           recordedImportApp.value = appName;
-        } catch (error, stackTrace) {
-          debugPrint(
-            '[OnboardingPostAuth] Import app selection tracking failed: $error\n$stackTrace',
-          );
-        }
+        } catch (error) {}
       }
 
       if (selectedImportApp.value == notUsingAnApp) {
@@ -497,10 +472,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final container = ProviderScope.containerOf(context, listen: false);
     try {
       await _markOnboardingCompleted(ref);
-    } catch (error, stackTrace) {
-      debugPrint(
-        '[OnboardingPostAuth] Completion failed: $error\n$stackTrace',
-      );
+    } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -515,13 +487,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       return;
     }
     context.go('/dashboard');
-    unawaited(_ensurePostAuthTrial(container).then((granted) {
-      if (!granted) {
-        debugPrint(
-          '[OnboardingPostAuth] Trial setup did not complete; subscription state will retry through normal app refreshes',
-        );
-      }
-    }));
+    unawaited(_ensurePostAuthTrial(container).then((granted) {}));
   }
 }
 

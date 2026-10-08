@@ -55,6 +55,8 @@ class PocketsGridSection extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(pocketsProvider(scopeParams));
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
+    final isPreviewMode =
+        ref.watch(previewModeProvider.select((state) => state.isActive));
     final lastShownError = useRef<String?>(null);
     final effectiveCurrency = scopeParams.currency?.trim().isNotEmpty == true
         ? scopeParams.currency!.trim()
@@ -125,6 +127,7 @@ class PocketsGridSection extends HookConsumerWidget {
     );
 
     useEffect(() {
+      if (isPreviewMode) return null;
       if (state.isLoading || state.error != null) return null;
       if (!isActiveMonth) return null;
       // Only run the pockets header tour when the Pockets tab is the
@@ -138,6 +141,7 @@ class PocketsGridSection extends HookConsumerWidget {
 
       return null;
     }, [
+      isPreviewMode,
       state.isLoading,
       state.error,
       currentTabIndex,
@@ -378,6 +382,14 @@ class PocketsGridSection extends HookConsumerWidget {
             ),
           ),
           PocketsHeaderCard(
+            isSeamless: true,
+            showEditActions: !isPreviewMode,
+            onAddPocket: canAddPocket
+                ? openAddPocketSheet
+                : () => AppToast.info(
+                      context,
+                      context.l10n.pleaseSetMonthlyBudgetFirst,
+                    ),
             totalBudget: totalBudget,
             periodMonth: state.periodMonth,
             financialMonthStartDay: state.financialMonthStartDay,

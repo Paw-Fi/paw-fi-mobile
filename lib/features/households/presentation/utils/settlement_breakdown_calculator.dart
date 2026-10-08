@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -101,11 +100,6 @@ SettlementBreakdownData computeSettlementBreakdownData({
         _buildFallbackTransaction(group, normalizedCurrency);
     if (!transactionById.containsKey(group.expenseId)) {
       missingTransactionCount += 1;
-      if (kDebugMode) {
-        debugPrint(
-          '[SettlementBreakdown] Missing expense metadata for split group ${group.id} expense=${group.expenseId}',
-        );
-      }
     }
 
     final lines = group.splitLines ?? const <ExpenseSplitLine>[];

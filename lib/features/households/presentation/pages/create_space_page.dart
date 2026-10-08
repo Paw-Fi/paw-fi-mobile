@@ -125,7 +125,6 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   void dispose() {
     _nameController.dispose();
     _selectedImageFile?.delete().catchError((e) {
-      debugPrint('Failed to delete temporary image file: $e');
       return _selectedImageFile!;
     });
     super.dispose();
@@ -394,10 +393,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
         await _generateInvitationAndNavigate(
             createdHousehold.id, createdHousehold.name);
       }
-    } catch (e, stackTrace) {
-      debugPrint('❌ SPACE CREATION ERROR: $e');
-      debugPrint(stackTrace.toString());
-
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _isCreating = false;

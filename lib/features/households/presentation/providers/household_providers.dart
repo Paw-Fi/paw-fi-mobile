@@ -30,7 +30,7 @@ import '../../data/services/household_service.dart';
 import '../../data/services/shared_budget_identity.dart';
 import '../../data/services/device_registration_service.dart';
 import '../../../home/presentation/models/expense_entry.dart';
-import '../../../home/presentation/state/home_debug_tracing.dart';
+
 import '../../../home/presentation/state/dashboard_lazy_providers.dart';
 import 'cached_providers.dart';
 import 'household_optimistic_providers.dart';
@@ -394,20 +394,14 @@ class UserHouseholdsNotifier
 
     final completer = Completer<void>();
     _inFlightLoad = completer.future;
-    final trace = HomeDebugTrace(
-      label: 'UserHouseholdsProvider',
-      enabled: _ref.read(homeDebugLoggingEnabledProvider),
-      logSink: _ref.read(homeDebugLogSinkProvider),
-      contextFields: {'user': _userId.isEmpty ? '<empty>' : _userId},
-    );
-    trace.mark('load-start');
+
     if (!mounted) return;
 
     // Preview mode: return mock households instantly
     final preview = _ref.read(previewModeProvider);
     if (preview.isActive) {
       state = AsyncValue.data(PreviewMockData.households);
-      trace.mark('preview-hit', {'count': PreviewMockData.households.length});
+
       return;
     }
 
@@ -420,7 +414,6 @@ class UserHouseholdsNotifier
       if (!mounted) return;
       if (cached != null && !state.hasValue) {
         state = AsyncValue.data(_withoutOptimisticHouseholds(cached.items));
-        trace.mark('persisted-cache-hit', {'count': cached.items.length});
       } else if (!state.hasValue) {
         state = const AsyncValue.loading();
       }
@@ -430,9 +423,7 @@ class UserHouseholdsNotifier
         if (!state.hasValue) {
           state = AsyncValue.data(cached?.items ?? const <Household>[]);
         }
-        trace.mark('offline-skip-network', {
-          'cachedCount': cached?.items.length ?? 0,
-        });
+
         return;
       }
 
@@ -451,11 +442,6 @@ class UserHouseholdsNotifier
       if (result.hasValue || !state.hasValue) {
         state = result;
       }
-      trace.mark('load-finished', {
-        'hasError': result.hasError,
-        'count': result.valueOrNull?.length,
-        'error': result.hasError ? result.error : null,
-      });
     } finally {
       if (!completer.isCompleted) {
         completer.complete();
@@ -994,18 +980,7 @@ final householdSummaryProvider =
     if (!isBackendHouseholdId(params.householdId)) {
       return null;
     }
-    final trace = HomeDebugTrace(
-      label: 'HouseholdSummaryProvider',
-      enabled: ref.read(homeDebugLoggingEnabledProvider),
-      logSink: ref.read(homeDebugLogSinkProvider),
-      contextFields: {
-        'household': params.householdId,
-        'currency': params.currency,
-        'start': params.startDate,
-        'end': params.endDate,
-      },
-    );
-    trace.mark('load-start');
+
     ref.watch(dashboardRefreshSignalProvider);
     final repository = ref.watch(householdRepositoryProvider);
     final cacheKey = _householdSummaryCacheKey(params);
@@ -1015,10 +990,9 @@ final householdSummaryProvider =
     );
     if (ref.watch(networkReachabilityProvider).valueOrNull == false) {
       if (cached != null) {
-        trace.mark('offline-cache-hit');
         return cached;
       }
-      trace.mark('offline-cache-miss');
+
       return null;
     }
 
@@ -1048,31 +1022,29 @@ final householdSummaryProvider =
           summary,
           (value) => value.toJson(),
         ));
-        trace.mark('load-success', {'hasSummary': true});
+
         return summary;
       } on TimeoutException catch (e) {
         lastError = e;
-        trace.mark('load-timeout', {'attempt': attempt});
+
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider timeout (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
       } on FunctionException catch (e) {
         lastError = e;
-        trace.mark(
-            'load-function-error', {'attempt': attempt, 'status': e.status});
+
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider function error ${e.status} (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
         // For auth/permission issues, do not keep retrying
         if (e.status == 401 || e.status == 403) break;
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
-        trace.mark('load-error', {'attempt': attempt, 'error': e});
+
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider error (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}: $e');
       }
     }
 
     if (cached != null) {
-      trace.mark('fallback-cache-hit');
       return cached;
     }
 

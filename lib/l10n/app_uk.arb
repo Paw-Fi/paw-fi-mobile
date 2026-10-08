@@ -3684,9 +3684,9 @@
   "emailSenderVerificationDescription": "Ми надішлемо посилання для підтвердження на цю адресу. Чеки імпортуватимуться лише після того, як власник поштової скриньки надасть цьому обліковому запису дозвіл.",
   "notificationRepairProcessing": "Перевіряємо push-сповіщення…",
   "emailFileImportAccountEmailAlreadyIncluded": "Електронна адреса вашого облікового запису Moneko вже є в списку дозволених відправників. Додавати її повторно не потрібно.",
-  "aiClarificationNotSaved": "Ці дані буде збережено після вашого підтвердження.",
+  "aiClarificationNotSaved": "Ці дані буде збережено після підтвердження.",
   "aiClarificationCustomAnswer": "Введіть власну відповідь",
-  "aiInputSavedForLater": "Введені дані збережено на цьому пристрої. Аналіз продовжиться, коли ви відкриєте Moneko з підключенням до інтернету.",
+  "aiInputSavedForLater": "Дані збережено на цьому пристрої. Аналіз продовжиться, коли ви відкриєте Moneko з підключенням до інтернету.",
   "unlockMonekoPlus": "Відкрийте Moneko Plus",
   "unlimitedAiExpenseCapture": "Необмежений облік витрат за допомогою ШІ",
   "unlimitedSpacesWallets": "Необмежена кількість Spaces і гаманців",
@@ -3737,5 +3737,9 @@
   "budgetCompanionPlanning5": "Куди йдуть гроші?",
   "budgetCompanionPlanning6": "Почни відстежувати сьогодні!",
   "budgetCompanionPlanning7": "План починається тут!",
-  "budgetCompanionPlanning8": "Малі кроки, великі перемоги!"
+  "budgetCompanionPlanning8": "Малі кроки, великі перемоги!",
+  "typeYourOwnAnswer": "Введіть свою відповідь",
+  "aiClarificationError": "{error}\nЦі дані буде збережено після підтвердження.",
+  "senderAccountConfirmation": "Ви додаєте цього відправника до свого облікового запису Moneko ({accountEmail}). Ми надішлемо посилання для підтвердження на адресу відправника. Чеки імпортуватимуться лише після підтвердження відправника.",
+  "previouslyForwardedAttachmentNotice": "Якщо ви вже пересилали вкладення, після схвалення та підтвердження цього відправника його потрібно буде переслати ще раз. Раніше переслані вкладення не імпортуватимуться автоматично."
 }

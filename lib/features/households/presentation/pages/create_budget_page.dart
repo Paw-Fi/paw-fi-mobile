@@ -74,17 +74,6 @@ class CreateBudgetPage extends HookConsumerWidget {
       isCreating.value = true;
 
       try {
-        debugPrint('🔵 Creating budget with:');
-        debugPrint('  - householdId: $householdId');
-        debugPrint('  - name: ${nameController.text.trim()}');
-        debugPrint('  - period: ${selectedPeriod.value.toJson()}');
-        debugPrint('  - currency: ${selectedCurrency.value}');
-        debugPrint('  - amountCents: ${(amount * 100).toInt()}');
-        debugPrint('  - warnThreshold: ${warnThreshold.value}');
-        debugPrint('  - alertThreshold: ${alertThreshold.value}');
-        debugPrint('  - budgetType: ${selectedType.value.toJson()}');
-        debugPrint('  - countSplitPortionOnly: ${countSplitPortionOnly.value}');
-
         await ref
             .read(householdBudgetsProvider(householdId).notifier)
             .createBudget(
@@ -98,18 +87,11 @@ class CreateBudgetPage extends HookConsumerWidget {
               countSplitPortionOnly: countSplitPortionOnly.value,
             );
 
-        debugPrint('✅ Budget created successfully');
-
         if (context.mounted) {
           AppToast.success(context, context.l10n.budgetCreatedSuccessfully);
           Navigator.pop(context);
         }
-      } catch (e, stackTrace) {
-        debugPrint('❌ Error creating budget:');
-        debugPrint('Error type: ${e.runtimeType}');
-        debugPrint('Error message: $e');
-        debugPrint('Stack trace: $stackTrace');
-
+      } catch (e) {
         if (context.mounted) {
           final l10n = context.l10n;
           _showError(context, '${l10n.failedToCreateBudget}: $e');
@@ -172,17 +154,21 @@ class CreateBudgetPage extends HookConsumerWidget {
                         final currency = selectedCurrency.value;
                         final symbol = resolveCurrencySymbol(currency);
                         final displayTitle = nameController.text.trim();
-                        final effectiveTitle = displayTitle.isNotEmpty ? displayTitle : context.l10n.budget;
+                        final effectiveTitle = displayTitle.isNotEmpty
+                            ? displayTitle
+                            : context.l10n.budget;
 
                         final header = Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: colorScheme.brightness == Brightness.dark
                                 ? Colors.white.withValues(alpha: 0.05)
                                 : Colors.black.withValues(alpha: 0.03),
                             borderRadius: BorderRadius.circular(100),
                             border: Border.all(
-                              color: colorScheme.outline.withValues(alpha: 0.08),
+                              color:
+                                  colorScheme.outline.withValues(alpha: 0.08),
                               width: 1,
                             ),
                           ),
@@ -209,7 +195,8 @@ class CreateBudgetPage extends HookConsumerWidget {
                                 height: 4,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: colorScheme.mutedForeground.withValues(alpha: 0.4),
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.4),
                                 ),
                               ),
                               const SizedBox(width: 6),

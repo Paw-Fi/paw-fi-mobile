@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+
 import 'dashboard_config.dart';
 import 'dashboard_layout_defaults.dart';
 import 'dashboard_repository.dart';
@@ -27,35 +27,10 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
 // must not gate the first Home render on another asynchronous lookup.
 final dashboardRepositoryFutureProvider =
     FutureProvider<DashboardRepository>((ref) async {
-  final trace = HomeDebugTrace(
-    label: 'DashboardRepositoryInit',
-    enabled: ref.read(homeDebugLoggingEnabledProvider),
-    logSink: ref.read(homeDebugLogSinkProvider),
-  );
-  trace.mark('init-start');
   final repository = ref.watch(dashboardRepositoryProvider);
-  trace.mark('init-success');
+
   return repository;
 });
-
-void _dashboardConfigTrace(
-  String label,
-  String event, {
-  Map<String, Object?> fields = const <String, Object?>{},
-}) {
-  if (!foundation.kDebugMode) {
-    return;
-  }
-
-  final entries = fields.entries
-      .where((entry) => entry.value != null)
-      .map((entry) =>
-          '${entry.key}=${entry.value.toString().replaceAll(RegExp(r'\s+'), '_')}')
-      .join(' ');
-  foundation.debugPrint(
-    '[HomeTrace][$label] $event${entries.isEmpty ? '' : ' $entries'}',
-  );
-}
 
 // ============================================================================
 // EDIT MODE STATE
@@ -87,8 +62,6 @@ class PersonalDashboardController
   }
 
   Future<void> _load() async {
-    _dashboardConfigTrace('PersonalDashboardConfig', 'load-start',
-        fields: {'user': _userId});
     try {
       final saved = await _repository.loadPersonalLayout(_userId);
       if (!mounted) return;
@@ -102,14 +75,10 @@ class PersonalDashboardController
       if (!_dashboardLayoutsMatch(saved, configs)) {
         await _repository.savePersonalLayout(_userId, configs);
       }
-      _dashboardConfigTrace('PersonalDashboardConfig', 'load-success',
-          fields: {'user': _userId, 'widgetCount': configs.length});
     } catch (e, st) {
       if (!mounted) return;
       // A persistence error must not hide an already resolved layout.
       if (!state.hasValue) state = AsyncValue.error(e, st);
-      _dashboardConfigTrace('PersonalDashboardConfig', 'load-error',
-          fields: {'user': _userId, 'error': e});
     }
   }
 
@@ -193,8 +162,6 @@ class HouseholdDashboardController
   }
 
   Future<void> _load() async {
-    _dashboardConfigTrace('HouseholdDashboardConfig', 'load-start',
-        fields: {'household': _householdId});
     try {
       final saved = await _repository.loadHouseholdLayout(_householdId);
       if (!mounted) return;
@@ -208,14 +175,10 @@ class HouseholdDashboardController
       if (!_dashboardLayoutsMatch(saved, configs)) {
         await _repository.saveHouseholdLayout(_householdId, configs);
       }
-      _dashboardConfigTrace('HouseholdDashboardConfig', 'load-success',
-          fields: {'household': _householdId, 'widgetCount': configs.length});
     } catch (e, st) {
       if (!mounted) return;
       // A persistence error must not hide an already resolved layout.
       if (!state.hasValue) state = AsyncValue.error(e, st);
-      _dashboardConfigTrace('HouseholdDashboardConfig', 'load-error',
-          fields: {'household': _householdId, 'error': e});
     }
   }
 

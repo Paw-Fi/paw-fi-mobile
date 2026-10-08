@@ -98,11 +98,6 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     super.dispose();
   }
 
-  void _debugAutoSplit(String message) {
-    if (!_debugAutoSplitLogs) return;
-    debugPrint('[HouseholdSettings][AutoSplit] $message');
-  }
-
   @override
   Widget build(BuildContext context) {
     final householdAsync = ref.watch(householdProvider(widget.householdId));
@@ -446,9 +441,6 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
                       onChanged: (splitType, splits) {
                         if (!mounted) return;
                         if (members.isEmpty || splits.isEmpty) {
-                          _debugAutoSplit(
-                            'Ignoring split change (members=${members.length}, splits=${splits.length}, type=${splitType.name})',
-                          );
                           return;
                         }
                         final serializedConfig = serializeStoredSplitConfig(
@@ -464,14 +456,9 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
                         final nextEncoded =
                             _encodeSplitConfigForComparison(nextConfig);
                         if (currentEncoded == nextEncoded) {
-                          _debugAutoSplit(
-                            'Ignoring no-op split change (type=${splitType.name})',
-                          );
                           return;
                         }
-                        _debugAutoSplit(
-                          'Applying split change type=${splitType.name} current=$currentEncoded next=$nextEncoded',
-                        );
+
                         setState(() {
                           _autoSplitEnabled = true;
                           _autoSplitConfig = nextConfig;
@@ -647,13 +634,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
         (hasNameChanged ||
             hasImageChanged ||
             hasAutoSplitChanged ||
-            hasSpaceVisibilityChanged)) {
-      _debugAutoSplit(
-        'Dirty state name=$hasNameChanged image=$hasImageChanged autoSplit=$hasAutoSplitChanged visibility=$hasSpaceVisibilityChanged '
-        'enabledCurrent=${_autoSplitEnabled ?? household.autoSplitEnabled} enabledInitial=${_initialAutoSplitEnabled ?? household.autoSplitEnabled} '
-        'splitCurrent=$encodedCurrentSplitConfig splitInitial=$encodedInitialSplitConfig',
-      );
-    }
+            hasSpaceVisibilityChanged)) {}
 
     return hasNameChanged ||
         hasImageChanged ||

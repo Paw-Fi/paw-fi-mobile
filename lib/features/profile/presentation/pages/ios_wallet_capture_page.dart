@@ -98,7 +98,6 @@ class IosWalletCapturePage extends HookConsumerWidget {
         debugReport.value =
             await WalletCaptureDebugService.instance.getReport();
       } catch (e) {
-        debugPrint('Failed to load wallet capture debug report: $e');
       } finally {
         isLoadingDebugReport.value = false;
       }
@@ -116,9 +115,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
           message: message,
           details: details,
         );
-      } catch (e) {
-        debugPrint('Failed to append wallet capture debug entry: $e');
-      }
+      } catch (e) {}
     }
 
     useEffect(() {
@@ -146,11 +143,6 @@ class IosWalletCapturePage extends HookConsumerWidget {
               contactId.value = response['id'] as String?;
               remoteEnabled =
                   (response['wallet_capture_enabled'] as bool?) ?? false;
-              debugPrint(
-                  '[WalletCapture] loadConfig: contactId=${contactId.value} remoteEnabled=$remoteEnabled');
-            } else {
-              debugPrint(
-                  '[WalletCapture] loadConfig: no user_contacts row found for uid=${authState.uid}');
             }
           }
 
@@ -163,7 +155,6 @@ class IosWalletCapturePage extends HookConsumerWidget {
             userId: authState.uid,
           );
         } catch (e) {
-          debugPrint('Failed to load wallet capture config: $e');
         } finally {
           isLoading.value = false;
         }
@@ -284,8 +275,6 @@ class IosWalletCapturePage extends HookConsumerWidget {
       final updated = previous.copyWith(enabled: enabled);
       config.value = updated;
 
-      debugPrint(
-          '[WalletCapture] toggleEnabled called: enabled=$enabled uid=${authState.uid} contactId=${contactId.value}');
       await recordDebugEntry(
         action: 'toggle-start',
         message: 'Wallet capture switch toggled from the UI.',
@@ -298,12 +287,12 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
       try {
         // Write to iOS native layer.
-        debugPrint('[WalletCapture] Writing to iOS native...');
+
         await WalletCaptureService.instance.setConfig(
           updated,
           userId: authState.uid,
         );
-        debugPrint('[WalletCapture] iOS native write succeeded');
+
         await recordDebugEntry(
           action: 'toggle-native-write-success',
           message: 'Wallet capture config was written to the iOS shared store.',
@@ -317,7 +306,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
         // Write to Supabase via the update-wallet-capture-setting edge function
         // (service role bypass RLS — same pattern as update-preferred-currency).
-        debugPrint('[WalletCapture] Calling edge function...');
+
         await recordDebugEntry(
           action: 'toggle-function-invoke-start',
           message: 'Invoking update-wallet-capture-setting.',
@@ -345,12 +334,9 @@ class IosWalletCapturePage extends HookConsumerWidget {
         if (newContactId != null) {
           contactId.value = newContactId;
         }
-        debugPrint(
-            '[WalletCapture] Edge function OK — contactId=${contactId.value}');
+
         await loadDebugReport();
-      } catch (e, st) {
-        debugPrint('[WalletCapture] toggleEnabled error: $e');
-        debugPrint('[WalletCapture] Stack trace: $st');
+      } catch (e) {
         // Roll back optimistic update on failure.
         config.value = previous;
         try {
@@ -358,10 +344,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
             previous,
             userId: authState.uid,
           );
-        } catch (rollbackError) {
-          debugPrint(
-              'Failed to roll back native wallet capture config: $rollbackError');
-        }
+        } catch (rollbackError) {}
         await recordDebugEntry(
           action: 'toggle-error',
           message: 'Wallet capture toggle failed before completion.',
