@@ -3,12 +3,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/transaction_category_avatar.dart';
 
 String _formatLocalizedCurrency(
   BuildContext context,
@@ -210,7 +210,6 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
   @override
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
-    final categoryColor = getCategoryColor(widget.item.category, context);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -241,16 +240,10 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  // Category Icon/Initial
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: categoryColor.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: buildCategoryIcon(widget.item.category, size: 20),
+                  TransactionCategoryAvatar(
+                    category: widget.item.category,
+                    size: 40,
+                    imageSize: 24,
                   ),
                   const SizedBox(width: 12),
 

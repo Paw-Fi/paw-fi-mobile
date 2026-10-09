@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -1013,26 +1014,26 @@ class MainShell extends HookConsumerWidget {
                     useNativeBottomBar: false,
                     items: [
                       AdaptiveNavigationDestination(
-                        icon: 'house.fill',
+                        icon: const _MainShellNavigationIcon('home'),
                         label: context.l10n.home,
                       ),
                       AdaptiveNavigationDestination(
-                        icon: 'repeat',
+                        icon: const _MainShellNavigationIcon('recurring'),
                         label: context.l10n.recurring,
                         badgeCount: hasUnconfirmedRecurringOccurrences
                             ? unconfirmedRecurringCount
                             : null,
                       ),
                       AdaptiveNavigationDestination(
-                        icon: 'chart.pie',
+                        icon: const _MainShellNavigationIcon('budget'),
                         label: context.l10n.budget,
                       ),
                       AdaptiveNavigationDestination(
-                        icon: 'creditcard',
+                        icon: const _MainShellNavigationIcon('wallet'),
                         label: context.l10n.wallet,
                       ),
                       AdaptiveNavigationDestination(
-                        icon: 'square.grid.2x2',
+                        icon: const _MainShellNavigationIcon('browse'),
                         label: context.l10n.browse,
                       ),
                     ],
@@ -1045,7 +1046,7 @@ class MainShell extends HookConsumerWidget {
                       },
                       items: [
                         BottomNavigationBarItem(
-                          icon: const Icon(CupertinoIcons.house_fill),
+                          icon: const _MainShellNavigationIcon('home'),
                           label: context.l10n.home,
                         ),
                         BottomNavigationBarItem(
@@ -1053,20 +1054,20 @@ class MainShell extends HookConsumerWidget {
                             isVisible: hasUnconfirmedRecurringOccurrences,
                             isLoading: isRecurringBadgeLoading,
                             right: -10,
-                            child: const Icon(CupertinoIcons.repeat),
+                            child: const _MainShellNavigationIcon('recurring'),
                           ),
                           label: context.l10n.recurring,
                         ),
                         BottomNavigationBarItem(
-                          icon: const Icon(CupertinoIcons.chart_pie),
+                          icon: const _MainShellNavigationIcon('budget'),
                           label: context.l10n.budget,
                         ),
                         BottomNavigationBarItem(
-                          icon: const Icon(CupertinoIcons.creditcard),
+                          icon: const _MainShellNavigationIcon('wallet'),
                           label: context.l10n.wallet,
                         ),
                         BottomNavigationBarItem(
-                          icon: const Icon(CupertinoIcons.square_grid_2x2),
+                          icon: const _MainShellNavigationIcon('browse'),
                           label: context.l10n.browse,
                         ),
                       ],
@@ -1082,7 +1083,7 @@ class MainShell extends HookConsumerWidget {
                         },
                         destinations: [
                           NavigationDestination(
-                            icon: const Icon(Icons.home_filled),
+                            icon: const _MainShellNavigationIcon('home'),
                             label: context.l10n.home,
                           ),
                           NavigationDestination(
@@ -1090,22 +1091,21 @@ class MainShell extends HookConsumerWidget {
                               right: -10,
                               isVisible: hasUnconfirmedRecurringOccurrences,
                               isLoading: isRecurringBadgeLoading,
-                              child: const Icon(Icons.repeat),
+                              child:
+                                  const _MainShellNavigationIcon('recurring'),
                             ),
                             label: context.l10n.recurring,
                           ),
                           NavigationDestination(
-                            icon: const Icon(Icons.pie_chart_outline),
+                            icon: const _MainShellNavigationIcon('budget'),
                             label: context.l10n.budget,
                           ),
                           NavigationDestination(
-                            icon: const Icon(
-                              Icons.account_balance_wallet_outlined,
-                            ),
+                            icon: const _MainShellNavigationIcon('wallet'),
                             label: context.l10n.wallet,
                           ),
                           NavigationDestination(
-                            icon: const Icon(Icons.apps_rounded),
+                            icon: const _MainShellNavigationIcon('browse'),
                             label: context.l10n.browse,
                           ),
                         ],
@@ -1142,28 +1142,29 @@ class MainShell extends HookConsumerWidget {
                       // native view during rebuilds can trigger a duplicate-view
                       // platform exception on iOS.
                       key: const ValueKey('ios26-native-tab-bar'),
+                      // Named SVG image sets compiled by Xcode for UIKit.
                       destinations: [
                         AdaptiveNavigationDestination(
-                          icon: 'house.fill',
+                          icon: 'MonekoTabHome',
                           label: context.l10n.home,
                         ),
                         AdaptiveNavigationDestination(
-                          icon: 'repeat',
+                          icon: 'MonekoTabRecurring',
                           label: context.l10n.recurring,
                           badgeCount: hasUnconfirmedRecurringOccurrences
                               ? unconfirmedRecurringCount
                               : null,
                         ),
                         AdaptiveNavigationDestination(
-                          icon: 'chart.pie',
+                          icon: 'MonekoTabBudget',
                           label: context.l10n.budget,
                         ),
                         AdaptiveNavigationDestination(
-                          icon: 'creditcard',
+                          icon: 'MonekoTabWallet',
                           label: context.l10n.wallet,
                         ),
                         AdaptiveNavigationDestination(
-                          icon: 'square.grid.2x2',
+                          icon: 'MonekoTabBrowse',
                           label: context.l10n.browse,
                         ),
                       ],
@@ -1562,6 +1563,28 @@ class _RecurringFab extends ConsumerWidget {
       backgroundColor: colorScheme.primary,
       foregroundColor: colorScheme.primaryForeground,
       child: const Icon(Icons.add),
+    );
+  }
+}
+
+class _MainShellNavigationIcon extends StatelessWidget {
+  const _MainShellNavigationIcon(this.name);
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconTheme = IconTheme.of(context);
+    final size = (iconTheme.size ?? 24) * (28 / 24);
+    return SvgPicture.asset(
+      'lib/assets/images/navigation/$name.svg',
+      width: size,
+      height: size,
+      colorFilter: ColorFilter.mode(
+        iconTheme.color ?? Theme.of(context).colorScheme.onSurface,
+        BlendMode.srcIn,
+      ),
+      excludeFromSemantics: true,
     );
   }
 }
