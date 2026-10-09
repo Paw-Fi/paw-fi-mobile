@@ -124,7 +124,7 @@ void showMultiCurrencyTotalBreakdownSheet({
                       ),
                     ),
                     Text(
-                      formatLocalizedNumber(context, typeTotal.expenseTotal),
+                      '${resolveCurrencySymbol(typeTotal.currency)}${formatLocalizedNumber(context, typeTotal.expenseTotal)}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

@@ -379,25 +379,11 @@ class PocketsHeaderCard extends StatelessWidget {
               isSeamless ? CrossAxisAlignment.start : CrossAxisAlignment.center,
           children: [
             if (isSeamless)
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  Text(
-                    context.l10n.monthlyBudget,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: subTextColor,
-                    ),
-                  ),
-                  HeaderMonthLabel(
-                    month: periodMonth,
-                    textKey: const ValueKey('pockets-header-month-label'),
-                  ),
-                ],
+              HeaderMonthLabel(
+                month: periodMonth,
+                textKey: const ValueKey('pockets-header-month-label'),
+                fontSize: 13,
+                leadingLabel: context.l10n.monthlyBudget,
               )
             else
               monthSelector,

@@ -69,7 +69,7 @@ class BudgetCompanionCard extends StatelessWidget {
   }
 }
 
-class _CategorySheet extends StatelessWidget {
+class _CategorySheet extends StatefulWidget {
   const _CategorySheet({
     required this.categories,
     required this.hasError,
@@ -87,6 +87,57 @@ class _CategorySheet extends StatelessWidget {
   final bool hasSpending;
   final VoidCallback onRetry;
   final Duration motion;
+
+  @override
+  State<_CategorySheet> createState() => _CategorySheetState();
+}
+
+class _CategorySheetState extends State<_CategorySheet>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _intro;
+  bool _introStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _intro = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900));
+  }
+
+  void _startIntroWhenReady() {
+    if (widget.categories == null) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _introStarted = true;
+      _intro.value = 1;
+    } else if (!_introStarted) {
+      // Keep this latch above the switcher so refreshes, errors and empty
+      // results cannot remount the chart and replay its initial entrance.
+      _introStarted = true;
+      if (widget.categories!.isEmpty) {
+        _intro.value = 1;
+      } else {
+        _intro.forward();
+      }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _startIntroWhenReady();
+  }
+
+  @override
+  void didUpdateWidget(_CategorySheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _startIntroWhenReady();
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,16 +176,28 @@ class _CategorySheet extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           AnimatedSwitcher(
-            duration: motion,
-            child: categories != null
+            duration: widget.motion,
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position:
+                    Tween<Offset>(begin: const Offset(0, .04), end: Offset.zero)
+                        .animate(animation),
+                child: child,
+              ),
+            ),
+            child: widget.categories != null
                 ? _CategoryBars(
-                    categories: categories!,
-                    currency: currency,
-                    useCustomStyles: useCustomStyles,
-                    hasSpending: hasSpending,
+                    categories: widget.categories!,
+                    currency: widget.currency,
+                    useCustomStyles: widget.useCustomStyles,
+                    hasSpending: widget.hasSpending,
+                    intro: _intro,
                   )
-                : hasError
-                    ? _ErrorContent(onRetry: onRetry, compact: true)
+                : widget.hasError
+                    ? _ErrorContent(onRetry: widget.onRetry, compact: true)
                     : const BudgetCompanionSkeleton(),
           ),
         ],
@@ -148,11 +211,13 @@ class _CategoryBars extends StatelessWidget {
       {required this.categories,
       required this.currency,
       required this.useCustomStyles,
-      required this.hasSpending});
+      required this.hasSpending,
+      required this.intro});
   final List<BudgetCompanionCategory> categories;
   final String currency;
   final bool useCustomStyles;
   final bool hasSpending;
+  final Animation<double> intro;
 
   @override
   Widget build(BuildContext context) {
@@ -186,15 +251,23 @@ class _CategoryBars extends StatelessWidget {
         physics: hasOverflow
             ? const ClampingScrollPhysics()
             : const NeverScrollableScrollPhysics(),
-        child: Row(children: [
-          for (final category in categories)
-            SizedBox(
-                width: itemExtent,
-                child: _CategoryBar(
-                    category: category,
-                    currency: currency,
-                    useCustomStyles: useCustomStyles)),
-        ]),
+        child: AnimatedBuilder(
+            animation: intro,
+            builder: (context, child) => Row(children: [
+                  for (var index = 0; index < categories.length; index++)
+                    SizedBox(
+                        key: ValueKey(categories[index].category),
+                        width: itemExtent,
+                        child: _CategoryBar(
+                            category: categories[index],
+                            currency: currency,
+                            useCustomStyles: useCustomStyles,
+                            // Bound the stagger so even long lists finish together.
+                            entrance: Interval(.1 + index.clamp(0, 6) * .04,
+                                    .76 + index.clamp(0, 6) * .04,
+                                    curve: Curves.easeInOutCubic)
+                                .transform(intro.value))),
+                ])),
       );
     });
   }
@@ -207,10 +280,12 @@ class _CategoryBar extends StatelessWidget {
   const _CategoryBar(
       {required this.category,
       required this.currency,
-      required this.useCustomStyles});
+      required this.useCustomStyles,
+      required this.entrance});
   final BudgetCompanionCategory category;
   final String currency;
   final bool useCustomStyles;
+  final double entrance;
 
   @override
   Widget build(BuildContext context) {
@@ -235,10 +310,14 @@ class _CategoryBar extends StatelessWidget {
                             alignment: Alignment.bottomCenter,
                             child: AnimatedContainer(
                               key: ValueKey('budget-bar-${category.category}'),
-                              duration: _motion(context),
+                              duration: entrance < 1
+                                  ? Duration.zero
+                                  : _motion(context),
                               curve: Curves.easeOutCubic,
                               width: barWidth,
-                              height: barAreaHeight * category.heightFactor,
+                              height: barAreaHeight *
+                                  category.heightFactor *
+                                  entrance,
                               decoration: BoxDecoration(
                                   color: Color.alphaBlend(
                                       color.withValues(alpha: .5),

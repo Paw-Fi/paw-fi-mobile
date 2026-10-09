@@ -91,6 +91,150 @@ Future<void> _pump(
 }
 
 void main() {
+  double barHeight(WidgetTester tester, String category) =>
+      tester.getSize(find.byKey(ValueKey('budget-bar-$category'))).height;
+
+  testWidgets('initial chart waits for data then grows bars in a stagger',
+      (tester) async {
+    await _pump(
+        tester,
+        BudgetCompanionData(
+            summary: _data().summary, categories: const AsyncLoading()),
+        disableAnimations: false);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byType(BudgetCompanionSkeleton), findsOneWidget);
+    expect(find.byKey(const ValueKey('budget-bar-food')), findsNothing);
+
+    await _pump(tester, _data(),
+        disableAnimations: false, pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 0);
+    expect(barHeight(tester, 'shopping'), 0);
+    // The outgoing skeleton and incoming chart share the transition.
+    expect(find.byType(BudgetCompanionSkeleton), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 180));
+    final foodProgress = barHeight(tester, 'food') / 160;
+    final shoppingProgress = barHeight(tester, 'shopping') / (160 * 384 / 498);
+    expect(foodProgress, greaterThan(0));
+    expect(foodProgress, lessThan(1));
+    expect(shoppingProgress, lessThan(foodProgress));
+    await tester.pumpAndSettle();
+    expect(find.byType(BudgetCompanionSkeleton), findsNothing);
+    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'shopping'), closeTo(160 * 384 / 498, .01));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('initial cached chart animates once and refresh does not replay',
+      (tester) async {
+    final cached = _data();
+    await _pump(tester, cached,
+        disableAnimations: false, pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 0);
+    await tester.pumpAndSettle();
+    expect(barHeight(tester, 'food'), 160);
+    await _pump(
+        tester,
+        BudgetCompanionData(
+          summary: cached.summary,
+          categories: const AsyncLoading<List<BudgetCompanionCategory>>()
+              .copyWithPrevious(cached.categories, isRefresh: false),
+          isRefreshing: true,
+        ),
+        disableAnimations: false,
+        pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 160);
+    expect(find.byType(BudgetCompanionSkeleton), findsNothing);
+    await _pump(tester, cached,
+        disableAnimations: false, pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 160);
+
+    await _pump(
+        tester,
+        BudgetCompanionData(
+          summary: cached.summary,
+          categories: AsyncData(
+              budgetCompanionCategories({'food': 100, 'shopping': 200})),
+        ),
+        disableAnimations: false,
+        pumpDuration: Duration.zero);
+    // Changed values settle from their previous height, rather than zero.
+    expect(barHeight(tester, 'food'), 160);
+    await tester.pumpAndSettle();
+    expect(barHeight(tester, 'food'), 80);
+    expect(barHeight(tester, 'shopping'), 160);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty first result consumes the initial chart entrance',
+      (tester) async {
+    await _pump(tester, _data(spent: 0, categories: false),
+        disableAnimations: false);
+    await tester.pumpAndSettle();
+    await _pump(tester, _data(),
+        disableAnimations: false, pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 160);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('first successful retry animates but a later remount does not',
+      (tester) async {
+    final failed = BudgetCompanionData(
+        summary: _data().summary,
+        categories: AsyncError(StateError('offline'), StackTrace.current));
+    await _pump(tester, failed, disableAnimations: false);
+    await _pump(tester, _data(),
+        disableAnimations: false, pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 0);
+    await tester.pumpAndSettle();
+    await _pump(tester, failed, disableAnimations: false);
+    await tester.pumpAndSettle();
+    await _pump(tester, _data(),
+        disableAnimations: false, pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 160);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reduced motion shows loaded bars immediately', (tester) async {
+    await _pump(
+        tester,
+        BudgetCompanionData(
+            summary: _data().summary, categories: const AsyncLoading()));
+    await _pump(tester, _data(), pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 160);
+    expect(find.byType(BudgetCompanionSkeleton), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('enabling reduced motion finishes the chart intro',
+      (tester) async {
+    await _pump(tester, _data(), disableAnimations: false);
+    expect(barHeight(tester, 'food'), lessThan(160));
+    await _pump(tester, _data(), pumpDuration: Duration.zero);
+    expect(barHeight(tester, 'food'), 160);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('disposing during chart entrance releases its ticker',
+      (tester) async {
+    await _pump(tester, _data(), disableAnimations: false);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('disposing before category data arrives releases its ticker',
+      (tester) async {
+    await _pump(
+        tester,
+        BudgetCompanionData(
+            summary: _data().summary, categories: const AsyncLoading()),
+        disableAnimations: false);
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('category refresh and identical totals do not rebuild the header',
       (tester) async {
     final data = StateProvider<BudgetCompanionData>((ref) => _data());
@@ -283,12 +427,12 @@ void main() {
     expect(find.text("Nice! You're on track."), findsOneWidget);
     expect(find.text('Spending by category'), findsNothing);
     expect(tester.getSize(find.byKey(const ValueKey('budget-bar-food'))).height,
-        190);
+        160);
     expect(
         tester
             .getSize(find.byKey(const ValueKey('budget-bar-shopping')))
             .height,
-        closeTo(190 * 384 / 498, .01));
+        closeTo(160 * 384 / 498, .01));
     final viewport = tester
         .getRect(find.byKey(const ValueKey('budget-companion-categories')));
     final nextBar =

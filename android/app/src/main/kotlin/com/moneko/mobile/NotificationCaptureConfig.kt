@@ -1,6 +1,11 @@
 package com.moneko.mobile
 
 import android.content.Context
+import android.util.Log
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import androidx.work.workDataOf
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
@@ -43,6 +48,7 @@ class NotificationCaptureConfig(context: Context) {
         private const val KEY_EXPIRES_AT = "expires_at"
         private const val KEY_AUTH_CONTEXT_VERSION = "auth_context_version"
         private const val KEY_PENDING_CAPTURES = "pending_captures"
+        private const val KEY_CAPTURE_REVISION = "capture_revision"
         private const val CLEANUP_WORK_PREFIX = "notification_capture_cleanup_"
         private const val MAX_PENDING_CAPTURES = 100
         internal const val PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1_000L
@@ -102,6 +108,9 @@ class NotificationCaptureConfig(context: Context) {
 
     val userId: String
         get() = authPrefs?.getString(KEY_USER_ID, "") ?: ""
+
+    val captureRevision: Long
+        get() = authPrefs?.getLong(KEY_CAPTURE_REVISION, 0L) ?: 0L
 
     val expiresAt: Long
         get() = authPrefs?.getLong(KEY_EXPIRES_AT, 0L) ?: 0L
@@ -259,6 +268,7 @@ class NotificationCaptureConfig(context: Context) {
                 putInt(KEY_AUTH_CONTEXT_VERSION, 2)
                 if (previousUserId.isNotBlank() && previousUserId != userId) {
                     remove(KEY_PENDING_CAPTURES)
+                    remove(KEY_CAPTURE_REVISION)
                 }
                 apply()
             }
@@ -301,10 +311,10 @@ class NotificationCaptureConfig(context: Context) {
             })
             val persisted = prefs.edit().putString(KEY_PENDING_CAPTURES, records.toString()).commit()
             if (!persisted) return false
-            if (!schedulePendingCaptureCleanup(recordId, queuedAt)) {
-                removePendingCaptures(setOf(recordId))
-                return false
-            }
+            // Scheduling failure must not undo a successful durable write.
+            // Construction/resume retries scheduling; reads still enforce the TTL.
+            schedulePendingCaptureCleanup(recordId, queuedAt)
+            schedulePendingCaptureRetry(recordId)
             return true
         }
     }
@@ -323,6 +333,34 @@ class NotificationCaptureConfig(context: Context) {
                     "body" to body.toString()
                 )
             }
+        }
+    }
+
+    /** Atomically acknowledge a response and publish its durable save revision. */
+    fun completePendingCapture(recordId: String, owner: String, saved: Boolean): Long? {
+        synchronized(pendingCaptureLock) {
+            val prefs = authPrefs ?: return null
+            if (owner != userId) return null
+            val records = readPendingCaptures()
+            val remaining = JSONArray()
+            var found = false
+            for (index in 0 until records.length()) {
+                val record = records.optJSONObject(index) ?: continue
+                if (record.optString("id") == recordId && record.optString("userId") == owner) {
+                    found = true
+                } else {
+                    remaining.put(record)
+                }
+            }
+            // TTL cleanup may remove a record while its request is in flight.
+            // Still publish a confirmed save for the same actor.
+            if (!found && !saved) return captureRevision
+            val revision = captureRevision + if (saved) 1 else 0
+            val persisted = prefs.edit()
+                .putString(KEY_PENDING_CAPTURES, remaining.toString())
+                .putLong(KEY_CAPTURE_REVISION, revision)
+                .commit()
+            return if (persisted) revision else null
         }
     }
 
@@ -389,6 +427,7 @@ class NotificationCaptureConfig(context: Context) {
             val queuedAt = record.optLong("queuedAt")
             if (recordId.isNotBlank() && queuedAt > 0) {
                 schedulePendingCaptureCleanup(recordId, queuedAt)
+                schedulePendingCaptureRetry(recordId)
             }
         }
     }
@@ -411,6 +450,23 @@ class NotificationCaptureConfig(context: Context) {
         }
     }
 
+    private fun schedulePendingCaptureRetry(recordId: String) {
+        try {
+            val work = OneTimeWorkRequestBuilder<NotificationCaptureRetryWorker>()
+                .setInputData(workDataOf("captureId" to recordId))
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                // Live dispatch remains immediate; this survives process death and network failure.
+                .setInitialDelay(10, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
+                .build()
+            WorkManager.getInstance(appContext).enqueueUniqueWork(
+                "notification_capture_retry_$recordId", ExistingWorkPolicy.KEEP, work,
+            )
+        } catch (_: Exception) {
+            Log.w("MonekoCaptureConfig", "Retry scheduling unavailable; durable capture retained")
+        }
+    }
+
     fun clearSessionTokens() {
         synchronized(pendingCaptureLock) {
             authPrefs?.edit()?.apply {
@@ -419,6 +475,7 @@ class NotificationCaptureConfig(context: Context) {
                 remove(KEY_EXPIRES_AT)
                 remove(KEY_AUTH_CONTEXT_VERSION)
                 remove(KEY_PENDING_CAPTURES)
+                remove(KEY_CAPTURE_REVISION)
                 apply()
             }
         }
@@ -436,6 +493,7 @@ class NotificationCaptureConfig(context: Context) {
                 remove(KEY_EXPIRES_AT)
                 remove(KEY_AUTH_CONTEXT_VERSION)
                 remove(KEY_PENDING_CAPTURES)
+                remove(KEY_CAPTURE_REVISION)
                 apply()
             }
             return true

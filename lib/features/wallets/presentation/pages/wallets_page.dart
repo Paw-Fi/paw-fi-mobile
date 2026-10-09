@@ -854,25 +854,11 @@ class _WalletsOverviewCard extends HookConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                Text(
-                  context.l10n.totalNetWorth,
-                  style: TextStyle(
-                    color: colorScheme.mutedForeground,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                HeaderMonthLabel(
-                  month: monthStart,
-                  textKey: const ValueKey('wallets-overview-month-label'),
-                ),
-              ],
+            HeaderMonthLabel(
+              month: monthStart,
+              textKey: const ValueKey('wallets-overview-month-label'),
+              fontSize: 13,
+              leadingLabel: context.l10n.totalNetWorth,
             ),
             const SizedBox(height: 12),
             Container(

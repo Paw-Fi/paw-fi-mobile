@@ -1,5 +1,6 @@
 package com.moneko.mobile
 
+import android.content.ComponentName
 import android.app.Notification
 import android.content.pm.PackageManager
 import android.service.notification.NotificationListenerService
@@ -7,14 +8,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 /**
  * Listens for incoming notifications and auto-captures transaction data
@@ -28,19 +22,11 @@ import java.util.concurrent.Executors
  */
 class TransactionNotificationListenerService : NotificationListenerService() {
 
-    private data class BackendCaptureResponse(
-        val statusCode: Int,
-        val responseBody: String
-    )
-
     companion object {
         private const val TAG = "MonekoCaptureService"
         private const val DEDUP_WINDOW_MS = 60_000L  // 60-second local dedup window
         private const val MAX_DEDUP_ENTRIES = 200
     }
-
-    /** Background executor for HTTP calls — avoids blocking the main thread. */
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
     /**
      * Local dedup cache: SHA-256(packageName + notification key + visible content) → timestamp.
@@ -185,121 +171,27 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             return
         }
 
-        // Send to backend on background thread
-        executor.submit {
-            try {
-                sendToBackend(
-                    config,
-                    packageName,
-                    dedupKey,
-                    body,
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send transaction to backend: ${e.message}")
-                // Remove dedup entry on failure so retry is possible
-                recentHashes.remove(dedupKey)
-            }
+        // All entry points share the same transport and in-process drain lock.
+        val context = applicationContext
+        NotificationCaptureDispatcher.executor.submit {
+            NotificationCaptureDispatcher.drain(NotificationCaptureConfig(context), captureUserId)
         }
     }
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        // No action needed on removal
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        val context = applicationContext
+        NotificationCaptureDispatcher.executor.submit {
+            val config = NotificationCaptureConfig(context)
+            NotificationCaptureDispatcher.drain(config, config.userId)
+        }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        executor.shutdownNow()
-    }
-
-    // ── HTTP transport ───────────────────────────────────────────────────
-
-    private fun sendToBackend(
-        config: NotificationCaptureConfig,
-        packageName: String,
-        dedupKey: String,
-        body: JSONObject,
-    ) {
-        if (!config.isAuthStorageAvailable) {
-            Log.w(TAG, "Secure auth storage unavailable - skipping capture")
-            recordCaptureTelemetry("auth_storage_unavailable")
-            return
-        }
-
-        val supabaseUrl = config.supabaseUrl
-        val anonKey = config.supabaseAnonKey
-        if (supabaseUrl.isBlank() || anonKey.isBlank()) {
-            Log.w(TAG, "Supabase config missing - skipping capture")
-            recordCaptureTelemetry("supabase_config_missing")
-            return
-        }
-
-        val idempotencyKey = body.optString("idempotencyKey", dedupKey)
-        val captureUserId = body.optString("userId")
-        if (captureUserId.isBlank() || config.userId != captureUserId) return
-
-        val accessToken = config.accessTokenForUser(captureUserId) ?: run {
-            queueCapture(config, body, dedupKey, "access_token_unavailable")
-            return
-        }
-        // Never pair an old capture with a token published by a new account.
-        if (config.userId != captureUserId) return
-
-        val url = URL("$supabaseUrl/functions/v1/classify-notification-capture")
-        val initialResponse = try {
-            executeCaptureRequest(url, accessToken, anonKey, body)
-        } catch (error: Exception) {
-            queueCapture(config, body, dedupKey, "capture_network_error")
-            return
-        }
-
-        when (initialResponse.statusCode) {
-            200, 201 -> {
-                val response = runCatching { JSONObject(initialResponse.responseBody) }.getOrNull()
-                val confirmed = response?.optBoolean("success") == true &&
-                    (response.optBoolean("ignored") || response.optBoolean("duplicate") ||
-                        response.optJSONObject("data")?.optString("id")?.isNotBlank() == true)
-                if (!confirmed) {
-                    queueCapture(config, body, dedupKey, "capture_unconfirmed_response")
-                    return
-                }
-                config.removePendingCaptureByIdempotencyKey(idempotencyKey)
-                recordCaptureTelemetry(
-                    action = "capture_success",
-                    details = mapOf("statusCode" to initialResponse.statusCode)
-                )
-            }
-            409 -> {
-                if (isRequestInProgressResponse(initialResponse.responseBody)) {
-                    Log.w(TAG, "Capture still in progress for $packageName - releasing local dedup for retry")
-                    recentHashes.remove(dedupKey)
-                } else {
-                    config.removePendingCaptureByIdempotencyKey(idempotencyKey)
-                }
-            }
-            401, 408, 429 -> {
-                queueCapture(
-                    config,
-                    body,
-                    dedupKey,
-                    "capture_http_${initialResponse.statusCode}"
-                )
-            }
-            in 500..599 -> {
-                queueCapture(
-                    config,
-                    body,
-                    dedupKey,
-                    "capture_http_${initialResponse.statusCode}"
-                )
-            }
-            400, 403, 422 -> {
-                config.removePendingCaptureByIdempotencyKey(idempotencyKey)
-                Log.w(TAG, "Terminal capture response ${initialResponse.statusCode}")
-            }
-            else -> {
-                Log.w(TAG, "Capture backend error ${initialResponse.statusCode}")
-            }
-        }
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        runCatching {
+            requestRebind(ComponentName(this, TransactionNotificationListenerService::class.java))
+        }.onFailure { Log.w(TAG, "Notification listener rebind unavailable") }
     }
 
     private fun buildCaptureRequestBody(
@@ -385,69 +277,6 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                 put("accountCurrency", it)
             }
         }
-    }
-
-    private fun executeCaptureRequest(
-        url: URL,
-        accessToken: String,
-        anonKey: String,
-        body: JSONObject
-    ): BackendCaptureResponse {
-        val conn = url.openConnection() as HttpURLConnection
-
-        return try {
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Authorization", "Bearer $accessToken")
-            conn.setRequestProperty("apikey", anonKey)
-            conn.doOutput = true
-            conn.connectTimeout = 15_000
-            conn.readTimeout = 30_000
-
-            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
-                writer.write(body.toString())
-            }
-
-            val responseCode = conn.responseCode
-            val responseBody = try {
-                BufferedReader(
-                    InputStreamReader(
-                        if (responseCode in 200..299) conn.inputStream else conn.errorStream,
-                        Charsets.UTF_8
-                    )
-                ).use { it.readText() }
-            } catch (_: Exception) {
-                ""
-            }
-
-            BackendCaptureResponse(responseCode, responseBody)
-        } finally {
-            conn.disconnect()
-        }
-    }
-
-    private fun isRequestInProgressResponse(responseBody: String): Boolean {
-        return responseBody.contains("REQUEST_IN_PROGRESS", ignoreCase = true)
-    }
-
-    // ── Auth helpers ─────────────────────────────────────────────────────
-
-    private fun queueCapture(
-        config: NotificationCaptureConfig,
-        body: JSONObject,
-        dedupKey: String,
-        reason: String
-    ) {
-        val queued = config.enqueuePendingCapture(body, body.optString("idempotencyKey", dedupKey))
-        if (!queued) recentHashes.remove(dedupKey)
-        recordCaptureTelemetry(
-            action = if (queued) "capture_queued" else "capture_queue_full",
-            details = mapOf(
-                "reason" to reason,
-                "accessTokenExpired" to config.isAccessTokenExpired,
-                "expiresAt" to config.expiresAt
-            )
-        )
     }
 
     private fun recordCaptureTelemetry(

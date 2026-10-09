@@ -3,6 +3,8 @@ package com.moneko.mobile
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.WindowCompat
@@ -16,6 +18,10 @@ class MainActivity : FlutterFragmentActivity() {
         private const val CHANNEL = "moneko/notification_capture"
     }
 
+    private var captureChannel: MethodChannel? = null
+    private var captureCallback: ((String, Long) -> Unit)? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         NotificationCaptureConfig(applicationContext).pruneExpiredPendingCaptures()
@@ -25,10 +31,18 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            CHANNEL
-        ).setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        captureChannel = channel
+        val callback: (String, Long) -> Unit = { userId, revision ->
+            mainHandler.post {
+                if (captureChannel === channel) {
+                    channel.invokeMethod("capturesChanged", mapOf("userId" to userId, "revision" to revision))
+                }
+            }
+        }
+        captureCallback = callback
+        NotificationCaptureDispatcher.onCaptured = callback
+        channel.setMethodCallHandler { call, result ->
             val config = NotificationCaptureConfig(applicationContext)
 
             when (call.method) {
@@ -77,6 +91,28 @@ class MainActivity : FlutterFragmentActivity() {
                 "clearLegacyNativeSession" -> {
                     config.clearLegacyNativeSession()
                     result.success(true)
+                }
+
+                "getPendingCaptureStatus" -> {
+                    result.success(mapOf(
+                        "userId" to config.userId,
+                        "revision" to config.captureRevision,
+                        "remaining" to config.getPendingCaptures().size,
+                    ))
+                }
+
+                "syncPendingCaptures" -> {
+                    val userId = (call.arguments as? Map<*, *>)?.get("userId") as? String ?: ""
+                    NotificationCaptureDispatcher.executor.submit {
+                        try {
+                            val status = NotificationCaptureDispatcher.drain(config, userId)
+                            mainHandler.post { result.success(status) }
+                        } catch (_: Exception) {
+                            mainHandler.post {
+                                result.error("CAPTURE_RETRY_FAILED", "Capture remains queued for retry.", null)
+                            }
+                        }
+                    }
                 }
 
                 "getPendingCaptures" -> {
@@ -165,6 +201,16 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        if (NotificationCaptureDispatcher.onCaptured === captureCallback) {
+            NotificationCaptureDispatcher.onCaptured = null
+        }
+        captureCallback = null
+        captureChannel?.setMethodCallHandler(null)
+        captureChannel = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     /**

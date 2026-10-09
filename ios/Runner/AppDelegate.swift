@@ -1176,8 +1176,7 @@ private func enqueuePendingWalletCapture(
         action: "wallet-offline-queue-save-failed",
         message: "Wallet capture could not be saved locally for offline sync.",
         details: [
-          "merchant": merchantName,
-          "amount": amount,
+          "pendingCount": records.count,
         ]
       )
       return false
@@ -1188,8 +1187,6 @@ private func enqueuePendingWalletCapture(
       action: "wallet-offline-queued",
       message: "Wallet capture was saved locally for later sync.",
       details: [
-        "merchant": merchantName,
-        "amount": amount,
         "pendingCount": records.count,
       ]
     )
@@ -1273,16 +1270,13 @@ private func submitWalletCaptureRequestBodyOnce(
   request.httpBody = try JSONSerialization.data(withJSONObject: body)
   if let key = body["idempotencyKey"] as? String { request.setValue(key, forHTTPHeaderField: "x-idempotency-key") }
 
-  let containsNotificationContent = endpoint != "save-wallet-transaction"
   SiriShortcutDiagnostics.record(
     source: "shortcut",
     action: "wallet-request-start",
     message: "Calling \(endpoint) edge function.",
     details: [
       "url": url.absoluteString,
-      "body": containsNotificationContent
-        ? "<redacted notification content>"
-        : truncateDiagnosticsBody(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "<nil>"),
+      "body": "<redacted capture payload>",
     ]
   )
 
@@ -1310,17 +1304,13 @@ private func submitWalletCaptureRequestBodyOnce(
     throw SiriShortcutIntentError.networkFailure
   }
 
-  let responseBody = String(data: data, encoding: .utf8) ?? "<non-utf8>"
-  let diagnosticResponseBody = containsNotificationContent
-    ? "<redacted notification capture response>"
-    : truncateDiagnosticsBody(responseBody)
   SiriShortcutDiagnostics.record(
     source: "shortcut",
     action: "wallet-request-finished",
     message: "Wallet capture edge function returned a response.",
     details: [
       "statusCode": httpResponse.statusCode,
-      "body": diagnosticResponseBody,
+      "body": "<redacted capture response>",
     ]
   )
 
@@ -1606,6 +1596,11 @@ private func performWalletPaymentIntegrationCapture(
         "idempotencyKey": idempotencyKey,
       ]
     )
+    if loadPendingWalletCaptureRecords().contains(where: {
+      ($0["idempotencyKey"] as? String) == idempotencyKey && ($0["userId"] as? String) == context.userId
+    }) {
+      return "Saved this Apple Pay transaction in Moneko. It will sync automatically the next time you open the app with internet."
+    }
     return "That wallet transaction was already captured in Moneko."
   }
 
@@ -1627,22 +1622,27 @@ private func performWalletPaymentIntegrationCapture(
   )
 
   do {
-    let result = try await submitWalletCaptureRequestBody(body, context: context)
+    let result = try await NotificationShortcutCaptureDispatcher.submit(
+      enqueue: {
+        enqueuePendingWalletCapture(body: body, idempotencyKey: idempotencyKey,
+          userId: context.userId, merchantName: resolvedMerchantName, amount: amount)
+      },
+      send: {
+        try await submitWalletCaptureRequestBody(body, context: context)
+      },
+      finish: {
+        _ = mergePendingWalletCaptureSyncResults(completedIdempotencyKeys: [idempotencyKey],
+          updatedRecordsByIdempotencyKey: [:])
+      }
+    )
     shouldKeepIdempotencySlot = true
+    await WalletCaptureSessionBridge.shared.notifySiriSave(userId: context.userId)
     if result.isDuplicate {
       return "That wallet transaction was already captured in Moneko."
     }
   } catch let error as SiriShortcutIntentError where error.canQueueCapture {
-    let wasQueued = enqueuePendingWalletCapture(
-      body: body,
-      idempotencyKey: idempotencyKey,
-      userId: context.userId,
-      merchantName: resolvedMerchantName,
-      amount: amount
-    )
-    guard wasQueued else {
-      throw SiriShortcutIntentError.offlineSaveFailed
-    }
+    // The queue already owns the original body and actor, including process death
+    // during the first request. Do not rebuild or re-date it on retry.
     shouldKeepIdempotencySlot = true
     return "Saved this Apple Pay transaction in Moneko. It will sync automatically the next time you open the app with internet."
   }
@@ -2074,6 +2074,9 @@ private func performNotificationTransactionCapture(
       }
     )
     shouldKeepIdempotencySlot = true
+    if !result.isIgnored {
+      await WalletCaptureSessionBridge.shared.notifySiriSave(userId: context.userId)
+    }
     if result.isDuplicate {
       return "That notification was already checked by Moneko."
     }

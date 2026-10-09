@@ -269,8 +269,18 @@ class Auth extends _$Auth {
         return;
       }
 
+      bool isCurrentSession() {
+        final current = supabase.auth.currentSession;
+        return current?.user.id == session?.user.id &&
+            current?.accessToken == session?.accessToken;
+      }
+
+      // Auth events are handled asynchronously. An older startup/sign-out event
+      // must not clear a newer actor's durable queue or overwrite a refreshed token.
+      if (!isCurrentSession()) return;
       if (session == null) {
         await SiriShortcutAuthService.instance.clearAuthContext();
+        if (!isCurrentSession()) return;
         if (Platform.isAndroid) {
           await NotificationCaptureService.instance.clearAuthContext();
         }
@@ -288,6 +298,7 @@ class Auth extends _$Auth {
       );
 
       // Android: Notification capture auth context
+      if (!isCurrentSession()) return;
       if (Platform.isAndroid) {
         await NotificationCaptureService.instance.syncAuthContext(
           supabaseUrl: Constants.supabaseUrl,

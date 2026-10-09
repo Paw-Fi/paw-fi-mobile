@@ -14,6 +14,7 @@ import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/monitoring/performance_trace.dart';
 import 'package:moneko/core/sync/foreground_reconciler.dart';
 import 'package:moneko/core/sync/ios_wallet_capture_sync_provider.dart';
+import 'package:moneko/core/sync/android_notification_capture_sync_provider.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
@@ -154,6 +155,7 @@ Future<void> _syncThenRefreshMainShellData(
     ref.read(walletsRefreshSignalProvider),
     ref.read(walletsRecurringMutationSignalProvider),
     ref.read(iosWalletCaptureSyncRevisionProvider),
+    ref.read(androidNotificationCaptureSyncRevisionProvider),
   );
   Map<String, Object?> traceIdentity() => {
         'user': userId,
@@ -386,7 +388,8 @@ Future<void> _syncMobileTransactions(
           database?.transactionRevision ?? 0,
           ref.read(walletAuthHeadersProvider),
           ref.read(transactionsFeedRefreshSignalProvider),
-          ref.read(iosWalletCaptureSyncRevisionProvider)
+          ref.read(iosWalletCaptureSyncRevisionProvider),
+          ref.read(androidNotificationCaptureSyncRevisionProvider),
         ),
         isActive: () => guard.isActive,
         phases: [
@@ -394,7 +397,16 @@ Future<void> _syncMobileTransactions(
             try {
               if (!guard.isActive) return;
               await ref.read(iosWalletCaptureSyncProvider)(userId);
-            } catch (error) {}
+              if (!guard.isActive) return;
+              // Android AI work can outlast a delta request. Start recovery now;
+              // its completion revision schedules another pull when it saves.
+              // Keep unrelated outbox/delta reconciliation responsive meanwhile.
+              unawaited(ref
+                  .read(androidNotificationCaptureSyncProvider)(userId)
+                  .catchError((Object _) {}));
+            } catch (_) {
+              // Native queues retain retryable captures; still pull already saved rows.
+            }
           },
           () => _drainMobileOutbox(ref, guard),
           () => _syncCategoryRemaps(ref, userId, guard),
@@ -457,6 +469,9 @@ class MainShell extends HookConsumerWidget {
         ref.watch(networkReachabilityProvider).valueOrNull ?? true;
     final auth = ref.watch(authProvider);
     ref.watch(iosWalletCaptureSyncProvider);
+    ref.watch(androidNotificationCaptureSyncProvider);
+    final androidCaptureSyncRevision =
+        ref.watch(androidNotificationCaptureSyncRevisionProvider);
     final iosCaptureSyncRevision =
         ref.watch(iosWalletCaptureSyncRevisionProvider);
     final isUserDataCleanupInProgress =
@@ -637,6 +652,7 @@ class MainShell extends HookConsumerWidget {
       hasNetworkAccess,
       isUserDataCleanupInProgress,
       iosCaptureSyncRevision,
+      androidCaptureSyncRevision,
     ]);
 
     useEffect(() {

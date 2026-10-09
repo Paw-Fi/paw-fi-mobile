@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/util/constants.dart';
 
 bool shouldRemovePendingNotificationCapture({
   required int status,
@@ -20,7 +23,10 @@ bool shouldRemovePendingNotificationCapture({
         (responseBody['ignored'] == true ||
             responseBody['duplicate'] == true ||
             (responseBody['data'] is Map &&
-                (responseBody['data'] as Map)['id'] is String));
+                (responseBody['data'] as Map)['id'] is String &&
+                ((responseBody['data'] as Map)['id'] as String)
+                    .trim()
+                    .isNotEmpty));
   }
   return status == 400 || status == 403 || status == 409 || status == 422;
 }
@@ -236,14 +242,51 @@ class NotificationCaptureConfig {
 ///
 /// Android-only — returns disabled/no-op on other platforms.
 class NotificationCaptureService {
-  NotificationCaptureService._();
+  NotificationCaptureService._() {
+    if (_isAndroid) {
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'capturesChanged' && call.arguments is Map) {
+          _publishRevision(Map<dynamic, dynamic>.from(call.arguments as Map));
+        }
+      });
+    }
+  }
 
   static final NotificationCaptureService instance =
       NotificationCaptureService._();
 
   static const MethodChannel _channel =
       MethodChannel('moneko/notification_capture');
+  static bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  final _capturesSynced = StreamController<String>.broadcast();
+  final _revisions = <String, int>{};
+  Stream<String> get capturesSynced => _capturesSynced.stream;
   Future<void>? _pendingCaptureSync;
+  String? _pendingCaptureUserId;
+  String? _syncedAuthUserId;
+
+  void _publishRevision(Map<dynamic, dynamic> status) {
+    final userId = status['userId'] as String?;
+    final revision = (status['revision'] as num?)?.toInt() ?? 0;
+    if (userId == null ||
+        userId != Supabase.instance.client.auth.currentUser?.id ||
+        revision <= (_revisions[userId] ?? 0)) {
+      return;
+    }
+    _revisions[userId] = revision;
+    _capturesSynced.add(userId);
+  }
+
+  Future<Map<dynamic, dynamic>> getPendingCaptureStatus() async {
+    if (!_isAndroid) return const {};
+    final status = await _channel.invokeMapMethod<dynamic, dynamic>(
+          'getPendingCaptureStatus',
+        ) ??
+        const {};
+    _publishRevision(status);
+    return status;
+  }
 
   /// Sync Supabase auth credentials to the native Android layer so the
   /// background NotificationListenerService can call save-wallet-transaction.
@@ -254,7 +297,11 @@ class NotificationCaptureService {
     required String userId,
     required int expiresAt,
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid) return;
+    if (_syncedAuthUserId != userId) {
+      _revisions.remove(userId);
+      _syncedAuthUserId = userId;
+    }
     await _channel.invokeMethod<void>('syncAuthContext', {
       'supabaseUrl': supabaseUrl,
       'supabaseAnonKey': supabaseAnonKey,
@@ -265,53 +312,74 @@ class NotificationCaptureService {
   }
 
   Future<void> clearAuthContext() async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid) return;
     await _channel.invokeMethod<void>('clearAuthContext');
+    _revisions.clear();
+    _syncedAuthUserId = null;
   }
 
   Future<void> syncPendingCaptures() {
-    if (!Platform.isAndroid) return Future.value();
+    if (!_isAndroid) return Future.value();
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return Future.value();
     final inFlight = _pendingCaptureSync;
-    if (inFlight != null) return inFlight;
-
-    final sync = _syncPendingCaptures();
+    if (inFlight != null) {
+      if (_pendingCaptureUserId == userId) return inFlight;
+      // A new actor must not join a previous actor's replay or inherit its token.
+      return inFlight
+          .catchError((Object _) {})
+          .then((_) => syncPendingCaptures());
+    }
+    final sync = _syncPendingCaptures(userId);
     _pendingCaptureSync = sync;
+    _pendingCaptureUserId = userId;
     return sync.whenComplete(() {
       if (identical(_pendingCaptureSync, sync)) {
         _pendingCaptureSync = null;
+        _pendingCaptureUserId = null;
       }
     });
   }
 
-  Future<void> _syncPendingCaptures() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null || session.isExpired) return;
-
-    final records = await _channel
-            .invokeListMethod<Map<dynamic, dynamic>>('getPendingCaptures') ??
-        const [];
+  Future<void> _syncPendingCaptures(String userId) async {
     final client = Supabase.instance.client;
-    final completedIds = await replayPendingNotificationCaptures(
-      userId: session.user.id,
-      records: records,
-      currentUserId: () => client.auth.currentUser?.id,
-      invoke: (functionName, body) => client.functions.invoke(
-        functionName,
-        body: body,
-        headers: {'Authorization': 'Bearer ${session.accessToken}'},
-      ),
-    );
-
-    if (completedIds.isNotEmpty) {
-      await _channel.invokeMethod<void>('removePendingCaptures', {
-        'ids': completedIds,
-      });
+    var forceRefresh = false;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      var session = client.auth.currentSession;
+      if (session == null || session.user.id != userId) return;
+      final expiresSoon = session.expiresAt != null &&
+          session.expiresAt! <=
+              DateTime.now().millisecondsSinceEpoch ~/ 1000 + 30;
+      if (forceRefresh || session.isExpired || expiresSoon) {
+        session = (await client.auth.refreshSession()).session;
+      }
+      if (session == null ||
+          session.user.id != userId ||
+          client.auth.currentUser?.id != userId) {
+        return;
+      }
+      await syncAuthContext(
+        supabaseUrl: Constants.supabaseUrl,
+        supabaseAnonKey: Constants.supabaseAnon,
+        accessToken: session.accessToken,
+        userId: userId,
+        expiresAt: session.expiresAt ?? 0,
+      );
+      if (client.auth.currentUser?.id != userId) return;
+      final status = await _channel.invokeMapMethod<dynamic, dynamic>(
+        'syncPendingCaptures',
+        {'userId': userId},
+      );
+      if (status == null || client.auth.currentUser?.id != userId) return;
+      _publishRevision(status);
+      if (status['requiresSessionRefresh'] != true) return;
+      forceRefresh = true;
     }
   }
 
   /// Retrieve the full notification capture configuration from native.
   Future<NotificationCaptureConfig> getConfig() async {
-    if (!Platform.isAndroid) return NotificationCaptureConfig.disabled;
+    if (!_isAndroid) return NotificationCaptureConfig.disabled;
     final result = await _channel.invokeMapMethod<String, dynamic>('getConfig');
     if (result == null) return NotificationCaptureConfig.disabled;
     return NotificationCaptureConfig.fromMap(result);
@@ -328,7 +396,7 @@ class NotificationCaptureService {
     String? accountCurrency,
     bool clearAccount = false,
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid) return;
     final args = <String, dynamic>{};
     if (enabled != null) args['enabled'] = enabled;
     if (scopeId != null) args['scopeId'] = scopeId;
@@ -351,7 +419,7 @@ class NotificationCaptureService {
     required String packageName,
     required bool enabled,
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid) return;
     await _channel.invokeMethod<void>('setPackageEnabled', {
       'packageName': packageName,
       'enabled': enabled,
@@ -360,7 +428,7 @@ class NotificationCaptureService {
 
   /// Get the list of recently-seen notification source apps.
   Future<List<RecentNotificationApp>> getRecentApps() async {
-    if (!Platform.isAndroid) return [];
+    if (!_isAndroid) return [];
     final result = await _channel.invokeListMethod<dynamic>('getRecentApps');
     if (result == null) return [];
     return result
@@ -373,14 +441,14 @@ class NotificationCaptureService {
 
   /// Check whether the user has granted Notification Access to Moneko.
   Future<bool> checkNotificationAccess() async {
-    if (!Platform.isAndroid) return false;
+    if (!_isAndroid) return false;
     final result = await _channel.invokeMethod<bool>('checkNotificationAccess');
     return result ?? false;
   }
 
   /// Open system Notification Access settings so the user can grant access.
   Future<void> openNotificationSettings() async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid) return;
     await _channel.invokeMethod<void>('openNotificationSettings');
   }
 
@@ -393,7 +461,7 @@ class NotificationCaptureService {
     String? accountName,
     String? accountCurrency,
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid) return;
     await _channel.invokeMethod<void>('setConfig', {
       'scopeId': scopeId,
       'scopeName': scopeName,
