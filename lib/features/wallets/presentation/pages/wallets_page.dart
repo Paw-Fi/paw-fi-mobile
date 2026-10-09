@@ -1172,8 +1172,8 @@ class _WalletCurrencyFlagBadge extends StatelessWidget {
         : '?';
 
     return SizedBox(
-      width: 15,
-      height: 15,
+      width: 18,
+      height: 18,
       child: ClipOval(
         child: flagPath != null
             ? Image.asset(flagPath, fit: BoxFit.cover)

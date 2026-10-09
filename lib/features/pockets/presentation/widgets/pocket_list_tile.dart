@@ -46,8 +46,6 @@ class PocketListTile extends StatelessWidget {
       fillColor = baseColor;
     }
 
-    final iconData = getPocketIconData(pocket.icon);
-
     // Derive text colors for readability based on theme and background
     final titleColor = colorScheme.pocketTitle;
     final subtitleColor = colorScheme.pocketSubtitle;
@@ -109,11 +107,7 @@ class PocketListTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(
-                  iconData,
-                  size: 20,
-                  color: baseColor,
-                ),
+                child: buildPocketIcon(pocket.icon, size: 24),
               ),
               const SizedBox(width: 14),
               // Main content card

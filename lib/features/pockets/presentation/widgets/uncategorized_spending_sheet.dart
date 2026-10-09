@@ -541,7 +541,6 @@ void _showPocketSelectionModal(
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final pocket = pockets[index];
-                      final iconData = getPocketIconData(pocket.icon);
                       final pocketColor = pocket.color != null
                           ? Color(int.parse(
                               pocket.color!.replaceFirst('#', '0xff')))
@@ -568,11 +567,7 @@ void _showPocketSelectionModal(
                                     color: pocketColor.withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(
-                                    iconData,
-                                    color: pocketColor,
-                                    size: 20,
-                                  ),
+                                  child: buildPocketIcon(pocket.icon),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(

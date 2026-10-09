@@ -10,6 +10,7 @@ import 'package:moneko/features/pockets/presentation/constants/pocket_style_cons
 import 'package:moneko/features/pockets/presentation/widgets/liquid_pocket.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/circular_image_avatar.dart';
 
 class PocketCard extends StatelessWidget {
   const PocketCard({
@@ -61,8 +62,6 @@ class PocketCard extends StatelessWidget {
     } else {
       fillColor = baseColor;
     }
-
-    final iconData = getPocketIconData(pocket.icon);
 
     final currencySymbol = resolveCurrencySymbol(currency);
     final spentNormalized = double.parse(formatAmount(pocket.spent));
@@ -141,8 +140,7 @@ class PocketCard extends StatelessWidget {
                           children: [
                             _PocketLogoAvatar(
                               logoUrl: pocket.logoUrl,
-                              iconData: iconData,
-                              baseColor: baseColor,
+                              iconName: pocket.icon,
                               colorScheme: colorScheme,
                             ),
                             if (isOverBudget)
@@ -317,51 +315,42 @@ class PocketCard extends StatelessWidget {
 class _PocketLogoAvatar extends StatelessWidget {
   const _PocketLogoAvatar({
     required this.logoUrl,
-    required this.iconData,
-    required this.baseColor,
+    required this.iconName,
     required this.colorScheme,
   });
 
   final String? logoUrl;
-  final IconData iconData;
-  final Color baseColor;
+  final String? iconName;
   final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context) {
     final trimmedLogoUrl = logoUrl?.trim();
-    final cacheSize = (38 * MediaQuery.of(context).devicePixelRatio).round();
+    const avatarSize = 38.0;
+    const imageSize = 24.0;
+    final cacheSize =
+        (avatarSize * MediaQuery.of(context).devicePixelRatio).round();
     final hasLogo = trimmedLogoUrl != null && trimmedLogoUrl.isNotEmpty;
+    final categoryImage = buildPocketIcon(iconName, size: imageSize);
 
     if (hasLogo) {
-      return SizedBox(
-        width: 33,
-        height: 33,
-        child: ClipOval(
-          child: CachedNetworkImage(
-            imageUrl: trimmedLogoUrl,
-            fit: BoxFit.cover,
-            memCacheWidth: cacheSize,
-            memCacheHeight: cacheSize,
-            cacheKey: trimmedLogoUrl,
-            placeholder: (_, __) {
-              return _PocketFallbackIcon(
-                iconData: iconData,
-                baseColor: baseColor,
-              );
-            },
-            errorWidget: (_, __, ___) => _PocketFallbackIcon(
-              iconData: iconData,
-              baseColor: baseColor,
-            ),
-          ),
+      return CircularImageAvatar(
+        size: 33,
+        child: CachedNetworkImage(
+          imageUrl: trimmedLogoUrl,
+          fit: BoxFit.cover,
+          memCacheWidth: cacheSize,
+          memCacheHeight: cacheSize,
+          cacheKey: trimmedLogoUrl,
+          placeholder: (_, __) => Center(child: categoryImage),
+          errorWidget: (_, __, ___) => Center(child: categoryImage),
         ),
       );
     }
 
     return Container(
-      width: 38,
-      height: 38,
+      width: avatarSize,
+      height: avatarSize,
       decoration: BoxDecoration(
         color: colorScheme.pocketGlassSurface,
         shape: BoxShape.circle,
@@ -373,29 +362,10 @@ class _PocketLogoAvatar extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipOval(
-        child: _PocketFallbackIcon(iconData: iconData, baseColor: baseColor),
-      ),
-    );
-  }
-}
-
-class _PocketFallbackIcon extends StatelessWidget {
-  const _PocketFallbackIcon({
-    required this.iconData,
-    required this.baseColor,
-  });
-
-  final IconData iconData;
-  final Color baseColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Icon(
-        iconData,
-        size: 18,
-        color: baseColor,
+      child: CircularImageAvatar(
+        size: avatarSize,
+        imageSize: imageSize,
+        child: categoryImage,
       ),
     );
   }

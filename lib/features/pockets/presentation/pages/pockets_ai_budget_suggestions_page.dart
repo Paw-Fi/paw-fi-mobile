@@ -1030,7 +1030,6 @@ class _PocketSuggestionComboItem extends StatelessWidget {
       hasCustomColor: rawColor != null,
     );
 
-    final iconData = getPocketIconData(pocket?.icon ?? item.icon);
     final pocketName =
         pocket?.name ?? item.pocketName ?? context.l10n.pocketSegmentLabel;
 
@@ -1143,7 +1142,7 @@ class _PocketSuggestionComboItem extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Icon(iconData, size: 20, color: baseColor),
+                  child: buildPocketIcon(pocket?.icon ?? item.icon),
                 ),
                 const SizedBox(width: 14),
                 Expanded(

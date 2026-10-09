@@ -308,9 +308,6 @@ class _WalletTransferSheet extends HookConsumerWidget {
     }
 
     Future<void> handleEditAmount() async {
-      final fromColor = parseWalletColor(fromWallet.color, colorScheme.primary);
-      final toColor = parseWalletColor(toWallet.color, colorScheme.primary);
-
       final header = Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
@@ -324,11 +321,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              resolveWalletIcon(fromWallet.icon),
-              size: 14,
-              color: fromColor,
-            ),
+            buildWalletPocketIcon(fromWallet.icon, size: 14),
             const SizedBox(width: 6),
             Text(
               fromWallet.name,
@@ -345,11 +338,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
               color: colorScheme.mutedForeground.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 8),
-            Icon(
-              resolveWalletIcon(toWallet.icon),
-              size: 14,
-              color: toColor,
-            ),
+            buildWalletPocketIcon(toWallet.icon, size: 14),
             const SizedBox(width: 6),
             Text(
               toWallet.name,
@@ -693,14 +682,12 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                     child: AnimatedSwitcher(
                                       duration:
                                           const Duration(milliseconds: 300),
-                                      child: Icon(
-                                        resolveWalletIcon(fromWallet.icon),
-                                        key: ValueKey(fromWallet.icon),
-                                        color: parseWalletColor(
-                                            fromWallet.color,
-                                            colorScheme.primary),
-                                        size: 16,
-                                      ),
+                                      child: Center(
+                                          key: ValueKey(fromWallet.icon),
+                                          child: buildWalletPocketIcon(
+                                            fromWallet.icon,
+                                            size: 16,
+                                          )),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -816,13 +803,12 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                     child: AnimatedSwitcher(
                                       duration:
                                           const Duration(milliseconds: 300),
-                                      child: Icon(
-                                        resolveWalletIcon(toWallet.icon),
-                                        key: ValueKey(toWallet.icon),
-                                        color: parseWalletColor(toWallet.color,
-                                            colorScheme.primary),
-                                        size: 16,
-                                      ),
+                                      child: Center(
+                                          key: ValueKey(toWallet.icon),
+                                          child: buildWalletPocketIcon(
+                                            toWallet.icon,
+                                            size: 16,
+                                          )),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -1100,11 +1086,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                             color: walletColor.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            resolveWalletIcon(wallet.icon),
-                            color: walletColor,
-                            size: 20,
-                          ),
+                          child:
+                              Center(child: buildWalletPocketIcon(wallet.icon)),
                         ),
                         title: Text(
                           wallet.name,

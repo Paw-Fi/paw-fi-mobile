@@ -163,6 +163,7 @@ flutter:
     - lib/assets/images/flags/
     - lib/assets/images/household/
     - lib/assets/images/category/
+    - lib/assets/images/wallet-pockets/
     - lib/assets/images/category/community-misc/
     - lib/assets/images/category/fun-social/
     - lib/assets/images/category/health-wellness/

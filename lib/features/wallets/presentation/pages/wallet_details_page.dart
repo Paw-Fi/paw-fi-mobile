@@ -1081,7 +1081,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                             const SizedBox(height: 12),
                             WalletLogoAvatar(
                               logoUrl: latestWallet.logoUrl,
-                              icon: resolveWalletIcon(latestWallet.icon),
+                              iconName: latestWallet.icon,
                               baseColor: walletColor,
                               size: 56,
                               iconSize: 26,

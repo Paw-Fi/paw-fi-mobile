@@ -242,7 +242,7 @@ class _ConnectionCardState extends ConsumerState<_ConnectionCard> {
             children: [
               WalletLogoAvatar(
                 logoUrl: connection.institutionLogoUrl,
-                icon: Icons.account_balance_rounded,
+                iconName: 'bank',
                 baseColor: colors.primary,
                 size: 48,
                 iconSize: 24,

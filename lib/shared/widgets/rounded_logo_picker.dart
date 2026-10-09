@@ -35,6 +35,8 @@ class RoundedLogoPicker extends HookWidget {
     required this.onChanged,
     required this.fallbackIcon,
     required this.accentColor,
+    this.fallbackImage,
+    this.emptyImage,
     this.enabled = true,
   });
 
@@ -43,6 +45,8 @@ class RoundedLogoPicker extends HookWidget {
   final ValueChanged<String?> onChanged;
   final IconData fallbackIcon;
   final Color accentColor;
+  final Widget? fallbackImage;
+  final Widget? emptyImage;
   final bool enabled;
 
   @override
@@ -126,16 +130,19 @@ class RoundedLogoPicker extends HookWidget {
                                       .round(),
                               cacheKey: logoUrl,
                               placeholder: (_, __) => _LogoFallbackIcon(
+                                image: fallbackImage,
                                 icon: fallbackIcon,
                                 color: accentColor,
                               ),
                               errorWidget: (_, __, ___) => _LogoFallbackIcon(
+                                image: fallbackImage,
                                 icon: fallbackIcon,
                                 color: accentColor,
                               ),
                             )
                           : _LogoFallbackIcon(
                               key: const ValueKey('logo-empty'),
+                              image: emptyImage,
                               icon: Icons.add_photo_alternate_rounded,
                               color: accentColor,
                             ),
@@ -176,19 +183,17 @@ class _LogoFallbackIcon extends StatelessWidget {
     super.key,
     required this.icon,
     required this.color,
+    this.image,
   });
 
   final IconData icon;
   final Color color;
+  final Widget? image;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Icon(
-        icon,
-        color: color,
-        size: 20,
-      ),
+      child: image ?? Icon(icon, color: color, size: 20),
     );
   }
 }

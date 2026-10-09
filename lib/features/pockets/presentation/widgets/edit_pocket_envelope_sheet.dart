@@ -983,9 +983,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     selectedIcon.value = null;
                                   }
                                 },
-                                fallbackIcon: getPocketIconData(
-                                  selectedIcon.value ?? 'category',
-                                ),
+                                fallbackIcon: Icons.add_photo_alternate_rounded,
+                                fallbackImage: buildPocketIcon(
+                                    selectedIcon.value,
+                                    size: 26),
+                                emptyImage: buildPocketIcon('custom-icon-image',
+                                    size: 26),
                                 accentColor: selectedColorValue,
                                 enabled:
                                     !ref.read(previewModeProvider).isActive,
@@ -994,9 +997,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                             final iconName = pocketIconNames[index - 1];
 
-                            final iconData = getPocketIconData(iconName);
                             final isSelected = selectedLogoUrl.value == null &&
-                                selectedIcon.value == iconName;
+                                selectedIcon.value != null &&
+                                getWalletPocketIconImageAsset(
+                                      selectedIcon.value,
+                                      fallback: 'budget',
+                                    ) ==
+                                    getWalletPocketIconImageAsset(
+                                      iconName,
+                                      fallback: 'budget',
+                                    );
 
                             return GestureDetector(
                               onTap: () {
@@ -1018,12 +1028,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                         : colorScheme.border,
                                   ),
                                 ),
-                                child: Icon(
-                                  iconData,
-                                  color: isSelected
-                                      ? selectedColorValue
-                                      : colorScheme.mutedForeground,
-                                  size: 20,
+                                child: Center(
+                                  child: buildPocketIcon(iconName, size: 26),
                                 ),
                               ),
                             );
@@ -1152,7 +1158,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     0xFF000000);
                                 final iconName =
                                     selectedIcon.value ?? 'category';
-                                final iconData = getPocketIconData(iconName);
                                 final displayName =
                                     nameController.text.trim().isEmpty
                                         ? context.l10n.thisPocketFallback
@@ -1173,11 +1178,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(
-                                        iconData,
-                                        size: 12,
-                                        color: pocketColor,
-                                      ),
+                                      buildPocketIcon(iconName, size: 12),
                                       const SizedBox(width: 6),
                                       Text(
                                         displayName,
