@@ -564,6 +564,9 @@ class PocketDetailsPage extends HookConsumerWidget {
                                       builder: (context) {
                                         final trimmedLogoUrl =
                                             pocket.logoUrl?.trim();
+                                        final iconData = pocket.icon != null
+                                            ? getPocketIconData(pocket.icon)
+                                            : null;
                                         final cacheSize = (28 *
                                                 MediaQuery.of(context)
                                                     .devicePixelRatio)
@@ -582,10 +585,11 @@ class PocketDetailsPage extends HookConsumerWidget {
                                                 memCacheHeight: cacheSize,
                                                 cacheKey: trimmedLogoUrl,
                                                 errorWidget: (_, __, ___) =>
-                                                    pocket.icon != null
-                                                        ? buildPocketIcon(
-                                                            pocket.icon,
+                                                    iconData != null
+                                                        ? Icon(
+                                                            iconData,
                                                             size: 28,
+                                                            color: textColor,
                                                           )
                                                         : const SizedBox
                                                             .shrink(),
@@ -594,9 +598,12 @@ class PocketDetailsPage extends HookConsumerWidget {
                                           );
                                         }
 
-                                        if (pocket.icon != null) {
-                                          return buildPocketIcon(pocket.icon,
-                                              size: 28);
+                                        if (iconData != null) {
+                                          return Icon(
+                                            iconData,
+                                            size: 28,
+                                            color: textColor,
+                                          );
                                         }
 
                                         return const SizedBox.shrink();

@@ -16,7 +16,6 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/calculator_keypad.dart';
-import 'package:moneko/shared/widgets/wallet_pocket_icon.dart';
 
 class PocketEntry {
   final String id;
@@ -410,8 +409,13 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    buildPocketIcon(template.iconName,
-                                        size: 24),
+                                    Icon(
+                                      _getIconData(template.iconName),
+                                      size: 24,
+                                      color: isSelected
+                                          ? scheme.primary
+                                          : scheme.mutedForeground,
+                                    ),
                                     const Spacer(),
                                     Text(
                                       templateTitle,
@@ -616,6 +620,131 @@ Map<String, String> _templateDescriptionMap(AppLocalizations l10n) => {
       'template_pers_gamer_desc': l10n.template_pers_gamer_desc,
     };
 
+IconData _getIconData(String name) {
+  switch (name) {
+    // Original mappings
+    case 'home':
+      return Icons.home;
+    case 'home_work':
+      return Icons.home_work;
+    case 'account_balance_wallet':
+      return Icons.account_balance_wallet;
+    case 'savings':
+      return Icons.savings;
+    case 'credit_card':
+      return Icons.credit_card;
+    case 'restaurant':
+      return Icons.restaurant;
+    case 'flight':
+      return Icons.flight;
+    case 'family_restroom':
+      return Icons.family_restroom;
+    case 'warning':
+      return Icons.warning;
+    case 'pets':
+      return Icons.pets;
+    case 'medical_services':
+      return Icons.medical_services;
+    case 'sports_soccer':
+      return Icons.sports_soccer;
+    case 'celebration':
+      return Icons.celebration;
+    case 'receipt_long':
+      return Icons.receipt_long;
+    case 'party_mode':
+      return Icons.party_mode;
+    case 'wifi':
+      return Icons.wifi;
+    case 'school':
+      return Icons.school;
+    case 'group':
+      return Icons.group;
+    case 'remove':
+      return Icons.remove;
+    case 'work':
+      return Icons.work;
+    case 'diamond':
+      return Icons.diamond;
+    case 'directions_car':
+      return Icons.directions_car;
+    case 'fitness_center':
+      return Icons.fitness_center;
+    case 'sports_esports':
+      return Icons.sports_esports;
+
+    // Missing mappings from templates
+    case 'house':
+      return Icons.home;
+    case 'local_bar':
+      return Icons.local_bar;
+    case 'trending_up':
+      return Icons.trending_up;
+    case 'coffee':
+      return Icons.coffee;
+    case 'delete_outline':
+      return Icons.delete_outline;
+    case 'shield':
+      return Icons.shield;
+    case 'self_improvement':
+      return Icons.self_improvement;
+    case 'kitchen':
+      return Icons.kitchen;
+    case 'house_siding':
+      return Icons.home;
+    case 'build_circle':
+      return Icons.build;
+    case 'flight_takeoff':
+      return Icons.flight_takeoff;
+    case 'backpack':
+      return Icons.backpack;
+    case 'child_care':
+      return Icons.child_care;
+    case 'weekend':
+      return Icons.weekend;
+    case 'priority_high':
+      return Icons.priority_high;
+    case 'child_friendly':
+      return Icons.child_friendly;
+    case 'favorite':
+      return Icons.favorite;
+    case 'shopping_bag':
+      return Icons.shopping_bag;
+    case 'healing':
+      return Icons.healing;
+    case 'account_balance':
+      return Icons.account_balance;
+    case 'people':
+      return Icons.people;
+    case 'cleaning_services':
+      return Icons.cleaning_services;
+    case 'fastfood':
+      return Icons.fastfood;
+    case 'hotel':
+      return Icons.hotel;
+    case 'local_grocery_store':
+      return Icons.local_grocery_store;
+    case 'map':
+      return Icons.map;
+    case 'apartment':
+      return Icons.apartment;
+    case 'ramen_dining':
+      return Icons.ramen_dining;
+    case 'soap':
+      return Icons.soap;
+    case 'inventory_2':
+      return Icons.inventory_2;
+    case 'bolt':
+      return Icons.bolt;
+    case 'policy':
+      return Icons.policy;
+    case 'spa':
+      return Icons.spa;
+
+    default:
+      return Icons.help_outline;
+  }
+}
+
 List<PocketEntry> updatePocketEntryById(
   List<PocketEntry> entries, {
   required String id,
@@ -703,7 +832,11 @@ class _PocketRow extends HookWidget {
               ),
               const SizedBox(width: 12),
               if (entry.iconName != null) ...[
-                buildPocketIcon(entry.iconName, size: 24),
+                Icon(
+                  _getIconData(entry.iconName!),
+                  size: 24,
+                  color: entry.color,
+                ),
                 const SizedBox(width: 12),
               ],
               Expanded(
@@ -733,6 +866,9 @@ class _PocketRow extends HookWidget {
               ),
               GestureDetector(
                 onTap: () async {
+                  final iconData = entry.iconName != null
+                      ? _getIconData(entry.iconName!)
+                      : Icons.pie_chart_rounded;
                   final header = Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -747,7 +883,11 @@ class _PocketRow extends HookWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        buildPocketIcon(entry.iconName, size: 12),
+                        Icon(
+                          iconData,
+                          size: 12,
+                          color: entry.color,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           entry.name,

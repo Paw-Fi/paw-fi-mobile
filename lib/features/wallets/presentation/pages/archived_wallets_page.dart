@@ -139,7 +139,11 @@ class _ArchivedAccountCard extends StatelessWidget {
                   color: baseColor.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: Center(child: buildWalletPocketIcon(wallet.icon)),
+                child: Icon(
+                  resolveWalletIcon(wallet.icon),
+                  color: colorScheme.mutedForeground,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -354,9 +354,8 @@ class WalletsHistoryPage extends HookConsumerWidget {
                                   color: colorScheme.surfaceContainerHighest,
                                   shape: BoxShape.circle,
                                 ),
-                                child: Center(
-                                    child: buildWalletPocketIcon(acc.icon,
-                                        size: 16)),
+                                child: Icon(resolveWalletIcon(acc.icon),
+                                    size: 16, color: colorScheme.foreground),
                               ),
                               const SizedBox(width: 12),
                               Column(

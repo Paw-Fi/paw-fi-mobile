@@ -256,19 +256,14 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                             selectedIcon.value = 'wallet';
                           }
                         },
-                        fallbackIcon: Icons.add_photo_alternate_rounded,
-                        fallbackImage:
-                            buildWalletPocketIcon(selectedIcon.value, size: 26),
-                        emptyImage: buildWalletPocketIcon('custom-icon-image',
-                            size: 26),
+                        fallbackIcon: resolveWalletIcon(selectedIcon.value),
                         accentColor: selectedColorValue,
                       );
                     }
 
                     final iconName = _walletIcons[index - 1];
                     final isSelected = selectedLogoUrl.value == null &&
-                        getWalletPocketIconImageAsset(selectedIcon.value) ==
-                            getWalletPocketIconImageAsset(iconName);
+                        selectedIcon.value == iconName;
                     return GestureDetector(
                       onTap: () {
                         selectedIcon.value = iconName;
@@ -288,8 +283,12 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                                 : colorScheme.border,
                           ),
                         ),
-                        child: Center(
-                          child: buildWalletPocketIcon(iconName, size: 26),
+                        child: Icon(
+                          resolveWalletIcon(iconName),
+                          color: isSelected
+                              ? selectedColorValue
+                              : colorScheme.mutedForeground,
+                          size: 20,
                         ),
                       ),
                     );
@@ -502,7 +501,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
   }
 }
 
-final List<String> _walletIcons = uniqueWalletPocketIconNames(const [
+const List<String> _walletIcons = [
   // Cash and spending wallets
   'wallet',
   'checking',
@@ -539,4 +538,4 @@ final List<String> _walletIcons = uniqueWalletPocketIconNames(const [
   'crypto',
   'travel',
   'home',
-]);
+];

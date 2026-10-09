@@ -93,10 +93,10 @@ class WalletStackCard extends StatelessWidget {
       children: [
         WalletLogoAvatar(
           logoUrl: wallet.logoUrl,
-          iconName: wallet.icon,
+          icon: resolveWalletIcon(wallet.icon),
           baseColor: baseColor,
           size: 36,
-          iconSize: 22,
+          iconSize: 18,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -253,10 +253,10 @@ class WalletStackCard extends StatelessWidget {
                   children: [
                     WalletLogoAvatar(
                       logoUrl: wallet.logoUrl,
-                      iconName: wallet.icon,
+                      icon: resolveWalletIcon(wallet.icon),
                       baseColor: baseColor,
                       size: 28,
-                      iconSize: 18,
+                      iconSize: 14,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -274,10 +274,10 @@ class WalletStackCard extends StatelessWidget {
             else
               WalletLogoAvatar(
                 logoUrl: wallet.logoUrl,
-                iconName: wallet.icon,
+                icon: resolveWalletIcon(wallet.icon),
                 baseColor: baseColor,
                 size: 36,
-                iconSize: 22,
+                iconSize: 18,
               ),
             Flexible(
               child: FittedBox(
@@ -447,7 +447,7 @@ class WalletStackCard extends StatelessWidget {
                               curve: Curves.easeInOut,
                               builder: (context, animatedProgress, _) =>
                                   LinearProgressIndicator(
-                                minHeight: 8,
+                                minHeight: 12,
                                 value: animatedProgress,
                                 semanticsLabel: isDebtWallet
                                     ? hasPositiveDebtGoal

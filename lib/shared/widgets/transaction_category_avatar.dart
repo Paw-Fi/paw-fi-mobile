@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/shared/widgets/merchant_logo.dart';
-import 'package:moneko/shared/widgets/circular_image_avatar.dart';
 
 /// Shared leading avatar for transaction and recurring transaction rows.
 class TransactionCategoryAvatar extends StatelessWidget {
@@ -52,17 +51,22 @@ class TransactionCategoryAvatar extends StatelessWidget {
     );
 
     if (hasMerchantLogo) {
-      return CircularImageAvatar(
-        size: size,
-        child: merchantLogo,
+      return ClipOval(
+        child: SizedBox.square(dimension: size, child: merchantLogo),
       );
     }
 
     final colorScheme = Theme.of(context).colorScheme;
-    return CircularImageAvatar(
-      size: size,
-      backgroundColor: colorScheme.onSurface.withValues(alpha: 0.04),
-      child: merchantLogo,
+    return ClipOval(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: colorScheme.onSurface.withValues(alpha: 0.04),
+          shape: BoxShape.circle,
+        ),
+        child: merchantLogo,
+      ),
     );
   }
 }

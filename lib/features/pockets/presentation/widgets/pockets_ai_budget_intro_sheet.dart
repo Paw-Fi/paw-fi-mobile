@@ -154,12 +154,19 @@ class PocketsAiBudgetIntroSheet extends HookConsumerWidget {
               ),
             ),
             const SizedBox(height: 20),
+            PrimaryAdaptiveButton(
+              onPressed: isCopying.value
+                  ? null
+                  : () => Navigator.of(context).pop(true),
+              child: Text(context.l10n.buildMyMonthPlan(monthLabel)),
+            ),
+            const SizedBox(height: 8),
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
                 child: sourceMonth != null
-                    ? PrimaryAdaptiveButton(
+                    ? PrimaryAdaptiveButton.outlined(
                         key: const ValueKey('copy-previous-plan'),
                         onPressed: isCopying.value
                             ? null
@@ -227,13 +234,7 @@ class PocketsAiBudgetIntroSheet extends HookConsumerWidget {
                             : const SizedBox.shrink(),
               ),
             ),
-            const SizedBox(height: 8),
-            PrimaryAdaptiveButton.outlined(
-              onPressed: isCopying.value
-                  ? null
-                  : () => Navigator.of(context).pop(true),
-              child: Text(context.l10n.buildMyMonthPlan(monthLabel)),
-            ),
+         
           ],
         ),
       ),

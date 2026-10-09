@@ -58,6 +58,8 @@ class SimpleSpendingList extends StatelessWidget {
         final shareOfTotal =
             shareDenominator > 0 ? (aggregateSpent / shareDenominator) : 0.0;
 
+        final iconData = getPocketIconData(pocket.icon);
+
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -85,7 +87,11 @@ class SimpleSpendingList extends StatelessWidget {
                       color: colorScheme.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: buildPocketIcon(pocket.icon),
+                    child: Icon(
+                      iconData,
+                      size: 20,
+                      color: colorScheme.primary,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
