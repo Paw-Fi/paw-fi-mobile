@@ -3759,5 +3759,6 @@
   "walletRemainingDebt": "Nợ còn lại",
   "walletDebtPaidOff": "Đã trả hết nợ",
   "walletRepaid": "Đã trả",
-  "walletInitialDebt": "Khoản nợ ban đầu"
+  "walletInitialDebt": "Khoản nợ ban đầu",
+  "walletOrderSaveFailed": "Không thể lưu thứ tự ví. Vui lòng thử lại."
 }

@@ -3707,5 +3707,6 @@
   "walletRemainingDebt": "Debito residuo",
   "walletDebtPaidOff": "Debito estinto",
   "walletRepaid": "Rimborsato",
-  "walletInitialDebt": "Debito iniziale"
+  "walletInitialDebt": "Debito iniziale",
+  "walletOrderSaveFailed": "Impossibile salvare l'ordine dei portafogli. Riprova."
 }

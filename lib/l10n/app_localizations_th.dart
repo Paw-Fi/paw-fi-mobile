@@ -10724,4 +10724,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get walletInitialDebt => 'หนี้เริ่มต้น';
+
+  @override
+  String get walletOrderSaveFailed => 'ไม่สามารถบันทึกลำดับกระเป๋าเงินได้ โปรดลองอีกครั้ง';
 }

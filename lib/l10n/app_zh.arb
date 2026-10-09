@@ -3756,5 +3756,6 @@
   "walletRemainingDebt": "剩余债务",
   "walletDebtPaidOff": "债务已还清",
   "walletRepaid": "已偿还",
-  "walletInitialDebt": "初始债务"
+  "walletInitialDebt": "初始债务",
+  "walletOrderSaveFailed": "无法保存钱包顺序。请重试。"
 }

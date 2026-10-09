@@ -3710,5 +3710,6 @@
   "walletRemainingDebt": "Остаток долга",
   "walletDebtPaidOff": "Долг погашен",
   "walletRepaid": "Погашено",
-  "walletInitialDebt": "Изначальный долг"
+  "walletInitialDebt": "Изначальный долг",
+  "walletOrderSaveFailed": "Не удалось сохранить порядок кошельков. Попробуйте ещё раз."
 }

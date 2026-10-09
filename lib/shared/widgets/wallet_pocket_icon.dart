@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/shared/widgets/bundled_icon_image.dart';
 
 // Preserve the icon keys already stored on wallets, pockets, and templates.
 const _walletPocketImageNames = <String, String>{
@@ -123,12 +124,9 @@ Widget buildWalletPocketIcon(
   double size = 20,
   String fallback = 'wallet',
 }) {
-  return Image.asset(
+  return buildBundledIconImage(
     getWalletPocketIconImageAsset(iconName, fallback: fallback),
-    width: size,
-    height: size,
-    fit: BoxFit.contain,
-    errorBuilder: (_, __, ___) => SizedBox.square(dimension: size),
+    size: size,
   );
 }
 

@@ -3762,5 +3762,6 @@
   "walletRemainingDebt": "Deuda pendiente",
   "walletDebtPaidOff": "Deuda saldada",
   "walletRepaid": "Reembolsado",
-  "walletInitialDebt": "Deuda inicial"
+  "walletInitialDebt": "Deuda inicial",
+  "walletOrderSaveFailed": "No se pudo guardar el orden de las carteras. Inténtalo de nuevo."
 }

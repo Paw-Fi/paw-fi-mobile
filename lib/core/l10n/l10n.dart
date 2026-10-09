@@ -187,3 +187,9 @@ extension PlaidClassificationReviewL10nX on AppLocalizations {
         _ => plaidExcludeFromBudget,
       };
 }
+
+/// English fallback until the normal translation catalog export.
+extension WalletOrderL10nX on AppLocalizations {
+  String get walletOrderSaveFailed =>
+      'Could not save wallet order. Please try again.';
+}

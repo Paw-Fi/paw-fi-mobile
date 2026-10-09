@@ -3760,5 +3760,6 @@
   "walletRemainingDebt": "残りの返済額",
   "walletDebtPaidOff": "返済完了",
   "walletRepaid": "返済済み",
-  "walletInitialDebt": "当初の借入額"
+  "walletInitialDebt": "当初の借入額",
+  "walletOrderSaveFailed": "ウォレットの並び順を保存できませんでした。もう一度お試しください。"
 }

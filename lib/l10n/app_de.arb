@@ -3760,5 +3760,6 @@
   "walletRemainingDebt": "Restschuld",
   "walletDebtPaidOff": "Schulden abbezahlt",
   "walletRepaid": "Zurückgezahlt",
-  "walletInitialDebt": "Ursprüngliche Schulden"
+  "walletInitialDebt": "Ursprüngliche Schulden",
+  "walletOrderSaveFailed": "Die Reihenfolge der Wallets konnte nicht gespeichert werden. Bitte versuche es erneut."
 }

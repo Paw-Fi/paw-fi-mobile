@@ -3777,5 +3777,6 @@
   "walletRemainingDebt": "หนี้คงเหลือ",
   "walletDebtPaidOff": "ชำระหนี้หมดแล้ว",
   "walletRepaid": "ชำระแล้ว",
-  "walletInitialDebt": "หนี้เริ่มต้น"
+  "walletInitialDebt": "หนี้เริ่มต้น",
+  "walletOrderSaveFailed": "ไม่สามารถบันทึกลำดับกระเป๋าเงินได้ โปรดลองอีกครั้ง"
 }

@@ -3752,5 +3752,6 @@
   "walletRemainingDebt": "Залишок боргу",
   "walletDebtPaidOff": "Борг погашено",
   "walletRepaid": "Погашено",
-  "walletInitialDebt": "Початковий борг"
+  "walletInitialDebt": "Початковий борг",
+  "walletOrderSaveFailed": "Не вдалося зберегти порядок гаманців. Спробуйте ще раз."
 }

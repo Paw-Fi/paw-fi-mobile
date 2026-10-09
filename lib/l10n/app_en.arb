@@ -3804,5 +3804,6 @@
   "walletRemainingDebt": "Remaining debt",
   "walletDebtPaidOff": "Debt paid off",
   "walletRepaid": "Repaid",
-  "walletInitialDebt": "Initial debt"
+  "walletInitialDebt": "Initial debt",
+  "walletOrderSaveFailed": "Could not save wallet order. Please try again."
 }

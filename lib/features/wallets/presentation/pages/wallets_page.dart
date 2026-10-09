@@ -38,6 +38,7 @@ import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_bi
 import 'package:moneko/features/wallets/presentation/widgets/add_wallet_option_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_account_stack.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -956,7 +957,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
   }
 }
 
-class _WalletAccountStack extends HookConsumerWidget {
+class _WalletAccountStack extends ConsumerWidget {
   final List<WalletEntity> wallets;
   final bool isPreviewMode;
   final Map<String, int> walletBalances;
@@ -973,183 +974,46 @@ class _WalletAccountStack extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final prefs = ref.watch(sharedPreferencesProvider);
-    final selectedCurrencyFilters = ref.watch(
+    final selectedCurrencies = ref.watch(
       homeFilterProvider.select((state) => state.normalizedSelectedCurrencies),
     );
-    final shouldShowExpandedCurrencyFlag =
-        (selectedCurrencyFilters?.length ?? 0) > 1;
-    const orderKey = 'wallet_accounts_order';
-
-    final orderedAccountsState = useState<List<WalletEntity>>([...wallets]);
-    final draggedAccountIdState = useState<String?>(null);
-    final selectedAccountIdState = useState<String?>(null);
-
-    // Sync from props/prefs
-    useEffect(() {
-      final savedOrder = prefs.getStringList(orderKey) ?? [];
-      final list = [...wallets];
-      final inputOrder = <String, int>{
-        for (var index = 0; index < wallets.length; index++)
-          wallets[index].id: index,
-      };
-      list.sort((a, b) {
-        final indexA = savedOrder.indexOf(a.id);
-        final indexB = savedOrder.indexOf(b.id);
-        if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
-        return (inputOrder[a.id] ?? 0).compareTo(inputOrder[b.id] ?? 0);
-      });
-      orderedAccountsState.value = list;
-
-      if (selectedAccountIdState.value == null && list.isNotEmpty) {
-        selectedAccountIdState.value = isPreviewMode
-            ? list[(list.length >= 3) ? 2 : list.length - 1].id
-            : list.last.id;
-      }
-      return null;
-    }, [wallets, isPreviewMode]);
-
-    final orderedAccounts = orderedAccountsState.value;
-    final requestedSelectedId = selectedAccountIdState.value;
-    // Server reconciliation replaces a newly created optimistic ID with its
-    // canonical ID. Keep one card expanded during that identity swap instead
-    // of rendering a transient all-collapsed stack.
-    final selectedId = orderedAccounts.any(
-      (wallet) => wallet.id == requestedSelectedId,
-    )
-        ? requestedSelectedId
-        : orderedAccounts.isEmpty
-            ? null
-            : orderedAccounts.last.id;
-
-    const tightSpacing = 70.0;
-    const expandedCardHeight = 240.0;
-    const unselectedCardHeight = 115.0;
-
-    const gap = 20.0;
-
-    const bottomBuffer = 0.0;
-
-    int safeSelectedIdx = orderedAccounts.indexWhere((a) => a.id == selectedId);
-    if (safeSelectedIdx == -1 && orderedAccounts.isNotEmpty) {
-      safeSelectedIdx = orderedAccounts.length - 1;
-    }
-
-    double calculateStackHeight() {
-      if (orderedAccounts.isEmpty) return 0.0;
-      if (orderedAccounts.length == 1) return expandedCardHeight + bottomBuffer;
-
-      if (safeSelectedIdx == orderedAccounts.length - 1) {
-        return safeSelectedIdx * tightSpacing +
-            expandedCardHeight +
-            bottomBuffer;
-      }
-      return safeSelectedIdx * tightSpacing +
-          expandedCardHeight +
-          gap +
-          (orderedAccounts.length - 2 - safeSelectedIdx) * tightSpacing +
-          unselectedCardHeight +
-          bottomBuffer;
-    }
-
-    final stackHeight = calculateStackHeight();
-
-    double getTop(int index, WalletEntity wallet) {
-      if (index <= safeSelectedIdx) {
-        return index * tightSpacing;
-      } else {
-        return safeSelectedIdx * tightSpacing +
-            expandedCardHeight +
-            gap +
-            (index - safeSelectedIdx - 1) * tightSpacing;
-      }
-    }
-
-    final renderAccounts = [...orderedAccounts];
-    if (draggedAccountIdState.value != null) {
-      final draggedAcc =
-          renderAccounts.firstWhere((a) => a.id == draggedAccountIdState.value);
-      renderAccounts.remove(draggedAcc);
-      renderAccounts.add(draggedAcc);
-    } else if (selectedId != null) {
-      final selected = renderAccounts.where((a) => a.id == selectedId).toList();
-      if (selected.isNotEmpty) {
-        renderAccounts.remove(selected.first);
-        renderAccounts.add(selected.first);
-      }
-    }
-
-    return GestureDetector(
-      onTap: () {
-        // Background tap - could optionally collapse but following "one always expanded"
+    final householdScope = ref.watch(householdScopeProvider);
+    final userId = ref.watch(authProvider).uid;
+    final orderScope = (
+      userId: userId,
+      householdId: householdScope.activeAccountHouseholdId,
+      isPreview: isPreviewMode,
+    );
+    return WalletAccountStack(
+      key: ValueKey(orderScope),
+      wallets: wallets,
+      scope: orderScope,
+      onOpenWallet: (wallet) {
+        if (isPreviewMode) {
+          AppToast.info(context, context.l10n.previewMockUpdatesApplied);
+        } else {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => WalletDetailsPage(wallet: wallet),
+            ),
+          );
+        }
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeOutQuart,
-        height: stackHeight,
-        color: colorScheme.surface.withValues(alpha: 0.0),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: renderAccounts.map((wallet) {
-            final originalIndex = orderedAccounts.indexOf(wallet);
-            final isExpanded = selectedId == wallet.id;
-            final isDragging = draggedAccountIdState.value == wallet.id;
-
-            return AnimatedPositioned(
-              key: ValueKey(wallet.id),
-              top: getTop(originalIndex, wallet),
-              left: 0,
-              right: 0,
-              height: isExpanded ? expandedCardHeight : unselectedCardHeight,
-              duration: isDragging
-                  ? Duration.zero
-                  : const Duration(milliseconds: 600),
-              curve: Curves.easeOutQuart,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onLongPressStart: (details) {
-                  // Re-enable reordering logic if needed, but for now focus on Apple UI
-                },
-                onTap: () {},
-                onTapUp: (details) {
-                  if (wallet.id != selectedId) {
-                    selectedAccountIdState.value = wallet.id;
-                  } else if (isPreviewMode) {
-                    AppToast.info(
-                      context,
-                      context.l10n.previewMockUpdatesApplied,
-                    );
-                  } else {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => WalletDetailsPage(
-                          wallet: wallet,
-                        ),
-                      ),
-                    );
-                  }
-                },
-                child: WalletStackCard(
-                  wallet: wallet,
-                  currencyCode: wallet.currency,
-                  displayBalanceCents: walletBalances[wallet.id] == null
-                      ? wallet.currentBalanceCents
-                      : _convertWalletCents(
-                          walletBalances[wallet.id]!,
-                          fromCurrency: displayCurrency,
-                          targetCurrency: wallet.currency,
-                          rates: rates,
-                        ),
-                  isExpanded: isExpanded,
-                  headerAction: isExpanded && shouldShowExpandedCurrencyFlag
-                      ? _WalletCurrencyFlagBadge(currencyCode: wallet.currency)
-                      : null,
-                ),
+      cardBuilder: (wallet, isExpanded) => WalletStackCard(
+        wallet: wallet,
+        currencyCode: wallet.currency,
+        displayBalanceCents: walletBalances[wallet.id] == null
+            ? wallet.currentBalanceCents
+            : _convertWalletCents(
+                walletBalances[wallet.id]!,
+                fromCurrency: displayCurrency,
+                targetCurrency: wallet.currency,
+                rates: rates,
               ),
-            );
-          }).toList(),
-        ),
+        isExpanded: isExpanded,
+        headerAction: isExpanded && (selectedCurrencies?.length ?? 0) > 1
+            ? _WalletCurrencyFlagBadge(currencyCode: wallet.currency)
+            : null,
       ),
     );
   }
@@ -1604,28 +1468,28 @@ class _WalletsPageSkeleton extends StatelessWidget {
           ),
           // Skeleton for wallet stack - 3 skeleton cards
           SizedBox(
-            height: 400,
+            height: 380,
             child: Stack(
               children: [
                 // Skeleton card 1 (bottom)
                 Positioned(
-                  top: 150,
+                  top: 0,
                   left: 0,
                   right: 0,
-                  height: 130,
+                  height: 115,
                   child: _SkeletonWalletCard(colorScheme: colorScheme),
                 ),
                 // Skeleton card 2 (middle)
                 Positioned(
-                  top: 80,
+                  top: 70,
                   left: 0,
                   right: 0,
-                  height: 130,
+                  height: 115,
                   child: _SkeletonWalletCard(colorScheme: colorScheme),
                 ),
                 // Skeleton card 3 (top, expanded)
                 Positioned(
-                  top: 0,
+                  top: 140,
                   left: 0,
                   right: 0,
                   height: 240,
@@ -1656,25 +1520,25 @@ class _WalletStackLoadingSection extends StatelessWidget {
         highlightColor: colorScheme.skeletonHighlight,
       ),
       child: SizedBox(
-        height: 400,
+        height: 380,
         child: Stack(
           children: [
             Positioned(
-              top: 150,
-              left: 0,
-              right: 0,
-              height: 130,
-              child: _SkeletonWalletCard(colorScheme: colorScheme),
-            ),
-            Positioned(
-              top: 80,
-              left: 0,
-              right: 0,
-              height: 130,
-              child: _SkeletonWalletCard(colorScheme: colorScheme),
-            ),
-            Positioned(
               top: 0,
+              left: 0,
+              right: 0,
+              height: 115,
+              child: _SkeletonWalletCard(colorScheme: colorScheme),
+            ),
+            Positioned(
+              top: 70,
+              left: 0,
+              right: 0,
+              height: 115,
+              child: _SkeletonWalletCard(colorScheme: colorScheme),
+            ),
+            Positioned(
+              top: 140,
               left: 0,
               right: 0,
               height: 240,

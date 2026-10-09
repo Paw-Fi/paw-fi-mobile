@@ -3706,5 +3706,6 @@
   "walletRemainingDebt": "باقی قرض",
   "walletDebtPaidOff": "قرض ادا ہو گیا",
   "walletRepaid": "ادا شدہ",
-  "walletInitialDebt": "ابتدائی قرض"
+  "walletInitialDebt": "ابتدائی قرض",
+  "walletOrderSaveFailed": "والٹس کی ترتیب محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں۔"
 }

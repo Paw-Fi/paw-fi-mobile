@@ -2,12 +2,12 @@
 
 # iOS Deployment Script for Moneko Flutter App
 # Refreshes release configuration and versions, creates a signed Xcode archive,
-# verifies packaged versions, and opens the archive in Xcode.
+# verifies packaged versions, opens the archive in Xcode, and builds Android releases.
 #
 # Usage:
-#   ./deploy_ios.sh             prepare, archive, and open the archive in Xcode
+#   ./deploy_ios.sh             archive iOS and build Android APK + App Bundle
 #   ./deploy_ios.sh --clean     flutter clean first (troubleshooting/fresh state)
-#   ./deploy_ios.sh --android   also build the Android App Bundle
+#   ./deploy_ios.sh --android   accepted for compatibility; Android always builds
 
 set -eo pipefail  # Exit on command and pipeline failures
 
@@ -40,7 +40,7 @@ print_error() {
 
 # Flags
 DO_CLEAN=false
-BUILD_ANDROID=false
+BUILD_ANDROID=true
 for arg in "$@"; do
     case "$arg" in
         --clean) DO_CLEAN=true ;;
@@ -199,11 +199,15 @@ done
 print_success "Archive verified: $ARCHIVE_PATH"
 open "$ARCHIVE_PATH"
 
-# Optional: Android App Bundle
+# Android release builds (always enabled, matching the original script).
 if [ "$BUILD_ANDROID" = true ]; then
+    print_step "Building Android APK for production..."
+    flutter build apk --release --dart-define=ENV=prod
+    print_success "Android APK build completed successfully!"
+
     print_step "Building Android App Bundle for production..."
     flutter build appbundle --release --dart-define=ENV=prod
     print_success "Android App Bundle build completed successfully!"
 fi
 
-print_success "🎉 Archive complete! Continue validation/distribution in Xcode."
+print_success "🎉 iOS archive and Android builds complete! Continue iOS validation/distribution in Xcode."

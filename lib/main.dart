@@ -6,14 +6,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'package:intl/intl.dart' as intl;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/app/app.dart';
 import 'package:moneko/core/app/init.dart';
+import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/monitoring/auth_logout_debug_telemetry.dart';
-import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/firebase_options.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/util/constants.dart';
@@ -228,12 +226,10 @@ void main() {
       // Continue; router/splash will still render and can show error UI later
     }
 
-    // Initialize Intl date formatting for the device locale
+    // Preserve compatible regional formatting, with a supported UI fallback.
     final deviceLocale = ui.PlatformDispatcher.instance.locale;
-    final localeName = intlSafeLocaleName(deviceLocale);
     try {
-      intl.Intl.defaultLocale = localeName;
-      await initializeDateFormatting(localeName, null);
+      await initializeAppDateFormatting(deviceLocale);
     } catch (e, s) {
       if (!kIsWeb) {
         FirebaseCrashlytics.instance.recordError(
@@ -244,8 +240,7 @@ void main() {
         );
       }
       try {
-        intl.Intl.defaultLocale = 'en_US';
-        await initializeDateFormatting('en_US', null);
+        await initializeAppDateFormatting(const Locale('en'));
       } catch (_) {}
     }
 

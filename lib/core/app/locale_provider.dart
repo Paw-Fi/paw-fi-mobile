@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/number_symbols_data.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
@@ -29,9 +30,7 @@ Locale resolveSupportedAppLocale(
   Locale? locale, {
   Iterable<Locale> supportedLocales = AppLocalizations.supportedLocales,
 }) {
-  if (locale == null) {
-    locale = ui.PlatformDispatcher.instance.locale;
-  }
+  locale ??= ui.PlatformDispatcher.instance.locale;
 
   final normalized = normalizeAppLocale(locale);
 
@@ -77,6 +76,36 @@ Locale resolveSupportedAppLocale(
 Locale currentDeviceLocale() =>
     resolveSupportedAppLocale(ui.PlatformDispatcher.instance.locale);
 
+/// Preserves compatible regional formats and falls back to the supported UI
+/// locale when intl has no date/number data for the requested language.
+Future<void> initializeAppDateFormatting(Locale? locale) {
+  final requestedLocale = locale ?? ui.PlatformDispatcher.instance.locale;
+  final requestedName = intlSafeLocaleName(requestedLocale);
+  final fallbackName =
+      intlSafeLocaleName(resolveSupportedAppLocale(requestedLocale));
+  // The bundled initializer loads every locale without validating its argument.
+  final initialization = initializeDateFormatting();
+  final localeName = intl.Intl.verifiedLocale(
+        requestedName,
+        (name) =>
+            intl.DateFormat.localeExists(name) &&
+            numberFormatSymbols.containsKey(name),
+        onFailure: (_) => fallbackName,
+      ) ??
+      fallbackName;
+  intl.Intl.defaultLocale = localeName;
+  return initialization;
+}
+
+Locale _resolveLocalePreference(Locale locale) {
+  final normalized = normalizeAppLocale(locale);
+  final supported = resolveSupportedAppLocale(normalized);
+  // Generated localizations accept regional variants of supported languages.
+  return normalized.languageCode == supported.languageCode
+      ? normalized
+      : supported;
+}
+
 String? preferredLanguageCodeFromLocale(Locale? locale) {
   if (locale == null) return null;
   final languageCode =
@@ -96,7 +125,7 @@ Future<Locale?> loadStoredLocalePreference() async {
   final parts = value.split('_');
   final loaded =
       parts.length == 2 ? Locale(parts[0], parts[1]) : Locale(parts[0]);
-  return normalizeAppLocale(loaded);
+  return _resolveLocalePreference(loaded);
 }
 
 Future<Locale> resolveEffectiveAppLocale() async {
@@ -117,6 +146,7 @@ class LocaleNotifier extends StateNotifier<Locale?> {
     final loadedLocale = await loadStoredLocalePreference();
     if (loadedLocale == null) {
       state = null; // system default
+      _syncIntlDefaultLocale(null);
       return;
     }
     state = loadedLocale;
@@ -131,7 +161,7 @@ class LocaleNotifier extends StateNotifier<Locale?> {
   }
 
   Future<void> setLocale(Locale locale) async {
-    final normalized = normalizeAppLocale(locale);
+    final normalized = _resolveLocalePreference(locale);
     state = normalized;
     _syncIntlDefaultLocale(normalized);
     final prefs = await SharedPreferences.getInstance();
@@ -144,15 +174,7 @@ class LocaleNotifier extends StateNotifier<Locale?> {
 
   void _syncIntlDefaultLocale(Locale? locale) {
     try {
-      if (locale == null) {
-        final safe = intlSafeLocaleName(currentDeviceLocale());
-        intl.Intl.defaultLocale = safe;
-        initializeDateFormatting(safe, null).catchError((_) {});
-        return;
-      }
-      final safe = intlSafeLocaleName(locale);
-      intl.Intl.defaultLocale = safe;
-      initializeDateFormatting(safe, null).catchError((_) {});
+      initializeAppDateFormatting(locale).catchError((_) {});
     } catch (_) {
       // Never crash during locale sync
     }

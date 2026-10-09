@@ -3707,5 +3707,6 @@
   "walletRemainingDebt": "Resterende schuld",
   "walletDebtPaidOff": "Schuld afbetaald",
   "walletRepaid": "Afgelost",
-  "walletInitialDebt": "Oorspronkelijke schuld"
+  "walletInitialDebt": "Oorspronkelijke schuld",
+  "walletOrderSaveFailed": "De volgorde van je wallets kon niet worden opgeslagen. Probeer het opnieuw."
 }
