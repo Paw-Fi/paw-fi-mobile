@@ -19,6 +19,7 @@ void main() {
       expect(resolveCurrencySymbol('XOF'), 'CFA');
       expect(resolveCurrencySymbol('MDL'), 'L');
       expect(resolveCurrencySymbol('MUR'), 'Rs');
+      expect(resolveCurrencySymbol('HNL'), 'L');
       expect(resolveCurrencySymbol('MAD'), 'د.م.');
       expect(resolveCurrencySymbol('AMD'), '֏');
     });
@@ -59,6 +60,7 @@ void main() {
       expect(canonicalizeCurrencyCode('د.إ'), 'AED');
       expect(canonicalizeCurrencyCode('Moldovan Leu'), 'MDL');
       expect(canonicalizeCurrencyCode('Mauritian Rupee'), 'MUR');
+      expect(canonicalizeCurrencyCode('Honduran Lempira'), 'HNL');
       expect(canonicalizeCurrencyCode('د.م.'), 'MAD');
       expect(canonicalizeCurrencyCode('DH'), 'MAD');
       expect(canonicalizeCurrencyCode('Moroccan Dirham'), 'MAD');
@@ -89,6 +91,7 @@ void main() {
       expect(isSupportedCurrencyCode('XOF'), true);
       expect(isSupportedCurrencyCode('MDL'), true);
       expect(isSupportedCurrencyCode('MUR'), true);
+      expect(isSupportedCurrencyCode('HNL'), true);
       expect(isSupportedCurrencyCode('MAD'), true);
       expect(isSupportedCurrencyCode('AMD'), true);
     });
@@ -158,6 +161,7 @@ void main() {
       expect(options.containsKey('XOF'), true);
       expect(options.containsKey('MDL'), true);
       expect(options.containsKey('MUR'), true);
+      expect(options.containsKey('HNL'), true);
       expect(options.containsKey('MAD'), true);
       expect(options.containsKey('AMD'), true);
     });
@@ -178,6 +182,7 @@ void main() {
       expect(options['XOF'], 'CFA');
       expect(options['MDL'], 'L');
       expect(options['MUR'], 'Rs');
+      expect(options['HNL'], 'L');
       expect(options['MAD'], 'د.م.');
       expect(options['AMD'], '֏');
     });

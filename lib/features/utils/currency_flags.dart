@@ -63,6 +63,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'MDL': 'moldova',
     'MUR': 'mauritius',
     'GTQ': 'guatemala',
+    'HNL': 'honduras',
     'CLP': 'chile',
     'RSD': 'serbia',
     'HUF': 'hungary',

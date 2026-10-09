@@ -42,6 +42,7 @@ const Map<String, String> currencyDisplayNames = {
   'ETB': 'Ethiopian Birr',
   'GHS': 'Ghanaian Cedi',
   'GTQ': 'Guatemalan Quetzal',
+  'HNL': 'Honduran Lempira',
   'HUF': 'Hungarian Forint',
   'JMD': 'Jamaican Dollar',
   'KES': 'Kenyan Shilling',

@@ -22,6 +22,8 @@ void main() {
           getCurrencyFlagPath('MUR'), 'lib/assets/images/flags/mauritius.png');
       expect(getCurrencyFlagPath('ZMW'), 'lib/assets/images/flags/zambia.png');
       expect(getCurrencyFlagPath('MAD'), 'lib/assets/images/flags/morocco.png');
+      expect(
+          getCurrencyFlagPath('HNL'), 'lib/assets/images/flags/honduras.png');
       expect(getCurrencyFlagPath('AMD'), 'lib/assets/images/flags/armenia.png');
     });
 
@@ -41,6 +43,8 @@ void main() {
       expect(getCurrencyFlagPath('mwk'), 'lib/assets/images/flags/malawi.png');
       expect(getCurrencyFlagPath('zmw'), 'lib/assets/images/flags/zambia.png');
       expect(getCurrencyFlagPath('mad'), 'lib/assets/images/flags/morocco.png');
+      expect(
+          getCurrencyFlagPath('hnl'), 'lib/assets/images/flags/honduras.png');
       expect(getCurrencyFlagPath('amd'), 'lib/assets/images/flags/armenia.png');
     });
 
@@ -97,6 +101,7 @@ void main() {
         'DOP': 'dominican',
         'XOF': 'senegal',
         'MAD': 'morocco',
+        'HNL': 'honduras',
         'AMD': 'armenia',
       };
 
@@ -135,6 +140,10 @@ void main() {
       expect(
         getPlaidCountryFlagPath('AM'),
         'lib/assets/images/flags/armenia.png',
+      );
+      expect(
+        getPlaidCountryFlagPath('HN'),
+        'lib/assets/images/flags/honduras.png',
       );
     });
   });

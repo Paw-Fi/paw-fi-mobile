@@ -22,6 +22,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'CO': 'COP',
     'PY': 'PYG',
     'GT': 'GTQ',
+    'HN': 'HNL',
     'DO': 'DOP',
     'DZ': 'DZD',
     'AM': 'AMD',

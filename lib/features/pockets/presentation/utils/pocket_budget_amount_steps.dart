@@ -31,6 +31,7 @@ const Map<String, double> pocketCurrencyBudgetBaselines = {
   'GHS': 40000,
   'GTQ': 12000,
   'HKD': 60000,
+  'HNL': 270000,
   'HUF': 300000,
   'IDR': 15000000,
   'ILS': 35000,
