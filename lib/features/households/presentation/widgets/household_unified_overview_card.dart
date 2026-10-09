@@ -8,6 +8,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 String _formatLocalizedCurrency(
@@ -127,12 +128,15 @@ Widget buildHouseholdUnifiedOverviewCard(
                   const SizedBox(height: 8),
                   Text(
                     formattedTotalSpent,
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
-                      letterSpacing: -1.0,
-                      height: 1.0,
+                    style: WidgetTextStyles.roundedNumber(
+                      Theme.of(context),
+                      baseStyle: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.foreground,
+                        letterSpacing: -1.0,
+                        height: 1.0,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),

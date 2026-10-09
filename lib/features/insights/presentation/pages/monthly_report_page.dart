@@ -10,6 +10,7 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/subscription/plan_access.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
@@ -4035,11 +4036,14 @@ class _MonthlyReportDetailHeader extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     value,
-                    style: TextStyle(
-                      fontSize: 33,
-                      fontWeight: FontWeight.w800,
-                      color: colorScheme.foreground,
-                      height: 1,
+                    style: WidgetTextStyles.roundedNumber(
+                      Theme.of(context),
+                      baseStyle: TextStyle(
+                        fontSize: 33,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                        height: 1,
+                      ),
                     ),
                   ),
                 ),

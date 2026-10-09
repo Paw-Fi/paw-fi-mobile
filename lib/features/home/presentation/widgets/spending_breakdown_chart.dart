@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/home/presentation/widgets/animated_amount_text.dart';
 
@@ -209,11 +210,14 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                                 child: AnimatedAmountText(
                                   value: selected?.amount ?? totalSpent,
                                   symbol: symbol,
-                                  style: TextStyle(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.9,
-                                    color: colorScheme.foreground,
+                                  style: WidgetTextStyles.roundedNumber(
+                                    Theme.of(context),
+                                    baseStyle: TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.9,
+                                      color: colorScheme.foreground,
+                                    ),
                                   ),
                                 ),
                               ),

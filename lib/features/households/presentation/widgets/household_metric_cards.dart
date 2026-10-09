@@ -89,8 +89,11 @@ Widget buildHouseholdBudgetCard(
             (remainingAmount ?? totalAmount),
             currencyCode.toUpperCase(),
           ),
-          style: WidgetTextStyles.amount.copyWith(
-            color: colorScheme.foreground,
+          style: WidgetTextStyles.roundedNumber(
+            Theme.of(context),
+            baseStyle: WidgetTextStyles.amount.copyWith(
+              color: colorScheme.foreground,
+            ),
           ),
         ),
         const Spacer(),
@@ -186,8 +189,11 @@ Widget buildHouseholdNetPositionCard(
         const SizedBox(height: 16),
         Text(
           displayText,
-          style: WidgetTextStyles.amount.copyWith(
-            color: colorScheme.foreground,
+          style: WidgetTextStyles.roundedNumber(
+            Theme.of(context),
+            baseStyle: WidgetTextStyles.amount.copyWith(
+              color: colorScheme.foreground,
+            ),
           ),
         ),
         const Spacer(),
@@ -302,8 +308,11 @@ Widget buildHouseholdTotalSpentCard(
         const SizedBox(height: 16),
         Text(
           formatted,
-          style: WidgetTextStyles.amount.copyWith(
-            color: colorScheme.foreground,
+          style: WidgetTextStyles.roundedNumber(
+            Theme.of(context),
+            baseStyle: WidgetTextStyles.amount.copyWith(
+              color: colorScheme.foreground,
+            ),
           ),
         ),
         const Spacer(),

@@ -20,6 +20,7 @@ import 'package:moneko/core/util/constants.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/app/startup_guard.dart';
 import 'package:moneko/core/app/flutter_error_reporter.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -42,6 +43,7 @@ void main() {
     // Initialize Firebase and Crashlytics first
     await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform);
+    await WidgetTextStyles.initializeRoundedNumbers();
 
     // Only initialize Crashlytics on non-web platforms
     if (!kIsWeb) {

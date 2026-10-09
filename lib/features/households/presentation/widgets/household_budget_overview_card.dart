@@ -146,8 +146,11 @@ Widget buildHouseholdBudgetOverviewCard(
         AnimatedAmountText(
           value: totalSpentAmount,
           symbol: symbol,
-          style: WidgetTextStyles.amount.copyWith(
-            color: colorScheme.foreground,
+          style: WidgetTextStyles.roundedNumber(
+            Theme.of(context),
+            baseStyle: WidgetTextStyles.amount.copyWith(
+              color: colorScheme.foreground,
+            ),
           ),
         ),
 

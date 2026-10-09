@@ -17,6 +17,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/income/domain/models/income_entry.dart';
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -1203,12 +1204,15 @@ class _UnifiedTransactionSheetV2State
                                 children: [
                                   Text(
                                     '${isIncomeMode ? '+' : ''}$currencySymbol${formatLocalizedNumber(context, double.parse(displayAmount.toStringAsFixed(2)))}',
-                                    style: TextStyle(
-                                      fontSize: 48,
-                                      fontWeight: FontWeight.w800,
-                                      color: textColor,
-                                      letterSpacing: -1,
-                                      height: 1.1,
+                                    style: WidgetTextStyles.roundedNumber(
+                                      Theme.of(context),
+                                      baseStyle: TextStyle(
+                                        fontSize: 48,
+                                        fontWeight: FontWeight.w800,
+                                        color: textColor,
+                                        letterSpacing: -1,
+                                        height: 1.1,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),

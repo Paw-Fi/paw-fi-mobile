@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -341,12 +342,15 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
           // Spending Amount
           Text(
             '$symbol$formattedTotal',
-            style: TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-              letterSpacing: -1.0,
-              height: 1.1,
+            style: WidgetTextStyles.roundedNumber(
+              Theme.of(context),
+              baseStyle: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+                letterSpacing: -1.0,
+                height: 1.1,
+              ),
             ),
           ),
           const SizedBox(height: 4),

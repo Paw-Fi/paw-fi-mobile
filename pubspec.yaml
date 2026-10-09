@@ -144,8 +144,13 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   generate: true
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: lib/assets/fonts/Nunito.ttf
   # To add assets to your application, add an assets section, like this:
   assets:
+    - lib/assets/fonts/OFL.txt
     - dotenv-prod
     - dotenv-dev
     - lib/assets/images/logo192.png

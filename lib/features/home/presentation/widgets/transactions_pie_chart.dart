@@ -14,6 +14,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
 
 class TransactionsPieChart extends ConsumerStatefulWidget {
@@ -288,10 +289,13 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
                                   fit: BoxFit.scaleDown,
                                   child: Text(
                                     displayAmount(selected.amount),
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                      color: widget.colorScheme.foreground,
+                                    style: WidgetTextStyles.roundedNumber(
+                                      Theme.of(context),
+                                      baseStyle: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: widget.colorScheme.foreground,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -337,10 +341,13 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
                                     fit: BoxFit.scaleDown,
                                     child: Text(
                                       displayAmount(totalSpent),
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w700,
-                                        color: widget.colorScheme.foreground,
+                                      style: WidgetTextStyles.roundedNumber(
+                                        Theme.of(context),
+                                        baseStyle: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w700,
+                                          color: widget.colorScheme.foreground,
+                                        ),
                                       ),
                                     ),
                                   ),

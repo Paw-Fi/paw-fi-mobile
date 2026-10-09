@@ -9,6 +9,7 @@ import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -1113,11 +1114,14 @@ class WalletDetailsPage extends HookConsumerWidget {
                             _AnimatedAmountText(
                               value: currentBalanceCents / 100.0,
                               currencyCode: walletCurrencyCode,
-                              style: TextStyle(
-                                fontSize: 44,
-                                fontWeight: FontWeight.w800,
-                                color: textColor,
-                                letterSpacing: -1.2,
+                              style: WidgetTextStyles.roundedNumber(
+                                Theme.of(context),
+                                baseStyle: TextStyle(
+                                  fontSize: 44,
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
+                                  letterSpacing: -1.2,
+                                ),
                               ),
                             ),
                             if (hasGoal)

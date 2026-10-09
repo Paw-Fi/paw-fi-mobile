@@ -188,10 +188,13 @@ class PocketsHeaderCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     formatLocalizedCurrency(effectiveBudget),
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: sheetColorScheme.foreground,
+                    style: WidgetTextStyles.roundedNumber(
+                      Theme.of(context),
+                      baseStyle: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        color: sheetColorScheme.foreground,
+                      ),
                     ),
                     textAlign: TextAlign.center,
                   ),

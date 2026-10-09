@@ -5,6 +5,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
@@ -566,12 +567,15 @@ class _SummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       netAmount,
-                      style: TextStyle(
-                        fontSize: 42,
-                        fontWeight: FontWeight.w800,
-                        color: scheme.foreground,
-                        height: 1.0,
-                        letterSpacing: -1.5,
+                      style: WidgetTextStyles.roundedNumber(
+                        Theme.of(context),
+                        baseStyle: TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.w800,
+                          color: scheme.foreground,
+                          height: 1.0,
+                          letterSpacing: -1.5,
+                        ),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -946,16 +950,20 @@ class _LoadingState extends StatelessWidget {
             const SizedBox(height: 16),
             _SkeletonCard(
               scheme: scheme,
-              child: const Column(
+              child: Column(
                 children: [
-                  Text('Amount to settle'),
-                  SizedBox(height: 16),
+                  const Text('Amount to settle'),
+                  const SizedBox(height: 16),
                   Text(
                     'C\$000.00',
-                    style: TextStyle(fontSize: 42, fontWeight: FontWeight.w800),
+                    style: WidgetTextStyles.roundedNumber(
+                      Theme.of(context),
+                      baseStyle: const TextStyle(
+                          fontSize: 42, fontWeight: FontWeight.w800),
+                    ),
                   ),
-                  SizedBox(height: 8),
-                  Text('Settlement direction'),
+                  const SizedBox(height: 8),
+                  const Text('Settlement direction'),
                 ],
               ),
             ),

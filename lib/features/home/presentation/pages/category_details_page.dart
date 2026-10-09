@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
@@ -683,11 +684,14 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                     const SizedBox(height: 4),
                     Text(
                       '$symbol${formatLocalizedNumber(context, totalSpent)}',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.foreground,
-                        letterSpacing: -1,
+                      style: WidgetTextStyles.roundedNumber(
+                        Theme.of(context),
+                        baseStyle: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.foreground,
+                          letterSpacing: -1,
+                        ),
                       ),
                     ),
                   ],

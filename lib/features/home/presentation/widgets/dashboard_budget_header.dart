@@ -191,11 +191,14 @@ class _SummaryValues extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             amount,
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: colors.foreground,
+            style: WidgetTextStyles.roundedNumber(
+              theme,
+              baseStyle: theme.textTheme.headlineMedium?.copyWith(
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                color: colors.foreground,
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -266,11 +269,14 @@ class _SummaryValues extends StatelessWidget {
                   children: [
                     Text(
                       amount,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        color: colors.foreground,
+                      style: WidgetTextStyles.roundedNumber(
+                        theme,
+                        baseStyle: theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          color: colors.foreground,
+                        ),
                       ),
                     ),
                     if (hasBudget) ...[

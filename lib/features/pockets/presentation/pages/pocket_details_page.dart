@@ -8,6 +8,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -638,11 +639,14 @@ class PocketDetailsPage extends HookConsumerWidget {
                             _AnimatedAmountText(
                               value: limit - pocket.spent,
                               currencyCode: effectiveCurrency,
-                              style: TextStyle(
-                                fontSize: 48,
-                                fontWeight: FontWeight.w800,
-                                color: textColor,
-                                letterSpacing: -1,
+                              style: WidgetTextStyles.roundedNumber(
+                                Theme.of(context),
+                                baseStyle: TextStyle(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
+                                  letterSpacing: -1,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),

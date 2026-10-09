@@ -15,8 +15,7 @@ final _mascot = find.byType(Image);
 double _gaugeValue(WidgetTester tester) =>
     tester.widget<BudgetGaugeIndicator>(_gauge).value;
 
-String _percentText(WidgetTester tester) =>
-    tester.widget<Text>(_percent).data!;
+String _percentText(WidgetTester tester) => tester.widget<Text>(_percent).data!;
 
 Future<void> _pump(
   WidgetTester tester, {
@@ -54,7 +53,8 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('intro holds 0%, counts up in sync, then reveals mascot and bubble',
+  testWidgets(
+      'intro holds 0%, counts up in sync, then reveals mascot and bubble',
       (tester) async {
     await _pump(tester, spent: 61);
     await tester.pump();
@@ -91,6 +91,7 @@ void main() {
     expect(_bubble, findsOneWidget);
     expect(_gaugeValue(tester), closeTo(.61, 1e-9));
     expect(_percentText(tester), '61%');
+    expect(tester.widget<Text>(_percent).style?.fontFamily, 'Nunito');
 
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), closeTo(.61, 1e-9));

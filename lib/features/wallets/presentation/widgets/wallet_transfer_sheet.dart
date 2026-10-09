@@ -7,6 +7,7 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -628,12 +629,15 @@ class _WalletTransferSheet extends HookConsumerWidget {
                               children: [
                                 Text(
                                   '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(getAmountValue())))}',
-                                  style: TextStyle(
-                                    fontSize: 44,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.onSurface,
-                                    letterSpacing: 0,
-                                    height: 1.1,
+                                  style: WidgetTextStyles.roundedNumber(
+                                    Theme.of(context),
+                                    baseStyle: TextStyle(
+                                      fontSize: 44,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onSurface,
+                                      letterSpacing: 0,
+                                      height: 1.1,
+                                    ),
                                   ),
                                   textAlign: TextAlign.center,
                                 ),

@@ -1,20 +1,54 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Shared text styling constants matching CategoryBreakdownChart.tsx web component
 class WidgetTextStyles {
+  static const _roundedFontChannel = MethodChannel('moneko/rounded_font');
+  static final _iosFontVariations = <int, List<FontVariation>>{};
+
+  /// Load the device's SF Rounded faces, not guessed hidden font-family names.
+  /// Apple fonts stay on the device; only Nunito is distributed with the app.
+  static Future<void> initializeRoundedNumbers() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    try {
+      final faces = await _roundedFontChannel
+          .invokeMapMethod<String, dynamic>('loadRoundedFonts')
+          .timeout(const Duration(seconds: 10));
+      if (faces == null) return;
+      for (final entry in faces.entries) {
+        final weight = int.parse(entry.key);
+        final face = Map<String, dynamic>.from(entry.value as Map);
+        final loader = FontLoader('MonekoSFRounded$weight')
+          ..addFont(
+              Future.value(ByteData.sublistView(face['data'] as Uint8List)));
+        await loader.load();
+        final variations = Map<String, dynamic>.from(face['variations'] as Map);
+        _iosFontVariations[weight] = [
+          for (final axis in variations.entries)
+            FontVariation(axis.key, (axis.value as num).toDouble()),
+        ];
+      }
+    } catch (error) {
+      // Font failure must not prevent launch. Nunito remains a rounded fallback.
+      debugPrint('SF Rounded initialization failed: $error');
+    }
+  }
+
   static TextStyle roundedNumber(
     ThemeData theme, {
     TextStyle? baseStyle,
   }) {
-    return (baseStyle ?? const TextStyle()).copyWith(
-      fontFamily:
-          theme.platform == TargetPlatform.iOS ? '.SF Compact Rounded' : null,
-      fontFamilyFallback: const [
-        '.SF Pro Rounded',
-        'SF Pro Rounded',
-        'SF Compact Rounded',
-        'sans-serif-medium',
-      ],
+    final base = baseStyle ?? const TextStyle();
+    final weight = (base.fontWeight ?? FontWeight.w400).value;
+    final iosVariations = theme.platform == TargetPlatform.iOS
+        ? _iosFontVariations[weight]
+        : null;
+    return base.copyWith(
+      fontFamily: iosVariations == null ? 'Nunito' : 'MonekoSFRounded$weight',
+      fontFamilyFallback: const ['Nunito'],
+      fontVariations:
+          iosVariations ?? [FontVariation('wght', weight.toDouble())],
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/core/utils/financial_period.dart';
@@ -497,12 +498,15 @@ class _EditorialHeroHeader extends StatelessWidget {
           children: [
             Text(
               totalDisplay,
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.0,
-                height: 1.05,
-                color: colorScheme.foreground,
+              style: WidgetTextStyles.roundedNumber(
+                Theme.of(context),
+                baseStyle: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.0,
+                  height: 1.05,
+                  color: colorScheme.foreground,
+                ),
               ),
             ),
             const SizedBox(height: 3),

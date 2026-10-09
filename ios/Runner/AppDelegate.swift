@@ -2993,6 +2993,20 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
   }
 
   func setupFlutterChannels(binaryMessenger: FlutterBinaryMessenger) {
+    let roundedFontChannel = FlutterMethodChannel(
+      name: "moneko/rounded_font", binaryMessenger: binaryMessenger
+    )
+    roundedFontChannel.setMethodCallHandler { call, result in
+      guard call.method == "loadRoundedFonts" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(RoundedSystemFont.payload().mapValues { face in
+        var encoded = face
+        encoded["data"] = FlutterStandardTypedData(bytes: face["data"] as! Data)
+        return encoded
+      })
+    }
     setupSiriShortcutAuthChannel(binaryMessenger: binaryMessenger)
     setupAppStoreCommitmentChannel(binaryMessenger: binaryMessenger)
   }

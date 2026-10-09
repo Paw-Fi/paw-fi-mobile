@@ -1,11 +1,28 @@
 import Flutter
 import UIKit
+import CoreText
 import XCTest
 import FirebaseCore
 import firebase_messaging
 @testable import Runner
 
 class RunnerTests: XCTestCase {
+
+  func testRoundedSystemFontDataPreservesTheActualSystemTypeface() throws {
+    for weight in [UIFont.Weight.regular, .semibold, .bold, .heavy] {
+      let descriptor = try XCTUnwrap(
+        UIFont.systemFont(ofSize: 36, weight: weight).fontDescriptor.withDesign(.rounded)
+      )
+      let source = UIFont(descriptor: descriptor, size: 36)
+      let data = try XCTUnwrap(RoundedSystemFont.fontData(source as CTFont))
+      let provider = try XCTUnwrap(CGDataProvider(data: data as CFData))
+      let restored = try XCTUnwrap(CGFont(provider))
+      XCTAssertEqual(restored.postScriptName as String?,
+        CTFontCopyGraphicsFont(source as CTFont, nil).postScriptName as String?)
+      XCTAssertNotEqual(source.fontName, UIFont.systemFont(ofSize: 36, weight: weight).fontName)
+      XCTAssertEqual(data.count % 4, 0)
+    }
+  }
 
   private func captureContext(expired: Bool = false, userId: String = "user-1") -> SiriShortcutAuthContext {
     SiriShortcutAuthContext(

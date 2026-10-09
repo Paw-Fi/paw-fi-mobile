@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../../../core/l10n/l10n.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/theme/widget_text_styles.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/sync/household_settlement_outbox_dispatcher.dart';
 import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
@@ -1853,12 +1854,15 @@ class _AmountDisplayCard extends StatelessWidget {
                       maxSettleCents / 100.0,
                       settlementCurrencyCode,
                     ),
-                    style: TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w800,
-                      color: scheme.foreground,
-                      height: 1.0,
-                      letterSpacing: -1.5,
+                    style: WidgetTextStyles.roundedNumber(
+                      Theme.of(context),
+                      baseStyle: TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w800,
+                        color: scheme.foreground,
+                        height: 1.0,
+                        letterSpacing: -1.5,
+                      ),
                     ),
                     textAlign: TextAlign.center,
                   ),
