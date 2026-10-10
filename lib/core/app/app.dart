@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import 'package:home_widget/home_widget.dart';
+import 'package:moneko/core/services/widget_session_provider.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
@@ -216,6 +217,7 @@ class _AppState extends ConsumerState<App> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(homeWidgetSessionSyncProvider);
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
     //final themeMode=ThemeMode.dark;

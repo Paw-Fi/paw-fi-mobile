@@ -855,37 +855,44 @@ class MainShell extends HookConsumerWidget {
         widgetLaunchProvider,
         (previous, next) {
           if (next == previous) return;
+          // A cold widget launch may have arrived before MainShell mounted.
+          // Consume it after the first frame, when the router can show a modal.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (disposed || !context.mounted) return;
+            if (ref.read(widgetLaunchProvider) != next) return;
 
-          if (next.type == WidgetLaunchActionType.textInput ||
-              next.type == WidgetLaunchActionType.cameraInput) {
-            if (ref.read(mainShellTabIndexProvider) != 0) {
-              tabController.state = 0;
-            }
-            final command = homePageCommandFromWidgetLaunch(next);
-            if (command != null) {
-              ref.read(homePageCommandProvider.notifier).state =
-                  HomePageCommand(
-                command.type,
-                requestId: DateTime.now().microsecondsSinceEpoch,
-              );
-            }
-            widgetLaunchNotifier.state = const WidgetLaunchEvent();
-          } else if (next.type == WidgetLaunchActionType.openPockets) {
-            if (ref.read(mainShellTabIndexProvider) != 2) {
-              tabController.state = 2;
-            }
-            widgetLaunchNotifier.state = const WidgetLaunchEvent();
-          } else if (next.type == WidgetLaunchActionType.configure) {
-            final widgetIdStr = next.params?['widgetId'];
-            if (widgetIdStr != null) {
-              final widgetId = int.tryParse(widgetIdStr);
-              if (widgetId != null && context.mounted) {
-                _showWidgetConfigurationDialog(context, ref, widgetId);
+            if (next.type == WidgetLaunchActionType.textInput ||
+                next.type == WidgetLaunchActionType.cameraInput) {
+              if (ref.read(mainShellTabIndexProvider) != 0) {
+                tabController.state = 0;
               }
+              final command = homePageCommandFromWidgetLaunch(next);
+              if (command != null) {
+                ref.read(homePageCommandProvider.notifier).state =
+                    HomePageCommand(
+                  command.type,
+                  requestId: DateTime.now().microsecondsSinceEpoch,
+                );
+              }
+              widgetLaunchNotifier.state = const WidgetLaunchEvent();
+            } else if (next.type == WidgetLaunchActionType.openPockets) {
+              if (ref.read(mainShellTabIndexProvider) != 2) {
+                tabController.state = 2;
+              }
+              widgetLaunchNotifier.state = const WidgetLaunchEvent();
+            } else if (next.type == WidgetLaunchActionType.configure) {
+              final widgetIdStr = next.params?['widgetId'];
+              if (widgetIdStr != null) {
+                final widgetId = int.tryParse(widgetIdStr);
+                if (widgetId != null && context.mounted) {
+                  _showWidgetConfigurationDialog(context, ref, widgetId);
+                }
+              }
+              widgetLaunchNotifier.state = const WidgetLaunchEvent();
             }
-            widgetLaunchNotifier.state = const WidgetLaunchEvent();
-          }
+          });
         },
+        fireImmediately: true,
       );
 
       return () {
@@ -1286,11 +1293,17 @@ class MainShell extends HookConsumerWidget {
     );
 
     if (result?.confirmed == true) {
-      await WidgetService().saveWidgetConfiguration(
-        widgetId: widgetId,
-        scopeId: selectedScopeNotifier.value,
-        currency: currencyCode,
-      );
+      try {
+        await WidgetService().saveWidgetConfiguration(
+          widgetId: widgetId,
+          scopeId: selectedScopeNotifier.value,
+          currency: currencyCode,
+        );
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+        }
+      }
     }
 
     selectedScopeNotifier.dispose();

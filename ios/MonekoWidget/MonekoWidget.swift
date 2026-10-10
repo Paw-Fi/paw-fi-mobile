@@ -36,16 +36,6 @@ extension View {
 
 // MARK: - Data Models
 
-struct PocketData: Codable, Identifiable {
-    var id: String { name }
-    let name: String
-    let spent: Double
-    let budget: Double
-    let color: String
-    let currency: String?
-    let icon: String?
-}
-
 struct MonekoEntry: TimelineEntry {
     let date: Date
     let totalSpent: String
@@ -138,45 +128,17 @@ struct DataLoader {
         let currency = trimmedCurrency.isEmpty ? "USD" : trimmedCurrency.uppercased()
         let scopeId = configuredScopeId ?? "personal"
         
-        let suffix = "_\(scopeId)_\(currency)"
-        
-        let totalSpentKey = "total_spent\(suffix)"
-        let remainingKey = "remaining_budget\(suffix)"
-        let progressKey = "budget_progress\(suffix)"
-        let pocketsKey = "\(pocketsKeyBase)\(suffix)"
-        
-        let legacyCurrency = (userDefaults?.string(forKey: "legacy_widget_currency") ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .uppercased()
-        let canUseLegacyKeys = configuredScopeId == nil && legacyCurrency == currency
-        
-        let totalSpent = userDefaults?.string(forKey: totalSpentKey)
-            ?? (canUseLegacyKeys ? userDefaults?.string(forKey: "total_spent") : nil)
-            ?? "$0"
-        let remainingBudget = userDefaults?.string(forKey: remainingKey)
-            ?? (canUseLegacyKeys ? userDefaults?.string(forKey: "remaining_budget") : nil)
-            ?? "$0"
-        let progress = userDefaults?.object(forKey: progressKey) != nil
-            ? userDefaults?.double(forKey: progressKey) ?? 0.0
-            : (canUseLegacyKeys ? userDefaults?.double(forKey: "budget_progress") ?? 0.0 : 0.0)
-        
-        var pockets: [PocketData] = []
-        let pocketsJson = userDefaults?.string(forKey: pocketsKey)
-            ?? (canUseLegacyKeys ? userDefaults?.string(forKey: pocketsKeyBase) : nil)
-        if let pocketsJson = pocketsJson,
-           let data = pocketsJson.data(using: .utf8) {
-            do {
-                pockets = try JSONDecoder().decode([PocketData].self, from: data)
-            } catch {
-            }
-        }
+        let values = HomeWidgetSnapshotReader.read(
+            value: { userDefaults?.object(forKey: $0) }, scopeId: scopeId, currency: currency,
+            categories: pocketsKeyBase == "top_categories", allowLegacyGlobal: configuredScopeId == nil
+        )
         
         return MonekoEntry(
             date: Date(),
-            totalSpent: totalSpent,
-            remainingBudget: remainingBudget,
-            progress: progress,
-            pockets: pockets,
+            totalSpent: values.totalSpent,
+            remainingBudget: values.remainingBudget,
+            progress: values.progress,
+            pockets: values.pockets,
             currencyCode: currency,
             configuration: configuration
         )

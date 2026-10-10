@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="default_notification_channel_id">moneko_notifications</string>
+    <string name="widget_setup">Tap to set up</string>
+    <string name="widget_sign_in">Sign in to Moneko</string>
+    <string name="widget_load">Open Moneko to load your data</string>
+    <string name="widget_remaining">Left: %1$s</string>
+    <string name="widget_month">THIS MONTH</string>
+    <string name="widget_cached">SAVED DATA · OPEN TO REFRESH</string>
 </resources>

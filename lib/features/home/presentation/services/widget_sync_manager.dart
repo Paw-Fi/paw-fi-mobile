@@ -1,103 +1,87 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/services/home_widget_snapshot.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/sync/ios_siri_transaction_defaults_provider.dart';
-import 'package:moneko/core/app/app_initialization_provider_v2.dart';
-import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/core/utils/currency_rate_provider.dart';
-import 'package:moneko/core/utils/currency_rates.dart';
-import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/services/widget_sync_calculations.dart';
-import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
-import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
-import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
-import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
+import 'package:moneko/core/utils/financial_period.dart';
+import 'package:intl/intl.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
-import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:collection/collection.dart';
-import 'package:moneko/features/home/presentation/models/models.dart';
-import 'package:moneko/features/households/domain/entities/household_summary.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 
-String _colorToHex(Color color) {
-  final r =
-      ((color.r * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
-  final g =
-      ((color.g * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
-  final b =
-      ((color.b * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
-  return '#${r.toUpperCase()}${g.toUpperCase()}${b.toUpperCase()}';
-}
-
-bool _isMissingRolloverColumnError(Object error) {
-  if (error is! PostgrestException) return false;
-  final message =
-      '${error.code} ${error.message} ${error.details} ${error.hint}'
-          .toLowerCase();
-  final mentionsRolloverColumn = message.contains('rollover_group_id') ||
-      message.contains('rollover_enabled') ||
-      message.contains('rollover_negative') ||
-      message.contains('rollover_cap_cents') ||
-      message.contains('opening_rollover_cents');
-  return mentionsRolloverColumn &&
-      (error.code == '42703' || error.code == 'PGRST204');
-}
-
-String normalizeWidgetSyncCurrency(String? currency) {
-  final normalized = currency?.trim().toUpperCase();
-  if (normalized == null || normalized.isEmpty) {
-    return 'USD';
-  }
-  return normalized;
-}
+String normalizeWidgetSyncCurrency(String? currency) =>
+    normalizeHomeWidgetCurrency(currency);
 
 List<String> normalizeWidgetSyncSelectedCurrencies({
   required String selectedCurrency,
   List<String>? selectedCurrencies,
 }) {
-  final seen = <String>{};
-  final normalized = <String>[];
-  for (final currency in <String>[
-    selectedCurrency,
-    ...?selectedCurrencies,
-  ]) {
-    final code = normalizeWidgetSyncCurrency(currency);
-    if (seen.contains(code)) continue;
-    seen.add(code);
-    normalized.add(code);
-  }
-  normalized.sort();
-  return normalized;
+  final currencies = {
+    normalizeWidgetSyncCurrency(selectedCurrency),
+    ...?selectedCurrencies
+        ?.map((item) => item.trim().toUpperCase())
+        .where((item) => item.isNotEmpty),
+  }.toList()
+    ..sort();
+  return currencies;
 }
 
-Future<CurrencyRateTable> _widgetCurrencyRates(WidgetRef ref) async {
-  try {
-    return await ref.read(currencyRateTableProvider.future);
-  } catch (_) {
-    return const CurrencyRateTable(
-      baseCurrency: 'USD',
-      rates: CurrencyRates.rates,
-      isStale: true,
-    );
+/// Uses the same resolved month source as Home. Widget synchronization must not
+/// independently interpret RPC fields, forecast rules, or foreign budgets.
+HomeWidgetSnapshot? buildHomeWidgetSnapshot({
+  required String userId,
+  required PocketsState state,
+  List<WidgetPocketData>? topCategories,
+}) {
+  if (!state.hasDisplayData || state.hasChanges) return null;
+  // Pocket's offline-without-cache state reserves a month but has no known
+  // budget. It must not erase a trustworthy native snapshot with zeroes.
+  if (state.nativeBudgetByCurrency.isEmpty &&
+      state.budgetId == null &&
+      state.saved.isEmpty &&
+      state.savedTotalBudget == 0) {
+    return null;
   }
-}
-
-class _BudgetPocketsSnapshot {
-  const _BudgetPocketsSnapshot({
-    required this.totalBudget,
-    required this.pockets,
-  });
-
-  final double totalBudget;
-  final List<WidgetPocketData> pockets;
+  if (!state.totalSpent.isFinite ||
+      !state.savedTotalBudget.isFinite ||
+      state.saved.any((pocket) =>
+          !pocket.spent.isFinite || !pocket.availableBudget.isFinite)) {
+    return null;
+  }
+  return HomeWidgetSnapshot(
+    userId: userId,
+    currency: state.currency,
+    periodMonth: state.periodMonth.toIso8601String().substring(0, 10),
+    totalSpent: state.totalSpent,
+    totalBudget: state.savedTotalBudget,
+    pockets: state.saved
+        .map((pocket) => WidgetPocketData(
+              id: pocket.id,
+              name: pocket.name,
+              spent: pocket.spent,
+              budget: pocket.availableBudget,
+              color: pocket.color ?? '#7458FF',
+              currency: pocket.currency,
+              icon: pocket.icon,
+            ))
+        .toList(growable: false),
+    topCategories: topCategories,
+  );
 }
 
 class WidgetSyncManager extends HookConsumerWidget {
@@ -107,1114 +91,228 @@ class WidgetSyncManager extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(iosSiriTransactionDefaultsSyncProvider);
     final user = ref.watch(authProvider);
-
-    // Watch app initialization state to ensure we don't sync before ready
-    final appInitState = ref.watch(appInitializationV2Provider);
-    final isAppReady = appInitState.isReady;
-
-    // Watch and manage sync state
-    final syncState = ref.watch(widgetSyncStateProvider);
-    final syncStateNotifier = ref.read(widgetSyncStateProvider.notifier);
-
-    final analyticsData = ref.watch(analyticsProvider);
+    final appInit = ref.watch(appInitializationV2Provider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
-    final walletAuthHeaders = ref.watch(walletAuthHeadersProvider);
-    final shortcutWalletStates = <String, AsyncValue<List<WalletEntity>>>{};
     final households = householdsAsync.valueOrNull;
-    if (user.uid.isNotEmpty &&
-        walletAuthHeaders != null &&
-        households != null) {
-      shortcutWalletStates['personal'] = ref.watch(
-        shortcutDestinationWalletsByHouseholdIdProvider(null),
-      );
+    final walletHeaders = ref.watch(walletAuthHeadersProvider);
+    final wallets = <String, AsyncValue<List<WalletEntity>>>{};
+    if (user.uid.isNotEmpty && walletHeaders != null && households != null) {
+      wallets['personal'] =
+          ref.watch(shortcutDestinationWalletsByHouseholdIdProvider(null));
       for (final household in households) {
-        shortcutWalletStates[household.id] = ref.watch(
-          shortcutDestinationWalletsByHouseholdIdProvider(household.id),
-        );
+        wallets[household.id] = ref.watch(
+            shortcutDestinationWalletsByHouseholdIdProvider(household.id));
       }
     }
-    final isShortcutCatalogReady = shortcutWalletStates.isNotEmpty &&
-        shortcutWalletStates.values.every((state) => state.hasValue);
-    final shortcutWalletCatalogSignature = shortcutWalletStates.entries
-        .expand(
-          (entry) => (entry.value.valueOrNull ?? const <WalletEntity>[]).map(
-            (wallet) =>
-                '${entry.key}:${wallet.id}:${wallet.name}:${wallet.currency}',
-          ),
-        )
+    final catalogReady =
+        wallets.isNotEmpty && wallets.values.every((item) => item.hasValue);
+    final catalogSignature = wallets.entries
+        .expand((entry) => (entry.value.valueOrNull ?? const <WalletEntity>[])
+            .map((wallet) =>
+                '${entry.key}:${wallet.id}:${wallet.name}:${wallet.currency}'))
         .join('|');
-    final selectedWidgetCurrency = normalizeWidgetSyncCurrency(
-      ref.watch(selectedHomeCurrencyCodeProvider),
-    );
-    final selectedWidgetCurrencies = normalizeWidgetSyncSelectedCurrencies(
-      selectedCurrency: selectedWidgetCurrency,
-      selectedCurrencies: ref.watch(
-        homeFilterProvider
-            .select((state) => state.normalizedSelectedCurrencies),
-      ),
-    );
-    final selectedWidgetCurrenciesKey = selectedWidgetCurrencies.join(',');
-    final widgetSyncVersion = ref.watch(widgetSyncVersionProvider);
-    final financialMonthStartDay = ref.watch(financialMonthStartDayProvider);
-
-    // Keep the native AppIntent catalog independent of analytics loading.
     useEffect(() {
-      if (user.uid.isEmpty || households == null || !isShortcutCatalogReady) {
-        return null;
-      }
-
-      Future<void> syncConfigOptions() async {
-        await WidgetService().saveConfigurationOptions(
-          userId: user.uid,
-          households: [
-            {'id': 'personal', 'name': 'Personal', 'isPortfolio': false},
-            ...households.map(
-              (h) => {
-                'id': h.id,
-                'name': h.name,
-                'isPortfolio': h.isPortfolio,
-              },
-            ),
-          ],
-          wallets: shortcutWalletStates.entries
-              .expand(
-                (entry) =>
-                    (entry.value.valueOrNull ?? const <WalletEntity>[]).map(
-                  (wallet) => {
-                    'id': wallet.id,
-                    'name': wallet.name,
-                    'spaceId': entry.key,
-                    'currency': wallet.currency.trim().toUpperCase(),
-                  },
-                ),
-              )
-              .toList(growable: false),
-        );
-      }
-
-      syncConfigOptions();
+      if (!catalogReady || households == null || user.uid.isEmpty) return null;
+      unawaited(WidgetService().saveConfigurationOptions(
+        userId: user.uid,
+        households: [
+          {'id': 'personal', 'name': 'Personal', 'isPortfolio': false},
+          ...households.map((item) => {
+                'id': item.id,
+                'name': item.name,
+                'isPortfolio': item.isPortfolio
+              }),
+        ],
+        wallets: wallets.entries
+            .expand((entry) =>
+                (entry.value.valueOrNull ?? const <WalletEntity>[])
+                    .map((wallet) => {
+                          'id': wallet.id,
+                          'name': wallet.name,
+                          'spaceId': entry.key,
+                          'currency': wallet.currency.trim().toUpperCase(),
+                        }))
+            .toList(growable: false),
+      ));
       return null;
-    }, [
-      user.uid,
-      households,
-      isShortcutCatalogReady,
-      shortcutWalletCatalogSignature,
-    ]);
+    }, [user.uid, catalogReady, catalogSignature, households]);
 
-    // Keep widget sync recoverable if the initial background analytics warm-up
-    // was skipped or interrupted during startup.
+    final financialDay = ref.watch(financialMonthStartDayStateProvider);
+    final currency = normalizeWidgetSyncCurrency(
+        ref.watch(selectedHomeCurrencyCodeProvider));
+    final currencies = normalizeWidgetSyncSelectedCurrencies(
+      selectedCurrency: currency,
+      selectedCurrencies: ref.watch(homeFilterProvider
+          .select((state) => state.normalizedSelectedCurrencies)),
+    );
+    final includeRecurring =
+        ref.watch(includeUpcomingRecurringInPocketsProvider);
+    // A bounded foreground tick covers midnight and recovery from transient
+    // failures even when no other watched financial value changes.
+    final now = useState(DateTime.now());
     useEffect(() {
-      if (!isAppReady || user.uid.isEmpty) {
+      final timer = Timer.periodic(
+          const Duration(minutes: 1), (_) => now.value = DateTime.now());
+      return timer.cancel;
+    }, const []);
+    final userNow = now.value.toUtc().add(Duration(
+        minutes: resolveUserTimezoneOffsetMinutes(
+            appInit.data?.user?.preferredTimezone)));
+    final range =
+        financialCycleForDate(userNow, startDay: financialDay.valueOrNull ?? 1);
+    final month = range.start;
+    final refreshContext = {
+      'userId': user.uid,
+      'currency': currency,
+      'currencies': currencies,
+      'scopes': {
+        'personal': 'personal',
+        ...?households?.asMap().map((_, item) =>
+            MapEntry(item.id, item.isPortfolio ? 'portfolio' : 'household')),
+      },
+      'timezone': appInit.data?.user?.preferredTimezone,
+      'timezoneOffsetMinutes': resolveUserTimezoneOffsetMinutes(
+          appInit.data?.user?.preferredTimezone),
+      'financialMonthStartDay': financialDay.valueOrNull,
+      'includeRecurring': includeRecurring,
+      'locale': Intl.getCurrentLocale(),
+    };
+    final refreshSignature = jsonEncode(refreshContext);
+    useEffect(() {
+      if (!appInit.isReady ||
+          !financialDay.hasValue ||
+          households == null ||
+          user.uid.isEmpty ||
+          ref.read(previewModeProvider).isActive) {
         return null;
       }
-      if (analyticsData.hasLoadedOnce == true || analyticsData.isLoading) {
-        return null;
-      }
+      unawaited(WidgetService()
+          .saveBackgroundRefreshContext(refreshContext)
+          .catchError((Object error) {
+        debugPrint('Widget refresh configuration failed: ${error.runtimeType}');
+      }));
+      return null;
+    }, [refreshSignature, appInit.isReady]);
 
+    if (!appInit.isReady ||
+        user.uid.isEmpty ||
+        households == null ||
+        !financialDay.hasValue ||
+        ref.watch(previewModeProvider).isActive) {
+      return const SizedBox.shrink();
+    }
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      for (final scope in [
+        const ('personal', PocketsScopeType.personal),
+        ...households.map((item) => (
+              item.id,
+              item.isPortfolio
+                  ? PocketsScopeType.portfolio
+                  : PocketsScopeType.household
+            )),
+      ])
+        _WidgetScopeSync(
+          key: ValueKey(
+              '${user.uid}:${scope.$1}:$currency:${currencies.join(',')}:$month:$includeRecurring'),
+          userId: user.uid,
+          scopeId: scope.$1,
+          params: PocketsScopeParams(
+            scope: scope.$2,
+            householdId: scope.$1 == 'personal' ? null : scope.$1,
+            periodMonth: month,
+            currency: currency,
+            selectedCurrencies: currencies,
+            financialMonthStartDay: financialDay.valueOrNull!,
+            includeUpcomingRecurring: includeRecurring,
+            isBootstrapCurrency: false,
+          ),
+          rangeEnd: range.end,
+          tick: now.value,
+        ),
+    ]);
+  }
+}
+
+class _WidgetScopeSync extends HookConsumerWidget {
+  const _WidgetScopeSync(
+      {super.key,
+      required this.userId,
+      required this.scopeId,
+      required this.params,
+      required this.rangeEnd,
+      required this.tick});
+  final String userId;
+  final String scopeId;
+  final PocketsScopeParams params;
+  final DateTime rangeEnd;
+  final DateTime tick;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(pocketsProvider(params));
+    final categories =
+        ref.watch(budgetCompanionPeriodSummaryProvider(DashboardScopeQuery(
+      userId: userId,
+      householdId: params.householdId,
+      selectedCurrency: params.currency,
+      selectedCurrencies: params.selectedCurrencies,
+      startDate: params.periodMonth,
+      endDate: rangeEnd,
+    )));
+    final topCategories = categories.valueOrNull?.categorySummaries
+        .where((item) => item.amount > 0)
+        .toList()
+      ?..sort((a, b) => b.amount.compareTo(a.amount));
+    final snapshot = state.currency != params.currency ||
+            state.periodMonth != params.periodMonth
+        ? null
+        : buildHomeWidgetSnapshot(
+            userId: userId,
+            state: state,
+            topCategories: topCategories?.take(4).map((item) {
+              final color = getCategoryColor(item.category);
+              final hex = '#${[
+                color.r,
+                color.g,
+                color.b
+              ].map((value) => (value * 255).round().toRadixString(16).padLeft(2, '0')).join().toUpperCase()}';
+              return WidgetPocketData(
+                  id: item.category,
+                  name: item.category,
+                  spent: item.amount,
+                  budget: 0,
+                  color: hex,
+                  currency: params.currency,
+                  icon: item.category);
+            }).toList(growable: false),
+          );
+    final signature = snapshot == null ? null : jsonEncode(snapshot.toJson());
+    final published = useRef<String?>(null);
+    final mutationRevision = ref.watch(widgetSyncVersionProvider);
+    useEffect(() {
+      if (snapshot == null || signature == published.value) return null;
       var disposed = false;
       Future<void>(() async {
-        await Future<void>.delayed(const Duration(seconds: 1));
-        if (disposed) return;
-
-        final latestAnalytics = ref.read(analyticsProvider);
-        if (latestAnalytics.hasLoadedOnce == true ||
-            latestAnalytics.isLoading) {
-          return;
-        }
-
-        await ref.read(analyticsProvider.notifier).loadData(user.uid);
-      });
-
-      return () {
-        disposed = true;
-      };
-    }, [
-      isAppReady,
-      user.uid,
-      analyticsData.hasLoadedOnce,
-      analyticsData.isLoading,
-    ]);
-
-    // Sync ALL scopes (Personal + Households) for Configurable Widgets
-    useEffect(() {
-      // GUARD 1: App must be fully initialized (has data, not failed)
-      if (!isAppReady) {
-        return null;
-      }
-
-      // GUARD 2: User must be authenticated
-      if (user.uid.isEmpty) {
-        return null;
-      }
-
-      // GUARD 3: Data must be fully loaded
-      if (analyticsData.hasLoadedOnce != true ||
-          analyticsData.isLoading ||
-          householdsAsync.isLoading) {
-        return null;
-      }
-
-      // GUARD 4: Debounce - don't sync too frequently
-      if (!syncState.canSyncForCurrency(
-        selectedWidgetCurrency,
-        widgetSyncVersion: widgetSyncVersion,
-      )) {
-        return null;
-      }
-
-      // GUARD 5: Prevent concurrent syncs
-      if (syncState.isSyncing) {
-        return null;
-      }
-
-      final households = householdsAsync.valueOrNull ?? [];
-      final allScopes = [
-        {'id': 'personal', 'name': 'Personal'},
-        ...households.map((h) => {'id': h.id, 'name': h.name}),
-      ];
-
-      Future<void> syncAllScopes() async {
-        final widgetService = WidgetService();
-        // Mark sync as started
-        syncStateNotifier.startSync(
-          currency: selectedWidgetCurrency,
-          widgetSyncVersion: widgetSyncVersion,
-        );
-
-        // Track whether sync completed successfully to ensure proper cleanup
-        bool syncSucceeded = false;
-
         try {
-          // Abort immediately if user signed out or session is gone
-          final session = Supabase.instance.client.auth.currentSession;
-          if (session == null || user.uid.isEmpty) {
-            // Don't return - let finally block handle cleanup
-            return;
-          }
-
-          final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
-            appInitState.data?.user?.preferredTimezone,
+          bool isCurrent() => !disposed && ref.read(authProvider).uid == userId;
+          final service = WidgetService();
+          // Retry a failed initial owner transport together with publication.
+          await service.synchronizeOwner(userId, isCurrent: isCurrent);
+          final saved = await service.publishSnapshot(
+            scopeId: scopeId,
+            snapshot: snapshot,
+            isCurrent: isCurrent,
           );
-          final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
-          final widgetRange = buildWidgetThisMonthRange(
-            userNow,
-            financialMonthStartDay: financialMonthStartDay,
-          );
-          final currentMonth = widgetRange['from']!;
-          final currentRangeEnd = widgetRange['to']!;
-          final widgetCurrencyRates = await _widgetCurrencyRates(ref);
-
-          // Fetch Monthly Budgets for all scopes
-          final budgetMonthStr = DateTime(
-            currentMonth.year,
-            currentMonth.month,
-            1,
-          ).toIso8601String().substring(0, 10);
-
-          Future<List<ExpenseEntry>> loadWidgetTransactionsForScope({
-            required String scopeId,
-            required String currency,
-          }) async {
-            Future<List<ExpenseEntry>> loadActualExpenses(
-              String? householdId,
-            ) async {
-              final query = DashboardScopeQuery(
-                userId: user.uid,
-                householdId: householdId,
-                selectedCurrency: currency,
-                selectedCurrencies: selectedWidgetCurrencies,
-                startDate: currentMonth,
-                endDate: currentRangeEnd,
-              );
-              return ref.read(
-                dashboardCalendarTransactionsProvider(query).future,
-              );
-            }
-
-            Future<List<RecurringTransaction>> loadRecurringTransactions(
-              String? householdId,
-            ) async {
-              final recurringProvider = recurringTransactionsProvider(
-                householdId,
-              );
-              final recurringState = ref.read(recurringProvider);
-              if (!recurringState.hasLoadedOnce &&
-                  !recurringState.data.isLoading) {
-                await ref
-                    .read(recurringProvider.notifier)
-                    .loadRecurringTransactions(user.uid);
-              }
-              return ref.read(recurringProvider).data.valueOrNull ??
-                  const <RecurringTransaction>[];
-            }
-
-            final scopedHouseholdIds = widgetSourceHouseholdIds(
-              scopeId: scopeId,
-              portfolioHouseholdIds: const <String>{},
-            );
-            final actualExpenses = <ExpenseEntry>[];
-            final recurringTransactions = <RecurringTransaction>[];
-            final confirmedOccurrenceSuppressionEntries = <ExpenseEntry>[];
-            for (final householdId in scopedHouseholdIds) {
-              actualExpenses.addAll(await loadActualExpenses(householdId));
-              final scopedRecurringTransactions =
-                  await loadRecurringTransactions(householdId);
-              recurringTransactions.addAll(scopedRecurringTransactions);
-              final occurrenceResolution =
-                  await loadRecurringOccurrenceProjectionResolution(
-                query: RecurringOccurrenceProjectionResolutionQuery(
-                  userId: user.uid,
-                  householdId: householdId,
-                  startDate: currentMonth,
-                  endDate: currentRangeEnd,
-                ),
-                recurringTransactions: scopedRecurringTransactions,
-                loadOccurrences: (occurrenceQuery) => ref.read(
-                  recurringOccurrenceTimelineProvider(occurrenceQuery).future,
-                ),
-              );
-              confirmedOccurrenceSuppressionEntries.addAll(
-                occurrenceResolution.suppressionEntries,
-              );
-            }
-
-            final mergedTransactions =
-                mergeActualExpensesWithProjectedRecurring(
-              actualExpenses: actualExpenses,
-              recurringTransactions: recurringTransactions,
-              rangeStart: currentMonth,
-              rangeEnd: currentRangeEnd,
-              selectedCurrency: currency,
-              selectedCurrencies: selectedWidgetCurrencies,
-              includeFutureOccurrences: false,
-              now: userNow,
-              confirmedOccurrenceSuppressionEntries:
-                  confirmedOccurrenceSuppressionEntries,
-            );
-
-            return prepareWidgetAggregateTransactions(
-              mergedTransactions,
-              targetCurrency: currency,
-              selectedCurrencies: selectedWidgetCurrencies,
-              rates: widgetCurrencyRates,
-            );
-          }
-
-          Future<HouseholdSummary?> loadHouseholdDerivedSummary({
-            required String householdId,
-            required String currency,
-          }) async {
-            final params = HouseholdSummaryParams(
-              householdId: householdId,
-              currency: currency,
-              startDate: formatDateOnlyYmd(currentMonth),
-              endDate: formatDateOnlyYmd(currentRangeEnd),
-            );
-
-            await ref.read(
-              cachedHouseholdExpensesProvider(
-                HouseholdExpensesParams(householdId: householdId),
-              ).future,
-            );
-            await ref.read(
-              cachedHouseholdSplitsProvider(
-                HouseholdSplitsParams(householdId: householdId),
-              ).future,
-            );
-            await ref
-                .read(householdMembersProvider(householdId).notifier)
-                .load();
-            await ref
-                .read(householdBudgetsProvider(householdId).notifier)
-                .load();
-
-            final summaryAsync =
-                ref.read(householdDerivedSummaryProvider(params));
-            if (summaryAsync.hasError && !summaryAsync.hasValue) {
-              throw summaryAsync.error ?? Exception('Failed to load summary');
-            }
-            return summaryAsync.valueOrNull;
-          }
-
-          // Preload personal budgets from the new `budgets` table, scoped the
-          // same way as the personal home dashboard: household_id must be null.
-          final personalBudgetsByCurrency = <String, double>{};
-          final personalBudgetIdsByCurrency = <String, String>{};
-          try {
-            final budgetsRes = await Supabase.instance.client
-                .from('budgets')
-                .select(
-                    'id,currency,total_budget_cents,period_month,household_id')
-                .eq('user_id', user.uid)
-                .eq('period_month', budgetMonthStr)
-                .isFilter('household_id', null);
-
-            final rows =
-                (budgetsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-            for (final row in rows) {
-              final code = (row['currency'] as String?)?.toUpperCase();
-              if (code == null || code.isEmpty) continue;
-              final id = row['id'] as String?;
-              final cents =
-                  (row['total_budget_cents'] as num?)?.toDouble() ?? 0.0;
-              final amount = cents / 100.0;
-              personalBudgetsByCurrency[code] =
-                  (personalBudgetsByCurrency[code] ?? 0.0) + amount;
-              if (id != null && id.isNotEmpty) {
-                personalBudgetIdsByCurrency[code] = id;
-              }
-            }
-          } catch (e) {}
-
-          double aggregateBudgetForWidgetCurrency(
-            Map<String, double> budgetsByCurrency,
-            String targetCurrency,
-          ) {
-            return selectedWidgetCurrencies.fold<double>(0.0, (sum, code) {
-              final amount = budgetsByCurrency[code] ?? 0.0;
-              return sum +
-                  convertWidgetAggregateAmount(
-                    amount: amount,
-                    sourceCurrency: code,
-                    targetCurrency: targetCurrency,
-                    selectedCurrencies: selectedWidgetCurrencies,
-                    rates: widgetCurrencyRates,
-                  );
-            });
-          }
-
-          Future<_BudgetPocketsSnapshot?> loadBudgetPocketsFromRpc({
-            required String scope,
-            required String? householdId,
-            required String currency,
-            required DateTime monthStart,
-            required double fallbackTotalBudget,
-          }) async {
-            try {
-              final budgetMonth = DateTime(
-                monthStart.year,
-                monthStart.month,
-                1,
-              ).toIso8601String().substring(0, 10);
-              final response = await Supabase.instance.client.rpc(
-                'get_pockets_month_v3',
-                params: <String, dynamic>{
-                  'p_user_id': user.uid,
-                  'p_scope': scope,
-                  'p_household_id': householdId,
-                  'p_budget_month': budgetMonth,
-                  'p_currency': currency,
-                  'p_include_projected_recurring': true,
-                  'p_allow_currency_fallback': false,
-                },
-              );
-              final payload = Map<String, dynamic>.from(response as Map);
-              final budget = payload['budget'] is Map
-                  ? Map<String, dynamic>.from(payload['budget'] as Map)
-                  : const <String, dynamic>{};
-              final envelopeRows =
-                  ((payload['envelopes'] as List?) ?? const <dynamic>[])
-                      .whereType<Map>()
-                      .map((row) => Map<String, dynamic>.from(row))
-                      .toList(growable: false);
-              final totalBudget =
-                  ((budget['total_budget_cents'] as num?)?.toDouble() ??
-                          (fallbackTotalBudget * 100.0)) /
-                      100.0;
-
-              if (totalBudget <= 0) {
-                return null;
-              }
-
-              final pockets = [
-                for (final row in envelopeRows)
-                  WidgetPocketData(
-                    name: row['name'] as String? ?? '',
-                    spent: ((row['spent_cents'] as num?)?.toDouble() ?? 0.0) /
-                        100.0,
-                    budget: ((row['available_budget_cents'] as num?)
-                                ?.toDouble() ??
-                            (row['budget_amount_cents'] as num?)?.toDouble() ??
-                            0.0) /
-                        100.0,
-                    color: row['color'] as String? ?? '#7458FF',
-                    currency: (row['currency'] as String?) ?? currency,
-                    icon: row['icon']?.toString(),
-                  ),
-              ];
-              final availableTotalBudget = pockets.fold<double>(
-                0,
-                (sum, pocket) => sum + pocket.budget,
-              );
-
-              return _BudgetPocketsSnapshot(
-                totalBudget: availableTotalBudget > totalBudget
-                    ? availableTotalBudget
-                    : totalBudget,
-                pockets: pockets,
-              );
-            } catch (e) {
-              return null;
-            }
-          }
-
-          // Helper to build per-envelope budget pockets for the personal scope
-          // using the same data model as the Pockets page (budgets + envelopes).
-          Future<_BudgetPocketsSnapshot?> loadPersonalBudgetPockets({
-            required String currency,
-            required DateTime monthStart,
-            required List<ExpenseEntry> scopeExpenses,
-          }) async {
-            final budgetId = personalBudgetIdsByCurrency[currency];
-            final totalBudget = aggregateBudgetForWidgetCurrency(
-              personalBudgetsByCurrency,
-              currency,
-            );
-            if (totalBudget <= 0) {
-              return null;
-            }
-            if (budgetId == null) {
-              return _BudgetPocketsSnapshot(
-                totalBudget: totalBudget,
-                pockets: const [],
-              );
-            }
-
-            try {
-              final client = Supabase.instance.client;
-
-              final periodMonth = DateTime(
-                monthStart.year,
-                monthStart.month,
-                1,
-              ).toIso8601String().substring(0, 10);
-
-              final rpcSnapshot = await loadBudgetPocketsFromRpc(
-                scope: 'personal',
-                householdId: null,
-                currency: currency,
-                monthStart: monthStart,
-                fallbackTotalBudget: totalBudget,
-              );
-              if (rpcSnapshot != null) {
-                return rpcSnapshot;
-              }
-
-              // Fetch envelopes for this budget/currency
-              List<Map<String, dynamic>> envRows;
-              try {
-                final envelopesRes = await client
-                    .from('budget_envelopes')
-                    .select(
-                        'id,name,budget_amount_cents,color,icon,rollover_enabled')
-                    .eq('user_id', user.uid)
-                    .eq('currency', currency)
-                    .eq('budget_id', budgetId)
-                    .order('name');
-
-                envRows =
-                    (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-              } catch (e) {
-                if (!_isMissingRolloverColumnError(e)) rethrow;
-
-                final envelopesRes = await client
-                    .from('budget_envelopes')
-                    .select('id,name,budget_amount_cents,color,icon')
-                    .eq('user_id', user.uid)
-                    .eq('currency', currency)
-                    .eq('budget_id', budgetId)
-                    .order('name');
-                envRows =
-                    (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-              }
-              if (envRows.isEmpty) {
-                return _BudgetPocketsSnapshot(
-                  totalBudget: totalBudget,
-                  pockets: const [],
-                );
-              }
-              if (envRows.any((row) => row['rollover_enabled'] == true)) {
-                return null;
-              }
-
-              final envIds = envRows.map((e) => e['id'] as String).toList();
-
-              final allocationsRes = await client
-                  .from('envelope_allocations')
-                  .select('envelope_id,amount_cents')
-                  .eq('period_month', periodMonth)
-                  .inFilter('envelope_id', envIds);
-              final allocationRows =
-                  (allocationsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-              final allocationCentsByEnvelopeId = <String, int>{
-                for (final row in allocationRows)
-                  if ((row['envelope_id'] as String?) != null)
-                    if (((row['amount_cents'] as num?)?.toInt() ?? 0) > 0)
-                      (row['envelope_id'] as String):
-                          (row['amount_cents'] as num?)!.toInt(),
-              };
-
-              // Category links per envelope
-              final categoryLinksRes = await client
-                  .from('envelope_category_links')
-                  .select('envelope_id,category')
-                  .inFilter('envelope_id', envIds);
-              final categoryLinksRows =
-                  (categoryLinksRes as List?)?.cast<Map<String, dynamic>>() ??
-                      [];
-
-              final categoriesByEnvelopeId = <String, List<String>>{};
-              for (final row in categoryLinksRows) {
-                final envId = row['envelope_id'] as String;
-                final category =
-                    (row['category'] as String? ?? '').toLowerCase().trim();
-                if (category.isEmpty) continue;
-                categoriesByEnvelopeId
-                    .putIfAbsent(envId, () => <String>[])
-                    .add(category);
-              }
-
-              // Compute spent per envelope from already-loaded expenses
-              final spentById = <String, double>{};
-              for (final envId in envIds) {
-                final categories = categoriesByEnvelopeId[envId] ?? const [];
-                if (categories.isEmpty) {
-                  spentById[envId] = 0.0;
-                  continue;
-                }
-
-                double spent = 0.0;
-                for (final e in scopeExpenses) {
-                  final cat = (e.category ?? '').toLowerCase();
-                  if (categories.contains(cat)) {
-                    spent += widgetCentsToAmount(widgetSpentCents(e));
-                  }
-                }
-                spentById[envId] = spent;
-              }
-
-              // Build widget pockets mirroring the envelopes view
-              final pockets = <WidgetPocketData>[];
-              for (final row in envRows) {
-                final id = row['id'] as String;
-                final name = row['name'] as String? ?? '';
-                final rawAmountCents =
-                    (row['budget_amount_cents'] as num?)?.toInt();
-                final resolvedAmountCents =
-                    allocationCentsByEnvelopeId[id] ?? rawAmountCents ?? 0;
-                final envelopeBudget = resolvedAmountCents / 100.0;
-                final spent = spentById[id] ?? 0.0;
-                final color = row['color'] as String? ?? '#7458FF';
-                // Icon can be stored as a string name or another type (e.g. int codepoint).
-                // Preserve whatever identifier exists by converting to string.
-                final dynamic rawIcon = row['icon'];
-                final String? icon = rawIcon?.toString();
-
-                pockets.add(
-                  WidgetPocketData(
-                    name: name,
-                    spent: spent,
-                    budget: envelopeBudget,
-                    color: color,
-                    currency: currency,
-                    icon: icon,
-                  ),
-                );
-              }
-
-              return _BudgetPocketsSnapshot(
-                totalBudget: totalBudget,
-                pockets: pockets,
-              );
-            } catch (e) {
-              return null;
-            }
-          }
-
-          Future<_BudgetPocketsSnapshot?> loadHouseholdBudgetPockets({
-            required String householdId,
-            required String currency,
-            required DateTime monthStart,
-            required List<ExpenseEntry> scopeExpenses,
-          }) async {
-            try {
-              final client = Supabase.instance.client;
-
-              final periodMonth = DateTime(
-                monthStart.year,
-                monthStart.month,
-                1,
-              ).toIso8601String().substring(0, 10);
-
-              final budgetRowsRes = await client
-                  .from('budgets')
-                  .select('id,currency,total_budget_cents')
-                  .eq('household_id', householdId)
-                  .eq('period_month', periodMonth)
-                  .inFilter('currency', selectedWidgetCurrencies);
-              final budgetRows =
-                  (budgetRowsRes as List?)?.cast<Map<String, dynamic>>() ??
-                      const <Map<String, dynamic>>[];
-              final budgetRow = budgetRows.firstWhereOrNull(
-                (row) =>
-                    (row['currency'] as String?)?.toUpperCase() ==
-                    currency.toUpperCase(),
-              );
-
-              final totalBudget = budgetRows.fold<double>(0.0, (sum, row) {
-                final sourceCurrency =
-                    (row['currency'] as String?)?.toUpperCase() ?? currency;
-                final amount =
-                    ((row['total_budget_cents'] as num?)?.toDouble() ?? 0.0) /
-                        100.0;
-                return sum +
-                    convertWidgetAggregateAmount(
-                      amount: amount,
-                      sourceCurrency: sourceCurrency,
-                      targetCurrency: currency,
-                      selectedCurrencies: selectedWidgetCurrencies,
-                      rates: widgetCurrencyRates,
-                    );
-              });
-
-              if (totalBudget <= 0) {
-                return null;
-              }
-
-              final budgetId = budgetRow?['id'] as String?;
-              if (budgetId == null) {
-                return _BudgetPocketsSnapshot(
-                  totalBudget: totalBudget,
-                  pockets: const [],
-                );
-              }
-
-              final rpcSnapshot = await loadBudgetPocketsFromRpc(
-                scope: 'household',
-                householdId: householdId,
-                currency: currency,
-                monthStart: monthStart,
-                fallbackTotalBudget: totalBudget,
-              );
-              if (rpcSnapshot != null) {
-                return rpcSnapshot;
-              }
-
-              List<Map<String, dynamic>> envRows;
-              try {
-                final envelopesRes = await client
-                    .from('budget_envelopes')
-                    .select(
-                        'id,name,budget_amount_cents,color,icon,rollover_enabled')
-                    .eq('household_id', householdId)
-                    .eq('currency', currency)
-                    .eq('budget_id', budgetId)
-                    .order('name');
-
-                envRows =
-                    (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-              } catch (e) {
-                if (!_isMissingRolloverColumnError(e)) rethrow;
-
-                final envelopesRes = await client
-                    .from('budget_envelopes')
-                    .select('id,name,budget_amount_cents,color,icon')
-                    .eq('household_id', householdId)
-                    .eq('currency', currency)
-                    .eq('budget_id', budgetId)
-                    .order('name');
-                envRows =
-                    (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-              }
-              if (envRows.isEmpty) {
-                return _BudgetPocketsSnapshot(
-                  totalBudget: totalBudget,
-                  pockets: const [],
-                );
-              }
-              if (envRows.any((row) => row['rollover_enabled'] == true)) {
-                return null;
-              }
-
-              final envIds = envRows.map((e) => e['id'] as String).toList();
-
-              final allocationsRes = await client
-                  .from('envelope_allocations')
-                  .select('envelope_id,amount_cents')
-                  .eq('period_month', periodMonth)
-                  .inFilter('envelope_id', envIds);
-              final allocationRows =
-                  (allocationsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-              final allocationCentsByEnvelopeId = <String, int>{
-                for (final row in allocationRows)
-                  if ((row['envelope_id'] as String?) != null)
-                    if (((row['amount_cents'] as num?)?.toInt() ?? 0) > 0)
-                      (row['envelope_id'] as String):
-                          (row['amount_cents'] as num?)!.toInt(),
-              };
-
-              final categoryLinksRes = await client
-                  .from('envelope_category_links')
-                  .select('envelope_id,category')
-                  .inFilter('envelope_id', envIds);
-
-              final categoryLinksRows =
-                  (categoryLinksRes as List?)?.cast<Map<String, dynamic>>() ??
-                      [];
-
-              final categoriesByEnvelopeId = <String, List<String>>{};
-              for (final row in categoryLinksRows) {
-                final envId = row['envelope_id'] as String;
-                final category =
-                    (row['category'] as String? ?? '').toLowerCase().trim();
-                if (category.isEmpty) continue;
-                categoriesByEnvelopeId
-                    .putIfAbsent(envId, () => <String>[])
-                    .add(category);
-              }
-
-              final spentById = <String, double>{};
-              for (final envId in envIds) {
-                final categories = categoriesByEnvelopeId[envId] ?? const [];
-                if (categories.isEmpty) {
-                  spentById[envId] = 0.0;
-                  continue;
-                }
-
-                double spent = 0.0;
-                for (final entry in scopeExpenses) {
-                  final cat = (entry.category ?? '').toLowerCase().trim();
-                  if (categories.contains(cat)) {
-                    spent += widgetCentsToAmount(widgetSpentCents(entry));
-                  }
-                }
-                spentById[envId] = spent;
-              }
-
-              final pockets = <WidgetPocketData>[];
-              for (final row in envRows) {
-                final id = row['id'] as String;
-                final name = row['name'] as String? ?? '';
-                final rawAmountCents =
-                    (row['budget_amount_cents'] as num?)?.toInt();
-                final resolvedAmountCents =
-                    allocationCentsByEnvelopeId[id] ?? rawAmountCents ?? 0;
-                final envelopeBudget = resolvedAmountCents / 100.0;
-                final spent = spentById[id] ?? 0.0;
-                final color = row['color'] as String? ?? '#7458FF';
-                final dynamic rawIcon = row['icon'];
-                final String? icon = rawIcon?.toString();
-
-                pockets.add(
-                  WidgetPocketData(
-                    name: name,
-                    spent: spent,
-                    budget: envelopeBudget,
-                    color: color,
-                    currency: currency,
-                    icon: icon,
-                  ),
-                );
-              }
-
-              return _BudgetPocketsSnapshot(
-                totalBudget: totalBudget,
-                pockets: pockets,
-              );
-            } catch (e) {
-              return null;
-            }
-          }
-
-          // Widgets are keyed by the home header/base currency. When the app
-          // has multiple selected currencies, aggregate rows are converted into
-          // this currency before writing the native widget payload.
-
-          if (Supabase.instance.client.auth.currentSession == null) {
-            // Session lost - exit loop, finally will handle cleanup
-            return;
-          }
-
-          for (final scope in allScopes) {
-            if (Supabase.instance.client.auth.currentSession == null) {
-              // Session lost - exit loop, finally will handle cleanup
-              return;
-            }
-            final scopeId = scope['id']!;
-
-            for (final currency in [selectedWidgetCurrency]) {
-              if (Supabase.instance.client.auth.currentSession == null) {
-                // Session lost - exit loop, finally will handle cleanup
-                return;
-              }
-              var financialSummary = const WidgetFinancialSummary(
-                totalSpent: 0,
-                totalBudget: 0,
-                remainingBudget: 0,
-                progress: 0,
-              );
-              List<WidgetPocketData> topCategories = [];
-              List<WidgetPocketData> budgetPockets = [];
-              var hasBudgetPocketsSource = false;
-
-              if (scopeId == 'personal') {
-                // --- PERSONAL SCOPE ---
-                List<ExpenseEntry> scopeExpenses = [];
-                try {
-                  scopeExpenses = await loadWidgetTransactionsForScope(
-                    scopeId: scopeId,
-                    currency: currency,
-                  );
-                } catch (e) {}
-
-                final totalSpent = widgetCentsToAmount(
-                  calculateWidgetSpentCents(scopeExpenses),
-                );
-                var totalBudget = 0.0;
-
-                // 2. Get Budget
-                // Prefer the new monthly `budgets` table (used by Pockets),
-                // but fall back to legacy `daily_budgets` data via analytics
-                // if nothing exists there.
-                final budgetSnapshot = await loadPersonalBudgetPockets(
-                  currency: currency,
-                  monthStart: currentMonth,
-                  scopeExpenses: scopeExpenses,
-                );
-                budgetPockets =
-                    budgetSnapshot?.pockets ?? const <WidgetPocketData>[];
-                hasBudgetPocketsSource = budgetSnapshot != null;
-
-                final fromBudgetsTable = budgetSnapshot?.totalBudget ?? 0.0;
-
-                if (fromBudgetsTable > 0) {
-                  totalBudget = fromBudgetsTable;
-                } else {
-                  final allBudgets = analyticsData.allBudgets;
-                  final budgetsInRange = allBudgets.where((budget) {
-                    final budgetDate = DateTime(
-                      budget.date.year,
-                      budget.date.month,
-                      budget.date.day,
-                    );
-                    final isInCurrentCycle =
-                        !budgetDate.isBefore(currentMonth) &&
-                            !budgetDate.isAfter(currentRangeEnd);
-                    final currencyOk =
-                        (budget.currency?.toUpperCase() ?? 'USD') == currency;
-                    return isInCurrentCycle && currencyOk;
-                  }).toList();
-
-                  if (budgetsInRange.isNotEmpty) {
-                    totalBudget =
-                        budgetsInRange.fold(0.0, (sum, b) => sum + b.amount);
-                  } else {
-                    // Find most recent budget before this month
-                    DailyBudgetEntry? mostRecentBudget;
-                    for (final budget in allBudgets.reversed) {
-                      final budgetDate = DateTime(
-                        budget.date.year,
-                        budget.date.month,
-                        budget.date.day,
-                      );
-                      final currencyOk =
-                          (budget.currency?.toUpperCase() ?? 'USD') == currency;
-                      if (currencyOk && budgetDate.isBefore(currentMonth)) {
-                        mostRecentBudget = budget;
-                        break;
-                      }
-                    }
-                    if (mostRecentBudget != null) {
-                      totalBudget = mostRecentBudget.amount;
-                    }
-                  }
-                }
-
-                financialSummary = buildWidgetSummaryFromSpentAndBudget(
-                  totalSpent: totalSpent,
-                  totalBudget: totalBudget,
-                );
-
-                // 3. Top Categories (for optional category-based widgets)
-                final categoryMap = calculateWidgetCategorySpentCents(
-                  scopeExpenses,
-                );
-
-                topCategories = categoryMap.entries
-                    .sorted((a, b) => b.value.compareTo(a.value))
-                    .take(4)
-                    .map((e) {
-                  final color = getCategoryColor(e.key);
-                  final hex = _colorToHex(color);
-                  return WidgetPocketData(
-                    name: e.key,
-                    spent: widgetCentsToAmount(e.value),
-                    budget: 0,
-                    color: hex,
-                    currency: currency,
-                    // Use the raw category key as an icon identifier so
-                    // platform widgets can map it to a native icon.
-                    icon: e.key,
-                  );
-                }).toList();
-              } else {
-                // --- HOUSEHOLD SCOPE ---
-                // CIRCUIT BREAKER: Check if this scope+currency failed recently
-                final scopeKey = '$scopeId:$currency';
-                if (syncState.isScopeInCooldown(scopeKey)) {
-                  continue;
-                }
-
-                try {
-                  if (Supabase.instance.client.auth.currentSession == null) {
-                    // Session lost - exit loop, finally will handle cleanup
-                    return;
-                  }
-                  final scopeExpenses = await loadWidgetTransactionsForScope(
-                    scopeId: scopeId,
-                    currency: currency,
-                  );
-                  final totalSpent = widgetCentsToAmount(
-                    calculateWidgetSpentCents(scopeExpenses),
-                  );
-
-                  final budgetSnapshot = await loadHouseholdBudgetPockets(
-                    householdId: scopeId,
-                    currency: currency,
-                    monthStart: currentMonth,
-                    scopeExpenses: scopeExpenses,
-                  );
-                  budgetPockets =
-                      budgetSnapshot?.pockets ?? const <WidgetPocketData>[];
-                  hasBudgetPocketsSource = budgetSnapshot != null;
-
-                  if (budgetSnapshot != null) {
-                    financialSummary = buildWidgetSummaryFromSpentAndBudget(
-                      totalSpent: totalSpent,
-                      totalBudget: budgetSnapshot.totalBudget,
-                    );
-                  } else {
-                    final summary = await loadHouseholdDerivedSummary(
-                      householdId: scopeId,
-                      currency: currency,
-                    );
-
-                    financialSummary = buildHouseholdWidgetSummary(
-                      totalSpent: totalSpent,
-                      budgets: summary?.budgets ?? const <BudgetStatus>[],
-                    );
-                  }
-
-                  final categoryMap = calculateWidgetCategorySpentCents(
-                    scopeExpenses,
-                  );
-                  topCategories = categoryMap.entries
-                      .sorted((a, b) => b.value.compareTo(a.value))
-                      .take(4)
-                      .map((entry) {
-                    final color = getCategoryColor(entry.key);
-                    final hex = _colorToHex(color);
-                    return WidgetPocketData(
-                      name: entry.key,
-                      spent: widgetCentsToAmount(entry.value),
-                      budget: 0,
-                      color: hex,
-                      currency: currency,
-                      icon: entry.key,
-                    );
-                  }).toList();
-                } catch (e) {
-                  // Ignore unauthorized errors (logout/expired session) to avoid noisy logs
-                  if (e is FunctionException && e.status == 401) {
-                    // Session is invalid - exit loops, finally will handle cleanup
-                    return;
-                  }
-
-                  // Record failure for circuit breaker
-                  syncStateNotifier.recordScopeFailure(scopeId, currency);
-
-                  // Only log if not in startup grace period to reduce noise
-
-                  // Continue to next currency/scope, don't crash
-                  continue;
-                }
-              }
-
-              // Use budget envelopes whenever the Pockets budget source exists.
-              // Only fall back to categories for scopes that do not have a
-              // monthly Pockets budget yet.
-              final pocketsForWidget =
-                  hasBudgetPocketsSource ? budgetPockets : topCategories;
-
-              await widgetService.updateWidgetDataWithScope(
-                scopeId: scopeId,
-                currency: currency,
-                totalSpent: financialSummary.totalSpent,
-                totalBudget: financialSummary.totalBudget,
-                remainingBudget: financialSummary.remainingBudget,
-                budgetProgress: financialSummary.progress,
-                pockets: pocketsForWidget,
-                shouldReloadWidgets: false,
-              );
-
-              // Save top categories separately for the dedicated widget variant.
-              await widgetService.saveTopCategoriesForScope(
-                scopeId: scopeId,
-                currency: currency,
-                pockets: topCategories,
-                shouldReloadWidgets: false,
-              );
-
-              // Sync to legacy keys for unconfigured/older widgets.
-              if (scopeId == 'personal') {
-                await widgetService.updateWidgetData(
-                  totalSpent: financialSummary.totalSpent,
-                  totalBudget: financialSummary.totalBudget,
-                  remainingBudget: financialSummary.remainingBudget,
-                  budgetProgress: financialSummary.progress,
-                  currency: currency,
-                  pockets: pocketsForWidget,
-                  shouldReloadWidgets: false,
-                );
-              }
-            }
-          }
-
-          await widgetService
-              .saveSelectedWidgetCurrency(selectedWidgetCurrency);
-          await widgetService.reloadWidgets();
-
-          // If we reach here, sync completed successfully
-          syncSucceeded = true;
-        } catch (e) {
-          // Mark sync as failed explicitly
-        } finally {
-          // ALWAYS ensure sync state is properly reset to avoid deadlock
-          if (syncSucceeded) {
-            syncStateNotifier.completeSync();
-          } else {
-            syncStateNotifier.failSync();
-          }
+          if (saved && !disposed) published.value = signature;
+        } catch (error) {
+          debugPrint('Home widget publication failed: ${error.runtimeType}');
         }
-      }
-
-      // Delay the sync call to run outside the widget lifecycle
-      // to avoid "Modifying a provider inside build/initState" errors
-      Future(syncAllScopes);
-      return null;
-    }, [
-      analyticsData.allExpenses,
-      analyticsData.allBudgets,
-      analyticsData.preferredCurrency,
-      householdsAsync.valueOrNull,
-      selectedWidgetCurrency,
-      selectedWidgetCurrenciesKey,
-      financialMonthStartDay,
-      widgetSyncVersion,
-      syncState.isSyncing,
-      isAppReady, // Add app ready state as dependency
-    ]);
-
+      });
+      return () => disposed = true;
+    }, [signature, tick, mutationRevision]);
+    // Keep committed transaction revisions subscribed: canonical Pocket state
+    // overlays local mutations and owns all transaction/dashboard invalidation.
+    ref.watch(localTransactionRevisionProvider);
     return const SizedBox.shrink();
   }
 }

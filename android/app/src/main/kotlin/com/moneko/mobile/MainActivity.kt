@@ -11,6 +11,7 @@ import androidx.core.view.WindowCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import es.antonborri.home_widget.HomeWidgetPlugin
 
 class MainActivity : FlutterFragmentActivity() {
 
@@ -30,6 +31,34 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "moneko/widgets")
+            .setMethodCallHandler { call, result ->
+                val data = HomeWidgetPlugin.getData(applicationContext)
+                try {
+                    val args = call.arguments as? Map<*, *>
+                    when (call.method) {
+                        "synchronizeOwner" -> {
+                            MonekoWidgetStore.synchronizeOwner(data, call.arguments as String)
+                            result.success(null)
+                        }
+                        "configureRefresh" -> {
+                            requireNotNull(args)
+                            MonekoWidgetStore.configureRefresh(data, args["userId"] as String, args["context"] as String)
+                            result.success(null)
+                        }
+                        "publishSnapshot" -> {
+                            requireNotNull(args)
+                            result.success(MonekoWidgetStore.publishForeground(
+                                data, args["userId"] as String, args["key"] as String,
+                                args["snapshot"] as String, args["currency"] as String))
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (_: Exception) {
+                    result.error("WIDGET_STORAGE_FAILED", "Widget data could not be saved.", null)
+                }
+            }
 
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         captureChannel = channel

@@ -3,14 +3,16 @@ package com.moneko.mobile
 import android.appwidget.AppWidgetManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.Color
 import android.net.Uri
+import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
+import es.antonborri.home_widget.HomeWidgetLaunchIntent
+import es.antonborri.home_widget.HomeWidgetPlugin
 
 class MonekoWidgetProvider : HomeWidgetProvider() {
 
@@ -20,6 +22,7 @@ class MonekoWidgetProvider : HomeWidgetProvider() {
         appWidgetIds: IntArray,
         widgetData: SharedPreferences,
     ) {
+        MonekoWidgetRefreshWorker.ensureScheduled(context)
         appWidgetIds.forEach { widgetId ->
             val views = RemoteViews(context.packageName, R.layout.widget).apply {
                 val scope = widgetData.getString("config_scope_$widgetId", null)
@@ -31,14 +34,27 @@ class MonekoWidgetProvider : HomeWidgetProvider() {
 
                 applyTheme(context, isConfigured)
 
-                if (!isConfigured) {
+                val owner = widgetData.getString("widget_user_id", null)
+                val snapshot = if (isConfigured && !owner.isNullOrBlank()) {
+                    MonekoWidgetStore.readSnapshot(widgetData.getString("widget_snapshot_${scope}_${currency}", null), owner, currency)
+                } else null
+                // Only use legacy keys until the new owner contract is present.
+                val hasLegacyData = owner == null && isConfigured &&
+                    widgetData.contains("total_spent_${scope}_${currency}") &&
+                    widgetData.contains("remaining_budget_${scope}_${currency}")
+
+                if (!isConfigured || (snapshot == null && !hasLegacyData)) {
                     setViewVisibility(R.id.widget_setup, View.VISIBLE)
                     setViewVisibility(R.id.widget_content, View.GONE)
+                    setTextViewText(R.id.widget_setup_text, when {
+                        !isConfigured -> context.getString(R.string.widget_setup)
+                        owner.isNullOrBlank() -> context.getString(R.string.widget_sign_in)
+                        else -> context.getString(R.string.widget_load)
+                    })
 
                     val configureIntent = activityPendingIntent(
                         context,
                         Uri.parse("moneko://configure_widget?widgetId=$widgetId"),
-                        widgetId * 10 + 1,
                     )
                     setOnClickPendingIntent(R.id.widget_setup, configureIntent)
                     return@apply
@@ -48,34 +64,39 @@ class MonekoWidgetProvider : HomeWidgetProvider() {
                 setViewVisibility(R.id.widget_content, View.VISIBLE)
 
                 val suffix = "_${scope}_${currency}"
-                val totalSpent = widgetData.getString("total_spent$suffix", "$0.00") ?: "$0.00"
+                val totalSpent = snapshot?.getString("totalSpent")
+                    ?: widgetData.getString("total_spent$suffix", "—") ?: "—"
                 val remainingBudget =
-                    widgetData.getString("remaining_budget$suffix", "$0.00") ?: "$0.00"
+                    snapshot?.getString("remainingBudget")
+                    ?: widgetData.getString("remaining_budget$suffix", "—") ?: "—"
                 val progress =
-                    readFloat(widgetData, "budget_progress$suffix", 0.0f).coerceIn(0.0f, 1.0f)
+                    (snapshot?.optDouble("progress", 0.0)?.toFloat()
+                    ?: readFloat(widgetData, "budget_progress$suffix", 0.0f))
+                        .takeIf { it.isFinite() }?.coerceIn(0.0f, 1.0f) ?: 0.0f
 
                 setTextViewText(R.id.widget_total_spent, totalSpent)
-                setTextViewText(R.id.widget_remaining, "Left: $remainingBudget")
+                setTextViewText(R.id.widget_remaining, context.getString(R.string.widget_remaining, remainingBudget))
+                setTextViewText(R.id.widget_label_month, context.getString(
+                    if (widgetData.getString("widget_refresh_status", "ready") == "ready")
+                        R.string.widget_month else R.string.widget_cached
+                ))
                 setProgressBar(R.id.widget_progress_bar, 100, (progress * 100).toInt(), false)
 
                 val textIntent = activityPendingIntent(
                     context,
                     Uri.parse("moneko://text"),
-                    widgetId * 10 + 2,
                 )
                 setOnClickPendingIntent(R.id.widget_btn_text, textIntent)
 
                 val cameraIntent = activityPendingIntent(
                     context,
                     Uri.parse("moneko://camera"),
-                    widgetId * 10 + 3,
                 )
                 setOnClickPendingIntent(R.id.widget_btn_camera, cameraIntent)
 
                 val settingsIntent = activityPendingIntent(
                     context,
                     Uri.parse("moneko://configure_widget?widgetId=$widgetId"),
-                    widgetId * 10 + 4,
                 )
                 setOnClickPendingIntent(R.id.widget_btn_settings, settingsIntent)
             }
@@ -84,23 +105,44 @@ class MonekoWidgetProvider : HomeWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) {
+        super.onAppWidgetOptionsChanged(context, manager, id, options)
+        onUpdate(context, manager, intArrayOf(id))
+    }
+
+    override fun onRestored(context: Context, oldIds: IntArray, newIds: IntArray) {
+        val data = HomeWidgetPlugin.getData(context)
+        val editor = data.edit()
+        oldIds.zip(newIds).forEach { (oldId, newId) ->
+            listOf("scope", "currency").forEach { field ->
+                data.getString("config_${field}_$oldId", null)?.let {
+                    editor.putString("config_${field}_$newId", it)
+                }
+                editor.remove("config_${field}_$oldId")
+            }
+        }
+        editor.commit()
+        onUpdate(context, AppWidgetManager.getInstance(context), newIds)
+    }
+
+    override fun onDeleted(context: Context, ids: IntArray) {
+        val editor = HomeWidgetPlugin.getData(context).edit()
+        ids.forEach { editor.remove("config_scope_$it").remove("config_currency_$it") }
+        editor.apply()
+        super.onDeleted(context, ids)
+    }
+
+    override fun onDisabled(context: Context) {
+        MonekoWidgetRefreshWorker.cancel(context)
+        super.onDisabled(context)
+    }
+
     private fun activityPendingIntent(
         context: Context,
         uri: Uri,
-        requestCode: Int,
     ): PendingIntent {
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-            setClass(context, MainActivity::class.java)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        return PendingIntent.getActivity(
-            context,
-            requestCode,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        // The plugin helper also sets the Android 14/15 background-launch options.
+        return HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, uri)
     }
 
     private fun RemoteViews.applyTheme(context: Context, isConfigured: Boolean) {

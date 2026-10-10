@@ -47,6 +47,10 @@ android {
         jvmTarget = '11'
     }
 
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
     }
@@ -104,6 +108,8 @@ dependencies {
     implementation 'androidx.work:work-runtime-ktx:2.10.1'
     implementation 'com.google.firebase:firebase-crashlytics:20.0.4'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.16.1'
+    testImplementation 'androidx.work:work-testing:2.10.1'
 }
 
 // Ensure HomeWidget uses a stable Glance build + patched protobuf artifacts

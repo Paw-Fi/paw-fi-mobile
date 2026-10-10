@@ -209,7 +209,11 @@
              configuration flow as the in-widget settings button. -->
         <activity
             android:name=".MonekoWidgetConfigureActivity"
-            android:exported="true" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
         <!-- Transaction notification auto-capture service.
              Listens for banking/finance app notifications and extracts

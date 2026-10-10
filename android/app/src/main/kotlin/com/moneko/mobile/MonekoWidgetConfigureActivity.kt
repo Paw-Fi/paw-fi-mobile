@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import es.antonborri.home_widget.HomeWidgetLaunchIntent
 
 /**
  * Native configuration entry-point for the Moneko home screen widget.
@@ -25,6 +26,7 @@ class MonekoWidgetConfigureActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setResult(Activity.RESULT_CANCELED)
 
         val appWidgetId = intent?.extras?.getInt(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -40,8 +42,14 @@ class MonekoWidgetConfigureActivity : Activity() {
         // Forward into the Flutter app using the HomeWidget deep-link helper,
         // so that `HomeWidget.initiallyLaunchedFromHomeWidget()` on the Dart
         // side receives the same URI and can trigger the configuration dialog.
+        // A configured provider does not receive its first onUpdate from Android.
+        // Publish a usable setup view before returning success to the host.
+        MonekoWidgetProvider().onUpdate(
+            this, AppWidgetManager.getInstance(this), intArrayOf(appWidgetId)
+        )
+
         val configureIntent = Intent(
-            Intent.ACTION_VIEW,
+            HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION,
             Uri.parse("moneko://configure_widget?widgetId=$appWidgetId")
         ).apply {
             setClass(this@MonekoWidgetConfigureActivity, MainActivity::class.java)
