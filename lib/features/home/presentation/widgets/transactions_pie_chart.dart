@@ -505,17 +505,38 @@ class _TransactionsPieChartState extends ConsumerState<TransactionsPieChart> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Flexible(
-                                        child: Text(
-                                          displayAmount(category.amount),
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color:
-                                                widget.colorScheme.foreground,
-                                            letterSpacing: -0.5,
+                                        child: Tooltip(
+                                          message:
+                                              displayAmount(category.amount),
+                                          triggerMode: TooltipTriggerMode.tap,
+                                          excludeFromSemantics: true,
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                                minWidth: 48, minHeight: 48),
+                                            child: Align(
+                                              widthFactor: 1,
+                                              heightFactor: 1,
+                                              alignment: AlignmentDirectional
+                                                  .centerStart,
+                                              child: Text(
+                                                formatCompactCurrency(
+                                                    category.amount,
+                                                    currencyCode,
+                                                    context: context),
+                                                semanticsLabel: displayAmount(
+                                                    category.amount),
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: widget
+                                                      .colorScheme.foreground,
+                                                  letterSpacing: -0.5,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                       if (canOpenCategory) ...[

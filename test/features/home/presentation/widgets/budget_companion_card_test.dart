@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/home/presentation/constants/budget_companion_messages.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
@@ -20,6 +22,9 @@ String? _assetName(Image image) {
   }
   return null;
 }
+
+Finder _summaryCopy(String message) => find.byWidgetPredicate(
+    (widget) => widget is Text && widget.semanticsLabel == message);
 
 BudgetCompanionData _data(
         {double spent = 1842, double? budget = 3000, bool categories = true}) =>
@@ -78,6 +83,7 @@ Future<void> _pump(
                 isRefreshing: data.isRefreshing,
                 currency: currency,
                 mode: mode,
+                selectedDate: DateTime(2026, 10, 9),
                 onBudgetTap: onBudgetTap ?? () {},
                 onRetry: onRetry ?? () {}),
             const SizedBox(height: 20),
@@ -309,14 +315,58 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final sample in [
+    (const Locale('en'), 'USD'),
+    (const Locale('de'), 'EUR'),
+    (const Locale('zh', 'TW'), 'TWD'),
+    (const Locale('ur'), 'PKR'),
+  ]) {
+    testWidgets('compact ${sample.$1} bar reveals the exact amount on tap',
+        (tester) async {
+      final semantics = tester.ensureSemantics();
+      addTearDown(semantics.dispose);
+      const amount = 12345.67;
+      final data = BudgetCompanionData(
+        summary: _data(spent: amount + 5000, budget: 20000).summary,
+        categories: AsyncData(budgetCompanionCategories({
+          'food': amount,
+          'shopping': 5000,
+        })),
+      );
+      await _pump(tester, data, locale: sample.$1, currency: sample.$2);
+      final cell = find.byKey(const ValueKey('food'));
+      final context = tester.element(cell);
+      final full = formatCurrency(amount, sample.$2, context: context);
+      final compact =
+          formatCompactCurrency(amount, sample.$2, context: context);
+      expect(find.descendant(of: cell, matching: find.text(compact)),
+          findsOneWidget);
+      expect(
+          find.descendant(of: cell, matching: find.text(full)), findsNothing);
+      final tooltip = tester.widget<Tooltip>(
+          find.descendant(of: cell, matching: find.byType(Tooltip)));
+      expect(tooltip.message, endsWith(full));
+      expect(find.bySemanticsLabel(RegExp(RegExp.escape(tooltip.message!))),
+          findsWidgets);
+      final bar = find.byKey(const ValueKey('budget-bar-food'));
+      await tester.ensureVisible(bar);
+      await tester.tap(bar);
+      await tester.pumpAndSettle();
+      expect(find.text(tooltip.message!), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets('page header renders independently of the category card',
       (tester) async {
     await _pump(tester, _data(), includeCategories: false);
     expect(find.byType(DashboardBudgetHeader), findsOneWidget);
     expect(find.byType(BudgetGaugeIndicator), findsOneWidget);
     expect(find.byType(BudgetCompanionCard), findsNothing);
-    expect(find.text(r'$1,842'), findsOneWidget);
-    expect(find.text(r'$1,158 left'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
+    expect(find.text(r'$1,158'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -344,7 +394,7 @@ void main() {
     expect(find.byType(DashboardBudgetHeaderSkeleton), findsOneWidget);
     expect(find.byKey(const ValueKey('budget-bar-food')), findsOneWidget);
     expect(find.byType(BudgetCompanionSkeleton), findsNothing);
-    expect(find.byType(BudgetGaugeIndicator), findsNothing);
+    expect(find.byType(BudgetGaugeIndicator), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -357,7 +407,7 @@ void main() {
     expect(find.byType(DashboardBudgetHeaderSkeleton), findsNothing);
     expect(find.byType(BudgetCompanionSkeleton), findsOneWidget);
     expect(find.byType(BudgetGaugeIndicator), findsOneWidget);
-    expect(find.text(r'$1,842'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -418,13 +468,14 @@ void main() {
   testWidgets('normal summary and categories have no duplicated comparison',
       (tester) async {
     await _pump(tester, _data());
-    expect(find.text(r'$1,842'), findsOneWidget);
-    expect(find.text(r'spent out of $3,000'), findsOneWidget);
-    expect(find.text('61%'), findsOneWidget);
-    expect(find.text(r'$1,158 left'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
+    expect(find.text('Oct · Remaining'), findsOneWidget);
+    expect(find.text('61%'), findsNothing);
+    expect(find.text(r'$1,158'), findsOneWidget);
     expect(find.text('8% less than last month'), findsNothing);
     expect(find.text('8% from last month'), findsNothing);
-    expect(find.text("Nice! You're on track."), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('budget-companion-bubble')), findsOneWidget);
     expect(find.text('Spending by category'), findsNothing);
     expect(tester.getSize(find.byKey(const ValueKey('budget-bar-food'))).height,
         160);
@@ -539,21 +590,32 @@ void main() {
   });
 
   for (final sample in [
-    (28.0, 'celebrating', 'Looking good!'),
-    (60.0, 'cheering', "Nice! You're on track."),
-    (80.0, 'confused', 'Getting close!'),
-    (100.0, 'confused', 'Getting close!'),
-    (108.0, 'crying', 'Oops! We went over budget this month.'),
+    (28.0, 'cat-pecentage-0-50.png'),
+    (60.0, 'cat-pecentage-50-75.png'),
+    (80.0, 'cat-pecentage-75-99.png'),
+    (100.0, 'cat-pecentage-overlimit.png'),
+    (108.0, 'cat-pecentage-overlimit.png'),
   ]) {
     testWidgets('mascot, message and progress at ${sample.$1}%',
         (tester) async {
       await _pump(tester, _data(spent: sample.$1, budget: 100));
-      expect(find.text('${sample.$1.round()}%'), findsOneWidget);
-      expect(find.text(sample.$3), findsOneWidget);
+      expect(
+          find.text(sample.$1 > 100 ? 'Oct · Over budget' : 'Oct · Remaining'),
+          findsOneWidget);
+      final bubble = find.byKey(const ValueKey('budget-companion-bubble'));
+      final l10n = AppLocalizations.of(tester.element(bubble))!;
+      final reaction =
+          BudgetCompanionSummary(spent: sample.$1, budget: 100).reaction;
+      final messages = budgetCompanionMessageKeys[reaction]!.map((key) =>
+          resolveBudgetCompanionMessage(l10n, key,
+              selectedDate: DateTime(2026, 10, 9)));
+      final text = tester.widget<Text>(
+          find.descendant(of: bubble, matching: find.byType(Text)).last);
+      expect(messages, contains(text.data));
       final images = tester.widgetList<Image>(find.byType(Image));
       expect(
           images.any((image) =>
-              _assetName(image) == 'lib/assets/mascots/cat-pecentage.png'),
+              _assetName(image) == 'lib/assets/mascots/${sample.$2}'),
           isTrue);
       expect(
           tester
@@ -562,10 +624,10 @@ void main() {
               .value,
           (sample.$1 / 100).clamp(0, 1));
       if (sample.$1 == 108) {
-        expect(find.text(r'$8 over budget'), findsOneWidget);
+        expect(find.text(r'$8'), findsOneWidget);
       }
       if (sample.$1 == 100) {
-        expect(find.text(r'$0 left'), findsOneWidget);
+        expect(find.text(r'$0'), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
     });
@@ -576,7 +638,8 @@ void main() {
     var opened = false;
     await _pump(tester, _data(budget: null), onBudgetTap: () => opened = true);
     expect(find.text('No budget set yet'), findsOneWidget);
-    expect(find.text("Let's make a plan!"), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('budget-companion-bubble')), findsOneWidget);
     expect(
         find.byKey(const ValueKey('budget-companion-percent')), findsNothing);
     await tester.tap(find.text('Set Budget'));
@@ -585,8 +648,9 @@ void main() {
 
   testWidgets('zero spending renders a meaningful empty chart', (tester) async {
     await _pump(tester, _data(spent: 0, categories: false));
-    expect(find.text(r'$0'), findsOneWidget);
-    expect(find.text('0%'), findsOneWidget);
+    expect(find.text(r'$3,000'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $0 / Budget $3,000'), findsOneWidget);
+    expect(find.text('Oct · Remaining'), findsOneWidget);
     expect(find.text('No Expenses Yet'), findsOneWidget);
     expect(find.text('100% less than last month'), findsNothing);
     expect(find.byKey(const ValueKey('budget-bar-food')), findsNothing);
@@ -595,7 +659,7 @@ void main() {
   testWidgets('RPC-only spending never looks like an authoritative empty total',
       (tester) async {
     await _pump(tester, _data(categories: false));
-    expect(find.text(r'$1,842'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
     expect(find.text('No category spending available'), findsOneWidget);
     expect(find.text('No previous-period comparison'), findsNothing);
     expect(find.text('0% less than last month'), findsNothing);
@@ -605,7 +669,8 @@ void main() {
       (tester) async {
     await _pump(tester, _data(spent: 92, budget: null),
         mode: HomePeriodMode.daily);
-    expect(find.text('spent today'), findsOneWidget);
+    expect(find.text(r'$92'), findsOneWidget);
+    expect(find.text('Oct 9, 2026 · Spent'), findsOneWidget);
     expect(find.text('8% less than the previous day'), findsNothing);
     expect(
         find.byKey(const ValueKey('budget-companion-progress')), findsNothing);
@@ -642,7 +707,7 @@ void main() {
           isRefreshing: true,
         ),
         onRetry: () => retried = true);
-    expect(find.text(r'$1,842'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
     expect(find.byType(BudgetCompanionSkeleton), findsNothing);
     await tester.ensureVisible(find.text('Retry'));
     await tester.tap(find.text('Retry'));
@@ -689,7 +754,7 @@ void main() {
           currency: 'EUR', locale: locale, width: 320);
       expect(find.textContaining('€'), findsWidgets);
       if (locale.languageCode == 'de') {
-        expect(find.text('€1.234,50'), findsOneWidget);
+        expect(find.textContaining('€1.234,50'), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
     });

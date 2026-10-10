@@ -70,9 +70,11 @@ String randomBudgetCompanionMessageKey(BudgetCompanionReaction reaction) {
 
 /// Resolves a key from [budgetCompanionMessageKeys] through the generated
 /// localizations.
-String resolveBudgetCompanionMessage(AppLocalizations l10n, String key) {
+String resolveBudgetCompanionMessage(AppLocalizations l10n, String key,
+    {DateTime? selectedDate}) {
   if (key == 'budgetCompanionHappy1') {
-    final month = DateFormat.MMMM(l10n.localeName).format(DateTime.now());
+    final month =
+        DateFormat.MMMM(l10n.localeName).format(selectedDate ?? DateTime.now());
     return l10n.budgetCompanionHappy1(month);
   }
   return _resolveMessage(l10n, key);

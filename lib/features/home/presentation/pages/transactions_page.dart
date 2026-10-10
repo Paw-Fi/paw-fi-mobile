@@ -1764,40 +1764,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  /// Format Y-axis values dynamically based on magnitude
-  String _formatYAxisValue(double value) {
-    if (value == 0) return '0';
-
-    final absValue = value.abs();
-
-    // For values >= 1 million
-    if (absValue >= 1000000) {
-      final millions = value / 1000000;
-      // Show 1 decimal place for millions, unless it's a whole number
-      if (millions == millions.truncate()) {
-        return '${millions.truncate()}M';
-      }
-      return '${millions.toStringAsFixed(1)}M';
-    }
-
-    // For values >= 1 thousand
-    if (absValue >= 1000) {
-      final thousands = value / 1000;
-      // Show 1 decimal place for thousands, unless it's a whole number
-      if (thousands == thousands.truncate()) {
-        return '${thousands.truncate()}k';
-      }
-      return '${thousands.toStringAsFixed(1)}k';
-    }
-
-    // For values < 1000, show as-is
-    // Show whole numbers without decimals
-    if (value == value.truncate()) {
-      return value.truncate().toString();
-    }
-    // Show up to 2 decimal places, removing trailing zeros
-    return value.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
-  }
+  String _formatYAxisValue(double value) =>
+      formatLocalizedCompactNumber(context, value);
 
   String _formatChartPeriod(DateTime date, String intervalGranularity) {
     switch (intervalGranularity) {
@@ -1851,6 +1819,24 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         padding: const EdgeInsets.only(top: 16, bottom: 8),
         child: LineChart(
           LineChartData(
+            lineTouchData: LineTouchData(
+              enabled: !isLoading && !isEmptyChart,
+              touchTooltipData: LineTouchTooltipData(
+                fitInsideHorizontally: true,
+                fitInsideVertically: true,
+                getTooltipColor: (_) => colorScheme.card,
+                tooltipBorder: BorderSide(color: colorScheme.border),
+                getTooltipItems: (spots) => spots.map((spot) {
+                  final index = spot.spotIndex;
+                  if (index < 0 || index >= sortedDates.length) return null;
+                  return LineTooltipItem(
+                    '${_formatChartPeriod(sortedDates[index], chartIntervalType)}\n'
+                    '${formatLocalizedNumber(context, cumulativeData[index].y)}',
+                    TextStyle(color: colorScheme.foreground),
+                  );
+                }).toList(),
+              ),
+            ),
             gridData: FlGridData(
               show: true,
               drawVerticalLine: false,
@@ -2039,6 +2025,26 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         padding: const EdgeInsets.only(top: 16, bottom: 8),
         child: BarChart(
           BarChartData(
+            barTouchData: BarTouchData(
+              enabled: !isLoading && !isEmptyChart,
+              touchTooltipData: BarTouchTooltipData(
+                fitInsideHorizontally: true,
+                fitInsideVertically: true,
+                getTooltipColor: (_) => colorScheme.card,
+                tooltipBorder: BorderSide(color: colorScheme.border),
+                getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                  if (group.x < 0 || group.x >= barData.sortedPeriods.length) {
+                    return null;
+                  }
+                  final period = barData.sortedPeriods[group.x];
+                  return BarTooltipItem(
+                    '$period\n'
+                    '${formatLocalizedNumber(context, barData.periodTotals[period]!)}',
+                    TextStyle(color: colorScheme.foreground),
+                  );
+                },
+              ),
+            ),
             alignment: BarChartAlignment.spaceAround,
             minY: 0,
             maxY: chartMaxY,

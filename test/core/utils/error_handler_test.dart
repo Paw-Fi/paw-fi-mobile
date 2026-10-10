@@ -3,6 +3,23 @@ import 'package:moneko/core/utils/error_handler.dart';
 
 void main() {
   group('ErrorHandler.getUserFriendlyMessage', () {
+    test('preserves safe clarification failure and keeps it retryable', () {
+      const message =
+          "We couldn't prepare a clarification question for this input. Please try again.";
+      final error = {
+        'success': false,
+        'code': 'AI_CLARIFICATION_FAILED',
+        'status': 503,
+        'error': message,
+      };
+      expect(
+        ErrorHandler.getUserFriendlyMessage(error,
+            context: BackendErrorContext.analyzeExpense),
+        message,
+      );
+      expect(ErrorHandler.isRetryable(error), isTrue);
+    });
+
     test('maps validation amount limit to short user message', () {
       final message = ErrorHandler.getUserFriendlyMessage(
         {

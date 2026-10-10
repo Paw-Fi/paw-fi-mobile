@@ -291,3 +291,15 @@ String formatCurrency(
       : formatLocalizedNumber(context, amount);
   return '$symbol$formattedAmount';
 }
+
+/// Compact currency labels for charts; use [formatCurrency] in exact tooltips.
+String formatCompactCurrency(
+  double amount,
+  String? currencyCode, {
+  BuildContext? context,
+}) {
+  final formattedAmount = context == null
+      ? formatCompactNumber(amount)
+      : formatLocalizedCompactNumber(context, amount);
+  return '${resolveCurrencySymbol(currencyCode)}$formattedAmount';
+}

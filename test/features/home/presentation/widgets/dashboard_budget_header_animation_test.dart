@@ -8,14 +8,17 @@ import 'package:moneko/features/home/presentation/widgets/dashboard_budget_heade
 import 'package:moneko/l10n/app_localizations.dart';
 
 final _gauge = find.byKey(const ValueKey('budget-companion-progress'));
-final _percent = find.byKey(const ValueKey('budget-companion-percent'));
+final _period = find.byKey(const ValueKey('budget-companion-period'));
 final _bubble = find.byKey(const ValueKey('budget-companion-bubble'));
 final _mascot = find.byType(Image);
+
+Finder _summaryCopy(String message) => find.byWidgetPredicate(
+    (widget) => widget is Text && widget.semanticsLabel == message);
 
 double _gaugeValue(WidgetTester tester) =>
     tester.widget<BudgetGaugeIndicator>(_gauge).value;
 
-String _percentText(WidgetTester tester) => tester.widget<Text>(_percent).data!;
+String _periodText(WidgetTester tester) => tester.widget<Text>(_period).data!;
 
 Future<void> _pump(
   WidgetTester tester, {
@@ -43,6 +46,7 @@ Future<void> _pump(
                 AsyncData(BudgetCompanionSummary(spent: spent, budget: budget)),
             currency: 'USD',
             mode: HomePeriodMode.monthly,
+            selectedDate: DateTime(2026, 10),
             onBudgetTap: () {},
             onRetry: () {},
           ),
@@ -54,19 +58,21 @@ Future<void> _pump(
 
 void main() {
   testWidgets(
-      'intro holds 0%, counts up in sync, then reveals mascot and bubble',
+      'intro fills the arc with a stable period then reveals mascot and bubble',
       (tester) async {
     await _pump(tester, spent: 61);
     await tester.pump();
 
     // Phase 1: hold at 0% with nothing else on stage.
     expect(_gaugeValue(tester), 0);
-    expect(_percentText(tester), '0%');
+    expect(_periodText(tester), 'Oct · Remaining');
+    expect(find.text(r'$39'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $61 / Budget $100'), findsOneWidget);
     expect(_mascot, findsNothing);
     expect(_bubble, findsNothing);
     await tester.pump(const Duration(milliseconds: 480));
     expect(_gaugeValue(tester), 0);
-    expect(_percentText(tester), '0%');
+    expect(_periodText(tester), 'Oct · Remaining');
     expect(_mascot, findsNothing);
 
     // Phase 2: gauge and text count up together, mascot still hidden.
@@ -74,7 +80,7 @@ void main() {
     final midway = _gaugeValue(tester);
     expect(midway, greaterThan(0));
     expect(midway, lessThan(.61));
-    expect(_percentText(tester), '${(midway * 100).round()}%');
+    expect(_periodText(tester), 'Oct · Remaining');
     expect(_mascot, findsNothing);
     expect(_bubble, findsNothing);
 
@@ -90,21 +96,25 @@ void main() {
     expect(_mascot, findsOneWidget);
     expect(_bubble, findsOneWidget);
     expect(_gaugeValue(tester), closeTo(.61, 1e-9));
-    expect(_percentText(tester), '61%');
-    expect(tester.widget<Text>(_percent).style?.fontFamily, 'Nunito');
+    expect(_periodText(tester), 'Oct · Remaining');
+    final primary = tester.widget<Text>(
+        find.byKey(const ValueKey('budget-companion-primary-amount')));
+    expect(primary.style?.fontFamily, 'Nunito');
 
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), closeTo(.61, 1e-9));
-    expect(_percentText(tester), '61%');
+    expect(_periodText(tester), 'Oct · Remaining');
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('over-budget text counts past 100% while the arc clamps',
+  testWidgets('over-budget amount stays exact while the arc clamps',
       (tester) async {
     await _pump(tester, spent: 108);
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), 1);
-    expect(_percentText(tester), '108%');
+    expect(_periodText(tester), 'Oct · Over budget');
+    expect(_summaryCopy(r'Spent $108 / Budget $100'), findsOneWidget);
+    expect(find.text(r'$8'), findsOneWidget);
   });
 
   testWidgets('later summary changes settle from the displayed value',
@@ -120,12 +130,12 @@ void main() {
     final midway = _gaugeValue(tester);
     expect(midway, greaterThan(.4));
     expect(midway, lessThan(.8));
-    expect(_percentText(tester), '${(midway * 100).round()}%');
+    expect(_periodText(tester), 'Oct · Remaining');
     expect(_mascot, findsOneWidget);
     expect(_bubble, findsOneWidget);
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), closeTo(.8, 1e-9));
-    expect(_percentText(tester), '80%');
+    expect(_periodText(tester), 'Oct · Remaining');
     expect(tester.takeException(), isNull);
   });
 
@@ -143,7 +153,7 @@ void main() {
     expect(_gaugeValue(tester), closeTo(shown, .05));
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), closeTo(.9, 1e-9));
-    expect(_percentText(tester), '90%');
+    expect(_periodText(tester), 'Oct · Remaining');
     expect(tester.takeException(), isNull);
   });
 
@@ -152,7 +162,7 @@ void main() {
     await _pump(tester, spent: 61, disableAnimations: true);
     await tester.pump();
     expect(_gaugeValue(tester), closeTo(.61, 1e-9));
-    expect(_percentText(tester), '61%');
+    expect(_periodText(tester), 'Oct · Remaining');
     expect(_mascot, findsOneWidget);
     expect(_bubble, findsOneWidget);
   });

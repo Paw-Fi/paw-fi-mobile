@@ -5,6 +5,7 @@ import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/category_summary.dart';
 import 'package:moneko/features/home/presentation/widgets/transactions_pie_chart.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class _RecordingNavigatorObserver extends NavigatorObserver {
   final pushedRoutes = <Route<dynamic>>[];
@@ -167,6 +168,55 @@ void main() {
     expect(summaries, hasLength(1));
     expect(summaries.single.category, 'food & drinks');
     expect(summaries.single.amount, 100);
+  });
+
+  testWidgets('compact legend amount opens an exact tooltip without navigating',
+      (tester) async {
+    final observer = _RecordingNavigatorObserver();
+    final colors = AppTheme.lightTheme().colorScheme;
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.lightTheme(),
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      navigatorObservers: [observer],
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: TransactionsPieChart(
+            colorScheme: colors,
+            expenses: const [],
+            periodLabel: 'This month',
+            selectedCurrency: 'USD',
+            categorySummariesOverride: [
+              CategorySummary(
+                  category: 'food',
+                  amount: 12345.67,
+                  transactionCount: 1,
+                  color: colors.success),
+              CategorySummary(
+                  category: 'shopping',
+                  amount: 5000,
+                  transactionCount: 1,
+                  color: colors.info),
+            ],
+            totalSpentOverride: 17345.67,
+          ),
+        ),
+      ),
+    ));
+    final legend = find.byKey(const ValueKey('transactions-pie-legend-food'));
+    final compact = find.descendant(of: legend, matching: find.text(r'$12.3K'));
+    expect(compact, findsOneWidget);
+    expect(find.text(r'$12,345.67'), findsNothing);
+    expect(find.text(r'$17,345.67'), findsOneWidget);
+    await tester.ensureVisible(compact);
+    await tester.tap(compact);
+    await tester.pumpAndSettle();
+    expect(find.text(r'$12,345.67'), findsOneWidget);
+    expect(observer.pushedRoutes, hasLength(1));
+    expect(tester.takeException(), isNull);
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('real other legend card opens category details', (tester) async {

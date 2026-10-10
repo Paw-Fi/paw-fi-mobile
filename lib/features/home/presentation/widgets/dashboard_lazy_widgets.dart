@@ -68,6 +68,7 @@ class LazyDashboardBudgetHeader extends ConsumerWidget {
       currency:
           request?.currency ?? ref.watch(selectedHomeCurrencyCodeProvider),
       mode: request?.mode ?? HomePeriodMode.monthly,
+      selectedDate: request?.pocketsScope.periodMonth,
       onBudgetTap: () => ref.read(mainShellTabIndexProvider.notifier).state = 2,
       onAddTap: () {
         final contact = ref.read(dashboardUserContactProvider).valueOrNull;

@@ -10727,4 +10727,79 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get walletOrderSaveFailed => 'ไม่สามารถบันทึกลำดับกระเป๋าเงินได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get aiConsentTitle => 'เลือกวิธีใช้ AI ในแบบของคุณ';
+
+  @override
+  String get aiConsentProviderDisclosure => 'Moneko ใช้ Google Gemini ผ่าน Google Cloud Vertex AI เพื่อวิเคราะห์ข้อมูลที่คุณป้อนและช่วยคุณจัดการการเงินด้วย AI';
+
+  @override
+  String get aiConsentDataDisclosure => 'เมื่อคุณใช้ฟีเจอร์ AI Moneko จะส่งข้อความ ไฟล์บันทึกเสียงต้นฉบับ รูปภาพ และเอกสารของคุณ พร้อมข้อมูลทางการเงินและข้อมูลครัวเรือนที่เกี่ยวข้องไปยังผู้ให้บริการรายนี้เพื่อประมวลผล โดยข้อมูลที่ส่งอาจมีข้อมูลส่วนบุคคลรวมอยู่ด้วย';
+
+  @override
+  String get aiConsentChoiceDisclosure => 'การประมวลผลด้วย AI เป็นทางเลือก คุณยังสามารถบันทึกรายการธุรกรรมด้วยตนเองได้ตามปกติ เลือก \"ไว้ก่อน\" เพื่อใช้งานต่อโดยไม่เปิดใช้การประมวลผลด้วย AI';
+
+  @override
+  String get aiConsentAllow => 'อนุญาตให้ประมวลผลด้วย AI';
+
+  @override
+  String get aiConsentNotNow => 'ไว้ก่อน';
+
+  @override
+  String get aiConsentSaving => 'กำลังบันทึกตัวเลือกของคุณ...';
+
+  @override
+  String get aiConsentError => 'ไม่สามารถยืนยันหรือบันทึกตัวเลือกการประมวลผลด้วย AI ของคุณได้ ระบบจะระงับการประมวลผลด้วย AI จนกว่าจะยืนยันตัวเลือกของคุณได้สำเร็จ โปรดลองอีกครั้ง';
+
+  @override
+  String get aiConsentPrivacyPolicy => 'อ่านนโยบายความเป็นส่วนตัว';
+
+  @override
+  String get aiConsentPrivacyLinkError => 'ไม่สามารถเปิดนโยบายความเป็นส่วนตัวได้ โปรดลองอีกครั้ง';
+
+  @override
+  String get homeWidgetSetupStatus => 'แตะเพื่อตั้งค่า';
+
+  @override
+  String get homeWidgetSignInStatus => 'เข้าสู่ระบบ Moneko';
+
+  @override
+  String get homeWidgetLoadDataStatus => 'เปิด Moneko เพื่อโหลดข้อมูลของคุณ';
+
+  @override
+  String homeWidgetRemainingAmount(Object amount) {
+    return 'คงเหลือ $amount';
+  }
+
+  @override
+  String get homeWidgetMonthLabel => 'เดือนนี้';
+
+  @override
+  String get homeWidgetCachedStatus => 'ข้อมูลที่บันทึกไว้ · เปิดแอปเพื่ออัปเดต';
+
+  @override
+  String dashboardBudgetRemainingPeriodLabel(Object period) {
+    return '$period · คงเหลือ';
+  }
+
+  @override
+  String dashboardBudgetOverPeriodLabel(Object period) {
+    return '$period · เกินงบ';
+  }
+
+  @override
+  String dashboardBudgetSpentPeriodLabel(Object period) {
+    return '$period · ใช้ไปแล้ว';
+  }
+
+  @override
+  String dashboardBudgetSpentAndLimit(Object budget, Object spent) {
+    return 'ใช้ไป $spent / งบ $budget';
+  }
+
+  @override
+  String dashboardBudgetSpentAmount(Object amount) {
+    return 'ใช้ไปแล้ว $amount';
+  }
 }

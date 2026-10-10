@@ -294,6 +294,8 @@ class _CategoryBar extends StatelessWidget {
         ? getCategoryColor(category.category, context)
         : getSharedTransactionCategoryColor(category.category, context);
     final amount = formatCurrency(category.amount, currency, context: context);
+    final compactAmount =
+        formatCompactCurrency(category.amount, currency, context: context);
     final label = getCategoryTranslation(context, category.category);
     return Semantics(
         label: '$label: $amount',
@@ -327,7 +329,7 @@ class _CategoryBar extends StatelessWidget {
                     const SizedBox(height: 7),
                     FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: Text(amount,
+                        child: Text(compactAmount,
                             style: Theme.of(context)
                                 .textTheme
                                 .labelMedium
