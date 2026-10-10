@@ -37,7 +37,9 @@ class WidgetService {
           await _androidChannel.invokeMethod<void>('synchronizeOwner', userId);
         } else {
           await HomeWidget.saveWidgetData('widget_user_id', userId);
-          await HomeWidget.saveWidgetData('selected_widget_currency', null);
+          // home_widget 0.9.1 bridges null to NSNull, which crashes UserDefaults.
+          // The native currency reader already treats an empty string as unset.
+          await HomeWidget.saveWidgetData('selected_widget_currency', '');
         }
         await reloadWidgets();
       });

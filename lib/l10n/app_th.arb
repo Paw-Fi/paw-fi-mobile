@@ -3798,6 +3798,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · คงเหลือ",
   "dashboardBudgetOverPeriodLabel": "{period} · เกินงบ",
   "dashboardBudgetSpentPeriodLabel": "{period} · ใช้ไปแล้ว",
-  "dashboardBudgetSpentAndLimit": "ใช้ไป {spent} / งบ {budget}",
+  "dashboardBudgetSpentAndLimit": "ใช้ไป {spent} | งบ {budget}",
   "dashboardBudgetSpentAmount": "ใช้ไปแล้ว {amount}"
 }

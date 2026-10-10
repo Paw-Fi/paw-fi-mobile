@@ -3781,6 +3781,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · 予算残額",
   "dashboardBudgetOverPeriodLabel": "{period} · 予算超過",
   "dashboardBudgetSpentPeriodLabel": "{period} · 支出",
-  "dashboardBudgetSpentAndLimit": "支出 {spent} / 予算 {budget}",
+  "dashboardBudgetSpentAndLimit": "支出 {spent} | 予算 {budget}",
   "dashboardBudgetSpentAmount": "{amount}を支出"
 }

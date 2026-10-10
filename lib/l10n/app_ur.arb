@@ -3727,6 +3727,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · باقی بجٹ",
   "dashboardBudgetOverPeriodLabel": "{period} · حد سے زیادہ",
   "dashboardBudgetSpentPeriodLabel": "{period} · خرچ شدہ",
-  "dashboardBudgetSpentAndLimit": "خرچ ⁨{spent}⁩ / بجٹ ⁨{budget}⁩",
+  "dashboardBudgetSpentAndLimit": "خرچ ⁨{spent}⁩ | بجٹ ⁨{budget}⁩",
   "dashboardBudgetSpentAmount": "خرچ شدہ رقم: ⁨{amount}⁩"
 }

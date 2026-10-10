@@ -275,7 +275,7 @@ class _CategoryBars extends StatelessWidget {
 
 class _CategoryBar extends StatelessWidget {
   static const double barWidth = 44;
-  static const double barAreaHeight = 160;
+  static const double barAreaHeight = 130;
   static const double iconDiameter = 38;
   const _CategoryBar(
       {required this.category,

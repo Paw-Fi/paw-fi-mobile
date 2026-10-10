@@ -3777,6 +3777,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · 剩余预算",
   "dashboardBudgetOverPeriodLabel": "{period} · 超出预算",
   "dashboardBudgetSpentPeriodLabel": "{period} · 支出",
-  "dashboardBudgetSpentAndLimit": "已花 {spent} / 预算 {budget}",
+  "dashboardBudgetSpentAndLimit": "已花 {spent} | 预算 {budget}",
   "dashboardBudgetSpentAmount": "已支出{amount}"
 }

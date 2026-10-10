@@ -3728,6 +3728,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · Residuo",
   "dashboardBudgetOverPeriodLabel": "{period} · Sforato",
   "dashboardBudgetSpentPeriodLabel": "{period} · Spesi",
-  "dashboardBudgetSpentAndLimit": "Speso {spent} / Budget {budget}",
+  "dashboardBudgetSpentAndLimit": "Speso {spent} | Budget {budget}",
   "dashboardBudgetSpentAmount": "Speso: {amount}"
 }

@@ -3594,6 +3594,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · 남은 예산",
   "dashboardBudgetOverPeriodLabel": "{period} · 예산 초과",
   "dashboardBudgetSpentPeriodLabel": "{period} · 지출",
-  "dashboardBudgetSpentAndLimit": "지출 {spent} / 예산 {budget}",
+  "dashboardBudgetSpentAndLimit": "지출 {spent} | 예산 {budget}",
   "dashboardBudgetSpentAmount": "{amount} 지출"
 }

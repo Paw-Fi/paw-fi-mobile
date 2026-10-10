@@ -138,6 +138,7 @@ class _SummaryValues extends StatelessWidget {
     required this.selectedDate,
     required this.accent,
     required this.onBudgetTap,
+    this.isSkeleton = false,
     this.onAddTap,
     this.onTransferTap,
     this.onInsightsTap,
@@ -149,6 +150,7 @@ class _SummaryValues extends StatelessWidget {
   final DateTime? selectedDate;
   final Color accent;
   final VoidCallback onBudgetTap;
+  final bool isSkeleton;
   final VoidCallback? onAddTap;
   final VoidCallback? onTransferTap;
   final VoidCallback? onInsightsTap;
@@ -220,6 +222,8 @@ class _SummaryValues extends StatelessWidget {
     // reads as unavailable instead of disappearing entirely.
     final hasBudget = summary.hasBudget;
     final isOverBudget = hasBudget && remaining! < 0;
+    final isCompactAmount =
+        hasBudget && _hasFourOrFewerIntegerDigits(remaining!.abs());
     final primaryAmount = hasBudget
         ? formatCurrency(remaining!.abs(), currency, context: context)
         : amount;
@@ -235,23 +239,37 @@ class _SummaryValues extends StatelessWidget {
             : isOverBudget
                 ? context.l10n.dashboardBudgetOverPeriodLabel(period)
                 : context.l10n.dashboardBudgetRemainingPeriodLabel(period);
+    final gaugeLabel = label?.toUpperCase();
 
     return LayoutBuilder(builder: (context, constraints) {
       final cardWidth = constraints.maxWidth;
-      const strokeWidth = 18.0;
-      final captionSize = label == null
+      const strokeWidth = 24.0;
+      final captionSize = gaugeLabel == null
           ? Size.zero
-          : _measureText(context, label, _periodStyle(theme), double.infinity);
+          : _measureText(
+              context, gaugeLabel, _periodStyle(theme), double.infinity);
       final desiredWidth = math.max(
           captionSize.width + 64, captionSize.width / .8 + strokeWidth);
-      final gaugeWidth = math.min(cardWidth, math.max(210.0, desiredWidth));
-      final captionHeight = label == null
+      final gaugeWidth = math.min(cardWidth, math.max(220.0, desiredWidth));
+      final captionHeight = gaugeLabel == null
           ? 0.0
-          : _measureText(context, label, _periodStyle(theme),
+          : _measureText(context, gaugeLabel, _periodStyle(theme),
                   _gaugeCaptionWidth(gaugeWidth, strokeWidth))
               .height;
-      final gaugeHeight =
-          _gaugeHeightForCaption(gaugeWidth, strokeWidth, captionHeight);
+      final gaugeHeight = _gaugeHeightForCaption(
+          gaugeWidth, _budgetGaugeArcGeometryStrokeWidth, captionHeight);
+      final amountHeight = _measureText(
+        context,
+        primaryAmount,
+        _budgetAmountStyle(context),
+        cardWidth,
+      ).height;
+      final captionSpaceBelow = isCompactAmount ? amountHeight / 2 + 4 : 0.0;
+      final captionTopCeiling =
+          math.max(0.0, 1 - (captionHeight + captionSpaceBelow) / gaugeHeight);
+      final desiredCaptionTopFactor = isCompactAmount ? 1.0 : .82;
+      final captionTopFactor =
+          math.min(desiredCaptionTopFactor, captionTopCeiling);
       const catWidth = 96.0;
       const catHeight = 58.0;
       final stackedBubble =
@@ -271,6 +289,10 @@ class _SummaryValues extends StatelessWidget {
           ? bubbleHeight + 14 + catHeight
           : math.max(44.0, bubbleHeight + 16);
       final totalGaugeSectionHeight = gaugeHeight + topClearance;
+      final contentTop = math.max(
+        0.0,
+        totalGaugeSectionHeight + (isCompactAmount ? -amountHeight / 2 : 6.0),
+      );
 
       final gaugeAccent = switch (summary.reaction) {
         BudgetCompanionReaction.happy => colors.budgetGaugeSuccess,
@@ -280,34 +302,14 @@ class _SummaryValues extends StatelessWidget {
       };
       final gaugeColor = hasBudget ? gaugeAccent : colors.mutedForeground;
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      final content = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 4),
-          SizedBox(
-            width: cardWidth,
-            height: totalGaugeSectionHeight,
-            child: _BudgetHeroStage(
-              progress: hasBudget ? summary.progress! : null,
-              reaction: summary.reaction,
-              mascotAsset: mascotAsset,
-              gaugeColor: gaugeColor,
-              accent: accent,
-              foreground: foreground,
-              cardWidth: cardWidth,
-              gaugeWidth: gaugeWidth,
-              gaugeHeight: gaugeHeight,
-              strokeWidth: strokeWidth,
-              catWidth: catWidth,
-              catHeight: catHeight,
-              topClearance: topClearance,
-              stackedBubble: stackedBubble,
-              periodLabel: label,
-              selectedDate: selectedDate,
-            ),
+          _BudgetAmount(
+            amount: primaryAmount,
+            semanticLabel: primarySemantics,
           ),
-          const SizedBox(height: 6),
-          _BudgetAmount(amount: primaryAmount, semanticLabel: primarySemantics),
           if (hasBudget) ...[
             const SizedBox(height: 4),
             _BudgetSummary(
@@ -333,9 +335,69 @@ class _SummaryValues extends StatelessWidget {
           ],
         ],
       );
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 4),
+          SizedBox(
+            width: cardWidth,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: totalGaugeSectionHeight,
+                  child: _BudgetHeroStage(
+                    progress: hasBudget
+                        ? isSkeleton
+                            ? 1.0
+                            : summary.progress!
+                        : null,
+                    reaction: summary.reaction,
+                    mascotAsset: mascotAsset,
+                    gaugeColor: gaugeColor,
+                    accent: accent,
+                    foreground: foreground,
+                    cardWidth: cardWidth,
+                    gaugeWidth: gaugeWidth,
+                    gaugeHeight: gaugeHeight,
+                    strokeWidth: strokeWidth,
+                    catWidth: catWidth,
+                    catHeight: catHeight,
+                    topClearance: topClearance,
+                    stackedBubble: stackedBubble,
+                    showBubble: !isSkeleton,
+                    periodLabel: gaugeLabel,
+                    periodLabelTopFactor: captionTopFactor,
+                    selectedDate: selectedDate,
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AnimatedContainer(
+                      height: contentTop,
+                      duration: _motion(context),
+                      curve: Curves.easeInOutCubic,
+                    ),
+                    content,
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
     });
   }
 }
+
+bool _hasFourOrFewerIntegerDigits(double amount) =>
+    amount.isFinite && amount.abs().truncate() < 10000;
 
 TextStyle _periodStyle(ThemeData theme) => theme.textTheme.bodyMedium!.copyWith(
       fontSize: 13,
@@ -344,8 +406,24 @@ TextStyle _periodStyle(ThemeData theme) => theme.textTheme.bodyMedium!.copyWith(
       height: 1.3,
     );
 
+TextStyle _budgetAmountStyle(BuildContext context) {
+  final theme = Theme.of(context);
+  return WidgetTextStyles.roundedNumber(
+    theme,
+    baseStyle: theme.textTheme.headlineLarge!.copyWith(
+      fontSize: 34,
+      height: 1.15,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -.5,
+      color: theme.colorScheme.foreground,
+    ),
+  );
+}
+
 double _gaugeCaptionWidth(double width, double strokeWidth) =>
     math.max(1.0, math.min(width - 64, (width - strokeWidth) * .8));
+
+const _budgetGaugeArcGeometryStrokeWidth = 22.0;
 
 double _gaugeHeightForCaption(
     double width, double strokeWidth, double captionHeight) {
@@ -354,8 +432,8 @@ double _gaugeHeightForCaption(
   final captionRadius = _gaugeCaptionWidth(width, strokeWidth) / 2;
   final arcFactor =
       math.sqrt(1 - math.pow((captionRadius / safeRadius).clamp(0.0, .95), 2));
-  // The caption is centered in the lower-middle 45% of the arc. Keep its
-  // corners inside the stroke even when accessibility text wraps to two rows.
+  // Reserve enough height for the caption, including accessibility-scaled
+  // wrapping.
   final curvedRoom = (captionHeight / 2 +
           4 -
           strokeWidth / 2 +
@@ -407,35 +485,19 @@ class _BudgetAmount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final style = WidgetTextStyles.roundedNumber(theme,
-        baseStyle: theme.textTheme.headlineLarge!.copyWith(
-            fontSize: 34,
-            height: 1.15,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -.5,
-            color: colors.foreground));
-    return LayoutBuilder(builder: (context, constraints) {
-      // Fit the base typography, never the user's accessibility scale. At large
-      // text sizes the exact value wraps naturally instead of being shrunk.
-      final width = _measureText(context, amount, style, double.infinity,
-              textScaler: TextScaler.noScaling)
-          .width;
-      final fontSize = (34 * constraints.maxWidth / width).clamp(28.0, 34.0);
-      return Semantics(
-        label: semanticLabel,
-        child: ExcludeSemantics(
-          child: Text(
-            amount,
-            key: const ValueKey('budget-companion-primary-amount'),
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.ltr,
-            style: style.copyWith(fontSize: fontSize),
-          ),
+    final style = _budgetAmountStyle(context);
+    return Semantics(
+      label: semanticLabel,
+      child: ExcludeSemantics(
+        child: Text(
+          amount,
+          key: const ValueKey('budget-companion-primary-amount'),
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+          style: style,
         ),
-      );
-    });
+      ),
+    );
   }
 }
 
@@ -456,10 +518,10 @@ class _BudgetSummary extends StatelessWidget {
       final width =
           _measureText(context, message, style, double.infinity).width;
       // Keep short summaries on one line. When needed, break at the localized
-      // contract's slash before allowing either amount to wrap further.
+      // contract's separator before allowing either amount to wrap further.
       final displayed = width <= constraints.maxWidth
           ? message
-          : message.replaceFirst(' / ', ' /\n');
+          : message.replaceFirst(' | ', ' |\n');
       return Text(
         displayed,
         key: const ValueKey('budget-companion-budget-amount'),
@@ -491,7 +553,9 @@ class _BudgetHeroStage extends StatefulWidget {
     required this.catHeight,
     required this.topClearance,
     required this.stackedBubble,
+    required this.showBubble,
     required this.periodLabel,
+    required this.periodLabelTopFactor,
     required this.selectedDate,
   });
 
@@ -510,7 +574,9 @@ class _BudgetHeroStage extends StatefulWidget {
   final double catHeight;
   final double topClearance;
   final bool stackedBubble;
+  final bool showBubble;
   final String? periodLabel;
+  final double periodLabelTopFactor;
   final DateTime? selectedDate;
 
   @override
@@ -622,6 +688,7 @@ class _BudgetHeroStageState extends State<_BudgetHeroStage>
               isOverBudget:
                   widget.reaction == BudgetCompanionReaction.overBudget,
             ),
+      centerTopFactor: widget.periodLabelTopFactor,
     );
   }
 
@@ -709,29 +776,33 @@ class _BudgetHeroStageState extends State<_BudgetHeroStage>
                   child: mascot,
                 ),
         ),
-        PositionedDirectional(
-          top: 2,
-          start: widget.stackedBubble ? 16 : (cardWidth / 2) + 36,
-          end: widget.stackedBubble ? 16 : 4,
-          child: Align(
-            alignment: widget.stackedBubble
-                ? Alignment.center
-                : AlignmentDirectional.centerStart,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: math.max(1,
-                    widget.stackedBubble ? cardWidth - 32 : cardWidth / 2 - 40),
+        if (widget.showBubble)
+          PositionedDirectional(
+            top: 2,
+            start: widget.stackedBubble ? 16 : (cardWidth / 2) + 36,
+            end: widget.stackedBubble ? 16 : 4,
+            child: Align(
+              alignment: widget.stackedBubble
+                  ? Alignment.center
+                  : AlignmentDirectional.centerStart,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.max(
+                      1,
+                      widget.stackedBubble
+                          ? cardWidth - 32
+                          : cardWidth / 2 - 40),
+                ),
+                child: reduced
+                    ? bubble
+                    : AnimatedBuilder(
+                        animation: _bubbleEntrance,
+                        builder: _buildBubbleEntrance,
+                        child: bubble,
+                      ),
               ),
-              child: reduced
-                  ? bubble
-                  : AnimatedBuilder(
-                      animation: _bubbleEntrance,
-                      builder: _buildBubbleEntrance,
-                      child: bubble,
-                    ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -1021,10 +1092,11 @@ class BudgetGaugeIndicator extends StatelessWidget {
     required this.value,
     required this.color,
     required this.backgroundColor,
-    this.strokeWidth = 18.0,
+    this.strokeWidth = 24.0,
     this.width = 210.0,
     this.height,
     this.center,
+    this.centerTopFactor = .82,
     this.glowColor,
   });
 
@@ -1035,6 +1107,7 @@ class BudgetGaugeIndicator extends StatelessWidget {
   final double width;
   final double? height;
   final Widget? center;
+  final double centerTopFactor;
 
   /// Optional halo painted beneath the active arc; omitted when null.
   final Color? glowColor;
@@ -1050,23 +1123,26 @@ class BudgetGaugeIndicator extends StatelessWidget {
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          CustomPaint(
-            size: Size(width, height),
-            painter: _BudgetGaugePainter(
-              progress: value,
-              color: color,
-              backgroundColor: backgroundColor,
-              strokeWidth: strokeWidth,
-              glowColor: glowColor,
+          Skeleton.shade(
+            child: CustomPaint(
+              size: Size(width, height),
+              painter: _BudgetGaugePainter(
+                progress: value,
+                color: color,
+                backgroundColor: backgroundColor,
+                strokeWidth: strokeWidth,
+                glowColor: glowColor,
+              ),
             ),
           ),
           if (center != null)
-            Positioned(
-              top: height * .55,
-              bottom: 8,
+            AnimatedPositioned(
+              duration: _motion(context),
+              curve: Curves.easeInOutCubic,
+              top: height * centerTopFactor,
               left: captionInset,
               right: captionInset,
-              child: Center(child: center!),
+              child: center!,
             ),
         ],
       ),
@@ -1091,14 +1167,18 @@ class _BudgetGaugePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final radius = (size.width - strokeWidth) / 2;
+    // Keep the arc path on its original geometry while allowing the visible
+    // stroke to grow independently.
+    const geometryStrokeWidth = _budgetGaugeArcGeometryStrokeWidth;
+    final radius = (size.width - geometryStrokeWidth) / 2;
     if (radius <= 0) return;
 
-    final center = Offset(size.width / 2, size.height - strokeWidth / 2);
+    final center =
+        Offset(size.width / 2, size.height - geometryStrokeWidth / 2);
     final rect = Rect.fromCenter(
       center: center,
       width: radius * 2,
-      height: (size.height - strokeWidth) * 2,
+      height: (size.height - geometryStrokeWidth) * 2,
     );
 
     final bgPaint = Paint()
@@ -1199,6 +1279,7 @@ class DashboardBudgetHeaderSkeleton extends StatelessWidget {
             selectedDate: selectedDate,
             accent: colors.skeletonBase,
             onBudgetTap: () {},
+            isSkeleton: true,
           ),
         ),
       ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_period_selection.dart';
@@ -59,7 +58,7 @@ Future<void> _pump(
 void main() {
   setUpAll(() => initializeDateFormatting());
 
-  testWidgets('short caption stays inside the gauge above a standalone amount',
+  testWidgets('short remaining amount straddles the gauge bottom',
       (tester) async {
     await _pump(tester);
     final primary =
@@ -70,8 +69,7 @@ void main() {
     expect(amount.style!.fontSize, 34);
     expect(find.text('Spent'), findsNothing);
     final detail = find.byKey(const ValueKey('budget-companion-budget-amount'));
-    expect(tester.widget<Text>(detail).semanticsLabel,
-        r'Spent $400 / Budget $700');
+    expect(tester.widget<Text>(detail).semanticsLabel, contains('|'));
     expect(find.text('57%'), findsNothing);
     expect(find.text('Oct · Remaining'), findsOneWidget);
     expect(find.text(r'$300 left'), findsNothing);
@@ -83,10 +81,109 @@ void main() {
         tester.getRect(primary).center.dx,
         closeTo(
             tester.getRect(find.byType(DashboardBudgetHeader)).center.dx, .1));
-    expect(tester.getTopLeft(primary).dy, greaterThan(gauge.bottom));
+    final amountRect = tester.getRect(primary);
+    expect(amountRect.top, lessThan(gauge.bottom));
+    expect(amountRect.bottom, greaterThan(gauge.bottom));
+    expect(
+        (gauge.bottom - amountRect.top) / amountRect.height, closeTo(.5, .08));
+    expect(period.bottom, lessThan(amountRect.top));
     expect(tester.getRect(detail).top - tester.getRect(primary).bottom,
         lessThanOrEqualTo(4));
     expect(tester.getSize(detail).height, lessThan(24));
+  });
+
+  for (final sample in [
+    (0.0, 'USD', true),
+    (99.0, 'USD', true),
+    (999.0, 'USD', true),
+    (5722.0, 'USD', true),
+    (9999.0, 'USD', true),
+    (9999.99, 'USD', true),
+    (10000.0, 'USD', false),
+    (99999.0, 'USD', false),
+    (100000.0, 'USD', false),
+    (1000000.0, 'USD', false),
+    (100000000.0, 'USD', false),
+    (1000000000.0, 'IDR', false),
+  ]) {
+    testWidgets(
+        '${sample.$1} ${sample.$2} uses ${sample.$3 ? 'compact' : 'full-width'} layout',
+        (tester) async {
+      final spent = sample.$1 == 0 ? 1.0 : 0.0;
+      final budget = sample.$1 == 0 ? 1.0 : sample.$1;
+      await _pump(
+        tester,
+        width: 320,
+        currency: sample.$2,
+        summary: AsyncData(
+          BudgetCompanionSummary(spent: spent, budget: budget),
+        ),
+      );
+
+      final context = tester.element(find.byType(DashboardBudgetHeader));
+      final primary =
+          find.byKey(const ValueKey('budget-companion-primary-amount'));
+      final amountText = tester.widget<Text>(primary);
+      final amountRect = tester.getRect(primary);
+      final gaugeRect = tester.getRect(find.byType(BudgetGaugeIndicator));
+      final periodRect = tester.getRect(
+        find.byKey(const ValueKey('budget-companion-period')),
+      );
+      final detailRect = tester.getRect(
+        find.byKey(const ValueKey('budget-companion-budget-amount')),
+      );
+
+      expect(amountText.data,
+          formatCurrency(sample.$1, sample.$2, context: context));
+      expect(amountText.style!.fontSize, 34);
+      expect(amountRect.left, greaterThanOrEqualTo(0));
+      expect(amountRect.right, lessThanOrEqualTo(320));
+      expect(gaugeRect.contains(periodRect.topLeft), isTrue);
+      expect(gaugeRect.contains(periodRect.bottomRight), isTrue);
+
+      if (sample.$3) {
+        expect(amountRect.top, lessThan(gaugeRect.bottom));
+        expect(amountRect.bottom, greaterThan(gaugeRect.bottom));
+        expect((gaugeRect.bottom - amountRect.top) / amountRect.height,
+            closeTo(.5, .08));
+        expect(periodRect.bottom, lessThan(amountRect.top));
+      } else {
+        expect(amountRect.top, greaterThanOrEqualTo(gaugeRect.bottom));
+        expect(periodRect.top,
+            greaterThan(gaugeRect.top + gaugeRect.height * .65));
+      }
+
+      expect(detailRect.top, greaterThanOrEqualTo(amountRect.bottom));
+      expect(detailRect.left, greaterThanOrEqualTo(0));
+      expect(detailRect.right, lessThanOrEqualTo(320));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('crossing from 9999 to 10000 moves the amount below the gauge',
+      (tester) async {
+    Future<void> pumpRemaining(double remaining) => _pump(
+          tester,
+          width: 320,
+          summary: AsyncData(BudgetCompanionSummary(
+            spent: 0,
+            budget: remaining,
+          )),
+        );
+
+    await pumpRemaining(9999);
+    var amount = tester
+        .getRect(find.byKey(const ValueKey('budget-companion-primary-amount')));
+    var gauge = tester.getRect(find.byType(BudgetGaugeIndicator));
+    expect(amount.top, lessThan(gauge.bottom));
+    expect(amount.bottom, greaterThan(gauge.bottom));
+
+    await pumpRemaining(10000);
+    amount = tester
+        .getRect(find.byKey(const ValueKey('budget-companion-primary-amount')));
+    gauge = tester.getRect(find.byType(BudgetGaugeIndicator));
+    expect(amount.top, greaterThanOrEqualTo(gauge.bottom));
+    expect(tester.takeException(), isNull);
   });
 
   for (final sample in [
@@ -124,7 +221,7 @@ void main() {
           expect(rect.right, lessThanOrEqualTo(width));
           expect(text.data, formatted);
           expect(text.textSpan, isNull);
-          expect(text.style!.fontSize, greaterThanOrEqualTo(28));
+          expect(text.style!.fontSize, 34);
           expect(
               rect.center.dx,
               closeTo(
@@ -147,8 +244,8 @@ void main() {
           final detail = tester.widget<Text>(
               find.byKey(const ValueKey('budget-companion-budget-amount')));
           expect(detail.semanticsLabel,
-              l10n.dashboardBudgetSpentAndLimit(spent, budget));
-          expect(detail.data, contains(' /\n'));
+              l10n.dashboardBudgetSpentAndLimit(budget, spent));
+          expect(detail.data, contains(' |\n'));
           expect(detail.maxLines, isNull);
           expect(tester.takeException(), isNull);
         });
@@ -179,7 +276,7 @@ void main() {
               .widget<Text>(
                   find.byKey(const ValueKey('budget-companion-budget-amount')))
               .semanticsLabel,
-          r'Spent $400 / Budget $700');
+          r'Spent $400 | Budget $700');
       expect(find.byType(DashboardBudgetHeaderSkeleton), findsNothing);
       expect(tester.takeException(), isNull);
     }
@@ -247,7 +344,7 @@ void main() {
             .widget<Text>(
                 find.byKey(const ValueKey('budget-companion-budget-amount')))
             .semanticsLabel,
-        r'Spent $800 / Budget $700');
+        r'Spent $800 | Budget $700');
     expect(find.text(r'$100 left'), findsNothing);
     expect(find.text('No budget set yet'), findsNothing);
   });
@@ -272,21 +369,14 @@ void main() {
       final gauge = tester.getRect(gaugeFinder);
       expect(gauge.contains(caption.topLeft), isTrue);
       expect(gauge.contains(caption.bottomRight), isTrue);
-      final stroke =
-          tester.widget<BudgetGaugeIndicator>(gaugeFinder).strokeWidth;
-      final radiusX = (gauge.width - stroke) / 2 - stroke / 2 - 4;
-      final radiusY = gauge.height - stroke - stroke / 2 - 4;
-      final center = Offset(gauge.center.dx, gauge.bottom - stroke / 2);
       for (final corner in [
         caption.topLeft,
         caption.topRight,
         caption.bottomLeft,
         caption.bottomRight
       ]) {
-        final x = (corner.dx - center.dx) / radiusX;
-        final y = (corner.dy - center.dy) / radiusY;
-        expect(x * x + y * y, lessThanOrEqualTo(1.01),
-            reason: '$locale caption must stay inside the curved stroke');
+        expect(gauge.contains(corner), isTrue,
+            reason: '$locale caption must stay inside the gauge bounds');
       }
       expect(caption.bottom, lessThan(tester.getTopLeft(primary).dy));
       expect(tester.takeException(), isNull);

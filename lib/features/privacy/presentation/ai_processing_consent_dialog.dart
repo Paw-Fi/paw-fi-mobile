@@ -97,6 +97,19 @@ class AiProcessingConsentDialog extends ConsumerWidget {
       }
     }
 
+    Future<void> openPrivacyPolicy() async {
+      try {
+        if (!await launchUrl(Uri.parse(aiProcessingPrivacyPolicyUrl),
+            mode: LaunchMode.externalApplication)) {
+          throw StateError('Privacy policy unavailable');
+        }
+      } catch (_) {
+        if (context.mounted) {
+          AppToast.error(context, l10n.aiConsentPrivacyLinkError);
+        }
+      }
+    }
+
     final dialog = Dialog(
       backgroundColor: scheme.sheetBackground,
       shape: RoundedRectangleBorder(
@@ -120,22 +133,6 @@ class AiProcessingConsentDialog extends ConsumerWidget {
               const SizedBox(height: 12),
               Text(l10n.aiConsentChoiceDisclosure),
               const SizedBox(height: 12),
-              PrimaryAdaptiveButton.outlined(
-                onPressed: () async {
-                  try {
-                    if (!await launchUrl(
-                        Uri.parse(aiProcessingPrivacyPolicyUrl),
-                        mode: LaunchMode.externalApplication)) {
-                      throw StateError('Privacy policy unavailable');
-                    }
-                  } catch (_) {
-                    if (context.mounted) {
-                      AppToast.error(context, l10n.aiConsentPrivacyLinkError);
-                    }
-                  }
-                },
-                child: Text(l10n.aiConsentPrivacyPolicy),
-              ),
               AnimatedSize(
                 duration: const Duration(milliseconds: 180),
                 child: state.error == null
@@ -162,6 +159,15 @@ class AiProcessingConsentDialog extends ConsumerWidget {
               PrimaryAdaptiveButton.outlined(
                 onPressed: state.isCommitting ? null : () => close(false),
                 child: Text(l10n.aiConsentNotNow),
+              ),
+              Center(
+                child: TextButton(
+                  onPressed: openPrivacyPolicy,
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                  child: Text(l10n.aiConsentPrivacyPolicy,
+                      style: TextStyle(color: scheme.primary)),
+                ),
               ),
             ],
           ),

@@ -3780,6 +3780,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · Còn lại",
   "dashboardBudgetOverPeriodLabel": "{period} · Vượt mức",
   "dashboardBudgetSpentPeriodLabel": "{period} · Đã chi",
-  "dashboardBudgetSpentAndLimit": "Đã chi {spent} / Ngân sách {budget}",
+  "dashboardBudgetSpentAndLimit": "Đã chi {spent} | Ngân sách {budget}",
   "dashboardBudgetSpentAmount": "Đã chi {amount}"
 }

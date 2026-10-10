@@ -3773,6 +3773,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · Залишок",
   "dashboardBudgetOverPeriodLabel": "{period} · Перевищено",
   "dashboardBudgetSpentPeriodLabel": "{period} · Витрачено",
-  "dashboardBudgetSpentAndLimit": "Витрачено {spent} / Бюджет {budget}",
+  "dashboardBudgetSpentAndLimit": "Витрачено {spent} | Бюджет {budget}",
   "dashboardBudgetSpentAmount": "Витрачено {amount}"
 }

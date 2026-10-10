@@ -10795,7 +10795,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String dashboardBudgetSpentAndLimit(Object budget, Object spent) {
-    return 'ใช้ไป $spent / งบ $budget';
+    return 'ใช้ไป $spent | งบ $budget';
   }
 
   @override

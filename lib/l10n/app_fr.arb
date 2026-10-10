@@ -3781,6 +3781,6 @@
   "dashboardBudgetRemainingPeriodLabel": "{period} · Restant",
   "dashboardBudgetOverPeriodLabel": "{period} · Dépassé",
   "dashboardBudgetSpentPeriodLabel": "{period} · Dépensé",
-  "dashboardBudgetSpentAndLimit": "Dépensé {spent} / Budget {budget}",
+  "dashboardBudgetSpentAndLimit": "Dépensé {spent} | Budget {budget}",
   "dashboardBudgetSpentAmount": "Dépensé : {amount}"
 }

@@ -40,6 +40,11 @@ void main() {
         case 'getWidgetData':
           return storage[args['id']] ?? args['defaultValue'];
         case 'saveWidgetData':
+          // home_widget 0.9.1 passes a channel null to UserDefaults as NSNull,
+          // which raises an Objective-C exception instead of clearing the key.
+          if (args['data'] == null) {
+            throw PlatformException(code: 'NON_PROPERTY_LIST_VALUE');
+          }
           storage[args['id'] as String] = args['data'];
           return true;
         case 'updateWidget':
@@ -200,6 +205,28 @@ void main() {
     await WidgetService().synchronizeOwner('user-1', isCurrent: () => false);
     expect(storage['widget_user_id'], 'user-2');
     expect(updates, isEmpty);
+  });
+
+  test('iOS startup and owner transitions preserve configuration safely',
+      () async {
+    storage.addAll({
+      'widget_user_id': 'previous-user',
+      'selected_widget_currency': 'EUR',
+      'config_scope_7': 'household-1',
+      'config_currency_7': 'JPY',
+      'widget_snapshot_personal_EUR': 'previous snapshot',
+    });
+    for (final owner in ['', 'user-1', 'user-2', '']) {
+      await WidgetService().synchronizeOwner(owner);
+      expect(storage['widget_user_id'], owner);
+      expect(storage['selected_widget_currency'], isEmpty);
+      expect(storage['config_scope_7'], 'household-1');
+      expect(storage['config_currency_7'], 'JPY');
+      expect(storage['widget_snapshot_personal_EUR'], 'previous snapshot');
+    }
+    final reloadCount = updates.length;
+    await WidgetService().synchronizeOwner('');
+    expect(updates.length, reloadCount);
   });
 
   test(
