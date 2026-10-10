@@ -42,6 +42,34 @@ final correction = {
 };
 
 void main() {
+  test('structured analysis errors reach retry without losing their message',
+      () async {
+    final failure = <String, dynamic>{
+      'success': false,
+      'code': 'AI_INVALID_RESPONSE',
+      'status': 503,
+      'error': "We couldn't finish analyzing this input. Please try again.",
+    };
+    Object? receivedError;
+    var requests = 0;
+    final result = await runInteractiveAiAnalysis(
+      body: {'text': '買い物５０円'},
+      invoke: (_) async {
+        requests++;
+        return failure;
+      },
+      ask: (_) async => fail('failed analysis must not ask a question'),
+      retry: (error) async {
+        receivedError = error;
+        return false;
+      },
+      isActive: () => true,
+    );
+    expect(result, isNull);
+    expect(receivedError, failure);
+    expect(requests, 1);
+  });
+
   test('receipt clarification retains the image and original dropdown defaults',
       () async {
     final image = {'data': 'cmVjZWlwdA==', 'contentType': 'image/jpeg'};

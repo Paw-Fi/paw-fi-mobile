@@ -34,8 +34,18 @@ class SSEService {
       response = await client.send(request).timeout(timeout);
 
       if (response.statusCode != 200) {
-        throw Exception(
-            'HTTP ${response.statusCode}: ${response.reasonPhrase}');
+        Map<String, dynamic> error = {'status': response.statusCode};
+        try {
+          final payload = jsonDecode(
+              await response.stream.bytesToString().timeout(timeout));
+          if (payload is Map<String, dynamic>) {
+            error = {...payload, 'status': response.statusCode};
+          }
+        } catch (_) {
+          // Preserve the HTTP failure even if its body is unreadable or HTML.
+        }
+        yield SSEEvent(event: 'error', data: error);
+        return;
       }
 
       // Parse SSE stream

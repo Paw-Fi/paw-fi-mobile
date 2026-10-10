@@ -116,6 +116,26 @@ void main() {
     }
   });
 
+  test('manual analysis retry requirement survives disk reopen', () async {
+    final original = await capture();
+    const error =
+        "We couldn't check the transaction details. Please try again.";
+    await repository.checkpoint(original, {'analysisError': error});
+    await reopen();
+    final restored = (await repository.pending('owner')).single;
+    expect(restored.id, original.id);
+    expect(restored.payload['analysisError'], error);
+    expect(restored.body, original.body);
+    expect(
+        await database.nextRetryableMutation(DateTime.now().toUtc()), isNull);
+    final allowed =
+        await repository.checkpoint(restored, {'analysisError': null});
+    await reopen();
+    expect((await repository.pending('owner')).single.payload['analysisError'],
+        isNull);
+    expect(allowed.body, original.body);
+  });
+
   test('invalid media leaves neither a capture nor partially written files',
       () async {
     await expectLater(

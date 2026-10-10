@@ -134,6 +134,7 @@ Future<Map<String, dynamic>?> runInteractiveAiAnalysis({
         },
       });
       if (!isActive()) return null;
+      if (response['success'] == false) throw response;
       if (response['success'] != true || response['data'] is! Map) {
         throw const FormatException('Unable to verify transaction details');
       }

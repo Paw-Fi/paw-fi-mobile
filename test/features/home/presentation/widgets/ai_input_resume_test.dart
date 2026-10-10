@@ -108,13 +108,20 @@ void main() {
     'dismiss',
     'owner-change',
     'retryable',
+    'retryable-retry',
+    'retryable-cancel',
+    'file-stream-failure',
     'offline',
     'receipt-dismiss',
     'no-consent',
     'revoked-consent',
     'receipt-consent-revoked'
   ]) {
-    final cancel = scenario == 'cancel';
+    final cancel = scenario == 'cancel' ||
+        scenario == 'retryable-retry' ||
+        scenario == 'retryable-cancel' ||
+        scenario == 'file-stream-failure';
+    final isAnalysisFailure = scenario.startsWith('retryable');
     final isReceipt = scenario.startsWith('receipt-');
     final consentBlocked =
         scenario == 'no-consent' || scenario == 'revoked-consent';
@@ -142,6 +149,14 @@ void main() {
                 if (isReceipt) 'accountId': 'selected-wallet',
                 if (isReceipt)
                   'image': {'data': 'cmVjZWlwdA==', 'contentType': 'image/png'}
+                else if (scenario == 'file-stream-failure')
+                  'attachments': [
+                    {
+                      'data': base64Encode([1, 2, 3]),
+                      'contentType': 'text/csv',
+                      'filename': '交易.csv',
+                    }
+                  ]
                 else
                   'text': '買い物５０円',
               }, target: {
@@ -181,7 +196,16 @@ void main() {
               headers: {'content-type': 'application/json'});
         }
         return http.Response(
-            jsonEncode({'success': false}), scenario == 'retryable' ? 503 : 200,
+            jsonEncode({
+              'success': false,
+              if (isAnalysisFailure) ...{
+                'code': 'AI_CLARIFICATION_FAILED',
+                'status': 503,
+                'error':
+                    "We couldn't check the transaction details. Please try again.",
+              },
+            }),
+            isAnalysisFailure ? 503 : 200,
             headers: {'content-type': 'application/json'});
       };
       final container = ProviderContainer(overrides: [
@@ -229,8 +253,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       final l10n = AppLocalizations.of(mountedContext)!;
       expect(find.byType(AiProcessingConsentDialog), findsNothing);
-      final showsDialog =
-          !consentBlocked && scenario != 'offline' && scenario != 'retryable';
+      final showsDialog = !consentBlocked && scenario != 'offline';
       final dialogText = isReceipt ? receiptQuestion : l10n.failedToAnalyze;
       for (var attempt = 0;
           showsDialog &&
@@ -245,6 +268,33 @@ void main() {
         expect(find.text(dialogText), findsOneWidget);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
+        if (isAnalysisFailure) {
+          expect(find.text(l10n.aiInputSavedForLater), findsNothing);
+          expect(
+            find.text(
+                "We couldn't check the transaction details. Please try again."),
+            findsOneWidget,
+          );
+          await tester.pump(const Duration(seconds: 5));
+          expect(requests, 1);
+          if (scenario == 'retryable-retry') {
+            await tester.ensureVisible(find.text(l10n.retry));
+            await tester.tap(find.text(l10n.retry));
+            await tester.pump(const Duration(milliseconds: 300));
+            for (var attempt = 0;
+                attempt < 20 &&
+                    (requests < 2 ||
+                        find.text(l10n.failedToAnalyze).evaluate().isEmpty);
+                attempt++) {
+              await tester.runAsync(
+                  () => Future<void>.delayed(const Duration(milliseconds: 50)));
+              await tester.pump(const Duration(milliseconds: 50));
+            }
+            await tester.pumpAndSettle();
+            expect(requests, 2);
+            expect(find.text(l10n.failedToAnalyze), findsOneWidget);
+          }
+        }
         if (scenario == 'owner-change') {
           (container.read(authProvider.notifier) as _Auth).changeUser();
           await tester.pump();
@@ -274,7 +324,14 @@ void main() {
       }
       await tester.runAsync(() => processing);
       await tester.pump(const Duration(milliseconds: 300));
-      expect(requests, scenario == 'offline' || consentBlocked ? 0 : 1);
+      final expectedRequests = scenario == 'offline' ||
+              consentBlocked ||
+              scenario == 'file-stream-failure'
+          ? 0
+          : scenario == 'retryable-retry'
+              ? 2
+              : 1;
+      expect(requests, expectedRequests);
       expect(find.byType(AiProcessingConsentDialog), findsNothing);
       final pending = await repository.pending('owner');
       expect(pending, cancel ? isEmpty : hasLength(1));
@@ -288,9 +345,38 @@ void main() {
         container.read(aiInputResumeControllerProvider).wake();
         await tester
             .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
-        expect(requests, 1);
+        expect(requests, expectedRequests);
       } else {
         expect(pending.single.id, capture.id);
+        if (scenario == 'retryable') {
+          expect(pending.single.payload['analysisError'],
+              "We couldn't check the transaction details. Please try again.");
+          // A new controller models restart; persisted failure still gates HTTP.
+          container.invalidate(aiInputResumeControllerProvider);
+          await tester.runAsync(() async {
+            processing = resumePendingAiInputs(mountedContext, mountedRef);
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+          });
+          for (var attempt = 0;
+              attempt < 20 &&
+                  find.text(l10n.failedToAnalyze).evaluate().isEmpty;
+              attempt++) {
+            await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 50)));
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          expect(find.text(l10n.failedToAnalyze), findsOneWidget);
+          expect(requests, 1);
+          Navigator.of(mountedContext).pop();
+          await tester.pumpAndSettle();
+          await tester.runAsync(() => processing);
+          expect(requests, 1);
+          expect(
+              (await repository.pending('owner'))
+                  .single
+                  .payload['analysisError'],
+              pending.single.payload['analysisError']);
+        }
         if (consentBlocked) {
           expect(pending.single.payload, capture.payload);
           container.read(aiInputResumeControllerProvider).wake();
@@ -359,6 +445,8 @@ void main() {
           if (marker != null) item['merchant_auto_resolution_blocked'] = marker;
         }
         capture = await repository.checkpoint(capture, {
+          'analysisError':
+              'A prior analysis failed; the ready result is authoritative.',
           'readyResponse': {
             'success': true,
             'data': {

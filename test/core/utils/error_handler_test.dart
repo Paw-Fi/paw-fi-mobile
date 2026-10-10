@@ -5,7 +5,7 @@ void main() {
   group('ErrorHandler.getUserFriendlyMessage', () {
     test('preserves safe clarification failure and keeps it retryable', () {
       const message =
-          "We couldn't prepare a clarification question for this input. Please try again.";
+          "We couldn't check the transaction details. Please try again.";
       final error = {
         'success': false,
         'code': 'AI_CLARIFICATION_FAILED',

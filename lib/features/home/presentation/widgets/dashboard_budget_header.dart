@@ -58,10 +58,10 @@ class DashboardBudgetHeader extends StatelessWidget {
     final accent =
         switch (value?.reaction ?? BudgetCompanionReaction.planning) {
       BudgetCompanionReaction.happy => colors.success,
-      BudgetCompanionReaction.encouraging => colors.info,
+      BudgetCompanionReaction.encouraging => colors.success,
       BudgetCompanionReaction.concerned => colors.warning,
       BudgetCompanionReaction.overBudget => colors.destructive,
-      BudgetCompanionReaction.planning => colors.info,
+      BudgetCompanionReaction.planning => colors.success,
     };
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -171,7 +171,7 @@ class _SummaryValues extends StatelessWidget {
       BudgetCompanionReaction.happy => colors.budgetSuccessForeground,
       BudgetCompanionReaction.concerned => colors.budgetWarningForeground,
       BudgetCompanionReaction.overBudget => colors.budgetDangerForeground,
-      _ => colors.budgetInfoForeground,
+      _ => colors.budgetSuccessForeground,
     };
     final mascotAsset = _resolveMascotAsset(
       hasBudget: summary.hasBudget,
@@ -298,7 +298,7 @@ class _SummaryValues extends StatelessWidget {
         BudgetCompanionReaction.happy => colors.budgetGaugeSuccess,
         BudgetCompanionReaction.concerned => colors.budgetGaugeWarning,
         BudgetCompanionReaction.overBudget => colors.budgetGaugeDanger,
-        _ => colors.budgetGaugeInfo,
+        _ => colors.budgetGaugeSuccess,
       };
       final gaugeColor = hasBudget ? gaugeAccent : colors.mutedForeground;
 
@@ -589,7 +589,7 @@ class _BudgetHeroStageState extends State<_BudgetHeroStage>
   static const _introDuration = Duration(milliseconds: 2000);
   static const _settleDuration = Duration(milliseconds: 700);
   static const _gaugeInterval =
-      Interval(0.05, 0.85, curve: Curves.easeInOutCubic);
+      Interval(0.25, 0.85, curve: Curves.easeInOutCubic);
   static const _mascotInterval = Interval(0.64, 0.92);
   static const _bubbleInterval = Interval(0.84, 1.0);
   // Back-out springs: overshoot slightly past rest, then settle.

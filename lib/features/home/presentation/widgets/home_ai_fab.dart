@@ -2152,14 +2152,95 @@ Future<void> _processExpense(
   // Keep progress visible without preventing people from continuing to browse.
   // The controller and request flow below remain unchanged.
   NonBlockingProcessingOverlay? processingOverlay;
+  void showDeferredAnalysisError(Object error) {
+    final isOffline =
+        ref.read(networkReachabilityProvider).valueOrNull == false;
+    final message = isOffline
+        ? context.l10n.aiInputSavedForLater
+        : ErrorHandler.getUserFriendlyMessage(error,
+            context: BackendErrorContext.analyzeExpense);
+    if (processingOverlay != null) {
+      processingOverlay!.complete(
+        message: message,
+        outcome: isOffline
+            ? ProcessingOverlayOutcome.info
+            : ProcessingOverlayOutcome.error,
+      );
+      processingOverlay = null;
+    } else if (isOffline) {
+      AppToast.info(context, message);
+    } else {
+      AppToast.error(context, message);
+    }
+  }
+
   BlockingProcessingController? dialogController;
+
+  Future<void> rememberAnalysisError(Object error) async {
+    if (capture == null || !ownsCapture()) return;
+    final message = ErrorHandler.getUserFriendlyMessage(error,
+        context: BackendErrorContext.analyzeExpense);
+    if (capture!.payload['analysisError'] == message) return;
+    capture = await captureRepository!.checkpoint(capture!, {
+      'analysisError': message,
+    });
+  }
+
+  Future<bool> confirmAnalysisRetry(Object error) async {
+    await rememberAnalysisError(error);
+    processingOverlay?.dismiss();
+    processingOverlay = null;
+    if (!isActive()) return false;
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.failedToAnalyze,
+      description: ErrorHandler.getUserFriendlyMessage(error,
+          context: BackendErrorContext.analyzeExpense),
+      confirmLabel: context.l10n.retry,
+      cancelLabel: context.l10n.cancel,
+    );
+    if (!ownsCapture()) return false;
+    if (result?.action == MonekoAlertDialogAction.cancel && capture != null) {
+      await captureRepository!.cancel(capture!);
+      return false;
+    }
+    if (result?.confirmed != true || !isActive()) return false;
+    if (capture != null) {
+      capture = await captureRepository!.checkpoint(capture!, {
+        'analysisError': null,
+      });
+    }
+    return isActive();
+  }
+
+  Future<Map<String, dynamic>> requestAnalysis(
+      Future<Map<String, dynamic>?> Function() request) async {
+    try {
+      final response = await request();
+      if (response == null || response['success'] != true) {
+        throw response ??
+            {
+              'error': context.l10n.failedToAnalyzeNoData,
+              'code': 'AI_INVALID_RESPONSE',
+              'status': 503,
+            };
+      }
+      return response;
+    } catch (error) {
+      // Persist before the modal, even when the app left the foreground.
+      await rememberAnalysisError(error);
+      rethrow;
+    }
+  }
 
   if (pendingCapture != null) {
     resumeController = providerContainer.read(aiInputResumeControllerProvider);
     claimedCapture = resumeController!.tryStart(pendingCapture.id);
     if (!claimedCapture) return;
   }
-  if (shouldShowProcessingDialog) {
+  if (shouldShowProcessingDialog &&
+      (pendingCapture?.payload['analysisError'] == null ||
+          pendingCapture?.readyResponse != null)) {
     processingOverlay = showNonBlockingProcessingOverlay(
       context: context,
       message: useEnhancedDialog
@@ -2180,7 +2261,7 @@ Future<void> _processExpense(
                           : context.l10n.aiProcessingLargeFile,
       showElapsedTime: true,
     );
-    dialogController = processingOverlay.controller;
+    dialogController = processingOverlay!.controller;
   }
 
   try {
@@ -2302,7 +2383,7 @@ Future<void> _processExpense(
       if (!claimedCapture) {
         resumeController =
             providerContainer.read(aiInputResumeControllerProvider);
-        claimedCapture = resumeController!.tryStart(capture.id);
+        claimedCapture = resumeController!.tryStart(capture!.id);
       }
       if (!claimedCapture) {
         processingOverlay?.complete(
@@ -2310,10 +2391,10 @@ Future<void> _processExpense(
             outcome: ProcessingOverlayOutcome.info);
         return;
       }
-      capture = await captureRepository!.hold(capture);
+      capture = await captureRepository!.hold(capture!);
       if (!context.mounted || !isActive()) return;
       // Receipts must also use the durable source after the temporary picker closes.
-      imagePath = capture.payload['localImagePath'] as String?;
+      imagePath = capture!.payload['localImagePath'] as String?;
       if (ref.read(networkReachabilityProvider).valueOrNull == false) {
         processingOverlay?.complete(
             message: context.l10n.aiInputSavedForLater,
@@ -2321,7 +2402,7 @@ Future<void> _processExpense(
         AppToast.info(context, context.l10n.aiInputSavedForLater);
         return;
       }
-      responseData = capture.readyResponse;
+      responseData = capture!.readyResponse;
     }
     final body = analysisRequestBody;
     if (!context.mounted || !isActive()) {
@@ -2341,6 +2422,11 @@ Future<void> _processExpense(
       return;
     }
 
+    final previousAnalysisError = capture?.payload['analysisError'];
+    if (responseData == null && previousAnalysisError is String) {
+      if (!await confirmAnalysisRetry(previousAnalysisError)) return;
+    }
+
     if (useInteractiveAnalysis && responseData == null) {
       responseData = await runInteractiveAiAnalysis(
         preferredTimezone: preferredTimezone,
@@ -2354,7 +2440,7 @@ Future<void> _processExpense(
             : AiAnalysisQuestion.fromJson(capture!.payload['question']),
         initialClockIssue: capture?.payload['clockIssue'] is Map
             ? AiClockIssue(capture!.payload['clockIssue']['reason'] as String,
-                itemIndex: capture.payload['clockIssue']['itemIndex'] as int)
+                itemIndex: capture!.payload['clockIssue']['itemIndex'] as int)
             : null,
         checkpoint: (answers, question, clockIssue) async {
           if (!ownsCapture()) throw StateError('AI capture owner changed');
@@ -2378,43 +2464,19 @@ Future<void> _processExpense(
             subMessage: context.l10n.aiProgressReviewingTransactions,
             showElapsedTime: true,
           );
-          final response = await supabase.functions
-              .invoke('analyze-expense', body: request)
-              .timeout(const Duration(seconds: 150));
-          return _asStringDynamicMap(response.data) ?? <String, dynamic>{};
+          return requestAnalysis(() async {
+            final response = await supabase.functions
+                .invoke('analyze-expense', body: request)
+                .timeout(const Duration(seconds: 150));
+            return _asStringDynamicMap(response.data);
+          });
         },
         ask: (question) async {
           processingOverlay?.dismiss();
           processingOverlay = null;
           return showAiCorrectionSheet(context, question);
         },
-        retry: (error) async {
-          if (capture != null && shouldQueueAiInputForRetry(error)) {
-            processingOverlay?.complete(
-                message: context.l10n.aiInputSavedForLater,
-                outcome: ProcessingOverlayOutcome.info);
-            processingOverlay = null;
-            return false;
-          }
-          processingOverlay?.dismiss();
-          processingOverlay = null;
-          final result = await MonekoAlertDialog.show(
-            context: context,
-            title: context.l10n.failedToAnalyze,
-            description: context.l10n.aiClarificationError(
-              ErrorHandler.getUserFriendlyMessage(error,
-                  context: BackendErrorContext.analyzeExpense),
-            ),
-            confirmLabel: context.l10n.retry,
-            cancelLabel: context.l10n.cancel,
-          );
-          if (result?.action == MonekoAlertDialogAction.cancel &&
-              ownsCapture() &&
-              capture != null) {
-            await captureRepository!.cancel(capture!);
-          }
-          return result?.confirmed == true;
-        },
+        retry: confirmAnalysisRetry,
       );
       if (responseData == null) {
         processingOverlay?.dismiss();
@@ -2452,53 +2514,42 @@ Future<void> _processExpense(
       return;
     }
 
-    // Use SSE streaming when media is involved to show real-time progress.
-    if (responseData == null && shouldStream && dialogController != null) {
+    // A failed stream must not silently resend the input as a regular request.
+    while (responseData == null && isActive()) {
+      processingOverlay ??= showNonBlockingProcessingOverlay(
+        context: context,
+        message: context.l10n.analyzingExpense,
+        subMessage: context.l10n.aiProgressReviewingTransactions,
+        showElapsedTime: true,
+      );
+      dialogController = processingOverlay!.controller;
       try {
-        responseData = await _processWithSSE(
-          context: context,
-          body: body,
-          dialogController: dialogController,
-          onCancelCheck: () =>
-              !isActive() || (dialogController?.isCancelled ?? false),
-        );
-      } catch (e) {
-        // Fall through to regular request
-        responseData = null;
-      }
-    }
-
-    if (!context.mounted || !isActive()) {
-      processingOverlay?.dismiss();
-      return;
-    }
-
-    // Regular request (fallback or non-PDF/small files)
-    if (responseData == null) {
-      // Update dialog for PDFs
-      if (dialogController != null && isPdfUpload) {
-        dialogController
-            .updateSubMessage(context.l10n.aiExtractingTransactionsFromPdf);
-      }
-
-      // Explicitly pass JWT so the Edge Function can enrich household context
-      // (householdMembers) under RLS. This is required for reliable split output.
-      final session = supabase.auth.currentSession;
-      final response = await supabase.functions
-          .invoke(
-            'analyze-expense',
-            body: body,
-            headers: session != null
-                ? <String, String>{
-                    'Authorization': 'Bearer ${session.accessToken}',
-                  }
-                : null,
-          )
-          .timeout(_kAiRequestTimeout);
-
-      final parsedResponse = _asStringDynamicMap(response.data);
-      if (parsedResponse != null) {
-        responseData = parsedResponse;
+        responseData = await requestAnalysis(() async {
+          if (shouldStream) {
+            return _processWithSSE(
+              context: context,
+              body: body,
+              dialogController: dialogController!,
+              onCancelCheck: () =>
+                  !isActive() || (dialogController?.isCancelled ?? false),
+            );
+          }
+          final session = supabase.auth.currentSession;
+          final response = await supabase.functions
+              .invoke(
+                'analyze-expense',
+                body: body,
+                headers: session != null
+                    ? <String, String>{
+                        'Authorization': 'Bearer ${session.accessToken}',
+                      }
+                    : null,
+              )
+              .timeout(_kAiRequestTimeout);
+          return _asStringDynamicMap(response.data);
+        });
+      } catch (error) {
+        if (!await confirmAnalysisRetry(error)) return;
       }
     }
 
@@ -2924,14 +2975,7 @@ Future<void> _processExpense(
               processingOverlay?.dismiss();
               return;
             }
-            processingOverlay?.complete(
-              message: context.l10n.aiInputSavedForLater,
-              outcome: ProcessingOverlayOutcome.info,
-            );
-            AppToast.success(
-              context,
-              context.l10n.aiInputSavedForLater,
-            );
+            showDeferredAnalysisError(errorPayload);
             return;
           }
         } catch (queueError) {}
@@ -2962,14 +3006,7 @@ Future<void> _processExpense(
             processingOverlay?.dismiss();
             return;
           }
-          processingOverlay?.complete(
-            message: context.l10n.aiInputSavedForLater,
-            outcome: ProcessingOverlayOutcome.info,
-          );
-          AppToast.success(
-            context,
-            context.l10n.aiInputSavedForLater,
-          );
+          showDeferredAnalysisError(e);
           return;
         }
       } catch (queueError) {}
