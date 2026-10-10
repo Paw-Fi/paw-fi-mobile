@@ -13,6 +13,31 @@ extension L10nX on BuildContext {
   }
 }
 
+/// English fallback until the consent translation catalog is exported.
+extension AiProcessingConsentL10nX on AppLocalizations {
+  String get aiConsentPrivacySettings => 'Privacy Settings';
+  String get aiConsentTitle => 'Choose how you use AI';
+  String get aiConsentToggle => 'AI processing';
+  String get aiConsentProviderDisclosure =>
+      'Moneko uses Google Gemini through Google Cloud Vertex AI to analyze your input and provide AI-powered financial assistance.';
+  String get aiConsentDataDisclosure =>
+      'When you use AI features, Moneko sends your text, original audio recordings, images and documents, along with relevant financial and household context, to this provider for processing. This content may contain personal information.';
+  String get aiConsentChoiceDisclosure =>
+      'AI processing is optional. You can continue logging transactions manually without it. Choose Not now to continue without enabling AI processing.';
+  String get aiConsentAllow => 'Allow AI processing';
+  String get aiConsentNotNow => 'Not now';
+  String get aiConsentSaving => 'Saving your choice...';
+  String get aiConsentError =>
+      'Could not verify or save your AI processing choice. AI processing is blocked until your choice can be confirmed. Please try again.';
+  String get aiConsentPrivacyPolicy => 'Read the Privacy Policy';
+  String get aiConsentPrivacyLinkError =>
+      'Could not open the Privacy Policy. Please try again.';
+  String get aiConsentSettingsDescription =>
+      'Manage sharing with Google Gemini through Google Cloud Vertex AI. Manual transaction logging remains available.';
+  String get aiConsentRevocationFailed =>
+      'Could not confirm withdrawal of consent. Your previous choice is still shown. Please try again.';
+}
+
 extension RecurrencePickerL10nX on AppLocalizations {
   String recurrenceDaysUnit(int count) => count == 1 ? 'day' : 'days';
   String recurrenceWeeksUnit(int count) => count == 1 ? 'week' : 'weeks';

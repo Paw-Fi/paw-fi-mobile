@@ -13,11 +13,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:crypto/crypto.dart';
-import 'package:in_app_review/in_app_review.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/config/storage_config.dart';
@@ -38,6 +36,8 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/privacy/presentation/ai_processing_consent_dialog.dart';
+import 'package:moneko/features/privacy/presentation/ai_processing_consent_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -67,13 +67,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
 
-const int _reviewFirstPromptAt = 2;
-const int _reviewSecondInterval = 2;
-const int _reviewThirdInterval = 3;
-const int _reviewMaxInterval = 5;
-const String _reviewExpenseCountKey = 'review_expense_count';
-const String _reviewLastPromptKey = 'review_last_prompt_count';
-const String _reviewLastIntervalKey = 'review_last_prompt_interval';
 const String _holdQuickActionReminderShownKey =
     'hold_quick_action_reminder_shown';
 const String _holdQuickActionReminderExpenseCountKey =
@@ -483,44 +476,6 @@ Future<_AutoSplitContext?> _loadAutoSplitContext(
   }).catchError((_) => null);
 }
 
-Future<void> _maybeRequestReviewAfterExpenseSave({
-  required String userId,
-  required SharedPreferences prefs,
-  required int additionalExpenseCount,
-}) async {
-  try {
-    if (userId.isEmpty || additionalExpenseCount <= 0) return;
-    final userKey = sha256.convert(utf8.encode(userId)).toString();
-    final countKey = '${_reviewExpenseCountKey}_$userKey';
-    final lastPromptKey = '${_reviewLastPromptKey}_$userKey';
-    final lastIntervalKey = '${_reviewLastIntervalKey}_$userKey';
-
-    final updatedCount = (prefs.getInt(countKey) ?? 0) + additionalExpenseCount;
-    await prefs.setInt(countKey, updatedCount);
-
-    final lastPromptCount = prefs.getInt(lastPromptKey) ?? 0;
-    final lastInterval = prefs.getInt(lastIntervalKey) ?? 0;
-    final nextInterval = () {
-      if (lastInterval <= 0) return _reviewSecondInterval;
-      if (lastInterval == _reviewSecondInterval) return _reviewThirdInterval;
-      return _reviewMaxInterval;
-    }();
-
-    final shouldPrompt = updatedCount == _reviewFirstPromptAt ||
-        (updatedCount - lastPromptCount) >= nextInterval;
-    if (!shouldPrompt) return;
-
-    await prefs.setInt(lastPromptKey, updatedCount);
-    await prefs.setInt(lastIntervalKey, nextInterval);
-
-    final inAppReview = InAppReview.instance;
-    final available = await inAppReview.isAvailable();
-    if (!available) return;
-
-    await inAppReview.requestReview();
-  } catch (error) {}
-}
-
 Future<void> _persistAiTransactions(
   ProviderContainer container, {
   required String userId,
@@ -530,7 +485,6 @@ Future<void> _persistAiTransactions(
   required String? accountId,
   String? accountCurrency,
   String? localImagePath,
-  bool requestReview = true,
   BuildContext? candidateReviewContext,
   AiInputCapture? capturedInput,
   String? captureDestinationKey,
@@ -1074,7 +1028,6 @@ Future<void> _persistAiTransactions(
     var batchOffset = 0;
 
     var didPersistAny = false;
-    var savedExpenseCount = 0;
     final savedEntries = <ExpenseEntry>[];
     final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
@@ -1139,7 +1092,6 @@ Future<void> _persistAiTransactions(
             didPersistAny = true;
             savedEntries.add(storedEntry);
             if (!originalItem.transaction.isIncome) {
-              savedExpenseCount += 1;
               savedExpenseEntriesById[storedEntry.id] = storedEntry;
             }
           } else {
@@ -1196,25 +1148,12 @@ Future<void> _persistAiTransactions(
             invalidateHouseholdProviders: false,
           );
     }
-
-    if (requestReview && savedExpenseCount > 0) {
-      final prefs = container.read(sharedPreferencesProvider);
-      unawaited(Future<void>.delayed(
-        const Duration(milliseconds: 300),
-        () => _maybeRequestReviewAfterExpenseSave(
-          userId: userId,
-          prefs: prefs,
-          additionalExpenseCount: savedExpenseCount,
-        ),
-      ));
-    }
   } catch (error) {
     final shouldFallback = shouldFallbackForBatchError(error);
 
     if (shouldFallback) {
       // Save transactions individually using existing endpoints
       var savedCount = 0;
-      var savedExpenseCount = 0;
       var keptQueuedForRetry = false;
       final savedEntries = <ExpenseEntry>[];
       final savedExpenseEntriesById = <String, ExpenseEntry>{};
@@ -1241,7 +1180,6 @@ Future<void> _persistAiTransactions(
             savedCount++;
             savedEntries.add(storedEntry);
             if (!item.transaction.isIncome) {
-              savedExpenseCount++;
               savedExpenseEntriesById[storedEntry.id] = storedEntry;
             }
           } else {
@@ -1295,18 +1233,6 @@ Future<void> _persistAiTransactions(
               refreshWallets: false,
               invalidateHouseholdProviders: false,
             );
-      }
-
-      if (requestReview && savedExpenseCount > 0) {
-        final prefs = container.read(sharedPreferencesProvider);
-        unawaited(Future<void>.delayed(
-          const Duration(milliseconds: 300),
-          () => _maybeRequestReviewAfterExpenseSave(
-            userId: userId,
-            prefs: prefs,
-            additionalExpenseCount: savedExpenseCount,
-          ),
-        ));
       }
 
       if (keptQueuedForRetry) {
@@ -1604,6 +1530,10 @@ Future<void> handleAiCameraCapture(
   void Function(AiLogSuccess success)? onSuccess,
   bool isOnboarding = false,
 }) async {
+  if (!await ensureAiProcessingConsent(context, ref) || !context.mounted) {
+    return;
+  }
+  final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
   try {
     final captured = await Navigator.of(context, rootNavigator: true)
         .push<AiCameraCaptureResult>(
@@ -1616,7 +1546,7 @@ Future<void> handleAiCameraCapture(
     );
 
     if (captured != null) {
-      if (context.mounted) {
+      if (context.mounted && consentOwner.isCurrentActor) {
         await _processExpense(
           context,
           ref,
@@ -1646,6 +1576,10 @@ Future<void> handleAiLibraryCapture(
   AiInputTarget? inputTarget,
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
+  if (!await ensureAiProcessingConsent(context, ref) || !context.mounted) {
+    return;
+  }
+  final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
   try {
     final XFile? image = await pickImageWithGuard(
       picker: _imagePicker,
@@ -1653,7 +1587,7 @@ Future<void> handleAiLibraryCapture(
       imageQuality: 85,
     );
 
-    if (image == null || !context.mounted) {
+    if (image == null || !context.mounted || !consentOwner.isCurrentActor) {
       return;
     }
 
@@ -1731,11 +1665,15 @@ Future<void> handleSharedAiInputFiles(
   required List<AiSharedInputFile> files,
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
+  if (!await ensureAiProcessingConsent(context, ref) || !context.mounted) {
+    return;
+  }
+  final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
   final inputTarget = resolveDefaultAiInputTarget(ref);
   var handledAnyFile = false;
 
   for (final sharedFile in files) {
-    if (!context.mounted) return;
+    if (!context.mounted || !consentOwner.isCurrentActor) return;
     final path = sharedFile.path.trim();
     if (path.isEmpty) continue;
 
@@ -1748,7 +1686,7 @@ Future<void> handleSharedAiInputFiles(
     }
 
     if (_isAiImageInput(sharedFile)) {
-      if (!context.mounted) return;
+      if (!context.mounted || !consentOwner.isCurrentActor) return;
       handledAnyFile = true;
       await _processExpense(
         context,
@@ -1780,7 +1718,7 @@ Future<void> handleSharedAiInputFiles(
     }
 
     handledAnyFile = true;
-    if (!context.mounted) return;
+    if (!context.mounted || !consentOwner.isCurrentActor) return;
     await _processExpense(
       context,
       ref,
@@ -1801,10 +1739,14 @@ Future<void> handleAiFreeFormText(
   void Function(AiLogSuccess success)? onSuccess,
   bool isOnboarding = false,
 }) async {
+  if (!await ensureAiProcessingConsent(context, ref) || !context.mounted) {
+    return;
+  }
+  final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
   await showTextInputDrawer(
     context,
     (text, target) async {
-      if (!context.mounted) return;
+      if (!context.mounted || !consentOwner.isCurrentActor) return;
       await _processExpense(
         context,
         ref,
@@ -1815,7 +1757,7 @@ Future<void> handleAiFreeFormText(
       );
     },
     onSubmitAudio: (audioBytes, contentType, target) async {
-      if (!context.mounted) return;
+      if (!context.mounted || !consentOwner.isCurrentActor) return;
       await _processExpense(
         context,
         ref,
@@ -1834,6 +1776,10 @@ Future<void> handleAiFileUpload(
   WidgetRef ref, {
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
+  if (!await ensureAiProcessingConsent(context, ref) || !context.mounted) {
+    return;
+  }
+  final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
   try {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
@@ -1841,7 +1787,9 @@ Future<void> handleAiFileUpload(
       allowedExtensions: ['csv', 'pdf', 'xlsx', 'xls'],
     );
 
-    if (result == null || result.files.isEmpty) {
+    if (result == null ||
+        result.files.isEmpty ||
+        !consentOwner.isCurrentActor) {
       return;
     }
 
@@ -1891,7 +1839,7 @@ Future<void> handleAiFileUpload(
       },
     ];
 
-    if (context.mounted) {
+    if (context.mounted && consentOwner.isCurrentActor) {
       await _processExpense(
         context,
         ref,
@@ -1918,6 +1866,9 @@ Future<void> handleAiFileOrGallery(
   WidgetRef ref, {
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
+  if (!await ensureAiProcessingConsent(context, ref) || !context.mounted) {
+    return;
+  }
   await AdaptiveAlertDialog.show(
     context: context,
     title: context.l10n.appTitle,
@@ -2045,12 +1996,20 @@ Future<void> resumePendingAiInputs(BuildContext context, WidgetRef ref) async {
       ref.read(aiInputResumeControllerProvider).isActive) {
     return;
   }
+  final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
+  if (!await consentOwner.refresh() ||
+      !context.mounted ||
+      !consentOwner.isCurrentActor) {
+    return;
+  }
   final container = ProviderScope.containerOf(context, listen: false);
   final repository =
       await container.read(aiInputCaptureRepositoryProvider.future);
   if (!context.mounted || container.read(authProvider).uid != userId) return;
   for (final capture in await repository.pending(userId)) {
     if (!context.mounted ||
+        !consentOwner.isCurrentActor ||
+        !container.read(aiProcessingConsentProvider).mayProcess ||
         container.read(authProvider).uid != userId ||
         container.read(networkReachabilityProvider).valueOrNull == false ||
         container.read(appLockControllerProvider).shouldBlockApp ||
@@ -2096,6 +2055,13 @@ Future<void> _processExpense(
 }) async {
   final user = ref.read(authProvider);
   final preview = ref.read(previewModeProvider);
+  final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
+  if (!preview.isActive &&
+      (!await consentOwner.refresh() ||
+          !context.mounted ||
+          !consentOwner.isCurrentActor)) {
+    return;
+  }
   final contact = ref.read(appUserContactProvider);
   final householdId = inputTarget.householdId;
   final isPortfolio = inputTarget.isPortfolio;
@@ -2133,6 +2099,11 @@ Future<void> _processExpense(
   bool isActive() =>
       context.mounted &&
       ownsCapture() &&
+      (preview.isActive ||
+          (consentOwner.isCurrentActor &&
+              providerContainer
+                  .read(aiProcessingConsentProvider)
+                  .mayProcess)) &&
       !providerContainer.read(appLockControllerProvider).shouldBlockApp &&
       (WidgetsBinding.instance.lifecycleState == null ||
           WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
@@ -2400,6 +2371,7 @@ Future<void> _processExpense(
           });
         },
         invoke: (request) async {
+          if (!isActive()) throw StateError('AI capture permission changed');
           processingOverlay ??= showNonBlockingProcessingOverlay(
             context: context,
             message: context.l10n.analyzingExpense,
@@ -2487,7 +2459,8 @@ Future<void> _processExpense(
           context: context,
           body: body,
           dialogController: dialogController,
-          onCancelCheck: () => dialogController?.isCancelled ?? false,
+          onCancelCheck: () =>
+              !isActive() || (dialogController?.isCancelled ?? false),
         );
       } catch (e) {
         // Fall through to regular request
@@ -2858,7 +2831,6 @@ Future<void> _processExpense(
                     ? inputTarget.accountCurrency
                     : destination.accountCurrency,
                 localImagePath: imagePath,
-                requestReview: !isOnboarding,
                 candidateReviewContext: context.mounted ? context : null,
                 capturedInput: capture,
                 captureDestinationKey: destination?.key ?? 'default',
@@ -3062,6 +3034,9 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   late final StateController<bool> _fabOpenController;
 
   bool _isHoldRecording = false;
+  bool _isHoldStarting = false;
+  int _holdGeneration = 0;
+  AiProcessingConsentNotifier? _holdConsentOwner;
   bool _isHoldCancelled = false;
   bool _didCrossCancelThreshold = false;
   double _holdDragDeltaX = 0;
@@ -3146,10 +3121,21 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   }
 
   Future<void> _startHoldRecording() async {
-    if (_isHoldRecording) return;
-
+    if (_isHoldRecording || _isHoldStarting) return;
+    final holdGeneration = _holdGeneration;
+    _isHoldStarting = true;
     try {
+      if (!await ensureAiProcessingConsent(context, ref) || !mounted) return;
+      final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
+      bool isHeld() =>
+          mounted &&
+          _holdGeneration == holdGeneration &&
+          _holdStartGlobalX != null &&
+          consentOwner.isCurrentActor &&
+          ref.read(aiProcessingConsentProvider).mayProcess;
+      if (!isHeld()) return;
       final hasPermission = await _holdRecorder.hasPermission();
+      if (!isHeld()) return;
       if (!hasPermission) {
         if (mounted) {
           AppToast.info(
@@ -3160,19 +3146,8 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         return;
       }
 
-      HapticFeedback.lightImpact();
-
-      if (mounted) {
-        setState(() {
-          _isHoldRecording = true;
-          _isHoldCancelled = false;
-          _didCrossCancelThreshold = false;
-          _holdDragDeltaX = 0;
-          _holdRecordingStartedAt = DateTime.now();
-        });
-      }
-
       final tempDir = await getTemporaryDirectory();
+      if (!isHeld()) return;
       final filePath =
           '${tempDir.path}/moneko_hold_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
@@ -3180,6 +3155,21 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: filePath,
       );
+      if (!isHeld()) {
+        await _holdRecorder.stop();
+        final abandonedFile = File(filePath);
+        if (await abandonedFile.exists()) await abandonedFile.delete();
+        return;
+      }
+      HapticFeedback.lightImpact();
+      _holdConsentOwner = consentOwner;
+      setState(() {
+        _isHoldRecording = true;
+        _isHoldCancelled = false;
+        _didCrossCancelThreshold = false;
+        _holdDragDeltaX = 0;
+        _holdRecordingStartedAt = DateTime.now();
+      });
       _startHoldAmplitudeProbe();
     } catch (error) {
       _holdAmplitudeTimer?.cancel();
@@ -3200,6 +3190,8 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
           ),
         );
       }
+    } finally {
+      _isHoldStarting = false;
     }
   }
 
@@ -3260,6 +3252,8 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   Future<void> _finishHoldRecording() async {
     if (!_isHoldRecording) return;
 
+    final consentOwner = _holdConsentOwner;
+    _holdConsentOwner = null;
     final wasCancelled = _isHoldCancelled;
     final startedAt = _holdRecordingStartedAt;
 
@@ -3281,6 +3275,9 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
       final path = await _holdRecorder.stop();
       if (path == null) return;
       audioFile = File(path);
+      if (!mounted ||
+          consentOwner?.isCurrentActor != true ||
+          !ref.read(aiProcessingConsentProvider).mayProcess) return;
 
       if (wasCancelled) {
         HapticFeedback.selectionClick();
@@ -3320,7 +3317,9 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
       }
 
       HapticFeedback.lightImpact();
-      if (!mounted) return;
+      if (!mounted ||
+          consentOwner?.isCurrentActor != true ||
+          !ref.read(aiProcessingConsentProvider).mayProcess) return;
       await handleAiAudioBytes(
         context,
         ref,
@@ -3492,11 +3491,15 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
               behavior: HitTestBehavior.translucent,
               onPointerMove: _onHoldPointerMove,
               onPointerUp: (_) {
+                _holdGeneration += 1;
+                _holdStartGlobalX = null;
                 if (_isHoldRecording) {
                   unawaited(_finishHoldRecording());
                 }
               },
               onPointerCancel: (_) {
+                _holdGeneration += 1;
+                _holdStartGlobalX = null;
                 if (_isHoldRecording) {
                   unawaited(_finishHoldRecording());
                 }
@@ -3512,6 +3515,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
                     (instance) {
                       instance
                         ..onLongPressStart = (details) async {
+                          _holdGeneration += 1;
                           _holdStartGlobalX = details.globalPosition.dx;
                           await _runHoldAction();
                         }

@@ -21,6 +21,9 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/privacy/data/ai_processing_consent_repository.dart';
+import 'package:moneko/features/privacy/presentation/ai_processing_consent_dialog.dart';
+import 'package:moneko/features/privacy/presentation/ai_processing_consent_provider.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -106,16 +109,29 @@ void main() {
     'owner-change',
     'retryable',
     'offline',
-    'receipt-dismiss'
+    'receipt-dismiss',
+    'no-consent',
+    'revoked-consent',
+    'receipt-consent-revoked'
   ]) {
     final cancel = scenario == 'cancel';
-    final isReceipt = scenario == 'receipt-dismiss';
+    final isReceipt = scenario.startsWith('receipt-');
+    final consentBlocked =
+        scenario == 'no-consent' || scenario == 'revoked-consent';
     const receiptQuestion = 'レシートの合計は？';
     testWidgets(
         'resumed analysis $scenario preserves durable capture ownership',
         (tester) async {
       SharedPreferences.setMockInitialValues({});
       final preferences = await SharedPreferences.getInstance();
+      final consentRepository =
+          SharedPreferencesAiProcessingConsentRepository(() => preferences);
+      if (scenario != 'no-consent') {
+        await consentRepository.setConsent('owner', true);
+      }
+      if (scenario == 'revoked-consent') {
+        await consentRepository.setConsent('owner', false);
+      }
       final root = Directory.systemTemp.createTempSync('moneko-ai-cancel-');
       final database = MonekoDatabase.inMemory();
       final repository =
@@ -142,6 +158,10 @@ void main() {
           expect(body['accountId'], 'selected-wallet');
           expect(body['image'],
               {'data': 'cmVjZWlwdA==', 'contentType': 'image/png'});
+          if (requests > 1) {
+            return http.Response(jsonEncode({'success': false}), 503,
+                headers: {'content-type': 'application/json'});
+          }
           expect(body['interactive'], {'version': 1, 'answers': []});
           return http.Response(
               jsonEncode({
@@ -208,7 +228,9 @@ void main() {
       });
       await tester.pump(const Duration(milliseconds: 300));
       final l10n = AppLocalizations.of(mountedContext)!;
-      final showsDialog = scenario != 'offline' && scenario != 'retryable';
+      expect(find.byType(AiProcessingConsentDialog), findsNothing);
+      final showsDialog =
+          !consentBlocked && scenario != 'offline' && scenario != 'retryable';
       final dialogText = isReceipt ? receiptQuestion : l10n.failedToAnalyze;
       for (var attempt = 0;
           showsDialog &&
@@ -221,21 +243,39 @@ void main() {
       }
       if (showsDialog) {
         expect(find.text(dialogText), findsOneWidget);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
         if (scenario == 'owner-change') {
           (container.read(authProvider.notifier) as _Auth).changeUser();
           await tester.pump();
         }
-        if (cancel || scenario == 'owner-change') {
+        if (scenario == 'receipt-consent-revoked') {
+          await tester.runAsync(() async {
+            await consentRepository.setConsent('owner', false);
+            expect(
+                await container
+                    .read(aiProcessingConsentProvider.notifier)
+                    .refresh(),
+                isFalse);
+          });
+          await tester.pump();
+          await tester.ensureVisible(find.text('５０円'));
+          await tester.tap(find.text('５０円'));
+        } else if (cancel || scenario == 'owner-change') {
           await tester.tap(find.text(l10n.cancel));
         } else {
           Navigator.of(mountedContext).pop();
         }
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
       } else {
         expect(find.text(l10n.failedToAnalyze), findsNothing);
+        expect(find.text(receiptQuestion), findsNothing);
       }
       await tester.runAsync(() => processing);
       await tester.pump(const Duration(milliseconds: 300));
-      expect(requests, scenario == 'offline' ? 0 : 1);
+      expect(requests, scenario == 'offline' || consentBlocked ? 0 : 1);
+      expect(find.byType(AiProcessingConsentDialog), findsNothing);
       final pending = await repository.pending('owner');
       expect(pending, cancel ? isEmpty : hasLength(1));
       expect((await database.getOutboxMutations()).single.status,
@@ -251,12 +291,31 @@ void main() {
         expect(requests, 1);
       } else {
         expect(pending.single.id, capture.id);
+        if (consentBlocked) {
+          expect(pending.single.payload, capture.payload);
+          container.read(aiInputResumeControllerProvider).wake();
+          await tester.runAsync(
+              () => resumePendingAiInputs(mountedContext, mountedRef));
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(requests, 0);
+          expect((await repository.pending('owner')).single.payload,
+              capture.payload);
+          expect(find.byType(AiProcessingConsentDialog), findsNothing);
+        }
         if (isReceipt) {
-          expect((pending.single.payload['question'] as Map)['question'],
-              receiptQuestion);
+          if (scenario == 'receipt-consent-revoked') {
+            expect(pending.single.payload['question'], isNull);
+            expect(pending.single.payload['answers'], [
+              {'question': receiptQuestion, 'answer': '５０円'}
+            ]);
+          } else {
+            expect((pending.single.payload['question'] as Map)['question'],
+                receiptQuestion);
+          }
           expect(
-              await File(pending.single.payload['localImagePath'] as String)
-                  .exists(),
+              await tester.runAsync(() =>
+                  File(pending.single.payload['localImagePath'] as String)
+                      .exists()),
               isTrue);
         }
       }
@@ -272,6 +331,8 @@ void main() {
           (tester) async {
         SharedPreferences.setMockInitialValues({});
         final preferences = await SharedPreferences.getInstance();
+        await SharedPreferencesAiProcessingConsentRepository(() => preferences)
+            .setConsent('owner', true);
         final root = Directory.systemTemp.createTempSync('moneko-ai-resume-');
         var database = MonekoDatabase.fromExistingDatabaseForTesting(
             sqlite.sqlite3.open('${root.path}/capture.sqlite'));
