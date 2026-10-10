@@ -61,7 +61,7 @@ class DashboardBudgetHeader extends StatelessWidget {
       BudgetCompanionReaction.encouraging => colors.success,
       BudgetCompanionReaction.concerned => colors.warning,
       BudgetCompanionReaction.overBudget => colors.destructive,
-      BudgetCompanionReaction.planning => colors.success,
+      BudgetCompanionReaction.planning => colors.info,
     };
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -169,9 +169,10 @@ class _SummaryValues extends StatelessWidget {
             : formatLocalizedMonth(context, date);
     final foreground = switch (summary.reaction) {
       BudgetCompanionReaction.happy => colors.budgetSuccessForeground,
+      BudgetCompanionReaction.encouraging => colors.budgetSuccessForeground,
       BudgetCompanionReaction.concerned => colors.budgetWarningForeground,
       BudgetCompanionReaction.overBudget => colors.budgetDangerForeground,
-      _ => colors.budgetSuccessForeground,
+      BudgetCompanionReaction.planning => colors.budgetInfoForeground,
     };
     final mascotAsset = _resolveMascotAsset(
       hasBudget: summary.hasBudget,
@@ -222,8 +223,8 @@ class _SummaryValues extends StatelessWidget {
     // reads as unavailable instead of disappearing entirely.
     final hasBudget = summary.hasBudget;
     final isOverBudget = hasBudget && remaining! < 0;
-    final isCompactAmount =
-        hasBudget && _hasFourOrFewerIntegerDigits(remaining!.abs());
+    final layoutAmount = hasBudget ? remaining!.abs() : summary.spent.abs();
+    final isCompactAmount = _hasFourOrFewerIntegerDigits(layoutAmount);
     final primaryAmount = hasBudget
         ? formatCurrency(remaining!.abs(), currency, context: context)
         : amount;
@@ -370,6 +371,7 @@ class _SummaryValues extends StatelessWidget {
                     topClearance: topClearance,
                     stackedBubble: stackedBubble,
                     showBubble: !isSkeleton,
+                    showMascot: !isSkeleton,
                     periodLabel: gaugeLabel,
                     periodLabelTopFactor: captionTopFactor,
                     selectedDate: selectedDate,
@@ -554,6 +556,7 @@ class _BudgetHeroStage extends StatefulWidget {
     required this.topClearance,
     required this.stackedBubble,
     required this.showBubble,
+    required this.showMascot,
     required this.periodLabel,
     required this.periodLabelTopFactor,
     required this.selectedDate,
@@ -575,6 +578,7 @@ class _BudgetHeroStage extends StatefulWidget {
   final double topClearance;
   final bool stackedBubble;
   final bool showBubble;
+  final bool showMascot;
   final String? periodLabel;
   final double periodLabelTopFactor;
   final DateTime? selectedDate;
@@ -763,19 +767,20 @@ class _BudgetHeroStageState extends State<_BudgetHeroStage>
                   builder: (context, _) => _buildGauge(context, _displayed),
                 ),
         ),
-        Positioned(
-          top: widget.topClearance - widget.catHeight + 14,
-          left: (cardWidth - widget.catWidth) / 2,
-          width: widget.catWidth,
-          height: widget.catHeight,
-          child: reduced
-              ? mascot
-              : AnimatedBuilder(
-                  animation: _mascotEntrance,
-                  builder: _buildMascotEntrance,
-                  child: mascot,
-                ),
-        ),
+        if (widget.showMascot)
+          Positioned(
+            top: widget.topClearance - widget.catHeight + 14,
+            left: (cardWidth - widget.catWidth) / 2,
+            width: widget.catWidth,
+            height: widget.catHeight,
+            child: reduced
+                ? mascot
+                : AnimatedBuilder(
+                    animation: _mascotEntrance,
+                    builder: _buildMascotEntrance,
+                    child: mascot,
+                  ),
+          ),
         if (widget.showBubble)
           PositionedDirectional(
             top: 2,
