@@ -10,6 +10,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/theme/widget_text_styles.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/sync/household_settlement_outbox_dispatcher.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
@@ -969,9 +970,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       // Fetch from the repository instead of a stale-while-revalidate cache so
       // successfully drained optimistic split rows can be proven present on
       // the server before any payment is recorded.
-      final remoteSplits = await ref
-          .read(householdRepositoryProvider)
-          .getHouseholdSplits(householdId: widget.householdId);
+      final optimisticSplits =
+          ref.read(householdOptimisticSplitsProvider)[widget.householdId] ??
+              const <ExpenseSplitGroup>[];
+      final remoteSplits = optimisticSplits.isEmpty
+          ? const <ExpenseSplitGroup>[]
+          : await ref
+              .read(householdRepositoryProvider)
+              .getHouseholdSplits(householdId: widget.householdId);
       ref
           .read(householdOptimisticSplitsProvider.notifier)
           .pruneIfInServer(widget.householdId, remoteSplits);
@@ -1232,6 +1238,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           mode: attempt.mode,
           amountCents: attempt.amountCents,
           currency: attempt.currency,
+          clientMutationId: attempt.clientMutationId,
         );
         if (pendingPayment != null) {
           ref
@@ -1306,6 +1313,12 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   Future<SettlementWriteResultV2> _submitSettlementAttempt(
     _PendingSettlementAttempt attempt,
   ) async {
+    final actorUserId = ref.read(authProvider).uid;
+    final coordinator =
+        await ref.read(mobileOutboxSyncCoordinatorProvider.future);
+    if (ref.read(authProvider).uid != actorUserId) {
+      throw StateError('Settlement actor changed before submission');
+    }
     final response =
         await ref.read(householdServiceProvider).settleAmountAndNotifyV2(
               householdId: attempt.householdId,
@@ -1322,8 +1335,20 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       expectedClientMutationId: attempt.clientMutationId,
       expectedAmountCents: attempt.amountCents,
     );
-    final coordinator = await ref.read(
-      mobileOutboxSyncCoordinatorProvider.future,
+    await persistHouseholdSettlementAcknowledgement(
+      database: coordinator.database,
+      actorUserId: actorUserId,
+      payload: LocalHouseholdSettlementMutationPayload(
+        householdId: attempt.householdId,
+        memberUserId: attempt.memberUserId,
+        mode: attempt.mode,
+        amountCents: attempt.amountCents,
+        currency: attempt.currency,
+        note: attempt.note,
+        expectedSnapshotToken: attempt.expectedSnapshotToken,
+        clientMutationId: attempt.clientMutationId,
+      ),
+      result: result,
     );
     await coordinator.database.markMutationSynced(attempt.clientMutationId);
     return result;

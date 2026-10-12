@@ -442,6 +442,9 @@ class LocalJsonCacheEntry {
   final DateTime cachedAt;
 }
 
+const localHouseholdSettlementAcknowledgementNamespace =
+    'household_settlement_acknowledgements';
+
 class LocalRecurringMutationOverlay {
   const LocalRecurringMutationOverlay({
     required this.upserts,
@@ -3661,6 +3664,31 @@ class MonekoDatabase {
     final cachedAt = DateTime.tryParse(cachedAtRaw);
     if (payload == null || cachedAt == null) return null;
     return LocalJsonCacheEntry(payload: payload, cachedAt: cachedAt);
+  }
+
+  Future<List<Map<String, dynamic>>> getHouseholdSettlementAcknowledgements({
+    required String actorUserId,
+    required String householdId,
+  }) async {
+    final rows = _db.select(
+      'SELECT payload_json FROM local_json_cache WHERE namespace = ? AND cache_key LIKE ?',
+      [
+        localHouseholdSettlementAcknowledgementNamespace,
+        '$actorUserId|$householdId|%'
+      ],
+    );
+    return rows
+        .map((row) => Map<String, dynamic>.from(
+              jsonDecode(row['payload_json'] as String) as Map,
+            ))
+        .toList(growable: false);
+  }
+
+  Future<void> deleteJsonCache(
+      {required String namespace, required String cacheKey}) async {
+    _db.execute(
+        'DELETE FROM local_json_cache WHERE namespace = ? AND cache_key = ?',
+        [namespace, cacheKey]);
   }
 
   Future<void> upsertJsonCache({

@@ -394,30 +394,62 @@ class HouseholdService {
     String? startDate,
     String? endDate,
   }) async {
+    final actorUserId = _supabase.auth.currentUser?.id;
     // CRITICAL: Do NOT filter splits by date!
     // Splits are matched to expenses by expense_id, and expenses are already date-filtered
     // If we filter splits by created_at, we'll miss splits created after the date range
     // even though the expense itself is within the range
-    var query = _supabase
-        .from('expense_split_groups')
-        .select('*, expense_split_lines(*)')
-        .eq('household_id', householdId);
+    final response = await _supabase.rpc(
+      'households_get_split_groups_snapshot_v1',
+      params: {'p_household_id': householdId},
+    ).timeout(const Duration(seconds: 30));
+    return _completeSnapshotRows(
+        response, householdId, 'splits', 'split_count', actorUserId);
+  }
 
-    // Date filtering REMOVED - splits are filtered via expense matching, not date
-    // This ensures all splits for household expenses are available regardless of when
-    // the split was created
+  Future<List<Map<String, dynamic>>> getHouseholdSettlementEvents(
+    String householdId,
+  ) async {
+    final actorUserId = _supabase.auth.currentUser?.id;
+    final response = await _supabase.rpc(
+      'households_get_settlement_events_snapshot_v1',
+      params: {'p_household_id': householdId},
+    ).timeout(const Duration(seconds: 30));
+    return _completeSnapshotRows(
+        response, householdId, 'events', 'event_count', actorUserId);
+  }
 
-    // CRITICAL: The server-side settlement RPC queries ALL unsettled split
-    // lines with no limit. The client must also fetch all split groups to
-    // ensure the settlement net calculation matches the server. A low limit
-    // (e.g. 300) causes the client to miss older splits, leading to
-    // settlement amount mismatches.
-    final response = await query
-        .order('created_at', ascending: false)
-        .limit(10000)
-        .timeout(const Duration(seconds: 30));
-
-    return (response as List).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> _completeSnapshotRows(
+    Object? response,
+    String householdId,
+    String rowsKey,
+    String countKey,
+    String? actorUserId,
+  ) {
+    if (response is! Map ||
+        response['household_id'] != householdId ||
+        response[rowsKey] is! List ||
+        response[countKey] is! int ||
+        (response[rowsKey] as List).length != response[countKey] ||
+        response['actor_user_id'] is! String ||
+        (response['actor_user_id'] as String).isEmpty ||
+        (actorUserId != null && response['actor_user_id'] != actorUserId)) {
+      throw const FormatException(
+          'Incomplete or mismatched household ledger snapshot');
+    }
+    final seen = <String>{};
+    return (response[rowsKey] as List).map((raw) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final id = row['id'];
+      if (id is! String ||
+          id.isEmpty ||
+          !seen.add(id) ||
+          row['household_id'] != householdId) {
+        throw const FormatException(
+            'Invalid or duplicate household ledger row');
+      }
+      return row;
+    }).toList(growable: false);
   }
 
   Future<List<Map<String, dynamic>>> getHouseholdSplitsByIds({

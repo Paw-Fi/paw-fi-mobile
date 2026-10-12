@@ -86,6 +86,12 @@ int? parseSettlementAmountCents(String? raw) {
       ? 0
       : int.tryParse(fractionalDigits.padRight(2, '0'));
   if (wholeCents == null || fractionalCents == null) return null;
+  // Check before multiplication: native Dart integers wrap at 64 bits.
+  const maxCents = 9223372036854775807;
+  if (wholeCents > maxCents ~/ 100 ||
+      (wholeCents == maxCents ~/ 100 && fractionalCents > maxCents % 100)) {
+    return null;
+  }
   final cents = wholeCents * 100 + fractionalCents;
   return cents > 0 ? cents : null;
 }

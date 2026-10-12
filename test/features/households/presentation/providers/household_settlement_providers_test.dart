@@ -26,6 +26,171 @@ class _TestAuth extends Auth {
 class _MockHouseholdService extends Mock implements HouseholdService {}
 
 void main() {
+  test(
+      'acknowledged payment replaces durable projection without double counting',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    var confirmedPayments = const <SettlementPaymentRecord>[];
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_TestAuth.new),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      cachedHouseholdSplitsProvider.overrideWith(
+        (ref, params) async => [_split('expense-1', 10000)],
+      ),
+      householdSettlementPaymentsProvider.overrideWith(
+        (ref, householdId) async => confirmedPayments,
+      ),
+    ]);
+    addTearDown(container.dispose);
+    await database.enqueueHouseholdSettlementMutation(
+      householdId: _householdId,
+      memberUserId: 'alex',
+      mode: 'to_member',
+      amountCents: 4000,
+      currency: 'USD',
+      note: null,
+      expectedSnapshotToken: 'v1:${List.filled(64, 'a').join()}',
+      clientMutationId: 'acknowledged',
+    );
+    final subscription = container.listen(
+      settlementOverviewProvider(_householdId),
+      (_, __) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+    Future<void> resolve() async {
+      await Future.wait([
+        container.read(cachedHouseholdSplitsProvider(
+          const HouseholdSplitsParams(householdId: _householdId),
+        ).future),
+        container
+            .read(householdSettlementPaymentsProvider(_householdId).future),
+        container.read(
+          pendingHouseholdSettlementPaymentsProvider(_householdId).future,
+        ),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    int net() {
+      final overview = subscription.read().requireValue;
+      return computePairwiseNet(
+        splits: overview.splits,
+        currentUserId: 'me',
+        otherUserId: 'alex',
+        currencyFilter: 'USD',
+        settlementPayments: overview.payments,
+      ).netCents;
+    }
+
+    await resolve();
+    expect(net(), 6000);
+    // The server event convention is independently specified, not inferred
+    // from the pending helper under test.
+    confirmedPayments = const [
+      SettlementPaymentRecord(
+        payerUserId: 'alex',
+        participantUserId: 'me',
+        amountCents: 4000,
+        currency: 'USD',
+      ),
+    ];
+    await database.markMutationSynced('acknowledged');
+    container
+        .invalidate(pendingHouseholdSettlementPaymentsProvider(_householdId));
+    container.invalidate(householdSettlementPaymentsProvider(_householdId));
+    await resolve();
+    expect(subscription.read().requireValue.payments, hasLength(1));
+    expect(net(), 6000);
+    container.invalidate(settlementOverviewProvider(_householdId));
+    await resolve();
+    expect(net(), 6000);
+  });
+
+  for (final mode in ['to_member', 'from_member']) {
+    test('durable $mode partial payment reduces the actual overview debt',
+        () async {
+      final database = MonekoDatabase.inMemory();
+      addTearDown(database.close);
+      final original = _split('expense-1', 10000);
+      final splits = mode == 'to_member'
+          ? [original]
+          : [
+              ExpenseSplitGroup(
+                id: original.id,
+                householdId: original.householdId,
+                expenseId: original.expenseId,
+                payerUserId: 'me',
+                splitType: original.splitType,
+                currency: original.currency,
+                totalAmountCents: original.totalAmountCents,
+                createdAt: original.createdAt,
+                updatedAt: original.updatedAt,
+                splitLines: [
+                  ExpenseSplitLine(
+                    id: 'line-1',
+                    splitGroupId: original.id,
+                    userId: 'alex',
+                    amountCents: 10000,
+                    isSettled: false,
+                    createdAt: original.createdAt,
+                    updatedAt: original.updatedAt,
+                  ),
+                ],
+              ),
+            ];
+      await database.enqueueHouseholdSettlementMutation(
+        householdId: _householdId,
+        memberUserId: 'alex',
+        mode: mode,
+        amountCents: 4000,
+        currency: 'USD',
+        note: null,
+        expectedSnapshotToken: 'v1:${List.filled(64, 'a').join()}',
+        clientMutationId: 'partial-$mode',
+      );
+      final container = ProviderContainer(overrides: [
+        authProvider.overrideWith(_TestAuth.new),
+        localDatabaseProvider.overrideWith((ref) async => database),
+        cachedHouseholdSplitsProvider
+            .overrideWith((ref, params) async => splits),
+        householdSettlementPaymentsProvider.overrideWith(
+          (ref, householdId) async => const <SettlementPaymentRecord>[],
+        ),
+      ]);
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        settlementOverviewProvider(_householdId),
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await Future.wait([
+        container.read(cachedHouseholdSplitsProvider(
+          const HouseholdSplitsParams(householdId: _householdId),
+        ).future),
+        container
+            .read(householdSettlementPaymentsProvider(_householdId).future),
+        container.read(
+          pendingHouseholdSettlementPaymentsProvider(_householdId).future,
+        ),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      final overview = subscription.read().requireValue;
+      expect(
+        computePairwiseNet(
+          splits: overview.splits,
+          currentUserId: 'me',
+          otherUserId: 'alex',
+          currencyFilter: 'USD',
+          settlementPayments: overview.payments,
+        ).netCents,
+        mode == 'to_member' ? 6000 : -6000,
+      );
+    });
+  }
+
   test('deleted expense IDs merge persisted and in-memory tombstones',
       () async {
     final database = MonekoDatabase.inMemory();
@@ -317,8 +482,8 @@ void main() {
     );
 
     expect(restored, hasLength(1));
-    expect(restored.single.payerUserId, 'me');
-    expect(restored.single.participantUserId, 'alex');
+    expect(restored.single.payerUserId, 'alex');
+    expect(restored.single.participantUserId, 'me');
     expect(restored.single.amountCents, 2500);
   });
 

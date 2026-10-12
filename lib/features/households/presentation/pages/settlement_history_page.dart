@@ -18,6 +18,7 @@ import 'package:moneko/shared/widgets/user_avatar.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/auth/presentation/states/auth.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -62,6 +63,9 @@ String _formatSettlementAmount(
   return formatCurrency(displayAmountCents / 100.0, currency);
 }
 
+final _historyVisibleCountProvider =
+    StateProvider.autoDispose.family<int, String>((ref, key) => 200);
+
 class SettlementHistoryPage extends ConsumerStatefulWidget {
   final String householdId;
   const SettlementHistoryPage({super.key, required this.householdId});
@@ -77,8 +81,11 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
 
   Future<void> _refreshHistory() async {
     HapticFeedback.lightImpact();
+    await clearHouseholdSettlementPaymentsPersistentCache(widget.householdId);
+    if (!mounted) return;
+    ref.invalidate(householdSettlementEventsProvider(widget.householdId));
     ref.invalidate(householdSettlementHistoryProvider(
-      SettlementHistoryParams(householdId: widget.householdId),
+      SettlementHistoryParams(householdId: widget.householdId, limit: 0),
     ));
   }
 
@@ -119,7 +126,10 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final historyAsync = ref.watch(householdSettlementHistoryProvider(
-        SettlementHistoryParams(householdId: widget.householdId)));
+        SettlementHistoryParams(householdId: widget.householdId, limit: 0)));
+    final pageKey =
+        '${ref.watch(authProvider.select((user) => user.uid))}|${widget.householdId}';
+    final visibleCount = ref.watch(_historyVisibleCountProvider(pageKey));
     final homeFilter = ref.watch(homeFilterProvider);
     final selectedCurrency =
         (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
@@ -193,6 +203,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
             }
 
             return historyAsync.when(
+              skipError: true,
               loading: () => const AsyncDataSkeleton(),
               error: (_, __) => Center(
                 child: Column(
@@ -301,7 +312,8 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                   );
                 }
 
-                final groupedEvents = _groupEventsByDate(filtered);
+                final groupedEvents =
+                    _groupEventsByDate(filtered.take(visibleCount).toList());
                 final currencyTotals = _calculateCurrencyTotals(
                   filtered,
                   displayCurrency: selectedCurrency,
@@ -313,45 +325,60 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
                       .parse(b)
                       .compareTo(DateFormat.yMd().parse(a)));
 
-                return CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                        child: _buildSummarySection(
-                            context, filtered, currencyTotals),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            if (index >= sortedDates.length) return null;
-                            final date = sortedDates[index];
-                            final dayEvents = groupedEvents[date]!;
-                            final isLastGroup = index == sortedDates.length - 1;
-
-                            return _buildDayGroup(
-                              context,
-                              date,
-                              dayEvents,
-                              nameFor,
-                              isLastGroup,
-                              displayCurrency: selectedCurrency,
-                              convertForDisplay: hasMultiCurrencySelection,
-                              rates: rateTable,
-                            );
-                          },
-                          childCount: sortedDates.length,
+                return NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification &&
+                          notification.depth == 0 &&
+                          notification.metrics.pixels >=
+                              notification.metrics.maxScrollExtent - 200 &&
+                          visibleCount < filtered.length) {
+                        ref
+                            .read(
+                                _historyVisibleCountProvider(pageKey).notifier)
+                            .state += 200;
+                      }
+                      return false;
+                    },
+                    child: CustomScrollView(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                            child: _buildSummarySection(
+                                context, filtered, currencyTotals),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SliverToBoxAdapter(
-                      child: SizedBox(height: 48),
-                    ),
-                  ],
-                );
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                if (index >= sortedDates.length) return null;
+                                final date = sortedDates[index];
+                                final dayEvents = groupedEvents[date]!;
+                                final isLastGroup =
+                                    index == sortedDates.length - 1;
+
+                                return _buildDayGroup(
+                                  context,
+                                  date,
+                                  dayEvents,
+                                  nameFor,
+                                  isLastGroup,
+                                  displayCurrency: selectedCurrency,
+                                  convertForDisplay: false,
+                                  rates: rateTable,
+                                );
+                              },
+                              childCount: sortedDates.length,
+                            ),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: 48),
+                        ),
+                      ],
+                    ));
               },
             );
           },

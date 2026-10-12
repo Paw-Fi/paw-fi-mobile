@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/features/auth/domain/app_user.dart';
+import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
@@ -14,7 +16,122 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
+class _SettlementAuth extends Auth {
+  @override
+  AppUser build() => const AppUser(uid: 'me', email: 'me@example.com');
+}
+
 void main() {
+  testWidgets(
+      'unknown durable payments cannot publish a pre-payment debt during startup',
+      (tester) async {
+    final hydration = Completer<List<SettlementPaymentRecord>>();
+    const payment = SettlementPaymentRecord(
+        payerUserId: 'alex',
+        participantUserId: 'me',
+        amountCents: 400,
+        currency: 'USD');
+    addTearDown(() {
+      if (!hydration.isCompleted) hydration.complete(const []);
+    });
+    await _pumpSettlementCard(tester,
+        selectedCurrencies: const ['USD'],
+        pendingPaymentsFuture: hydration.future,
+        payments: const [payment],
+        splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+        balances: const [
+          SettlementPairwiseBalance(
+              otherUserId: 'alex',
+              currency: 'USD',
+              splitToCents: 1000,
+              splitFromCents: 0,
+              paidToCents: 0,
+              paidFromCents: 0,
+              netCents: 1000)
+        ]);
+    expect(find.text(r'$10'), findsNothing);
+    hydration.complete(const [payment]);
+    await tester.pumpAndSettle();
+    expect(find.text(r'$6'), findsWidgets);
+  });
+  testWidgets(
+      'retiring pending state never restores an older pairwise balance during refresh',
+      (tester) async {
+    const payment = SettlementPaymentRecord(
+        payerUserId: 'alex',
+        participantUserId: 'me',
+        amountCents: 400,
+        currency: 'USD');
+    var pending = <SettlementPaymentRecord>[payment];
+    var reads = 0;
+    final refreshed = Completer<List<SettlementPairwiseBalance>>();
+    addTearDown(() {
+      if (!refreshed.isCompleted) refreshed.complete(const []);
+    });
+    await _pumpSettlementCard(tester,
+        splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+        selectedCurrencies: const ['USD'],
+        payments: const [payment],
+        pendingLoader: () async => pending,
+        pairwiseLoader: () async => ++reads == 1
+            ? const [
+                SettlementPairwiseBalance(
+                    otherUserId: 'alex',
+                    currency: 'USD',
+                    splitToCents: 1000,
+                    splitFromCents: 0,
+                    paidToCents: 0,
+                    paidFromCents: 0,
+                    netCents: 1000)
+              ]
+            : await refreshed.future);
+    await tester.pumpAndSettle();
+    expect(find.text(r'$6'), findsWidgets);
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(SettlementSuggestionsCard)));
+    pending = [];
+    container.invalidate(householdPairwiseSettlementBalancesV2Provider);
+    container.invalidate(pendingHouseholdSettlementPaymentsProvider(
+        '00000000-0000-0000-0000-000000000001'));
+    await container.read(pendingHouseholdSettlementPaymentsProvider(
+            '00000000-0000-0000-0000-000000000001')
+        .future);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text(r'$10'), findsNothing);
+    expect(find.text(r'$6'), findsWidgets);
+    refreshed.complete(const [
+      SettlementPairwiseBalance(
+          otherUserId: 'alex',
+          currency: 'USD',
+          splitToCents: 1000,
+          splitFromCents: 0,
+          paidToCents: 400,
+          paidFromCents: 0,
+          netCents: 600)
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text(r'$6'), findsWidgets);
+  });
+  testWidgets('payment credit remains visible when no split obligations remain',
+      (tester) async {
+    await _pumpSettlementCard(tester,
+        splits: const [],
+        selectedCurrencies: const [
+          'USD',
+          'EUR'
+        ],
+        payments: const [
+          SettlementPaymentRecord(
+              payerUserId: 'alex',
+              participantUserId: 'me',
+              amountCents: 4000,
+              currency: 'EUR',
+              eventId: 'paid-event')
+        ]);
+    await tester.pumpAndSettle();
+    expect(find.text('Alex Owes you'), findsOneWidget);
+  });
   testWidgets(
       'fresh hydration never exposes the stale pairwise settlement balance',
       (tester) async {
@@ -40,7 +157,7 @@ void main() {
     );
 
     expect(pairwiseReads, 1);
-    expect(find.text('\$10'), findsWidgets);
+    expect(find.text('\$10'), findsNothing);
 
     hydration.complete(const <SettlementPaymentRecord>[]);
     await tester.pumpAndSettle();
@@ -280,10 +397,14 @@ Future<void> _pumpSettlementCard(
   Object? pairwiseError,
   Object? overviewError,
   Future<List<SettlementPaymentRecord>>? pendingPaymentsFuture,
+  List<SettlementPaymentRecord> payments = const [],
+  Future<List<SettlementPairwiseBalance>> Function()? pairwiseLoader,
+  Future<List<SettlementPaymentRecord>> Function()? pendingLoader,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        authProvider.overrideWith(_SettlementAuth.new),
         currencyRateTableProvider.overrideWith(
           (ref) async => CurrencyRateTable(
             baseCurrency: 'USD',
@@ -294,6 +415,7 @@ Future<void> _pumpSettlementCard(
         householdPairwiseSettlementBalancesV2Provider.overrideWith(
           (ref, params) async {
             onPairwiseRead?.call();
+            if (pairwiseLoader != null) return pairwiseLoader();
             if (pairwiseError != null) {
               throw pairwiseError;
             }
@@ -309,13 +431,14 @@ Future<void> _pumpSettlementCard(
             return AsyncValue.data(
               SettlementOverviewData(
                 splits: splits,
-                payments: const <SettlementPaymentRecord>[],
+                payments: payments,
               ),
             );
           },
         ),
         pendingHouseholdSettlementPaymentsProvider.overrideWith(
           (ref, householdId) {
+            if (pendingLoader != null) return pendingLoader();
             if (pendingPaymentsFuture != null) {
               return pendingPaymentsFuture;
             }

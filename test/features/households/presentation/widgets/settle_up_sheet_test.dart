@@ -5,6 +5,14 @@ import 'package:moneko/features/households/presentation/utils/settlement_input_u
 
 void main() {
   group('settlement amount parsing', () {
+    test('rejects integer overflow instead of wrapping into a small payment',
+        () {
+      expect(parseSettlementAmountCents('184467440737095517'), isNull);
+      expect(parseSettlementAmountCents('92233720368547758.08'), isNull);
+      expect(parseSettlementAmountCents('92233720368547758.07'),
+          9223372036854775807);
+    });
+
     test('accepts the untouched numeric max and locale decimal commas', () {
       expect(parseSettlementAmountCents('66.11'), 6611);
       expect(parseSettlementAmountCents('66,11'), 6611);

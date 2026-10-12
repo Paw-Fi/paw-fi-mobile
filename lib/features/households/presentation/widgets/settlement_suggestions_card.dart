@@ -142,7 +142,10 @@ class _SettlementSuggestionsCardState
     // and pending settlement-payment mutations.
     final needsLegacyOverview = hasMultiCurrencySelection ||
         optimisticPayments.isNotEmpty ||
-        hasDurablePendingSettlement;
+        hasDurablePendingSettlement ||
+        (_retainedSettlementOverview != null &&
+            ((pairwiseBalancesAsync?.isLoading ?? false) ||
+                (pairwiseBalancesAsync?.hasError ?? false)));
     final useLegacyOverview = needsLegacyOverview;
     final overviewAsync = useLegacyOverview
         ? ref.watch(settlementOverviewProvider(widget.householdId))
@@ -158,6 +161,16 @@ class _SettlementSuggestionsCardState
     final pairwiseBalances =
         resolvedPairwiseBalances ?? _retainedPairwiseBalances;
     final overview = resolvedOverview ?? _retainedSettlementOverview;
+
+    if (durablePendingPayments == null) {
+      if (durablePendingPaymentsAsync.hasError) {
+        return _buildErrorCard(context, colorScheme,
+            onRetry: () => ref.invalidate(
+                pendingHouseholdSettlementPaymentsProvider(
+                    widget.householdId)));
+      }
+      return _buildLoadingCard(context, colorScheme);
+    }
 
     // Never render a partial or client-reconstructed settlement amount. The
     // common single-currency path uses the exact same pairwise provider as
@@ -228,7 +241,8 @@ class _SettlementSuggestionsCardState
         }
 
         final overviewSplits = overview?.splits ?? widget.splits;
-        final mySuggestions = !hasMultiCurrencySelection &&
+        final mySuggestions = !useLegacyOverview &&
+                !hasMultiCurrencySelection &&
                 balances != null &&
                 optimisticPayments.isEmpty &&
                 !hasDurablePendingSettlement
@@ -655,7 +669,7 @@ class _SettlementSuggestionsCardState
     required String displayCurrency,
     required CurrencyRateTable rates,
   }) {
-    if (splits == null || splits.isEmpty) return const <_Suggestion>[];
+    if (splits == null) return const <_Suggestion>[];
 
     final out = <_Suggestion>[];
     for (final currency in currencies) {

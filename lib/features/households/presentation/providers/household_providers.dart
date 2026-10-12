@@ -63,7 +63,7 @@ String _householdBudgetsCacheKey(String householdId) =>
     'households:budgets:v1:$householdId';
 
 String _householdSplitsCacheKey(HouseholdSplitsParams params, String userId) =>
-    'households:splits:v2:${params.householdId}:$userId:${params.dateRange ?? '<all>'}';
+    'households:splits:v3:${params.householdId}:$userId:${params.dateRange ?? '<all>'}';
 
 String _householdExpensesCacheKey(
         HouseholdExpensesParams params, String userId) =>
@@ -74,7 +74,7 @@ String _householdSummaryCacheKey(HouseholdSummaryParams params) =>
 
 String _householdSettlementPaymentsCacheKey(
         String householdId, String userId) =>
-    'households:settlement-payments:v1:$householdId:$userId';
+    'households:settlement-payments:v2:$householdId:$userId';
 
 Future<SharedPreferences?> _householdPrefsOrNull() async {
   try {
@@ -141,10 +141,11 @@ Future<T?> _readHouseholdCachedObject<T>(
 Future<void> _writeHouseholdCachedList<T>(
   String key,
   List<T> items,
-  Map<String, dynamic> Function(T) encode,
-) async {
+  Map<String, dynamic> Function(T) encode, {
+  bool Function()? shouldWrite,
+}) async {
   final prefs = await _householdPrefsOrNull();
-  if (prefs == null) return;
+  if (prefs == null || shouldWrite?.call() == false) return;
   await prefs.setString(
     key,
     jsonEncode({
@@ -180,9 +181,11 @@ Future<void> clearHouseholdPersistentCacheForHousehold(
     'households:splits:v1:$householdId:',
     'households:expenses:v1:$householdId:',
     'households:splits:v2:$householdId:',
+    'households:splits:v3:$householdId:',
     'households:expenses:v2:$householdId:',
     'households:summary:v1:$householdId:',
     'households:settlement-payments:v1:$householdId:',
+    'households:settlement-payments:v2:$householdId:',
   ];
 
   final keys = prefs.getKeys().where(
@@ -205,9 +208,11 @@ Future<void> clearHouseholdTransactionPersistentCacheForHousehold(
     'households:splits:v1:$householdId:',
     'households:expenses:v1:$householdId:',
     'households:splits:v2:$householdId:',
+    'households:splits:v3:$householdId:',
     'households:expenses:v2:$householdId:',
     'households:summary:v1:$householdId:',
     'households:settlement-payments:v1:$householdId:',
+    'households:settlement-payments:v2:$householdId:',
   ];
   final keys = prefs.getKeys().where(
         (key) => prefixes.any(key.startsWith),
@@ -221,7 +226,10 @@ Future<void> clearHouseholdSettlementPaymentsPersistentCache(
   if (prefs == null) return;
 
   final prefix = 'households:settlement-payments:v1:$householdId:';
-  final keys = prefs.getKeys().where((key) => key.startsWith(prefix));
+  final currentPrefix = 'households:settlement-payments:v2:$householdId:';
+  final keys = prefs
+      .getKeys()
+      .where((key) => key.startsWith(prefix) || key.startsWith(currentPrefix));
   await Future.wait(keys.map(prefs.remove));
 }
 
@@ -250,22 +258,14 @@ SettlementPaymentRecord _settlementPaymentRecordFromJson(
   Map<String, dynamic> json,
 ) {
   return SettlementPaymentRecord(
+    eventId: json['id'] as String?,
+    clientMutationId: json['client_mutation_id'] as String?,
+    actorUserId: json['actor_user_id'] as String?,
     payerUserId: json['payer_user_id'] as String? ?? '',
     participantUserId: json['participant_user_id'] as String? ?? '',
     amountCents: (json['amount_cents'] as num?)?.toInt() ?? 0,
     currency: json['currency'] as String?,
   );
-}
-
-Map<String, dynamic> _settlementPaymentRecordToJson(
-  SettlementPaymentRecord record,
-) {
-  return {
-    'payer_user_id': record.payerUserId,
-    'participant_user_id': record.participantUserId,
-    'amount_cents': record.amountCents,
-    'currency': record.currency,
-  };
 }
 
 void _runHouseholdBackgroundRefresh(
@@ -1343,6 +1343,7 @@ final householdSplitsProvider =
               cacheKey,
               refreshed,
               (split) => split.toJson(),
+              shouldWrite: ownsRead,
             );
           } catch (_) {}
         });
@@ -1363,6 +1364,7 @@ final householdSplitsProvider =
       cacheKey,
       splits,
       (split) => split.toJson(),
+      shouldWrite: ownsRead,
     ));
 
     if (optimistic.isNotEmpty) {
@@ -1725,62 +1727,99 @@ final householdProvider =
 /// entry per household so invalidation after settlement always hits the
 /// correct instance regardless of which currency the UI is displaying.
 /// Currency filtering is done client-side by the net calculator.
-final householdSettlementPaymentsProvider = FutureProvider.autoDispose
-    .family<List<SettlementPaymentRecord>, String>((ref, householdId) async {
-  ref.watch(
+final householdSettlementEventsProvider = FutureProvider.autoDispose
+    .family<List<Map<String, dynamic>>, String>((ref, householdId) async {
+  var disposed = false;
+  ref.onDispose(() => disposed = true);
+  final remoteRevision = ref.watch(
     householdRemoteMutationRefreshSignalProvider(householdId),
   );
-  ref.watch(transactionsFeedRefreshSignalProvider);
+  final transactionRevision = ref.watch(transactionsFeedRefreshSignalProvider);
+  ref.watch(authProvider.select((user) => user.uid));
   final supabase = ref.watch(supabaseClientProvider);
   final currentUserId = supabase.auth.currentUser?.id;
-  if (currentUserId == null) return const <SettlementPaymentRecord>[];
+  if (currentUserId == null) return const <Map<String, dynamic>>[];
+  final service = ref.watch(householdServiceProvider);
+  bool ownsRead() =>
+      !disposed && supabase.auth.currentUser?.id == currentUserId;
   final cacheKey = _householdSettlementPaymentsCacheKey(
     householdId,
     currentUserId,
   );
-  final cached = await _readHouseholdCachedList<SettlementPaymentRecord>(
+  final cached = await _readHouseholdCachedList<Map<String, dynamic>>(
     cacheKey,
-    _settlementPaymentRecordFromJson,
+    (row) => row,
   );
-  if (cached != null && _isFresh(cached.cachedAt, _householdEntityCacheTtl)) {
+  if (remoteRevision == 0 &&
+      transactionRevision == 0 &&
+      cached != null &&
+      _isFresh(cached.cachedAt, _householdEntityCacheTtl)) {
     return cached.items;
   }
 
   try {
-    final response = await supabase
-        .from('household_settlement_events')
-        .select('payer_user_id, participant_user_id, amount_cents, currency')
-        .eq('household_id', householdId)
-        .or('payer_user_id.eq.$currentUserId,participant_user_id.eq.$currentUserId');
-
-    final rows = (response as List).cast<Map<String, dynamic>>();
-    final out = <SettlementPaymentRecord>[];
+    if (!ownsRead()) throw StateError('Settlement read ownership changed');
+    final rows = await service.getHouseholdSettlementEvents(householdId);
+    if (!ownsRead()) return rows;
     for (final row in rows) {
       final payer = row['payer_user_id'] as String?;
       final participant = row['participant_user_id'] as String?;
-      if (payer == null || payer.isEmpty) continue;
-      if (participant == null || participant.isEmpty) continue;
-      if (payer == participant) continue;
-      final amount = (row['amount_cents'] as int? ?? 0).abs();
-      if (amount <= 0) continue;
-      final currency = row['currency'] as String?;
-      out.add(SettlementPaymentRecord(
-        payerUserId: payer,
-        participantUserId: participant,
-        amountCents: amount,
-        currency: currency,
-      ));
+      if (payer == null ||
+          payer.isEmpty ||
+          participant == null ||
+          participant.isEmpty ||
+          payer == participant ||
+          (payer != currentUserId && participant != currentUserId) ||
+          row['amount_cents'] is! int ||
+          (row['amount_cents'] as int) <= 0 ||
+          DateTime.tryParse(row['created_at']?.toString() ?? '') == null) {
+        throw const FormatException('Invalid settlement event snapshot');
+      }
     }
-    unawaited(_writeHouseholdCachedList(
+    await _writeHouseholdCachedList(
       cacheKey,
-      out,
-      _settlementPaymentRecordToJson,
-    ));
-    return out;
+      rows,
+      (row) => row,
+      shouldWrite: ownsRead,
+    );
+    if (!ownsRead()) return rows;
+    final database = ref.read(localDatabaseProvider).valueOrNull;
+    if (database != null) {
+      final acknowledgedIds =
+          (await database.getHouseholdSettlementAcknowledgements(
+        actorUserId: currentUserId,
+        householdId: householdId,
+      ))
+              .map((row) => row['client_mutation_id'])
+              .toSet();
+      var retired = false;
+      for (final row in rows) {
+        if (row['actor_user_id'] == currentUserId &&
+            acknowledgedIds.contains(row['client_mutation_id'])) {
+          await database.deleteJsonCache(
+            namespace: localHouseholdSettlementAcknowledgementNamespace,
+            cacheKey:
+                '$currentUserId|$householdId|${row['client_mutation_id']}',
+          );
+          retired = true;
+        }
+      }
+      if (retired) {
+        ref.invalidate(pendingHouseholdSettlementPaymentsProvider(householdId));
+      }
+    }
+    return rows;
   } catch (e) {
     if (cached != null) return cached.items;
     rethrow;
   }
+});
+
+final householdSettlementPaymentsProvider = FutureProvider.autoDispose
+    .family<List<SettlementPaymentRecord>, String>((ref, householdId) async {
+  final events =
+      await ref.watch(householdSettlementEventsProvider(householdId).future);
+  return events.map(_settlementPaymentRecordFromJson).toList(growable: false);
 });
 
 class OptimisticSettlementPaymentsNotifier
@@ -1790,18 +1829,17 @@ class OptimisticSettlementPaymentsNotifier
   void addPayment(String householdId, SettlementPaymentRecord payment) {
     state = {
       ...state,
-      householdId: [payment, ...(state[householdId] ?? const [])],
+      householdId: mergeSettlementPayments(
+          confirmed: state[householdId] ?? const [], pending: [payment]),
     };
   }
 
   void removePayment(String householdId, SettlementPaymentRecord payment) {
     final existing = state[householdId] ?? const <SettlementPaymentRecord>[];
     final index = existing.lastIndexWhere((candidate) {
-      return candidate.payerUserId == payment.payerUserId &&
-          candidate.participantUserId == payment.participantUserId &&
-          candidate.amountCents == payment.amountCents &&
-          (candidate.currency ?? '').toUpperCase() ==
-              (payment.currency ?? '').toUpperCase();
+      return payment.mutationIdentity != null
+          ? candidate.mutationIdentity == payment.mutationIdentity
+          : identical(candidate, payment);
     });
     if (index < 0) return;
     final updated = [
@@ -1824,7 +1862,10 @@ class OptimisticSettlementPaymentsNotifier
 final optimisticSettlementPaymentsProvider = StateNotifierProvider<
     OptimisticSettlementPaymentsNotifier,
     Map<String, List<SettlementPaymentRecord>>>(
-  (ref) => OptimisticSettlementPaymentsNotifier(),
+  (ref) {
+    ref.watch(authProvider.select((user) => user.uid));
+    return OptimisticSettlementPaymentsNotifier();
+  },
 );
 
 /// Durable pending-settlement overlay. Unlike the in-memory notifier, this is
@@ -1839,7 +1880,12 @@ final pendingHouseholdSettlementPaymentsProvider = FutureProvider.autoDispose
   final mutations = await database.getPendingHouseholdSettlementMutations(
     householdId: householdId,
   );
-  final payments = <SettlementPaymentRecord>[];
+  final payments = (await database.getHouseholdSettlementAcknowledgements(
+    actorUserId: currentUserId,
+    householdId: householdId,
+  ))
+      .map(_settlementPaymentRecordFromJson)
+      .toList();
   for (final mutation in mutations) {
     try {
       final payload = LocalHouseholdSettlementMutationPayload.fromJson(
@@ -1851,6 +1897,7 @@ final pendingHouseholdSettlementPaymentsProvider = FutureProvider.autoDispose
         mode: payload.mode,
         amountCents: payload.amountCents,
         currency: payload.currency,
+        clientMutationId: payload.clientMutationId,
       );
       if (payment != null) payments.add(payment);
     } catch (_) {
@@ -2169,113 +2216,62 @@ class SettlementEvent {
 final householdSettlementHistoryProvider = FutureProvider.autoDispose
     .family<List<SettlementEvent>, SettlementHistoryParams>(
         (ref, params) async {
-  try {
-    final supabase = ref.watch(supabaseClientProvider);
-    final currentUserId = supabase.auth.currentUser?.id;
-    if (currentUserId == null) {
-      FirebaseCrashlytics.instance.log(
-          '[settlement_history] no current user; skip load household=${params.householdId}');
-      return const <SettlementEvent>[];
+  ref.watch(householdRemoteMutationRefreshSignalProvider(params.householdId));
+  final currentUserId = ref.watch(authProvider.select((user) => user.uid));
+  if (currentUserId.isEmpty) return const <SettlementEvent>[];
+  final rows = await ref
+      .watch(householdSettlementEventsProvider(params.householdId).future);
+  final byId = <String, Map<String, dynamic>>{};
+  for (final row in rows) {
+    final id = row['id'] as String?;
+    if (id != null && id.isNotEmpty) {
+      byId[id] = row;
     }
-    FirebaseCrashlytics.instance.log(
-        '[settlement_history] start household=${params.householdId} limit=${params.limit} user=$currentUserId');
-
-    // Query 1: lines where current user is participant
-    final responseParticipant = await supabase
-        .from('household_settlement_events')
-        .select(
-            'id, created_at, amount_cents, payer_user_id, participant_user_id, actor_user_id, settlement_note, currency, is_express_netting')
-        .eq('household_id', params.householdId)
-        .eq('participant_user_id', currentUserId)
-        .order('created_at', ascending: false)
-        .limit(params.limit)
-        .timeout(const Duration(seconds: 10));
-
-    // Query 2: lines where current user is payer
-    final responsePayer = await supabase
-        .from('household_settlement_events')
-        .select(
-            'id, created_at, amount_cents, payer_user_id, participant_user_id, actor_user_id, settlement_note, currency, is_express_netting')
-        .eq('household_id', params.householdId)
-        .eq('payer_user_id', currentUserId)
-        .order('created_at', ascending: false)
-        .limit(params.limit)
-        .timeout(const Duration(seconds: 10));
-
-    FirebaseCrashlytics.instance.log(
-        '[settlement_history] raw response types: participant=${responseParticipant.runtimeType} payer=${responsePayer.runtimeType} household=${params.householdId}');
-
-    final rows = <Map<String, dynamic>>[
-      ...(responseParticipant as List).cast<Map<String, dynamic>>(),
-      ...(responsePayer as List).cast<Map<String, dynamic>>(),
-    ];
-    FirebaseCrashlytics.instance.log(
-        '[settlement_history] fetched rows=${rows.length} household=${params.householdId}');
-    if (rows.isNotEmpty) {
-      final sample = rows.first;
-      FirebaseCrashlytics.instance.log(
-          '[settlement_history] sample created_at=${sample['created_at']} payer=${sample['payer_user_id']} participant=${sample['participant_user_id']} amount=${sample['amount_cents']} currency=${sample['currency']}');
-    } else {
-      FirebaseCrashlytics.instance.log(
-          '[settlement_history] no rows returned for household=${params.householdId}');
-    }
-
-    final byId = <String, Map<String, dynamic>>{};
-    for (final row in rows) {
-      final id = row['id'] as String?;
-      if (id != null && id.isNotEmpty) {
-        byId[id] = row;
-      }
-    }
-
-    final events = <SettlementEvent>[];
-    for (final row in byId.values) {
-      final createdAtStr = row['created_at'] as String?;
-      final settledAt =
-          createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
-      if (settledAt == null) continue;
-
-      final payerUserId = row['payer_user_id'] as String?;
-      final participantUserId = row['participant_user_id'] as String?;
-      if (payerUserId == null || payerUserId.isEmpty) continue;
-      if (participantUserId == null || participantUserId.isEmpty) continue;
-
-      final currency = (row['currency'] as String? ?? '').toUpperCase();
-      final amount = (row['amount_cents'] as int? ?? 0).abs();
-      if (amount <= 0) continue;
-
-      final isExpressNetting = row['is_express_netting'] as bool? ?? false;
-
-      events.add(
-        SettlementEvent(
-          settledAt: settledAt,
-          payerUserId: payerUserId,
-          participantUserId: participantUserId,
-          currency: currency,
-          amountCents: amount,
-          lineCount: 1,
-          splitGroupId: null,
-          lines: const <SettlementLine>[],
-          settledByUserId: row['actor_user_id'] as String?,
-          isExpressNetting: isExpressNetting,
-          payerToParticipantCents: 0,
-          participantToPayerCents: amount,
-          settlementNote: row['settlement_note'] as String?,
-        ),
-      );
-    }
-
-    events.sort((a, b) => b.settledAt.compareTo(a.settledAt));
-    final limited =
-        params.limit > 0 ? events.take(params.limit).toList() : events;
-    FirebaseCrashlytics.instance.log(
-        '[settlement_history] aggregated events=${limited.length} household=${params.householdId}');
-    return limited;
-  } catch (e, st) {
-    FirebaseCrashlytics.instance.log(
-        '[settlement_history] error household=${params.householdId}: $e\n$st');
-    return const <SettlementEvent>[];
   }
+
+  final events = <SettlementEvent>[];
+  for (final row in byId.values) {
+    final createdAtStr = row['created_at'] as String?;
+    final settledAt =
+        createdAtStr != null ? DateTime.tryParse(createdAtStr) : null;
+    if (settledAt == null) {
+      throw const FormatException('Invalid settlement history date');
+    }
+
+    final payerUserId = row['payer_user_id'] as String?;
+    final participantUserId = row['participant_user_id'] as String?;
+    if (payerUserId == null || payerUserId.isEmpty) continue;
+    if (participantUserId == null || participantUserId.isEmpty) continue;
+
+    final currency = (row['currency'] as String? ?? '').toUpperCase();
+    final amount = (row['amount_cents'] as int? ?? 0).abs();
+    if (amount <= 0) continue;
+
+    final isExpressNetting = row['is_express_netting'] as bool? ?? false;
+
+    events.add(
+      SettlementEvent(
+        settledAt: settledAt,
+        payerUserId: payerUserId,
+        participantUserId: participantUserId,
+        currency: currency,
+        amountCents: amount,
+        lineCount: 1,
+        splitGroupId: null,
+        lines: const <SettlementLine>[],
+        settledByUserId: row['actor_user_id'] as String?,
+        isExpressNetting: isExpressNetting,
+        payerToParticipantCents: 0,
+        participantToPayerCents: amount,
+        settlementNote: row['settlement_note'] as String?,
+      ),
+    );
+  }
+
+  events.sort((a, b) => b.settledAt.compareTo(a.settledAt));
+  final limited =
+      params.limit > 0 ? events.take(params.limit).toList() : events;
+  return limited;
 });
 
 bool _shouldKeepQueuedLocalMutation(Object error) {

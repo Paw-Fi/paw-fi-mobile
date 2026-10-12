@@ -1,0 +1,65 @@
+[
+  {
+    "cents": 1,
+    "type": "equal",
+    "members": ["user-d", "user-c", "user-b", "user-a"],
+    "values": [],
+    "expected": { "user-a": 1, "user-b": 0, "user-c": 0, "user-d": 0 }
+  },
+  {
+    "cents": 2,
+    "type": "equal",
+    "members": ["user-d", "user-c", "user-b", "user-a"],
+    "values": [],
+    "expected": { "user-a": 2, "user-b": 0, "user-c": 0, "user-d": 0 }
+  },
+  {
+    "cents": 10,
+    "type": "equal",
+    "members": ["user-d", "user-c", "user-b", "user-a"],
+    "values": [],
+    "expected": { "user-a": 4, "user-b": 2, "user-c": 2, "user-d": 2 }
+  },
+  {
+    "cents": 1001,
+    "type": "equal",
+    "members": ["user-c", "user-b", "user-a"],
+    "values": [],
+    "expected": { "user-a": 335, "user-b": 333, "user-c": 333 }
+  },
+  {
+    "cents": 2,
+    "type": "shares",
+    "members": ["user-d", "user-c", "user-b", "user-a"],
+    "values": [1, 1, 1, 1],
+    "expected": { "user-a": 1, "user-b": 1, "user-c": 0, "user-d": 0 }
+  },
+  {
+    "cents": 2,
+    "type": "percentage",
+    "members": ["user-d", "user-c", "user-b", "user-a"],
+    "values": [25, 25, 25, 25],
+    "expected": { "user-a": 1, "user-b": 1, "user-c": 0, "user-d": 0 }
+  },
+  {
+    "cents": 1001,
+    "type": "percentage",
+    "members": ["user-c", "user-b", "user-a"],
+    "values": [33.34, 33.33, 33.33],
+    "expected": { "user-a": 334, "user-b": 333, "user-c": 334 }
+  },
+  {
+    "cents": 10,
+    "type": "shares",
+    "members": ["user-c", "user-b", "user-a"],
+    "values": [3, 2, 1],
+    "expected": { "user-a": 2, "user-b": 3, "user-c": 5 }
+  },
+  {
+    "cents": 2000,
+    "type": "amount",
+    "members": ["user-b", "user-a"],
+    "values": [15, 5],
+    "expected": { "user-a": 500, "user-b": 1500 }
+  }
+]

@@ -23,6 +23,7 @@ import 'package:moneko/features/households/data/services/device_registration_ser
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/utils/pending_settlement_payment.dart';
+import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_lazy_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart'
     show recurringTransactionsProvider;
@@ -42,10 +43,48 @@ final mobileOutboxSupabaseClientProvider = Provider<SupabaseClient>(
 final mobileOutboxSyncCoordinatorProvider =
     FutureProvider<SyncCoordinator>((ref) async {
   final database = await ref.watch(localDatabaseProvider.future);
+  var active = true;
+  ref.onDispose(() => active = false);
+  final settlementResults = <String, SettlementWriteStatusV2>{};
   return SyncCoordinator(
     database: database,
-    dispatchMutation: (mutation) =>
-        _dispatchMobileMutation(ref, database, mutation),
+    dispatchMutation: (mutation) => _dispatchMobileMutation(
+        ref, database, mutation,
+        onSettlementResult: (status) =>
+            settlementResults[mutation.clientMutationId] = status),
+    onMutationSynced: (mutation) async {
+      if (!active || !isDurableHouseholdSettlementMutation(mutation)) return;
+      final actorUserId = ref.read(authProvider).uid;
+      final payload = LocalHouseholdSettlementMutationPayload.fromJson(
+          _decodePayload(mutation.payloadJson));
+      final payment = pendingSettlementPaymentRecord(
+        currentUserId: actorUserId,
+        memberUserId: payload.memberUserId,
+        mode: payload.mode,
+        amountCents: payload.amountCents,
+        currency: payload.currency,
+        clientMutationId: payload.clientMutationId,
+      );
+      if (payment != null) {
+        ref
+            .read(optimisticSettlementPaymentsProvider.notifier)
+            .removePayment(mutation.entityId, payment);
+      }
+      ref.invalidate(
+          pendingHouseholdSettlementPaymentsProvider(mutation.entityId));
+      ref
+          .read(householdRemoteMutationRefreshSignalProvider(mutation.entityId)
+              .notifier)
+          .state++;
+      ref.invalidate(householdPairwiseSettlementBalancesV2Provider);
+      ref.invalidate(householdSettlementCalculationV3Provider);
+      if (settlementResults.remove(mutation.clientMutationId) ==
+          SettlementWriteStatusV2.snapshotConflict) {
+        ref.read(appMutationErrorProvider.notifier).state =
+            AppMutationErrorEvent(
+                id: mutation.clientMutationId, feature: 'households');
+      }
+    },
     onMutationCancelled: (mutation, _) =>
         _handleCancelledMobileMutation(ref, database, mutation),
     onMutationNeedsReview: (mutation, _) async {
@@ -220,8 +259,9 @@ Future<int> _drainMobileOutboxWithReader(
 Future<void> _dispatchMobileMutation(
   Ref ref,
   MonekoDatabase database,
-  LocalMutationOutboxData mutation,
-) async {
+  LocalMutationOutboxData mutation, {
+  void Function(SettlementWriteStatusV2)? onSettlementResult,
+}) async {
   final payload = _decodePayload(mutation.payloadJson);
 
   switch (mutation.operation) {
@@ -229,35 +269,22 @@ Future<void> _dispatchMobileMutation(
       if (!isDurableHouseholdSettlementMutation(mutation)) {
         throw StateError('Settlement operation has the wrong entity type');
       }
+      final actorUserId = ref.read(authProvider).uid;
+      final settlementPayload =
+          LocalHouseholdSettlementMutationPayload.fromJson(payload);
       await dispatchHouseholdSettlementMutation(
         ref.read(mobileOutboxSupabaseClientProvider),
         mutation,
         payload,
+        onResult: (result) async {
+          await persistHouseholdSettlementAcknowledgement(
+              database: database,
+              actorUserId: actorUserId,
+              payload: settlementPayload,
+              result: result);
+          onSettlementResult?.call(result.status);
+        },
       );
-      final settlementPayload =
-          LocalHouseholdSettlementMutationPayload.fromJson(payload);
-      final optimisticPayment = pendingSettlementPaymentRecord(
-        currentUserId: ref.read(authProvider).uid,
-        memberUserId: settlementPayload.memberUserId,
-        mode: settlementPayload.mode,
-        amountCents: settlementPayload.amountCents,
-        currency: settlementPayload.currency,
-      );
-      if (optimisticPayment != null) {
-        ref
-            .read(optimisticSettlementPaymentsProvider.notifier)
-            .removePayment(mutation.entityId, optimisticPayment);
-      }
-      ref.invalidate(
-        pendingHouseholdSettlementPaymentsProvider(mutation.entityId),
-      );
-      ref
-          .read(householdRemoteMutationRefreshSignalProvider(
-            mutation.entityId,
-          ).notifier)
-          .state += 1;
-      ref.invalidate(householdPairwiseSettlementBalancesV2Provider);
-      ref.invalidate(householdSettlementCalculationV3Provider);
       return;
     case 'create':
       final requestBody = await _requestBodyWithQueuedReceipt(

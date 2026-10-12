@@ -48,6 +48,7 @@ class SyncCoordinator {
     required this.dispatchMutation,
     this.onMutationCancelled,
     this.onMutationNeedsReview,
+    this.onMutationSynced,
     DateTime Function()? now,
     this.maxAttempts = 8,
   }) : _now = now;
@@ -56,6 +57,7 @@ class SyncCoordinator {
   final LocalMutationDispatcher dispatchMutation;
   final LocalMutationCancelledHandler? onMutationCancelled;
   final LocalMutationNeedsReviewHandler? onMutationNeedsReview;
+  final Future<void> Function(LocalMutationOutboxData)? onMutationSynced;
   final DateTime Function()? _now;
   final int maxAttempts;
 
@@ -80,7 +82,10 @@ class SyncCoordinator {
           clientMutationId: mutation.clientMutationId,
           expectedPayloadJson: mutation.payloadJson,
         );
-        if (didMarkSynced) syncedCount += 1;
+        if (didMarkSynced) {
+          syncedCount += 1;
+          await onMutationSynced?.call(mutation);
+        }
       } catch (error) {
         if (error is DeferredLocalMutationException) {
           await database.deferMutationIfPayloadMatches(

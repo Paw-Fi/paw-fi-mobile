@@ -114,6 +114,12 @@ _ResolvedSplitLines? _buildLinesFromCustomSplits(
           )
           .toList(growable: false)
       : const <Map<String, dynamic>>[];
+  if (rawMaps.isNotEmpty) {
+    rawMaps.sort((left, right) => left['userId']
+        .toString()
+        .trim()
+        .compareTo(right['userId'].toString().trim()));
+  }
   if (!keepSemanticallyEqual &&
       _isSemanticallyEqualCustomSplit(splitType, rawMaps)) {
     return null;
@@ -231,8 +237,17 @@ List<_SplitLineInput> _lineInputsFromRawMaps(
   required int Function(Map<String, dynamic> entry) amountCentsFor,
 }) {
   if (rawMaps.isEmpty) return const <_SplitLineInput>[];
-  final cents = rawMaps.map(amountCentsFor).toList(growable: true);
-  _applyRemainderToLastPositive(cents, totalCents);
+  final weighted =
+      splitType == SplitType.percentage || splitType == SplitType.shares;
+  final cents = weighted
+      ? _allocateCentsByWeights(totalCents, [
+          for (final entry in rawMaps)
+            splitType == SplitType.percentage
+                ? (_parseAmountValue(entry['percentage']) ?? 0)
+                : (_parsePositiveInt(entry['shares']) ?? 0).toDouble(),
+        ])
+      : rawMaps.map(amountCentsFor).toList(growable: true);
+  if (!weighted) _applyRemainderToLastPositive(cents, totalCents);
   return [
     for (var index = 0; index < rawMaps.length; index++)
       _SplitLineInput(
@@ -260,7 +275,8 @@ List<_SplitLineInput> _lineInputsFromMemberSplits(
       case split_sheet.SplitType.shares:
         return (split.shares ?? 0) > 0;
     }
-  }).toList(growable: false);
+  }).toList(growable: false)
+    ..sort((left, right) => left.member.userId.compareTo(right.member.userId));
   if (included.isEmpty) return const <_SplitLineInput>[];
 
   if (splitType == split_sheet.SplitType.equal) {
@@ -270,24 +286,33 @@ List<_SplitLineInput> _lineInputsFromMemberSplits(
     );
   }
 
-  final cents = included.map((split) {
-    switch (splitType) {
-      case split_sheet.SplitType.amount:
-        return (((split.amount ?? 0).abs()) * 100).round();
-      case split_sheet.SplitType.percentage:
-        return ((totalCents * (split.percentage ?? 0)) / 100).round();
-      case split_sheet.SplitType.shares:
-        final totalShares = included.fold<int>(
-          0,
-          (sum, item) => sum + (item.shares ?? 0),
-        );
-        if (totalShares <= 0) return 0;
-        return ((totalCents * (split.shares ?? 0)) / totalShares).round();
-      case split_sheet.SplitType.equal:
-        return 0;
-    }
-  }).toList(growable: true);
-  _applyRemainderToLastPositive(cents, totalCents);
+  final weighted = splitType == split_sheet.SplitType.percentage ||
+      splitType == split_sheet.SplitType.shares;
+  final cents = weighted
+      ? _allocateCentsByWeights(totalCents, [
+          for (final split in included)
+            splitType == split_sheet.SplitType.percentage
+                ? (split.percentage ?? 0)
+                : (split.shares ?? 0).toDouble(),
+        ])
+      : included.map((split) {
+          switch (splitType) {
+            case split_sheet.SplitType.amount:
+              return (((split.amount ?? 0).abs()) * 100).round();
+            case split_sheet.SplitType.percentage:
+              return ((totalCents * (split.percentage ?? 0)) / 100).round();
+            case split_sheet.SplitType.shares:
+              final totalShares = included.fold<int>(
+                0,
+                (sum, item) => sum + (item.shares ?? 0),
+              );
+              if (totalShares <= 0) return 0;
+              return ((totalCents * (split.shares ?? 0)) / totalShares).round();
+            case split_sheet.SplitType.equal:
+              return 0;
+          }
+        }).toList(growable: true);
+  if (!weighted) _applyRemainderToLastPositive(cents, totalCents);
 
   return [
     for (var index = 0; index < included.length; index++)
@@ -307,18 +332,41 @@ List<_SplitLineInput> _equalLineInputs({
   final normalizedUserIds = userIds
       .map((id) => id.trim())
       .where((id) => id.isNotEmpty)
-      .toList(growable: false);
+      .toList(growable: false)
+    ..sort();
   if (normalizedUserIds.isEmpty) return const <_SplitLineInput>[];
   final perUser = totalCents ~/ normalizedUserIds.length;
-  var remainder = totalCents % normalizedUserIds.length;
+  final remainder = totalCents % normalizedUserIds.length;
   return normalizedUserIds.map((userId) {
-    final extra = remainder > 0 ? 1 : 0;
-    if (remainder > 0) remainder -= 1;
+    final extra = userId == normalizedUserIds.first ? remainder : 0;
     return _SplitLineInput(
       userId: userId,
       amountCents: perUser + extra,
     );
   }).toList(growable: false);
+}
+
+List<int> _allocateCentsByWeights(int totalCents, List<double> weights) {
+  final normalized =
+      weights.map((weight) => weight > 0 ? weight : 0.0).toList();
+  final totalWeight = normalized.fold<double>(0, (sum, weight) => sum + weight);
+  if (totalWeight <= 0) return List.filled(weights.length, 0);
+  final raw =
+      normalized.map((weight) => totalCents * weight / totalWeight).toList();
+  final cents = raw.map((value) => value.floor()).toList();
+  final order = List.generate(weights.length, (index) => index)
+    ..sort((left, right) {
+      final byFraction =
+          (raw[right] - cents[right]).compareTo(raw[left] - cents[left]);
+      return byFraction != 0 ? byFraction : left.compareTo(right);
+    });
+  final remainder =
+      totalCents - cents.fold<int>(0, (sum, value) => sum + value);
+  // Match the backend's largest-remainder allocation and stable input-order ties.
+  for (var index = 0; index < remainder; index++) {
+    cents[order[index % order.length]] += 1;
+  }
+  return cents;
 }
 
 void _applyRemainderToLastPositive(List<int> cents, int totalCents) {

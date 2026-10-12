@@ -146,12 +146,10 @@ final settlementOverviewProvider =
       // The session overlay gives an immediate result after enqueue. As soon as
       // SQLite is available, its durable overlay replaces it to avoid double
       // counting the same mutation and to survive an app restart.
-      payments: [
-        ...(durablePendingPayments.isEmpty
-            ? optimisticPayments
-            : durablePendingPayments),
-        ...payments,
-      ],
+      payments: mergeSettlementPayments(
+        confirmed: payments,
+        pending: [...durablePendingPayments, ...optimisticPayments],
+      ),
     ));
   },
 );
@@ -758,6 +756,8 @@ List<ExpenseSplitGroup> _convertSplitGroupsToCurrency(
       createdAt: group.createdAt,
       updatedAt: group.updatedAt,
       payerEmail: group.payerEmail,
+      isRecurringTemplate: group.isRecurringTemplate,
+      expenseDeleted: group.expenseDeleted,
       splitLines: group.splitLines?.map((line) {
         final amountCents = line.amountCents;
         return ExpenseSplitLine(

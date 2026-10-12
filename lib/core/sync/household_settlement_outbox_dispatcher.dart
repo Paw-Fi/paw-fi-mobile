@@ -11,8 +11,9 @@ const Set<String> householdSettlementTerminalStatuses = <String>{
 Future<String> dispatchHouseholdSettlementMutation(
   SupabaseClient client,
   LocalMutationOutboxData mutation,
-  Map<String, dynamic> rawPayload,
-) async {
+  Map<String, dynamic> rawPayload, {
+  Future<void> Function(SettlementWriteResultV2)? onResult,
+}) async {
   if (!isDurableHouseholdSettlementMutation(mutation)) {
     throw StateError('Mutation is not a durable household settlement');
   }
@@ -59,7 +60,35 @@ Future<String> dispatchHouseholdSettlementMutation(
       'Settlement RPC returned an unknown or malformed terminal status',
     );
   }
+  await onResult?.call(parsed);
   return status;
+}
+
+Future<void> persistHouseholdSettlementAcknowledgement({
+  required MonekoDatabase database,
+  required String actorUserId,
+  required LocalHouseholdSettlementMutationPayload payload,
+  required SettlementWriteResultV2 result,
+}) async {
+  if (result.status != SettlementWriteStatusV2.applied) return;
+  // Only a validated server acknowledgement determines express payment direction.
+  final creditor =
+      result.pairBalanceBeforeCents > 0 ? payload.memberUserId : actorUserId;
+  final debtor =
+      result.pairBalanceBeforeCents > 0 ? actorUserId : payload.memberUserId;
+  await database.upsertJsonCache(
+    namespace: localHouseholdSettlementAcknowledgementNamespace,
+    cacheKey: '$actorUserId|${payload.householdId}|${payload.clientMutationId}',
+    payload: {
+      'id': result.settlementEventId,
+      'client_mutation_id': payload.clientMutationId,
+      'actor_user_id': actorUserId,
+      'payer_user_id': creditor,
+      'participant_user_id': debtor,
+      'amount_cents': result.appliedAmountCents,
+      'currency': payload.currency,
+    },
+  );
 }
 
 SettlementWriteResultV2 parseHouseholdSettlementWriteResult(

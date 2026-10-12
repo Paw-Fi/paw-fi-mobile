@@ -49,6 +49,8 @@ class ExpenseSplitGroup {
   final DateTime updatedAt;
   final String? payerEmail;
   final List<ExpenseSplitLine>? splitLines;
+  final bool isRecurringTemplate;
+  final bool expenseDeleted;
 
   const ExpenseSplitGroup({
     required this.id,
@@ -63,6 +65,8 @@ class ExpenseSplitGroup {
     required this.updatedAt,
     this.payerEmail,
     this.splitLines,
+    this.isRecurringTemplate = false,
+    this.expenseDeleted = false,
   });
 
   factory ExpenseSplitGroup.fromJson(Map<String, dynamic> json) {
@@ -81,6 +85,8 @@ class ExpenseSplitGroup {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       payerEmail: json['payer_email'] as String?,
+      isRecurringTemplate: json['is_recurring_template'] as bool? ?? false,
+      expenseDeleted: json['expense_deleted'] as bool? ?? false,
       splitLines: linesData != null
           ? (linesData as List)
               .map((e) => ExpenseSplitLine.fromJson(e as Map<String, dynamic>))
@@ -102,6 +108,8 @@ class ExpenseSplitGroup {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'payer_email': payerEmail,
+      'is_recurring_template': isRecurringTemplate,
+      'expense_deleted': expenseDeleted,
       'split_lines': splitLines?.map((e) => e.toJson()).toList(),
     };
   }

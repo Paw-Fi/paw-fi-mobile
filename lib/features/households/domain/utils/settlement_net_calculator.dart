@@ -38,17 +38,63 @@ class PairwiseNetResult {
 
 /// A settlement payment record used as input to the net calculator.
 class SettlementPaymentRecord {
+  final String? eventId;
+  final String? clientMutationId;
+  final String? actorUserId;
   final String payerUserId;
   final String participantUserId;
   final int amountCents;
   final String? currency;
 
   const SettlementPaymentRecord({
+    this.eventId,
+    this.clientMutationId,
+    this.actorUserId,
     required this.payerUserId,
     required this.participantUserId,
     required this.amountCents,
     this.currency,
   });
+
+  String? get mutationIdentity =>
+      clientMutationId != null && actorUserId != null
+          ? '$actorUserId|$clientMutationId'
+          : null;
+}
+
+/// Identity, not amount, reconciles the same payment across server and outbox.
+/// Identity-free legacy events remain distinct, including equal-value payments.
+List<SettlementPaymentRecord> mergeSettlementPayments({
+  required List<SettlementPaymentRecord> confirmed,
+  List<SettlementPaymentRecord> pending = const [],
+}) {
+  final events = <String, SettlementPaymentRecord>{};
+  final mutations = <String, SettlementPaymentRecord>{};
+  final result = <SettlementPaymentRecord>[];
+  for (final payment in [...confirmed, ...pending]) {
+    final previous =
+        (payment.eventId == null ? null : events[payment.eventId]) ??
+            (payment.mutationIdentity == null
+                ? null
+                : mutations[payment.mutationIdentity]);
+    if (previous != null) {
+      if (previous.payerUserId != payment.payerUserId ||
+          previous.participantUserId != payment.participantUserId ||
+          previous.amountCents != payment.amountCents ||
+          previous.currency?.trim().toUpperCase() !=
+              payment.currency?.trim().toUpperCase()) {
+        throw const FormatException(
+            'Settlement identity has conflicting financial values');
+      }
+      continue;
+    }
+    result.add(payment);
+    if (payment.eventId != null) events[payment.eventId!] = payment;
+    if (payment.mutationIdentity != null) {
+      mutations[payment.mutationIdentity!] = payment;
+    }
+  }
+  return result;
 }
 
 /// Pure function: compute the net settlement between [currentUserId] and
@@ -80,6 +126,7 @@ Map<String, PairwiseNetResult> computeSettlementNets({
       normalizedCurrency != null && normalizedCurrency.isNotEmpty;
 
   for (final g in splits) {
+    if (g.isRecurringTemplate || g.expenseDeleted) continue;
     if (hasCurrencyFilter) {
       final groupCode = g.currency.trim().toUpperCase();
       if (groupCode != normalizedCurrency) continue;
@@ -103,7 +150,7 @@ Map<String, PairwiseNetResult> computeSettlementNets({
 
   final paidTo = <String, int>{};
   final paidFrom = <String, int>{};
-  for (final p in settlementPayments) {
+  for (final p in mergeSettlementPayments(confirmed: settlementPayments)) {
     // Filter settlement payments by currency when a filter is active.
     // Exclude payments with null/empty currency to prevent cross-currency
     // subtraction from legacy rows that may lack a currency value.
