@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:flutter/cupertino.dart';
@@ -6,16 +5,16 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/utils/invite_link_utils.dart';
 import 'package:moneko/features/households/presentation/utils/household_ui_utils.dart';
+import 'household_invite_composer.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class HouseholdMembersSection extends ConsumerStatefulWidget {
   final String householdId;
@@ -52,7 +51,7 @@ class _HouseholdMembersSectionState
 
     final currentUserId = ref.watch(currentUserIdProvider);
 
-    if (membersAsync.isLoading) {
+    if (membersAsync.isLoading && !membersAsync.hasValue) {
       return _buildSkeleton(context);
     }
 
@@ -61,7 +60,7 @@ class _HouseholdMembersSectionState
       return const SizedBox.shrink();
     }
 
-    final invites = invitesAsync.asData?.value ?? [];
+    final invites = invitesAsync.valueOrNull ?? [];
     final pendingInvites = invites
         .where((invite) => invite.status == InviteStatus.pending)
         .toList();
@@ -85,6 +84,23 @@ class _HouseholdMembersSectionState
 
     return Column(
       children: [
+        if (canManageMembers) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(children: [
+              PrimaryAdaptiveButton(
+                onPressed: () => showHouseholdInviteComposer(context,
+                    householdId: widget.householdId),
+                prefixIcon: const Icon(CupertinoIcons.link),
+                child: Text(context.l10n.shareGroupLink),
+              ),
+              const SizedBox(height: 12),
+              Text(context.l10n.groupInviteLinkDescription,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.mutedForeground)),
+            ]),
+          ),
+        ],
         _buildMembersList(
           context,
           membersAsync.value!,
@@ -197,11 +213,14 @@ class _HouseholdMembersSectionState
                   colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
             ),
             title: Text(
-              invite.invitedEmail ?? context.l10n.anyoneWithLink,
+              invite.isReusable
+                  ? context.l10n.groupInviteLink
+                  : invite.invitedEmail ?? context.l10n.anyoneWithLink,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            subtitle: Text(_formatExpiryDate(invite.expiresAt, context)),
+            subtitle: Text('${_memberRoleLabel(context, invite.invitedRole)} · '
+                '${invite.expiresAt == null ? context.l10n.inviteNeverExpires : _formatExpiryDate(invite.expiresAt, context)}'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -249,7 +268,8 @@ class _HouseholdMembersSectionState
               size: 14,
               color: colorScheme.mutedForeground.withValues(alpha: 0.5),
             ),
-            onTap: () => _showCreateInviteDialog(context),
+            onTap: () => showHouseholdInviteComposer(context,
+                householdId: widget.householdId, isReusable: false),
           ),
       ],
     );
@@ -585,97 +605,6 @@ class _HouseholdMembersSectionState
     }
   }
 
-  void _showCreateInviteDialog(BuildContext context) async {
-    int expiresInDays = 7;
-    final expiryNotifier = ValueNotifier<int>(expiresInDays);
-
-    final result = await MonekoAlertDialog.show(
-      context: context,
-      title: context.l10n.createInvitation,
-      confirmLabel: context.l10n.create,
-      cancelLabel: context.l10n.cancel,
-      inputConfig: MonekoAlertDialogInputConfig(
-        placeholder: context.l10n.emailOptional,
-        keyboardType: TextInputType.emailAddress,
-      ),
-      secondaryInputConfig: MonekoAlertDialogInputConfig(
-        placeholder: context.l10n.personalMessageOptional,
-      ),
-      content: ValueListenableBuilder<int>(
-        valueListenable: expiryNotifier,
-        builder: (context, value, _) {
-          return _ExpirySelector(
-            selectedDays: value,
-            onChanged: (newValue) {
-              expiresInDays = newValue;
-              expiryNotifier.value = newValue;
-            },
-          );
-        },
-      ),
-    );
-
-    if (result?.confirmed == true) {
-      final email = result!.text?.trim();
-      final message = result.secondaryText?.trim();
-
-      if (!context.mounted) return;
-
-      // Show blocking dialog
-      showBlockingProcessingDialog(
-        context: context,
-        message: context.l10n.generatingInvite,
-      );
-
-      try {
-        // Get names for better invite context
-        final user = ref.read(authProvider);
-        UserProfile? profile;
-        if (user.uid.isNotEmpty) {
-          try {
-            profile = await ref.read(userProfileProvider(user.uid).future);
-          } catch (_) {}
-        }
-        final inviterName = (profile?.fullName?.trim().isNotEmpty == true
-                ? profile!.fullName
-                : user.displayName?.trim().isNotEmpty == true
-                    ? user.displayName
-                    : user.email)
-            ?.trim();
-        // Household name might be passed or we fetch it?
-        // We'll use widget.householdName or try to fetch it if null, but let's assume passed or not critical
-        String? householdName = widget.householdName;
-        if (householdName == null) {
-          final household =
-              ref.read(householdProvider(widget.householdId)).value;
-          householdName = household?.name;
-        }
-
-        final token = await ref
-            .read(householdInvitesProvider(widget.householdId).notifier)
-            .createInvite(
-              invitedEmail: (email != null && email.isNotEmpty) ? email : null,
-              personalMessage:
-                  (message != null && message.isNotEmpty) ? message : null,
-              expiresInDays: expiresInDays,
-              inviterName: inviterName,
-              householdName: householdName,
-            );
-
-        if (!context.mounted) return;
-        Navigator.of(context).pop(); // Dismiss dialog
-        AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
-        final inviteUrl = buildInviteLink(token);
-        Clipboard.setData(ClipboardData(text: inviteUrl));
-        AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
-      } catch (e) {
-        if (!context.mounted) return;
-        Navigator.of(context).pop(); // Dismiss dialog
-        AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
-      }
-    }
-  }
-
   void _showInviteActionSheet(HouseholdInvite invite) {
     showCupertinoModalPopup(
       context: context,
@@ -720,128 +649,6 @@ class _HouseholdMembersSectionState
           child: Text(context.l10n.cancel),
         ),
       ),
-    );
-  }
-}
-
-class _ExpirySelector extends StatelessWidget {
-  final int selectedDays;
-  final ValueChanged<int> onChanged;
-
-  const _ExpirySelector({
-    required this.selectedDays,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final label = _getLabel(context, selectedDays);
-
-    if (Platform.isIOS) {
-      return GestureDetector(
-        onTap: () => _showIOSPicker(context),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: colorScheme.inputBackground,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: colorScheme.controlBorder,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                context.l10n.expiresIn,
-                style: TextStyle(
-                  color: colorScheme.mutedForeground,
-                  fontSize: 15,
-                ),
-              ),
-              Row(
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    CupertinoIcons.chevron_up_chevron_down,
-                    size: 14,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Android Fallback
-    return DropdownButtonFormField<int>(
-// ignore: deprecated_member_use
-      value: selectedDays,
-      decoration: InputDecoration(labelText: context.l10n.expiresIn),
-      items: [
-        DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
-        DropdownMenuItem(value: 3, child: Text(context.l10n.threeDays)),
-        DropdownMenuItem(value: 7, child: Text(context.l10n.sevenDays)),
-        DropdownMenuItem(value: 14, child: Text(context.l10n.fourteenDays)),
-        DropdownMenuItem(value: 30, child: Text(context.l10n.thirtyDays)),
-        DropdownMenuItem(value: 0, child: Text(context.l10n.unlimited)),
-      ],
-      onChanged: (val) {
-        if (val != null) onChanged(val);
-      },
-    );
-  }
-
-  String _getLabel(BuildContext context, int days) {
-    if (days == 0) return context.l10n.unlimited;
-    if (days == 1) return context.l10n.oneDay;
-    if (days == 3) return context.l10n.threeDays;
-    if (days == 7) return context.l10n.sevenDays;
-    if (days == 14) return context.l10n.fourteenDays;
-    if (days == 30) return context.l10n.thirtyDays;
-    return '$days ${context.l10n.days}';
-  }
-
-  Future<void> _showIOSPicker(BuildContext context) async {
-    final result = await showCupertinoModalPopup<int>(
-      context: context,
-      builder: (ctx) => CupertinoActionSheet(
-        title: Text(context.l10n.expiresIn),
-        actions: [
-          _buildAction(ctx, 1),
-          _buildAction(ctx, 3),
-          _buildAction(ctx, 7),
-          _buildAction(ctx, 14),
-          _buildAction(ctx, 30),
-          _buildAction(ctx, 0),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(ctx),
-          child: Text(context.l10n.cancel),
-        ),
-      ),
-    );
-
-    if (result != null) {
-      onChanged(result);
-    }
-  }
-
-  CupertinoActionSheetAction _buildAction(BuildContext context, int days) {
-    return CupertinoActionSheetAction(
-      onPressed: () => Navigator.pop(context, days),
-      child: Text(_getLabel(context, days)),
     );
   }
 }

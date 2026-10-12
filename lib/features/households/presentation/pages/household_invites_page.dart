@@ -9,10 +9,9 @@ import 'package:moneko/shared/widgets/destructive_adaptive_button.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
-import '../providers/selected_household_provider.dart';
+import '../widgets/household_invite_composer.dart';
 import '../utils/invite_link_utils.dart';
 import '../utils/household_member_permissions.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -98,13 +97,20 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
                 children: [
                   if (canManageMembers) ...[
                     PrimaryAdaptiveButton(
+                      onPressed: () =>
+                          _showCreateInviteDialog(context, isReusable: true),
+                      prefixIcon: const Icon(Icons.link),
+                      child: Text(context.l10n.shareGroupLink),
+                    ),
+                    const SizedBox(height: 12),
+                    PrimaryAdaptiveButton(
                       onPressed: () => _showCreateInviteDialog(context),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.add),
                           const SizedBox(width: 8),
-                          Text(context.l10n.createInvitation),
+                          Text(context.l10n.inviteIndividual),
                         ],
                       ),
                     ),
@@ -197,131 +203,11 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
     return null;
   }
 
-  Future<void> _showCreateInviteDialog(BuildContext context) async {
-    final emailController = TextEditingController();
-    final messageController = TextEditingController();
-    final expiresInDaysNotifier = ValueNotifier<int>(7);
-
-    final result = await MonekoAlertDialog.show(
-      context: context,
-      title: context.l10n.createInvitation,
-      confirmLabel: context.l10n.create,
-      cancelLabel: context.l10n.cancel,
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(
-                labelText: context.l10n.emailOptional,
-                hintText: context.l10n.friendEmailExample,
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: messageController,
-              decoration: InputDecoration(
-                labelText: context.l10n.personalMessageOptional,
-                hintText: context.l10n.joinHouseholdBudget,
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-            ValueListenableBuilder<int>(
-              valueListenable: expiresInDaysNotifier,
-              builder: (context, value, child) => DropdownButtonFormField<int>(
-                initialValue: value,
-                decoration: InputDecoration(labelText: context.l10n.expiresIn),
-                items: [
-                  DropdownMenuItem(value: 1, child: Text(context.l10n.oneDay)),
-                  DropdownMenuItem(
-                      value: 3, child: Text(context.l10n.threeDays)),
-                  DropdownMenuItem(
-                      value: 7, child: Text(context.l10n.sevenDays)),
-                  DropdownMenuItem(
-                      value: 14, child: Text(context.l10n.fourteenDays)),
-                  DropdownMenuItem(
-                      value: 30, child: Text(context.l10n.thirtyDays)),
-                  DropdownMenuItem(
-                      value: 0, child: Text(context.l10n.unlimited)),
-                ],
-                onChanged: (value) {
-                  if (value != null) expiresInDaysNotifier.value = value;
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (result?.confirmed == true) {
-      await _createInvite(
-        email: emailController.text.isNotEmpty ? emailController.text : null,
-        message:
-            messageController.text.isNotEmpty ? messageController.text : null,
-        expiresInDays: expiresInDaysNotifier.value,
-      );
-    }
-
-    emailController.dispose();
-    messageController.dispose();
-    expiresInDaysNotifier.dispose();
-  }
-
-  Future<void> _createInvite({
-    String? email,
-    String? message,
-    required int expiresInDays,
-  }) async {
-    try {
-      final user = ref.read(authProvider);
-      UserProfile? profile;
-      if (user.uid.isNotEmpty) {
-        try {
-          profile = await ref.read(userProfileProvider(user.uid).future);
-        } catch (_) {}
-      }
-      final inviterName = (profile?.fullName?.trim().isNotEmpty == true
-              ? profile!.fullName
-              : user.displayName?.trim().isNotEmpty == true
-                  ? user.displayName
-                  : user.email)
-          ?.trim();
-      final selectedHousehold = ref.read(selectedHouseholdObjectProvider);
-      final householdName = selectedHousehold?.id == widget.householdId
-          ? selectedHousehold?.name
-          : ref.read(householdProvider(widget.householdId)).value?.name;
-      final repository = ref.read(householdRepositoryProvider);
-      final token = await repository.createInvite(
-        householdId: widget.householdId,
-        invitedEmail: email,
-        personalMessage: message,
-        inviterName: inviterName?.isNotEmpty == true ? inviterName : null,
-        householdName: householdName?.trim().isNotEmpty == true
-            ? householdName?.trim()
-            : null,
-        expiresInDays: expiresInDays,
-      );
-
-      await _loadInvites();
-
-      if (mounted) {
-        AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
-
-        // Automatically copy the invite link
-        final inviteUrl = buildInviteLink(token);
-        Clipboard.setData(ClipboardData(text: inviteUrl));
-
-        AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
-      }
-    } catch (e) {
-      if (mounted) {
-        AppToast.error(context, '${context.l10n.errorCreatingInvite}: $e');
-      }
-    }
+  Future<void> _showCreateInviteDialog(BuildContext context,
+      {bool isReusable = false}) async {
+    await showHouseholdInviteComposer(context,
+        householdId: widget.householdId, isReusable: isReusable);
+    if (mounted) await _loadInvites();
   }
 
   void _copyInviteLink(HouseholdInvite invite) {
@@ -390,7 +276,9 @@ class _InviteCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    invite.invitedEmail ?? context.l10n.anyoneWithLink,
+                    invite.isReusable
+                        ? context.l10n.groupInviteLink
+                        : invite.invitedEmail ?? context.l10n.anyoneWithLink,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -419,7 +307,7 @@ class _InviteCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   invite.expiresAt == null
-                      ? context.l10n.noExpiry
+                      ? context.l10n.inviteNeverExpires
                       : (isExpired
                           ? '${context.l10n.expired} ${_formatDate(invite.expiresAt!)}'
                           : '${context.l10n.expires} ${_formatDate(invite.expiresAt!)}'),

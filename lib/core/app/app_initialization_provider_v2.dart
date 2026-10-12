@@ -476,6 +476,8 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       }
 
       // STEP 1: Try to load from cache first (instant UI)
+      final initialCatalog = ref.read(userHouseholdsProvider(userId).notifier);
+      final cachedCatalogRevision = initialCatalog.revision;
       var cachedData = _cacheManager?.load(_appVersion!);
       // Best-effort fallback: if app version changed, still try using a fresh
       // cache to avoid hard failures on cold start right after updates.
@@ -485,7 +487,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       cachedData ??= _cacheManager?.loadStaleBestEffort(_appVersion!);
       if (cachedData != null && _operationId == operationId) {
         try {
-          final initData = InitData.fromJson(cachedData).copyWith(
+          var initData = InitData.fromJson(cachedData).copyWith(
             isFromCache: true,
           );
 
@@ -498,8 +500,21 @@ class AppInitializationV2 extends _$AppInitializationV2 {
             user: initData.user,
           );
 
-          ref.read(preloadedUserHouseholdsProvider(userId).notifier).state =
-              initData.households;
+          if (_operationId != operationId ||
+              ref.read(authProvider).uid != userId) {
+            return;
+          }
+          final catalog = ref.read(userHouseholdsProvider(userId).notifier);
+          if (identical(catalog, initialCatalog) &&
+              !ref.read(userHouseholdsProvider(userId)).hasValue) {
+            catalog.hydrate(initData.households,
+                expectedRevision: cachedCatalogRevision);
+          }
+          final currentHouseholds =
+              ref.read(userHouseholdsProvider(userId)).valueOrNull;
+          if (currentHouseholds != null) {
+            initData = initData.copyWith(households: currentHouseholds);
+          }
           if (initData.households.isNotEmpty) {
             unawaited(
               ref
@@ -534,6 +549,8 @@ class AppInitializationV2 extends _$AppInitializationV2 {
   /// Fetch fresh data from backend
   Future<void> _fetchFreshData(
       String userId, int operationId, Stopwatch stopwatch) async {
+    final requestedCatalog = ref.read(userHouseholdsProvider(userId).notifier);
+    final requestedCatalogRevision = requestedCatalog.revision;
     try {
       // Single optimized RPC call for all init data
       final response = await _initializeRpcWithRetry(userId, operationId);
@@ -548,7 +565,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
 
       // Parse response
       final data = response as Map<String, dynamic>;
-      final initData = _parseInitData(data);
+      var initData = _parseInitData(data);
       await _initializeSelectedCurrency(
         initData.user,
         preferExistingState: false,
@@ -557,6 +574,20 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         userId,
         user: initData.user,
       );
+
+      if (_operationId != operationId || ref.read(authProvider).uid != userId) {
+        return;
+      }
+      final catalog = ref.read(userHouseholdsProvider(userId).notifier);
+      if (identical(catalog, requestedCatalog)) {
+        catalog.hydrate(initData.households,
+            expectedRevision: requestedCatalogRevision);
+      }
+      final currentHouseholds =
+          ref.read(userHouseholdsProvider(userId)).valueOrNull;
+      if (currentHouseholds != null) {
+        initData = initData.copyWith(households: currentHouseholds);
+      }
 
       // Update state with fresh data
       stopwatch.stop();
@@ -575,11 +606,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       // Record metrics
       _recordSuccessMetrics(stopwatch.elapsed, initData);
 
-      ref.read(preloadedUserHouseholdsProvider(userId).notifier).state =
-          initData.households;
-      ref
-          .read(userHouseholdsProvider(userId).notifier)
-          .hydrate(initData.households);
       final householdsState = ref.read(userHouseholdsProvider(userId));
       final households = initData.households;
       if (!householdsState.hasError && households.isEmpty) {

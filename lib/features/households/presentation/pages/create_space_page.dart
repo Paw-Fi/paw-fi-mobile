@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
@@ -143,7 +143,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLoading = _isCreating || _isUploadingImage || _isCheckingSpaceLimit;
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final currentUserId = ref.watch(currentUserIdProvider);
     if (currentUserId != null) {
       ref.watch(userHouseholdsProvider(currentUserId));
     }
@@ -327,7 +327,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     setState(() => _isCreating = true);
 
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
+      final container = ProviderScope.containerOf(context, listen: false);
+      final userId = container.read(currentUserIdProvider);
       if (userId == null) throw Exception('User not authenticated');
 
       final name = _nameController.text.trim();
@@ -344,11 +345,9 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
         setState(() => _isUploadingImage = false);
       }
 
-      final householdsNotifier =
-          ref.read(userHouseholdsProvider(userId).notifier);
-
       late final Household createdHousehold;
       try {
+        if (container.read(currentUserIdProvider) != userId) return;
         createdHousehold =
             await ref.read(householdRepositoryProvider).createHousehold(
                   name: name,
@@ -357,38 +356,41 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                   isPortfolio: !_isSharedSpace,
                   autoSplitEnabled: _isSharedSpace ? _autoSplitEnabled : null,
                 );
-        householdsNotifier.addOrReplaceHousehold(createdHousehold);
+        if (container.read(currentUserIdProvider) != userId) return;
+        container
+            .read(userHouseholdsProvider(userId).notifier)
+            .addOrReplaceHousehold(createdHousehold);
       } catch (_) {
         rethrow;
       }
 
-      if (!_isSharedSpace) {
-        // --- Private Space Flow ---
-        await activateCreatedSpaceBeforeClosing(
-          householdId: createdHousehold.id,
-          selectHousehold:
-              ref.read(selectedHouseholdProvider.notifier).selectHousehold,
-          setHouseholdMode: () =>
-              ref.read(viewModeProvider.notifier).setMode(ViewMode.household),
-          closeCreationPage: () {
-            if (!mounted) return;
-            setState(() => _isCreating = false);
-            if (widget.fromOnboarding) {
-              Navigator.of(context)
-                  .pop(true); // Return to onboarding finish step
-            } else {
-              Navigator.of(context).pop(); // Close create page
-            }
-          },
-        );
-      } else {
-        // --- Group Space Flow ---
-        // Switch context first
-        await ref
-            .read(selectedHouseholdProvider.notifier)
-            .selectHousehold(createdHousehold.id);
-        ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-
+      // Activate the confirmed space independently of the invitation route.
+      // The app container remains usable if this page was closed during save.
+      await activateCreatedSpaceBeforeClosing(
+        householdId: createdHousehold.id,
+        selectHousehold:
+            container.read(selectedHouseholdProvider.notifier).selectHousehold,
+        setHouseholdMode: () {
+          if (container.read(currentUserIdProvider) != userId) return;
+          container.read(viewModeProvider.notifier).setMode(ViewMode.household);
+        },
+        closeCreationPage: () {
+          if (!mounted ||
+              _isSharedSpace ||
+              container.read(currentUserIdProvider) != userId) {
+            return;
+          }
+          setState(() => _isCreating = false);
+          if (widget.fromOnboarding) {
+            Navigator.of(context).pop(true); // Return to onboarding finish step
+          } else {
+            Navigator.of(context).pop(); // Close create page
+          }
+        },
+      );
+      if (mounted &&
+          _isSharedSpace &&
+          container.read(currentUserIdProvider) == userId) {
         // Generate Invite & Go to Next Page
         await _generateInvitationAndNavigate(
             createdHousehold.id, createdHousehold.name);
@@ -449,7 +451,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     }
     if (hasPremiumFeatureAccess(subscription)) return false;
 
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(currentUserIdProvider);
     if (userId == null) return false;
 
     var householdsAsync = ref.read(userHouseholdsProvider(userId));

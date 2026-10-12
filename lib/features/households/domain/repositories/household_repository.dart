@@ -43,6 +43,8 @@ abstract class HouseholdRepository {
     String? inviterName,
     String? householdName,
     int expiresInDays,
+    bool isReusable = false,
+    HouseholdRole invitedRole = HouseholdRole.admin,
   });
   Future<Map<String, dynamic>> validateInvite(String token);
   Future<Map<String, dynamic>> acceptInvite(String token);

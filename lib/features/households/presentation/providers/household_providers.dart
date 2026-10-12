@@ -332,6 +332,9 @@ class UserHouseholdsNotifier
   final String _userId;
   final Ref _ref;
   Future<void>? _inFlightLoad;
+  int _revision = 0;
+
+  int get revision => _revision;
 
   UserHouseholdsNotifier(
     this._repository,
@@ -388,24 +391,21 @@ class UserHouseholdsNotifier
   }
 
   Future<void> load() async {
+    if (!mounted) return;
     if (_inFlightLoad != null) {
       return _inFlightLoad!;
     }
 
     final completer = Completer<void>();
     _inFlightLoad = completer.future;
-
-    if (!mounted) return;
-
-    // Preview mode: return mock households instantly
-    final preview = _ref.read(previewModeProvider);
-    if (preview.isActive) {
-      state = AsyncValue.data(PreviewMockData.households);
-
-      return;
-    }
+    final requestRevision = _revision;
 
     try {
+      final preview = _ref.read(previewModeProvider);
+      if (preview.isActive) {
+        state = AsyncValue.data(PreviewMockData.households);
+        return;
+      }
       final cacheKey = _userHouseholdsCacheKey(_userId);
       final cached = await _readHouseholdCachedList<Household>(
         cacheKey,
@@ -427,19 +427,14 @@ class UserHouseholdsNotifier
         return;
       }
 
-      final result = await AsyncValue.guard(() async {
-        final households = _withoutOptimisticHouseholds(
-          await _repository.getUserHouseholds(_userId),
-        );
-        unawaited(_writeHouseholdCachedList(
-          cacheKey,
-          households,
-          (household) => household.toJson(),
-        ));
-        return households;
-      });
-      if (!mounted) return;
-      if (result.hasValue || !state.hasValue) {
+      final result =
+          await AsyncValue.guard(() async => _withoutOptimisticHouseholds(
+                await _repository.getUserHouseholds(_userId),
+              ));
+      if (!mounted || requestRevision != _revision) return;
+      if (result.hasValue) {
+        _publishCatalog(result.requireValue);
+      } else if (!state.hasValue) {
         state = result;
       }
     } finally {
@@ -450,17 +445,37 @@ class UserHouseholdsNotifier
     }
   }
 
-  void hydrate(List<Household> households) {
-    if (!mounted) return;
-    final sanitized = _withoutOptimisticHouseholds(households);
-    state = AsyncValue.data(sanitized);
-    if (_userId.isNotEmpty) {
-      unawaited(_writeHouseholdCachedList(
-        _userHouseholdsCacheKey(_userId),
-        sanitized,
-        (household) => household.toJson(),
-      ));
+  bool hydrate(List<Household> households, {int? expectedRevision}) {
+    if (!mounted ||
+        (expectedRevision != null && expectedRevision != _revision)) {
+      return false;
     }
+    _publishCatalog(_withoutOptimisticHouseholds(households));
+    return true;
+  }
+
+  void _publishCatalog(List<Household> households) {
+    final revision = ++_revision;
+    state = AsyncValue.data(households);
+    // The bootstrap list seeds new instances; it must not recreate this one.
+    _ref.read(preloadedUserHouseholdsProvider(_userId).notifier).state =
+        households;
+    if (_userId.isNotEmpty) {
+      unawaited(_persistCatalog(households, revision));
+    }
+  }
+
+  Future<void> _persistCatalog(List<Household> households, int revision) async {
+    final prefs = await _householdPrefsOrNull();
+    if (prefs == null || !mounted || revision != _revision) return;
+    await prefs.setString(
+        _userHouseholdsCacheKey(_userId),
+        jsonEncode({
+          'cached_at': DateTime.now().toIso8601String(),
+          'state': {
+            'items': households.map((household) => household.toJson()).toList()
+          },
+        }));
   }
 
   void addOrReplaceHousehold(Household household) {
@@ -475,31 +490,17 @@ class UserHouseholdsNotifier
       updated.add(household);
     }
 
-    state = AsyncValue.data(updated);
-    if (_userId.isNotEmpty) {
-      unawaited(_writeHouseholdCachedList(
-        _userHouseholdsCacheKey(_userId),
-        updated,
-        (household) => household.toJson(),
-      ));
-    }
+    _publishCatalog(updated);
   }
 
   void removeHousehold(String householdId) {
     if (!mounted) return;
     final current = state.valueOrNull ?? const <Household>[];
-    state = AsyncValue.data(
+    _publishCatalog(
       current
           .where((household) => household.id != householdId)
           .toList(growable: false),
     );
-    if (_userId.isNotEmpty) {
-      unawaited(_writeHouseholdCachedList(
-        _userHouseholdsCacheKey(_userId),
-        state.valueOrNull ?? const <Household>[],
-        (household) => household.toJson(),
-      ));
-    }
   }
 
   Future<void> createHousehold({
@@ -528,7 +529,7 @@ final userHouseholdsProvider = StateNotifierProvider.family<
     UserHouseholdsNotifier, AsyncValue<List<Household>>, String>(
   (ref, userId) {
     final repository = ref.watch(householdRepositoryProvider);
-    final seededHouseholds = ref.watch(preloadedUserHouseholdsProvider(userId));
+    final seededHouseholds = ref.read(preloadedUserHouseholdsProvider(userId));
     final deferInitialLoad = seededHouseholds == null;
     final notifier = UserHouseholdsNotifier(
       repository,
@@ -822,6 +823,8 @@ class HouseholdInvitesNotifier
     String? inviterName,
     String? householdName,
     int expiresInDays = 7,
+    bool isReusable = false,
+    HouseholdRole invitedRole = HouseholdRole.admin,
   }) async {
     final token = await _repository.createInvite(
       householdId: _householdId,
@@ -830,6 +833,8 @@ class HouseholdInvitesNotifier
       inviterName: inviterName,
       householdName: householdName,
       expiresInDays: expiresInDays,
+      isReusable: isReusable,
+      invitedRole: invitedRole,
     );
     if (!mounted) return token;
     await load();

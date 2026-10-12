@@ -374,6 +374,8 @@ enum InviteStatus {
 
 /// Household invite entity
 class HouseholdInvite {
+  final bool isReusable;
+  final HouseholdRole invitedRole;
   final String id;
   final String token;
   final String householdId;
@@ -390,6 +392,8 @@ class HouseholdInvite {
   final String? householdName;
 
   const HouseholdInvite({
+    this.isReusable = false,
+    this.invitedRole = HouseholdRole.admin,
     required this.id,
     required this.token,
     required this.householdId,
@@ -408,6 +412,9 @@ class HouseholdInvite {
 
   factory HouseholdInvite.fromJson(Map<String, dynamic> json) {
     return HouseholdInvite(
+      isReusable: json['is_reusable'] == true,
+      invitedRole:
+          HouseholdRole.fromJson(json['invited_role'] as String? ?? 'admin'),
       id: json['id'] as String,
       token: json['token'] as String,
       householdId: json['household_id'] as String,
@@ -433,6 +440,8 @@ class HouseholdInvite {
     return {
       'id': id,
       'token': token,
+      'is_reusable': isReusable,
+      'invited_role': invitedRole.toJson(),
       'household_id': householdId,
       'inviter_id': inviterId,
       'invited_user_id': invitedUserId,
@@ -449,6 +458,8 @@ class HouseholdInvite {
   }
 
   HouseholdInvite copyWith({
+    bool? isReusable,
+    HouseholdRole? invitedRole,
     String? id,
     String? token,
     String? householdId,
@@ -465,6 +476,8 @@ class HouseholdInvite {
     String? householdName,
   }) {
     return HouseholdInvite(
+      isReusable: isReusable ?? this.isReusable,
+      invitedRole: invitedRole ?? this.invitedRole,
       id: id ?? this.id,
       token: token ?? this.token,
       householdId: householdId ?? this.householdId,

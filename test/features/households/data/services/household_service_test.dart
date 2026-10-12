@@ -6,6 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/features/households/data/services/household_service.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/data/repositories/household_repository_impl.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 class _MockSupabaseClient extends Mock implements SupabaseClient {}
 
@@ -37,6 +40,123 @@ void main() {
   });
 
   group('HouseholdService.createInvite', () {
+    test('notifier and repository preserve link role and expiry end to end',
+        () async {
+      Map<String, dynamic>? sent;
+      final client = SupabaseClient('https://example.test', 'anon-key',
+          httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/households-create-invite')) {
+          expect(request.method.toUpperCase(), 'POST');
+          sent = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+              jsonEncode({
+                'token': 'group',
+                'is_reusable': true,
+                'invited_role': 'member',
+                'expires_at': null
+              }),
+              200,
+              headers: {'content-type': 'application/json'});
+        }
+        return http.Response('[]', 200,
+            headers: {'content-type': 'application/json'});
+      }));
+      final notifier = HouseholdInvitesNotifier(
+          HouseholdRepositoryImpl(HouseholdService(client)), 'space');
+      await notifier.createInvite(
+          isReusable: true,
+          invitedRole: HouseholdRole.member,
+          expiresInDays: 0,
+          personalMessage: 'مرحبًا بالجميع');
+      expect(sent?['household_id'], 'space');
+      expect(sent?['is_reusable'], true);
+      expect(sent?['invited_role'], 'member');
+      expect(sent?['expires_in_days'], 0);
+      expect(sent?['personal_message'], 'مرحبًا بالجميع');
+      notifier.dispose();
+      await client.dispose();
+    });
+    test('sends reusable member link with no expiry or recipient', () async {
+      final response = _MockFunctionResponse();
+      when(() => response.status).thenReturn(200);
+      when(() => response.data).thenReturn({
+        'token': 'group-token',
+        'is_reusable': true,
+        'invited_role': 'member',
+        'expires_at': null
+      });
+      Map<String, dynamic>? body;
+      when(() => functions.invoke('households-create-invite',
+          body: any(named: 'body'))).thenAnswer((invocation) async {
+        body = invocation.namedArguments[#body] as Map<String, dynamic>;
+        return response;
+      });
+      expect(
+          await service.createInvite(
+              householdId: 'hh_123',
+              isReusable: true,
+              invitedRole: HouseholdRole.member,
+              expiresInDays: 0),
+          'group-token');
+      expect(body, {
+        'household_id': 'hh_123',
+        'expires_in_days': 0,
+        'is_reusable': true,
+        'invited_role': 'member'
+      });
+    });
+
+    test('legacy invitation defaults to single use and admin', () async {
+      final response = _MockFunctionResponse();
+      when(() => response.status).thenReturn(200);
+      when(() => response.data).thenReturn({'token': 'personal-token'});
+      Map<String, dynamic>? body;
+      when(() => functions.invoke('households-create-invite',
+          body: any(named: 'body'))).thenAnswer((invocation) async {
+        body = invocation.namedArguments[#body] as Map<String, dynamic>;
+        return response;
+      });
+      await service.createInvite(
+          householdId: 'hh_123', invitedEmail: 'a@example.com');
+      expect(body?['is_reusable'], false);
+      expect(body?['invited_role'], 'admin');
+      expect(body?['expires_in_days'], 7);
+      expect(body?['invited_email'], 'a@example.com');
+    });
+
+    test('does not expose a link when older backend ignores requested settings',
+        () async {
+      final response = _MockFunctionResponse();
+      when(() => response.status).thenReturn(200);
+      when(() => functions.invoke('households-create-invite',
+          body: any(named: 'body'))).thenAnswer((_) async => response);
+      for (final payload in [
+        {'token': 'legacy-link'},
+        {
+          'token': 'wrong-role',
+          'is_reusable': true,
+          'invited_role': 'admin',
+          'expires_at': null
+        },
+        {
+          'token': 'wrong-expiry',
+          'is_reusable': true,
+          'invited_role': 'member',
+          'expires_at':
+              DateTime.now().add(const Duration(days: 7)).toIso8601String()
+        },
+      ]) {
+        when(() => response.data).thenReturn(payload);
+        await expectLater(
+            service.createInvite(
+                householdId: 'space',
+                isReusable: true,
+                invitedRole: HouseholdRole.member,
+                expiresInDays: 0),
+            throwsA(isA<StateError>()));
+      }
+    });
+
     test('sends only non-null optional fields and returns invite_url on 200',
         () async {
       final response = _MockFunctionResponse();

@@ -107,6 +107,8 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
     String? inviterName,
     String? householdName,
     int expiresInDays = 7,
+    bool isReusable = false,
+    HouseholdRole invitedRole = HouseholdRole.admin,
   }) async {
     return await _service.createInvite(
       householdId: householdId,
@@ -115,6 +117,8 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
       inviterName: inviterName,
       householdName: householdName,
       expiresInDays: expiresInDays,
+      isReusable: isReusable,
+      invitedRole: invitedRole,
     );
   }
 

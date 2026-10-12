@@ -100,6 +100,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       final loadedHouseholds = preview.isActive
           ? PreviewMockData.households
           : preloadedHouseholds ?? await _waitForHouseholds(_userId);
+      if (!mounted || _operationId != operationId) return;
       final households = loadedHouseholds
           ?.where((household) => !isOptimisticHouseholdId(household.id))
           .toList(growable: false);
@@ -142,7 +143,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       final selectedId = selectedHousehold.id;
 
       // Update state
-      if (_operationId != operationId) return;
+      if (!mounted || _operationId != operationId) return;
       state = SelectedHouseholdState(
         householdId: selectedId,
         household: selectedHousehold,
@@ -153,7 +154,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       // Persist to storage (per-user key)
       await _saveToStorage(selectedId);
     } catch (e) {
-      if (_operationId != operationId) return;
+      if (!mounted || _operationId != operationId) return;
       state = SelectedHouseholdState(
         isLoading: false,
         error: e.toString(),
@@ -227,6 +228,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
       // Fallback: fetch household details (may fail offline). Still persist ID even if null.
       resolved ??= await ref.read(householdProvider(householdId).future);
+      if (!mounted || _operationId != operationId) return;
 
       // Update state
       state = SelectedHouseholdState(
@@ -241,7 +243,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
       if (_operationId != operationId) return;
     } catch (e) {
-      if (_operationId != operationId) return;
+      if (!mounted || _operationId != operationId) return;
       // Keep the selected ID if possible, so the choice persists even if fetching fails.
       state = state.copyWith(error: e.toString());
       await _saveToStorage(householdId);
@@ -250,6 +252,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
   /// Clear selection
   Future<void> clearSelection() async {
+    ++_operationId;
     if (mounted) {
       state = const SelectedHouseholdState();
     }

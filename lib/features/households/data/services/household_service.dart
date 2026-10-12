@@ -2,6 +2,7 @@ import 'package:moneko/core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'shared_budget_identity.dart';
 import 'dart:async';
+import '../../domain/entities/household.dart';
 
 /// Supabase service for household operations
 class HouseholdService {
@@ -226,6 +227,8 @@ class HouseholdService {
     String? inviterName,
     String? householdName,
     int expiresInDays = 7,
+    bool isReusable = false,
+    HouseholdRole invitedRole = HouseholdRole.admin,
     Duration timeout = const Duration(seconds: 20),
   }) async {
     try {
@@ -241,6 +244,8 @@ class HouseholdService {
       final body = <String, dynamic>{
         'household_id': householdId,
         'expires_in_days': expiresInDays,
+        'is_reusable': isReusable,
+        'invited_role': invitedRole.toJson(),
       };
       if (invitedEmail != null && invitedEmail.isNotEmpty) {
         body['invited_email'] = invitedEmail;
@@ -270,6 +275,18 @@ class HouseholdService {
       }
 
       final data = response.data as Map<String, dynamic>;
+      if (isReusable || invitedRole != HouseholdRole.admin) {
+        final expiry = data['expires_at'];
+        final confirmedExpiry = expiresInDays == 0
+            ? data.containsKey('expires_at') && expiry == null
+            : expiry is String && DateTime.tryParse(expiry) != null;
+        if (data['is_reusable'] != isReusable ||
+            data['invited_role'] != invitedRole.toJson() ||
+            !confirmedExpiry) {
+          throw StateError(
+              'The server did not confirm the requested invitation settings. Please try again.');
+        }
+      }
       final token = data['token'] as String?;
 
       if (token != null && token.isNotEmpty) {

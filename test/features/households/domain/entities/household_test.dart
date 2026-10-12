@@ -514,6 +514,39 @@ void main() {
   });
 
   group('HouseholdInvite - JSON Serialization', () {
+    test('reusable role and unlimited expiry survive round trip and copy', () {
+      final invite = HouseholdInvite.fromJson({
+        'id': 'inv_1',
+        'token': 'abc123',
+        'household_id': 'hh_1',
+        'inviter_id': 'user_1',
+        'status': 'pending',
+        'is_reusable': true,
+        'invited_role': 'member',
+        'expires_at': null,
+        'created_at': '2024-01-01T00:00:00.000Z',
+        'updated_at': '2024-01-01T00:00:00.000Z',
+      });
+      final copy = HouseholdInvite.fromJson(invite.copyWith().toJson());
+      expect(copy.isReusable, true);
+      expect(copy.invitedRole, HouseholdRole.member);
+      expect(copy.expiresAt, null);
+    });
+
+    test('old invitation payload remains single use and admin', () {
+      final invite = HouseholdInvite.fromJson({
+        'id': 'inv_1',
+        'token': 'abc123',
+        'household_id': 'hh_1',
+        'inviter_id': 'user_1',
+        'status': 'pending',
+        'created_at': '2024-01-01T00:00:00.000Z',
+        'updated_at': '2024-01-01T00:00:00.000Z',
+      });
+      expect(invite.isReusable, false);
+      expect(invite.invitedRole, HouseholdRole.admin);
+    });
+
     test('fromJson parses invite correctly', () {
       final json = {
         'id': 'inv_1',

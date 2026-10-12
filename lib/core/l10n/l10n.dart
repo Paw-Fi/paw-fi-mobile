@@ -218,3 +218,18 @@ extension WalletOrderL10nX on AppLocalizations {
   String get walletOrderSaveFailed =>
       'Could not save wallet order. Please try again.';
 }
+
+/// English fallback until the normal translation catalog export.
+extension HouseholdGroupInviteL10nX on AppLocalizations {
+  String get shareGroupLink => 'Share group link';
+  String get createGroupLink => 'Create group link';
+  String get groupInviteLink => 'Group invite link';
+  String get groupInviteLinkDescription =>
+      'Share one link with your whole group. Anyone with the link can sign in or create an account and join this space.';
+  String get inviteIndividual => 'Invite someone individually';
+  String get invitedUserRole => 'Join as';
+  String get invitationRoleHelp =>
+      'Admins can add shared expenses, view balances, manage space settings, invite people, and manage members.\n\nMembers can add shared expenses and view balances, without managing space settings or members.';
+  String get inviteNeverExpires => 'Never expires';
+  String get shareInviteLink => 'Share link';
+}

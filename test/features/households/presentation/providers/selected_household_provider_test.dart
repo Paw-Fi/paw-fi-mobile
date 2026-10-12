@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/features/auth/domain/app_user.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/domain/repositories/household_repository.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
 class _TestAuth extends Auth {
   _TestAuth(this._user);
@@ -190,4 +193,61 @@ void main() {
     expect(prefs.getString('selected_household_id:u1'), isNull);
     expect(prefs.getString('selected_household_id'), isNull);
   });
+
+  test('late empty initialization cannot clear a newly selected space',
+      () async {
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      authProvider.overrideWith(
+          () => _TestAuth(const AppUser(uid: 'u1', email: 'u1@example.com'))),
+      preloadedUserHouseholdsProvider('u1').overrideWith((ref) => []),
+      householdRepositoryProvider.overrideWithValue(_UnusedRepository()),
+    ]);
+    addTearDown(container.dispose);
+    final notifier = container.read(selectedHouseholdProvider.notifier);
+    final initializing = notifier.initialize();
+    container
+        .read(userHouseholdsProvider('u1').notifier)
+        .addOrReplaceHousehold(_household('new'));
+    await notifier.selectHousehold('new');
+    await initializing;
+    expect(container.read(selectedHouseholdProvider).householdId, 'new');
+    expect(prefs.getString('selected_household_id:u1'), 'new');
+  });
+
+  for (final clear in [false, true]) {
+    test('late selection cannot replace a newer ${clear ? 'clear' : 'space'}',
+        () async {
+      final prefs = await SharedPreferences.getInstance();
+      final response = Completer<Household?>();
+      final container = ProviderContainer(overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        authProvider.overrideWith(
+            () => _TestAuth(const AppUser(uid: 'u1', email: 'u1@example.com'))),
+        preloadedUserHouseholdsProvider('u1')
+            .overrideWith((ref) => [_household('new')]),
+        householdRepositoryProvider.overrideWithValue(_UnusedRepository()),
+        householdProvider('slow').overrideWith((ref) => response.future),
+      ]);
+      addTearDown(container.dispose);
+      final notifier = container.read(selectedHouseholdProvider.notifier);
+      final stale = notifier.selectHousehold('slow');
+      if (clear) {
+        await notifier.clearSelection();
+      } else {
+        await notifier.selectHousehold('new');
+      }
+      response.complete(_household('slow'));
+      await stale;
+      expect(container.read(selectedHouseholdProvider).householdId,
+          clear ? null : 'new');
+      expect(prefs.getString('selected_household_id:u1'), clear ? null : 'new');
+    });
+  }
+}
+
+class _UnusedRepository implements HouseholdRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
