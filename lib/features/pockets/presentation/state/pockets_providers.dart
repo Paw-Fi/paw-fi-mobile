@@ -371,11 +371,14 @@ double _pocketExpenseAmountInCurrency(
       sourceCurrency == normalizedTarget) {
     return expense.spendingEffect;
   }
-  return rates.convert(
-    expense.spendingEffect,
-    sourceCurrency,
-    normalizedTarget,
-  );
+  return convertAmountCentsToCurrency(
+        expense.amountCents.abs(),
+        fromCurrency: sourceCurrency,
+        targetCurrency: normalizedTarget,
+        rates: rates,
+      ) /
+      100.0 *
+      expense.effectiveSpendingMultiplier;
 }
 
 @foundation.visibleForTesting
@@ -1478,15 +1481,15 @@ List<ExpenseEntry> _mergeUniquePocketExpenses(
   Iterable<ExpenseEntry> overlay,
 ) {
   final seen = <String>{};
-  final fingerprintIndexes = <String, int>{};
+  final identityIndexes = <String, int>{};
   final merged = <ExpenseEntry>[];
 
   for (final entry in [...base, ...overlay]) {
     if (entry.id.isEmpty || !seen.add(entry.id)) continue;
 
-    final fingerprint = _pocketExpenseReconciliationFingerprint(entry);
+    final keys = _pocketExpenseIdentityKeys(entry);
     final existingIndex =
-        fingerprint == null ? null : fingerprintIndexes[fingerprint];
+        keys.map((key) => identityIndexes[key]).whereType<int>().firstOrNull;
     if (existingIndex != null) {
       final existing = merged[existingIndex];
       if (_isOptimisticPocketExpenseId(existing.id) !=
@@ -1494,12 +1497,15 @@ List<ExpenseEntry> _mergeUniquePocketExpenses(
         if (!_isOptimisticPocketExpenseId(entry.id)) {
           merged[existingIndex] = entry;
         }
+        for (final key in keys) {
+          identityIndexes[key] = existingIndex;
+        }
         continue;
       }
     }
 
-    if (fingerprint != null) {
-      fingerprintIndexes[fingerprint] = merged.length;
+    for (final key in keys) {
+      identityIndexes[key] = merged.length;
     }
     merged.add(entry);
   }
@@ -1509,35 +1515,30 @@ List<ExpenseEntry> _mergeUniquePocketExpenses(
 
 bool _isOptimisticPocketExpenseId(String id) => id.startsWith('optimistic_');
 
-String? _pocketExpenseReconciliationFingerprint(ExpenseEntry entry) {
-  final normalizedText = _normalizedPocketExpenseText(entry);
-  if (normalizedText.isEmpty) return null;
-  final dateKey = '${entry.date.year.toString().padLeft(4, '0')}-'
-      '${entry.date.month.toString().padLeft(2, '0')}-'
-      '${entry.date.day.toString().padLeft(2, '0')}';
-  return [
-    dateKey,
-    entry.amountCents.toString(),
-    (entry.currency ?? '').trim().toUpperCase(),
-    (entry.type ?? 'expense').trim().toLowerCase(),
-    entry.householdId?.trim() ?? '',
-    entry.userId?.trim() ?? '',
-    normalizedText,
-  ].join('|');
+Set<String> _pocketExpenseIdentityKeys(ExpenseEntry entry) {
+  final idempotencyKey = entry.idempotencyKey?.trim();
+  return {
+    entry.id,
+    ..._pocketExpenseAliasIds(entry),
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty)
+      'idempotency:$idempotencyKey',
+  };
 }
 
-String _normalizedPocketExpenseText(ExpenseEntry entry) {
-  final source = (entry.rawText?.trim().isNotEmpty == true)
-      ? entry.rawText!.trim()
-      : (entry.merchant?.trim().isNotEmpty == true)
-          ? entry.merchant!.trim()
-          : (entry.category ?? '').trim();
-  return source
-      .toLowerCase()
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
-      .trim();
+Set<String> _pocketExpenseAliasIds(ExpenseEntry entry) {
+  final recordId = entry.clientRecordId?.trim();
+  final key = entry.idempotencyKey?.trim();
+  return {
+    if (recordId != null && recordId.isNotEmpty) recordId,
+    if (key?.startsWith('mobile:optimistic_') == true)
+      key!.substring('mobile:'.length),
+  };
 }
+
+Set<String> _pocketExpenseAppliedKeys(ExpenseEntry entry) => {
+      entry.id,
+      for (final alias in _pocketExpenseAliasIds(entry)) 'alias:$alias',
+    };
 
 @foundation.visibleForTesting
 PocketsState applyLocalPocketExpenseOverlay({
@@ -1562,7 +1563,12 @@ PocketsState applyLocalPocketExpenseOverlay({
   final selectedCurrency = state.currency.trim().toUpperCase();
   final existingOverlayIds = state.localOverlayExpenseIds;
   final overlay = filterPocketActualExpenses(dedupedExpenses).where((expense) {
-    if (expense.id.isEmpty || existingOverlayIds.contains(expense.id)) {
+    if (expense.id.isEmpty ||
+        existingOverlayIds.contains(expense.id) ||
+        (_isOptimisticPocketExpenseId(expense.id)
+            ? existingOverlayIds.contains('alias:${expense.id}')
+            : _pocketExpenseAliasIds(expense)
+                .any(existingOverlayIds.contains))) {
       return false;
     }
     if (expense.date.isBefore(monthStart) ||
@@ -1684,9 +1690,49 @@ PocketsState applyLocalPocketExpenseOverlay({
     ),
     localOverlayExpenseIds: {
       ...existingOverlayIds,
-      ...overlay.map((expense) => expense.id),
+      ...overlay.expand(_pocketExpenseAppliedKeys),
     },
   );
+}
+
+@foundation.visibleForTesting
+PocketsState rebuildPocketSpendingFromLocalFeed({
+  required PocketsState state,
+  required Iterable<ExpenseEntry> expenses,
+  required bool isComplete,
+  Iterable<ExpenseEntry> projectedExpenses = const [],
+  List<String>? selectedCurrencies,
+  CurrencyRateTable? rates,
+}) {
+  // An empty partial cache must never erase an authoritative RPC amount.
+  if (!isComplete) return state;
+  final actualExpenses =
+      expenses.where((entry) => !entry.isRecurring).toList(growable: false);
+  if (actualExpenses.isEmpty && state.localOverlayExpenseIds.isEmpty) {
+    return state;
+  }
+  final base = state.copyWith(
+    saved: state.saved.map((pocket) => pocket.copyWith(spent: 0)).toList(),
+    editing: state.editing.map((pocket) => pocket.copyWith(spent: 0)).toList(),
+    aggregateTotalSpent: 0,
+    aggregateSpentByEnvelopeId: const {},
+    unallocatedSpend: 0,
+    uncategorized: const [],
+    uncategorizedExpenses: const {},
+    localOverlayExpenseIds: const {},
+  );
+  final updated = applyLocalPocketExpenseOverlay(
+    state: base,
+    expenses: [...actualExpenses, ...projectedExpenses],
+    selectedCurrencies: selectedCurrencies,
+    rates: rates,
+  );
+  return updated.copyWith(
+      unallocatedSpend: math.max(
+          0.0,
+          updated.totalSpent -
+              updated.aggregateSpentByEnvelopeId.values
+                  .fold<double>(0, (sum, amount) => sum + amount)));
 }
 
 @foundation.visibleForTesting
@@ -2743,6 +2789,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   bool _hasPendingSilentReload = false;
   bool _isDrainingSilentReload = false;
   bool _isSilentReloadScheduled = false;
+  bool _isFastLocalOverlayScheduled = false;
   int _refreshRevision = 0;
   int _pocketsMutationSequence = 0;
   String? _latestPocketsMutationRevision;
@@ -2990,7 +3037,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     _refreshRevision++;
     _hasPendingSilentReload = true;
     _applyFastInMemoryPocketExpenseOverlay();
-    unawaited(_applyFastLocalPocketExpenseOverlay());
+    if (!_isFastLocalOverlayScheduled) {
+      _isFastLocalOverlayScheduled = true;
+      Future.microtask(() {
+        _isFastLocalOverlayScheduled = false;
+        if (mounted) unawaited(_applyFastLocalPocketExpenseOverlay());
+      });
+    }
     final cacheKey = _lastCacheKey;
     if (cacheKey != null) {
       _pocketsMonthCache.clearInFlight(cacheKey);
@@ -3013,6 +3066,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }
 
   void _applyFastInMemoryPocketExpenseOverlay() {
+    // Durable rows own pending state when SQLite is available or still opening.
+    // A legacy analytics alias is not evidence of an active queued mutation.
+    if (!ref.read(localDatabaseProvider).hasError) return;
     if (!mounted || state.hasChanges || !state.hasDisplayData) return;
     final authUser = ref.read(authProvider);
     if (authUser.uid.trim().isEmpty) return;
@@ -3050,30 +3106,116 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
   Future<void> _applyFastLocalPocketExpenseOverlay() async {
     if (!mounted || state.hasChanges || !state.hasDisplayData) return;
+    if (params.scope != PocketsScopeType.personal &&
+        params.householdId?.trim().isNotEmpty != true) {
+      return;
+    }
     final authUser = ref.read(authProvider);
     if (authUser.uid.trim().isEmpty) return;
 
     final monthStart = state.periodMonth;
-    final localExpenses = await _loadLocalPocketExpensesForStatuses(
-      userId: authUser.uid,
-      scopeType: params.scope,
-      householdId: params.householdId,
-      monthStart: monthStart,
-      financialMonthStartDay: state.financialMonthStartDay,
-      selectedCurrency: state.currency,
-      selectedCurrencies: params.normalizedSelectedCurrencies,
-      syncStatuses: const [localSyncStatusLocal],
-    );
-    if (!mounted || state.hasChanges || localExpenses.isEmpty) return;
+    final refreshRevision = _refreshRevision;
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      if (!mounted ||
+          refreshRevision != _refreshRevision ||
+          authUser.uid != ref.read(authProvider).uid) {
+        return;
+      }
+      final query = LocalTransactionsFeedQuery(
+        userId: authUser.uid,
+        householdId: params.scope == PocketsScopeType.personal
+            ? null
+            : params.householdId,
+        currency: state.currency,
+        currencies: params.normalizedSelectedCurrencies,
+        type: 'expense',
+        startDate: monthStart,
+        endDate: nextFinancialCycleStart(monthStart,
+                startDay: state.financialMonthStartDay)
+            .subtract(const Duration(days: 1)),
+        pageSize: 500,
+      );
+      final localRevision = database.transactionRevision;
+      final isComplete = await database.isTransactionsFeedCacheComplete(query);
+      final localExpenses = await database.getTransactionsFeedItems(query,
+          syncStatus: isComplete ? null : localSyncStatusLocal);
+      final recurringTransactions =
+          isComplete && params.includeUpcomingRecurring
+              ? await loadScopedRecurringTransactions(
+                  userId: authUser.uid,
+                  scope: params.scope,
+                  householdId: query.householdId,
+                  localDatabase: database,
+                )
+              : const <RecurringTransaction>[];
+      final occurrenceResolution = recurringTransactions.isEmpty
+          ? const RecurringOccurrenceProjectionResolution()
+          : await loadRecurringOccurrenceProjectionResolution(
+              query: RecurringOccurrenceProjectionResolutionQuery(
+                userId: authUser.uid,
+                householdId: query.householdId,
+                startDate: monthStart,
+                endDate: query.endDate!,
+              ),
+              recurringTransactions: recurringTransactions,
+              loadOccurrences: (query) => ref.read(
+                recurringOccurrenceTimelineProvider(query).future,
+              ),
+            );
+      final projectedExpenses = await loadProjectedPocketMonthExpenses(
+        userId: authUser.uid,
+        scope: params.scope,
+        householdId: query.householdId,
+        monthStart: monthStart,
+        financialMonthStartDay: state.financialMonthStartDay,
+        selectedCurrency: state.currency,
+        selectedCurrencies: params.normalizedSelectedCurrencies,
+        includeUpcomingRecurring: isComplete && params.includeUpcomingRecurring,
+        actualExpenses: localExpenses,
+        localDatabase: database,
+        scopedRecurringTransactions: recurringTransactions,
+        confirmedOccurrenceSuppressionEntries:
+            occurrenceResolution.suppressionEntries,
+      );
+      if (!mounted ||
+          state.hasChanges ||
+          (!isComplete && localExpenses.isEmpty) ||
+          refreshRevision != _refreshRevision ||
+          localRevision != database.transactionRevision ||
+          monthStart != state.periodMonth ||
+          authUser.uid != ref.read(authProvider).uid) {
+        return;
+      }
 
-    final updated = applyLocalPocketExpenseOverlay(
-      state: state,
-      expenses: localExpenses,
-      selectedCurrencies: params.normalizedSelectedCurrencies,
-      rates: ref.read(currencyRateTableProvider).valueOrNull,
-    );
-    if (!identical(updated, state)) {
-      state = updated;
+      final rates = ref.read(currencyRateTableProvider).valueOrNull;
+      if (rates == null &&
+          [...localExpenses, ...projectedExpenses].any((entry) =>
+              entry.currency?.trim().isNotEmpty == true &&
+              entry.currency?.trim().toUpperCase() !=
+                  state.currency.trim().toUpperCase())) {
+        return;
+      }
+      final updated = isComplete
+          ? rebuildPocketSpendingFromLocalFeed(
+              state: state,
+              expenses: localExpenses,
+              isComplete: true,
+              projectedExpenses: projectedExpenses,
+              selectedCurrencies: params.normalizedSelectedCurrencies,
+              rates: rates,
+            )
+          : applyLocalPocketExpenseOverlay(
+              state: state,
+              expenses: localExpenses,
+              selectedCurrencies: params.normalizedSelectedCurrencies,
+              rates: rates,
+            );
+      if (!identical(updated, state)) {
+        state = updated;
+      }
+    } catch (_) {
+      // Retain the visible snapshot if SQLite or conversion cannot resolve.
     }
   }
 
@@ -3491,11 +3633,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       // No cache (or bypass requested), show loader.
 
-      if (!state.hasDisplayData) {
-        state = state.copyWith(isLoading: true, clearError: true);
-      } else {
-        state = state.copyWith(isLoading: false, clearError: true);
-      }
+      state = state.copyWith(isLoading: true, clearError: true);
 
       final loadedState = await _refreshFromBackend(
         cacheKey: cacheKey,
@@ -3835,10 +3973,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         pendingLocalOnlyExpenses,
         syncedLocalExpenses,
       );
-      final inMemoryOverlayExpenses = _loadInMemoryPocketOverlayExpenses(
-        monthStart: monthStart,
-        selectedCurrency: selectedCurrency,
-      );
+      final inMemoryOverlayExpenses = ref.read(localDatabaseProvider).hasError
+          ? _loadInMemoryPocketOverlayExpenses(
+              monthStart: monthStart,
+              selectedCurrency: selectedCurrency,
+            )
+          : const <ExpenseEntry>[];
       final localOverlayExpenses = hasMultiCurrencySelection
           ? inMemoryOverlayExpenses
           : _mergeUniqueExpenses(
@@ -4191,7 +4331,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           (key, value) => MapEntry(key, value.toList(growable: false)),
         ),
         localOverlayExpenseIds:
-            localOverlayExpenses.map((expense) => expense.id).toSet(),
+            actualExpensesWithPending.expand(_pocketExpenseAppliedKeys).toSet(),
       );
     }
 

@@ -17,6 +17,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/async_data_skeleton.dart';
 import 'package:moneko/shared/widgets/atmospheric_header_lines.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:moneko/features/home/presentation/utils/budget_companion_style.dart';
 
 Duration _motion(BuildContext context) =>
     MediaQuery.disableAnimationsOf(context)
@@ -56,13 +57,7 @@ class DashboardBudgetHeader extends StatelessWidget {
     final value = summary.valueOrNull;
 
     final accent =
-        switch (value?.reaction ?? BudgetCompanionReaction.planning) {
-      BudgetCompanionReaction.happy => colors.success,
-      BudgetCompanionReaction.encouraging => colors.success,
-      BudgetCompanionReaction.concerned => colors.warning,
-      BudgetCompanionReaction.overBudget => colors.destructive,
-      BudgetCompanionReaction.planning => colors.info,
-    };
+        (value?.reaction ?? BudgetCompanionReaction.planning).accent(colors);
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -114,19 +109,8 @@ String _resolveMascotAsset({
   required bool hasBudget,
   required double? progress,
 }) {
-  if (!hasBudget || progress == null) {
-    return 'lib/assets/mascots/cat-pecentage-0-50.png';
-  }
-  final percent = (progress * 100).round();
-  if (percent <= 50) {
-    return 'lib/assets/mascots/cat-pecentage-0-50.png';
-  } else if (percent <= 75) {
-    return 'lib/assets/mascots/cat-pecentage-50-75.png';
-  } else if (percent < 100) {
-    return 'lib/assets/mascots/cat-pecentage-75-99.png';
-  } else {
-    return 'lib/assets/mascots/cat-pecentage-overlimit.png';
-  }
+  return budgetCompanionReactionForProgress(hasBudget ? progress : null)
+      .mascotAsset;
 }
 
 class _SummaryValues extends StatelessWidget {
@@ -167,13 +151,7 @@ class _SummaryValues extends StatelessWidget {
         : mode == HomePeriodMode.daily
             ? formatLocalizedDate(context, date, includeYear: true)
             : formatLocalizedMonth(context, date);
-    final foreground = switch (summary.reaction) {
-      BudgetCompanionReaction.happy => colors.budgetSuccessForeground,
-      BudgetCompanionReaction.encouraging => colors.budgetSuccessForeground,
-      BudgetCompanionReaction.concerned => colors.budgetWarningForeground,
-      BudgetCompanionReaction.overBudget => colors.budgetDangerForeground,
-      BudgetCompanionReaction.planning => colors.budgetInfoForeground,
-    };
+    final foreground = summary.reaction.foreground(colors);
     final mascotAsset = _resolveMascotAsset(
       hasBudget: summary.hasBudget,
       progress: summary.progress,
@@ -295,12 +273,7 @@ class _SummaryValues extends StatelessWidget {
         totalGaugeSectionHeight + (isCompactAmount ? -amountHeight / 2 : 6.0),
       );
 
-      final gaugeAccent = switch (summary.reaction) {
-        BudgetCompanionReaction.happy => colors.budgetGaugeSuccess,
-        BudgetCompanionReaction.concerned => colors.budgetGaugeWarning,
-        BudgetCompanionReaction.overBudget => colors.budgetGaugeDanger,
-        _ => colors.budgetGaugeSuccess,
-      };
+      final gaugeAccent = summary.reaction.accent(colors);
       final gaugeColor = hasBudget ? gaugeAccent : colors.mutedForeground;
 
       final content = Column(

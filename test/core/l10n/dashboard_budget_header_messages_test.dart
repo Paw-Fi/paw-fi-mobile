@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
@@ -20,12 +19,12 @@ void main() {
         expect(message.split(amount), hasLength(2));
         expect(message, isNot(contains('{amount}')));
       }
-      final detail = l10n.dashboardBudgetSpentAndLimit(amount, budget);
+      final detail = l10n.dashboardBudgetSpentAndLimit(budget, amount);
       expect(detail.split(amount), hasLength(2));
       expect(detail.split(budget), hasLength(2));
       expect(detail, isNot(contains('{spent}')));
       expect(detail, isNot(contains('{budget}')));
-      expect(detail.split(' / '), hasLength(2));
+      expect(detail.split(' | '), hasLength(2));
       for (final label in [
         l10n.dashboardBudgetRemainingPeriodLabel(period),
         l10n.dashboardBudgetOverPeriodLabel(period),
@@ -35,7 +34,7 @@ void main() {
         expect(label, isNot(contains('{period}')));
       }
       if (locale.languageCode != 'en') {
-        expect(detail, isNot('Spent $amount / Budget $budget'));
+        expect(detail, isNot('Spent $amount | Budget $budget'));
         expect(l10n.dashboardBudgetRemainingPeriodLabel(period),
             isNot('$period · Remaining'));
         expect(l10n.dashboardBudgetSpentAmount(amount), isNot('$amount spent'));
@@ -50,10 +49,10 @@ void main() {
     expect(english.budgetCompanionLeft(amount), '$amount left');
     expect(chinese.budgetCompanionLeft(amount), '还剩 $amount');
     expect(traditional.budgetCompanionLeft(amount), '還剩 $amount');
-    expect(chinese.dashboardBudgetSpentAndLimit(amount, budget),
-        '已花 $amount / 预算 $budget');
-    expect(traditional.dashboardBudgetSpentAndLimit(amount, budget),
-        '已花 $amount / 預算 $budget');
+    expect(chinese.dashboardBudgetSpentAndLimit(budget, amount),
+        '已花 $amount | 预算 $budget');
+    expect(traditional.dashboardBudgetSpentAndLimit(budget, amount),
+        '已花 $amount | 預算 $budget');
     expect(chinese.dashboardBudgetRemainingPeriodLabel('10月'), '10月 · 剩余预算');
     expect(
         traditional.dashboardBudgetRemainingPeriodLabel('10月'), '10月 · 剩餘預算');
@@ -70,9 +69,9 @@ void main() {
 
   test('Urdu isolates a formatted amount without changing its content', () {
     final urdu = lookupAppLocalizations(const Locale('ur'));
-    expect(urdu.dashboardBudgetSpentAndLimit(amount, budget),
+    expect(urdu.dashboardBudgetSpentAndLimit(budget, amount),
         contains('\u2068$amount\u2069'));
-    expect(urdu.dashboardBudgetSpentAndLimit(amount, budget),
+    expect(urdu.dashboardBudgetSpentAndLimit(budget, amount),
         contains('\u2068$budget\u2069'));
     expect(urdu.dashboardBudgetSpentAmount(amount),
         contains('\u2068$amount\u2069'));

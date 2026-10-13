@@ -14,6 +14,7 @@ import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
     show widgetSyncVersionProvider;
@@ -334,6 +335,17 @@ Future<void> _dispatchMobileMutation(
           savedEntry: savedEntry,
           clientMutationId: mutation.clientMutationId,
         );
+        if (queuedEntry?.userId == ref.read(authProvider).uid &&
+            queuedEntry?.householdId?.trim().isNotEmpty != true) {
+          final analytics = ref.read(analyticsProvider.notifier);
+          if (reconciledEntry != null &&
+              reconciledEntry.householdId?.trim().isNotEmpty != true) {
+            analytics.replaceOptimisticTransaction(
+                mutation.entityId, reconciledEntry);
+          } else {
+            analytics.removeOptimisticTransactionById(mutation.entityId);
+          }
+        }
         if (reconciledEntry != null) {
           reconcileSyncedHouseholdTransactionOverlays(
             expensesNotifier:
@@ -684,6 +696,12 @@ Future<void> _handleCancelledMobileMutation(
   }
   if (mutation.entityType != 'wallet') {
     await database.markTransactionMutationExhausted(mutation: mutation);
+    final actorUserId = ref.read(authProvider).uid;
+    if (actorUserId.isNotEmpty) {
+      await ref
+          .read(analyticsProvider.notifier)
+          .reconcileOptimisticTransactionsFromLocalCache(actorUserId);
+    }
     await deleteQueuedReceiptIfUnused(
       database,
       mutation,

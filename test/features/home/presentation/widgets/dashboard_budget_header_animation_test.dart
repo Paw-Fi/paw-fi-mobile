@@ -65,14 +65,14 @@ void main() {
 
     // Phase 1: hold at 0% with nothing else on stage.
     expect(_gaugeValue(tester), 0);
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     expect(find.text(r'$39'), findsOneWidget);
-    expect(_summaryCopy(r'Spent $61 / Budget $100'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $61 | Budget $100'), findsOneWidget);
     expect(_mascot, findsNothing);
     expect(_bubble, findsNothing);
     await tester.pump(const Duration(milliseconds: 480));
     expect(_gaugeValue(tester), 0);
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     expect(_mascot, findsNothing);
 
     // Phase 2: gauge and text count up together, mascot still hidden.
@@ -80,7 +80,7 @@ void main() {
     final midway = _gaugeValue(tester);
     expect(midway, greaterThan(0));
     expect(midway, lessThan(.61));
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     expect(_mascot, findsNothing);
     expect(_bubble, findsNothing);
 
@@ -96,14 +96,14 @@ void main() {
     expect(_mascot, findsOneWidget);
     expect(_bubble, findsOneWidget);
     expect(_gaugeValue(tester), closeTo(.61, 1e-9));
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     final primary = tester.widget<Text>(
         find.byKey(const ValueKey('budget-companion-primary-amount')));
     expect(primary.style?.fontFamily, 'Nunito');
 
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), closeTo(.61, 1e-9));
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     expect(tester.takeException(), isNull);
   });
 
@@ -112,8 +112,8 @@ void main() {
     await _pump(tester, spent: 108);
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), 1);
-    expect(_periodText(tester), 'Oct · Over budget');
-    expect(_summaryCopy(r'Spent $108 / Budget $100'), findsOneWidget);
+    expect(_periodText(tester), 'OCT · OVER BUDGET');
+    expect(_summaryCopy(r'Spent $108 | Budget $100'), findsOneWidget);
     expect(find.text(r'$8'), findsOneWidget);
   });
 
@@ -130,12 +130,12 @@ void main() {
     final midway = _gaugeValue(tester);
     expect(midway, greaterThan(.4));
     expect(midway, lessThan(.8));
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     expect(_mascot, findsOneWidget);
     expect(_bubble, findsOneWidget);
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), closeTo(.8, 1e-9));
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     expect(tester.takeException(), isNull);
   });
 
@@ -153,7 +153,7 @@ void main() {
     expect(_gaugeValue(tester), closeTo(shown, .05));
     await tester.pumpAndSettle();
     expect(_gaugeValue(tester), closeTo(.9, 1e-9));
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     expect(tester.takeException(), isNull);
   });
 
@@ -162,7 +162,7 @@ void main() {
     await _pump(tester, spent: 61, disableAnimations: true);
     await tester.pump();
     expect(_gaugeValue(tester), closeTo(.61, 1e-9));
-    expect(_periodText(tester), 'Oct · Remaining');
+    expect(_periodText(tester), 'OCT · REMAINING');
     expect(_mascot, findsOneWidget);
     expect(_bubble, findsOneWidget);
   });

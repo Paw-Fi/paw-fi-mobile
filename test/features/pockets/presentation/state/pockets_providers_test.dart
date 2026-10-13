@@ -14,12 +14,265 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/utils/currency.dart';
 
 void main() {
+  group('complete local Pocket refresh', () {
+    final month = DateTime(2026, 10, 17);
+    final pocket = PocketEnvelope(
+      id: 'food',
+      name: 'Food',
+      budgetAmountCents: 1500000,
+      spent: 6623.25,
+      currency: 'TRY',
+      lastUpdated: month,
+    );
+    PocketsState cached() => PocketsState.initial().copyWith(
+          isLoading: false,
+          periodMonth: month,
+          financialMonthStartDay: 17,
+          currency: 'TRY',
+          totalBudget: 15000,
+          savedTotalBudget: 15000,
+          saved: [pocket],
+          editing: [pocket.copyWith()],
+          envelopeCategories: const {
+            'food': ['groceries']
+          },
+          aggregateTotalSpent: 6623.25,
+          localOverlayExpenseIds: const {'old-server'},
+        );
+    ExpenseEntry expense(int cents) => ExpenseEntry(
+          id: 'actual',
+          date: DateTime(2026, 10, 20),
+          createdAt: month,
+          amountCents: cents,
+          currency: 'TRY',
+          category: 'groceries',
+        );
+    test('recomputes stale imported spend before a backend response', () {
+      final updated = rebuildPocketSpendingFromLocalFeed(
+        state: cached(),
+        expenses: [expense(640205)],
+        isComplete: true,
+      );
+      expect(updated.totalSpent, closeTo(6402.05, .000001));
+      expect(updated.saved.single.spent, closeTo(6402.05, .000001));
+      expect(updated.saved.single.remainingCents, 859795);
+      expect(updated.hasChanges, isFalse);
+    });
+    test(
+        'edits and terminal rollback recompute instead of adding a second effect',
+        () {
+      final edited = rebuildPocketSpendingFromLocalFeed(
+        state: cached(),
+        expenses: [expense(650205)],
+        isComplete: true,
+      );
+      final rolledBack = rebuildPocketSpendingFromLocalFeed(
+        state: edited,
+        expenses: [expense(640205)],
+        isComplete: true,
+      );
+      expect(edited.totalSpent, closeTo(6502.05, .000001));
+      expect(rolledBack.totalSpent, closeTo(6402.05, .000001));
+    });
+    test('deleting the last known transaction clears its effect', () {
+      final updated = rebuildPocketSpendingFromLocalFeed(
+        state: cached(),
+        expenses: const [],
+        isComplete: true,
+      );
+      expect(updated.totalSpent, 0);
+      expect(updated.saved.single.remainingCents, 1500000);
+    });
+    test('enabled recurring projections survive local edits and deletion', () {
+      final projection =
+          expense(25000).copyWith(id: 'recurring_projection_bill');
+      final updated = rebuildPocketSpendingFromLocalFeed(
+        state: cached(),
+        expenses: [expense(640205)],
+        projectedExpenses: [projection],
+        isComplete: true,
+      );
+      expect(updated.totalSpent, closeTo(6652.05, .000001));
+      expect(updated.saved.single.spent, closeTo(6652.05, .000001));
+      final deleted = rebuildPocketSpendingFromLocalFeed(
+        state: updated,
+        expenses: const [],
+        projectedExpenses: [projection],
+        isComplete: true,
+      );
+      expect(deleted.totalSpent, 250);
+      expect(deleted.saved.single.remainingCents, 1475000);
+    });
+    test('projection-only cache preserves the RPC spending fallback', () {
+      final rpc = cached().copyWith(localOverlayExpenseIds: const {});
+      final updated = rebuildPocketSpendingFromLocalFeed(
+        state: rpc,
+        expenses: const [],
+        projectedExpenses: [
+          expense(25000).copyWith(id: 'recurring_projection_bill')
+        ],
+        isComplete: true,
+      );
+      expect(updated, same(rpc));
+    });
+    test('empty or partial feeds preserve a valid RPC-only value', () {
+      final rpc = cached().copyWith(localOverlayExpenseIds: const {});
+      expect(
+          rebuildPocketSpendingFromLocalFeed(
+            state: rpc,
+            expenses: const [],
+            isComplete: true,
+          ),
+          same(rpc));
+      expect(
+          rebuildPocketSpendingFromLocalFeed(
+            state: rpc,
+            expenses: [expense(100)],
+            isComplete: false,
+          ),
+          same(rpc));
+    });
+    test('native rows retain their currency while aggregate FX rounds each row',
+        () {
+      final native = pocket.copyWith(currency: 'USD', spent: 0);
+      final state = cached().copyWith(
+          currency: 'EUR',
+          saved: [native],
+          editing: [native.copyWith()],
+          aggregateTotalSpent: 0);
+      final updated = rebuildPocketSpendingFromLocalFeed(
+        state: state,
+        expenses: [
+          expense(10000).copyWith(id: 'purchase', currency: 'USD'),
+          expense(2000).copyWith(
+              id: 'refund', currency: 'USD', analyticsSpendingMultiplier: -1)
+        ],
+        isComplete: true,
+        selectedCurrencies: const ['EUR', 'USD'],
+        rates: const CurrencyRateTable(
+            baseCurrency: 'USD', rates: {'USD': 1, 'EUR': .85435}),
+      );
+      expect(updated.totalSpent, closeTo(68.35, .000001));
+      expect(updated.saved.single.currency, 'USD');
+      expect(updated.saved.single.spent, 80);
+    });
+  });
+  test('refresh cannot add the reported saved import through its old aliases',
+      () {
+    final month = DateTime(2026, 10);
+    final base = PocketsState.initial().copyWith(
+      isLoading: false,
+      periodMonth: month,
+      currency: 'TRY',
+      totalBudget: 15000,
+      savedTotalBudget: 15000,
+      aggregateTotalSpent: 4546.15,
+    );
+    final cents = [
+      13000,
+      2600,
+      11350,
+      6990,
+      32000,
+      14800,
+      1900,
+      17300,
+      2900,
+      5100,
+      22000,
+      35000,
+      1300,
+      19350
+    ];
+    final saved = [
+      for (var i = 0; i < cents.length; i++)
+        ExpenseEntry(
+          id: 'server-$i',
+          userId: 'user-1',
+          date: month,
+          createdAt: month,
+          amountCents: cents[i],
+          currency: 'TRY',
+          category: 'groceries',
+          rawText: '食料品',
+          clientRecordId: 'optimistic_import_$i',
+          idempotencyKey: 'mobile:optimistic_import_$i',
+        ),
+    ];
+    final settled =
+        applyLocalPocketExpenseOverlay(state: base, expenses: saved);
+    expect(settled.totalSpent, closeTo(6402.05, .000001));
+    final refreshed = applyLocalPocketExpenseOverlay(
+      state: settled,
+      expenses: [
+        for (var i = 0; i < saved.length; i++)
+          saved[i].copyWith(id: 'optimistic_import_$i')
+      ],
+    );
+    expect(refreshed.totalSpent, closeTo(6402.05, .000001));
+  });
+
+  test('Pocket overlays reconcile exact identity in every script', () {
+    final month = DateTime(2026, 10);
+    final base = PocketsState.initial().copyWith(
+      isLoading: false,
+      periodMonth: month,
+      currency: 'TRY',
+      aggregateTotalSpent: 0,
+    );
+    for (final text in ['食料品', 'بقالة', 'alışveriş']) {
+      final saved = ExpenseEntry(
+        id: 'server-$text',
+        date: month,
+        createdAt: month,
+        amountCents: 1000,
+        currency: 'TRY',
+        rawText: text,
+        idempotencyKey: 'mobile:optimistic_$text',
+      );
+      final settled =
+          applyLocalPocketExpenseOverlay(state: base, expenses: [saved]);
+      final refreshed = applyLocalPocketExpenseOverlay(
+        state: settled,
+        expenses: [saved.copyWith(id: 'optimistic_$text')],
+      );
+      expect(refreshed.totalSpent, 10);
+    }
+  });
+
   test('cached pocket state preserves the server revision', () {
     final state = PocketsState.initial().copyWith(serverRevision: 7);
 
     final restored = PocketsState.fromCacheJson(state.toCacheJson());
 
     expect(restored.serverRevision, 7);
+  });
+
+  test('distinct canonical payments survive shared batch mutation metadata',
+      () {
+    final month = DateTime(2026, 10);
+    final base = PocketsState.initial().copyWith(
+      periodMonth: month,
+      currency: 'TRY',
+      aggregateTotalSpent: 0,
+    );
+    final first = ExpenseEntry(
+      id: 'canonical-1',
+      date: month,
+      createdAt: month,
+      amountCents: 1000,
+      currency: 'TRY',
+      rawText: 'بقالة',
+      clientMutationId: 'merchant-batch',
+      idempotencyKey: 'merchant-batch',
+    );
+    final applied =
+        applyLocalPocketExpenseOverlay(state: base, expenses: [first]);
+    final updated = applyLocalPocketExpenseOverlay(
+      state: applied,
+      expenses: [first.copyWith(id: 'canonical-2')],
+    );
+    expect(updated.totalSpent, 20);
   });
 
   group('authoritative pocket scope identity', () {

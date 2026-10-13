@@ -71,10 +71,10 @@ void main() {
     final detail = find.byKey(const ValueKey('budget-companion-budget-amount'));
     expect(tester.widget<Text>(detail).semanticsLabel, contains('|'));
     expect(find.text('57%'), findsNothing);
-    expect(find.text('Oct · Remaining'), findsOneWidget);
+    expect(find.text('OCT · REMAINING'), findsOneWidget);
     expect(find.text(r'$300 left'), findsNothing);
     final gauge = tester.getRect(find.byType(BudgetGaugeIndicator));
-    final period = tester.getRect(find.text('Oct · Remaining'));
+    final period = tester.getRect(find.text('OCT · REMAINING'));
     expect(gauge.contains(period.topLeft), isTrue);
     expect(gauge.contains(period.bottomRight), isTrue);
     expect(
@@ -291,7 +291,7 @@ void main() {
         summary: const AsyncData(BudgetCompanionSummary(spent: 400)),
         onBudgetTap: () => taps++);
     expect(find.text(r'$400'), findsOneWidget);
-    expect(find.text('Oct · Spent'), findsOneWidget);
+    expect(find.text('OCT · SPENT'), findsOneWidget);
     expect(find.text('No budget set yet'), findsOneWidget);
     final action = find.text('Set Budget');
     await tester.ensureVisible(action);
@@ -337,8 +337,8 @@ void main() {
         summary:
             const AsyncData(BudgetCompanionSummary(spent: 800, budget: 700)));
     expect(find.text(r'$100'), findsOneWidget);
-    expect(find.text('Oct · Over budget'), findsOneWidget);
-    expect(find.text('Oct · Remaining'), findsNothing);
+    expect(find.text('OCT · OVER BUDGET'), findsOneWidget);
+    expect(find.text('OCT · REMAINING'), findsNothing);
     expect(
         tester
             .widget<Text>(

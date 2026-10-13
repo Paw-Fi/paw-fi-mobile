@@ -286,6 +286,10 @@ extension AppColorScheme on ColorScheme {
       ? AppTheme.darkDanger
       : const Color(0xFFB92D37);
 
+  Color get budgetCautionForeground => brightness == Brightness.dark
+      ? AppTheme.darkProgressOrange
+      : const Color(0xFF9C4700);
+
   Color get budgetInfoForeground => brightness == Brightness.dark
       ? const Color(0xFFCCBFFF)
       : const Color(0xFF5030B8);
@@ -299,6 +303,8 @@ extension AppColorScheme on ColorScheme {
       : AppTheme.warning;
 
   Color get budgetGaugeDanger => destructive;
+
+  Color get budgetGaugeCaution => progressOrange;
 
   Color get budgetGaugeInfo => info;
 

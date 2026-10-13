@@ -478,7 +478,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                 await ref
                     .read(transactionsFeedServiceProvider)
                     .refreshFromRemote(refreshQuery);
-              } catch (error) {}
+              } catch (error) {
+                // Retain cached Home data when the remote refresh is unavailable.
+              }
+
+              if (!context.mounted || ref.read(authProvider).uid != user.uid) {
+                return;
+              }
+              await ref
+                  .read(analyticsProvider.notifier)
+                  .reconcileOptimisticTransactionsFromLocalCache(user.uid);
+              if (!context.mounted || ref.read(authProvider).uid != user.uid) {
+                return;
+              }
 
               await ref
                   .read(

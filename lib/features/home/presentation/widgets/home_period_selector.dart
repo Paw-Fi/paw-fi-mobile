@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
+import 'package:moneko/features/home/presentation/utils/budget_companion_style.dart';
 import 'package:moneko/core/utils/financial_period.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -175,22 +176,7 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
   }
 
   DatePeriodRingStatus _statusForProgress(BuildContext context, double value) {
-    final progress = value.clamp(0.0, 1.0);
-    final colors = Theme.of(context).colorScheme;
-    // This is budget consumption, not task completion. A low spend is healthy;
-    // urgency increases as the user approaches their budget limit.
-    final color = progress < 0.5
-        ? colors.success
-        : progress < 0.75
-            ? colors.warning
-            : progress < 0.9
-                ? colors.progressOrange
-                : colors.error;
-    return DatePeriodRingStatus(
-      progress: progress,
-      color: color,
-      percentage: (progress * 100).round(),
-    );
+    return homeBudgetRingStatus(Theme.of(context).colorScheme, value);
   }
 
   PocketsScopeParams _scopeParams({
@@ -220,6 +206,15 @@ class _HomePeriodSelectorState extends ConsumerState<HomePeriodSelector> {
       isBootstrapCurrency: isBootstrapCurrency,
     );
   }
+}
+
+DatePeriodRingStatus homeBudgetRingStatus(ColorScheme colors, double value) {
+  final progress = value.clamp(0.0, 1.0);
+  return DatePeriodRingStatus(
+    progress: progress,
+    color: budgetCompanionReactionForProgress(value).accent(colors),
+    percentage: (progress * 100).round(),
+  );
 }
 
 PocketsScopeParams buildHomePeriodPocketsScopeParams({

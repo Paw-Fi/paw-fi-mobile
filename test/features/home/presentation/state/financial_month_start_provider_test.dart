@@ -82,6 +82,13 @@ ProviderContainer _container({
       includeUpcomingRecurringInPocketsProvider.overrideWith((ref) => false),
     ]);
 
+Future<void> _settleHomeProviders(ProviderContainer container) async {
+  await container.pump();
+  // Calendar resolution can create the async period store during this pump.
+  await Future<void>.delayed(Duration.zero);
+  await container.pump();
+}
+
 void main() {
   test('cached month start avoids a default-cycle request and late replay',
       () async {
@@ -100,7 +107,7 @@ void main() {
         fireImmediately: true);
     expect(container.read(financialMonthStartDayProvider), 2);
     expect(container.read(budgetCompanionRequestProvider), isNull);
-    await container.pump();
+    await _settleHomeProviders(container);
     final initial = container.read(budgetCompanionRequestProvider)!;
     expect(initial.query.startDate, DateTime(2026, 10, 2));
     expect(initial.query.endDate, DateTime(2026, 11, 1));
@@ -108,7 +115,7 @@ void main() {
     final publishedCount = requests.length;
     (container.read(analyticsProvider.notifier) as _Analytics)
         .setContact(_contact(2));
-    await container.pump();
+    await _settleHomeProviders(container);
     expect(container.read(budgetCompanionRequestProvider), initial);
     expect(requests.length, publishedCount);
     expect(contactReads, 0);
@@ -116,7 +123,7 @@ void main() {
     // A real settings change still selects a distinct correct family.
     (container.read(analyticsProvider.notifier) as _Analytics)
         .setContact(_contact(15));
-    await container.pump();
+    await _settleHomeProviders(container);
     expect(container.read(budgetCompanionRequestProvider)!.query.startDate,
         DateTime(2026, 9, 15));
     expect(container.read(budgetCompanionRequestProvider)!.pocketsScope,
@@ -134,14 +141,14 @@ void main() {
     container.listen(budgetCompanionRequestProvider, (_, __) {});
     expect(container.read(budgetCompanionRequestProvider), isNull);
     contact.complete(_contact(2));
-    await container.pump();
+    await _settleHomeProviders(container);
     expect(container.read(financialMonthStartDayProvider), 2);
     expect(container.read(budgetCompanionRequestProvider), isNull);
     selection.complete(HomePeriodSelectionState(
         mode: HomePeriodMode.monthly,
         selectedDate: DateTime(2026, 9, 2),
         isHydrated: true));
-    await container.pump();
+    await _settleHomeProviders(container);
     expect(container.read(budgetCompanionRequestProvider)!.query.startDate,
         DateTime(2026, 9, 2));
   });
@@ -155,7 +162,7 @@ void main() {
     expect(
         container.read(budgetCompanionDataProvider).summary.isLoading, isTrue);
     pending.completeError(StateError('offline'));
-    await container.pump();
+    await _settleHomeProviders(container);
     expect(
         container.read(budgetCompanionDataProvider).summary.hasError, isTrue);
     expect(
@@ -163,7 +170,7 @@ void main() {
     final empty = _container(loadContact: (ref) async => null);
     addTearDown(empty.dispose);
     empty.listen(budgetCompanionRequestProvider, (_, __) {});
-    await empty.pump();
+    await _settleHomeProviders(empty);
     expect(empty.read(financialMonthStartDayStateProvider).requireValue, 1);
     expect(empty.read(budgetCompanionRequestProvider)!.query.startDate,
         DateTime(2026, 10));
@@ -182,18 +189,18 @@ void main() {
     container.listen(
         budgetCompanionRequestProvider, (_, next) => requests.add(next));
     pending.complete(_contact(2));
-    await container.pump();
+    await _settleHomeProviders(container);
     final initial = container.read(budgetCompanionRequestProvider)!;
     final count = requests.length;
     pending = Completer<UserContact?>();
     container.read(revision.notifier).state++;
-    await container.pump();
+    await _settleHomeProviders(container);
     expect(
         container.read(financialMonthStartDayStateProvider).isLoading, isTrue);
     expect(container.read(financialMonthStartDayStateProvider).requireValue, 2);
     expect(container.read(budgetCompanionRequestProvider), initial);
     pending.completeError(StateError('offline'));
-    await container.pump();
+    await _settleHomeProviders(container);
     expect(
         container.read(financialMonthStartDayStateProvider).hasError, isTrue);
     expect(container.read(financialMonthStartDayStateProvider).requireValue, 2);
@@ -208,13 +215,13 @@ void main() {
         initializedContact: _contact(2), loadContact: (ref) => pending.future);
     addTearDown(container.dispose);
     container.listen(budgetCompanionRequestProvider, (_, __) {});
-    await container.pump();
+    await _settleHomeProviders(container);
     expect(
         container.read(budgetCompanionRequestProvider)!.query.userId, 'user-1');
     (container.read(authProvider.notifier) as _Auth).switchUser();
     expect(container.read(budgetCompanionRequestProvider), isNull);
     pending.complete(_contact(15, userId: 'user-2'));
-    await container.pump();
+    await _settleHomeProviders(container);
     final request = container.read(budgetCompanionRequestProvider)!;
     expect(request.query.userId, 'user-2');
     expect(request.query.startDate, DateTime(2026, 9, 15));

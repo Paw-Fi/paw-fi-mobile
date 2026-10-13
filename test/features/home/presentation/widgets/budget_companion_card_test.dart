@@ -118,15 +118,15 @@ void main() {
     // The outgoing skeleton and incoming chart share the transition.
     expect(find.byType(BudgetCompanionSkeleton), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 180));
-    final foodProgress = barHeight(tester, 'food') / 160;
-    final shoppingProgress = barHeight(tester, 'shopping') / (160 * 384 / 498);
+    final foodProgress = barHeight(tester, 'food') / 130;
+    final shoppingProgress = barHeight(tester, 'shopping') / (130 * 384 / 498);
     expect(foodProgress, greaterThan(0));
     expect(foodProgress, lessThan(1));
     expect(shoppingProgress, lessThan(foodProgress));
     await tester.pumpAndSettle();
     expect(find.byType(BudgetCompanionSkeleton), findsNothing);
-    expect(barHeight(tester, 'food'), 160);
-    expect(barHeight(tester, 'shopping'), closeTo(160 * 384 / 498, .01));
+    expect(barHeight(tester, 'food'), 130);
+    expect(barHeight(tester, 'shopping'), closeTo(130 * 384 / 498, .01));
     expect(tester.takeException(), isNull);
   });
 
@@ -137,7 +137,7 @@ void main() {
         disableAnimations: false, pumpDuration: Duration.zero);
     expect(barHeight(tester, 'food'), 0);
     await tester.pumpAndSettle();
-    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'food'), 130);
     await _pump(
         tester,
         BudgetCompanionData(
@@ -148,11 +148,11 @@ void main() {
         ),
         disableAnimations: false,
         pumpDuration: Duration.zero);
-    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'food'), 130);
     expect(find.byType(BudgetCompanionSkeleton), findsNothing);
     await _pump(tester, cached,
         disableAnimations: false, pumpDuration: Duration.zero);
-    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'food'), 130);
 
     await _pump(
         tester,
@@ -164,10 +164,10 @@ void main() {
         disableAnimations: false,
         pumpDuration: Duration.zero);
     // Changed values settle from their previous height, rather than zero.
-    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'food'), 130);
     await tester.pumpAndSettle();
-    expect(barHeight(tester, 'food'), 80);
-    expect(barHeight(tester, 'shopping'), 160);
+    expect(barHeight(tester, 'food'), 65);
+    expect(barHeight(tester, 'shopping'), 130);
     expect(tester.takeException(), isNull);
   });
 
@@ -178,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     await _pump(tester, _data(),
         disableAnimations: false, pumpDuration: Duration.zero);
-    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'food'), 130);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
@@ -197,7 +197,7 @@ void main() {
     await tester.pumpAndSettle();
     await _pump(tester, _data(),
         disableAnimations: false, pumpDuration: Duration.zero);
-    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'food'), 130);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
@@ -208,7 +208,7 @@ void main() {
         BudgetCompanionData(
             summary: _data().summary, categories: const AsyncLoading()));
     await _pump(tester, _data(), pumpDuration: Duration.zero);
-    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'food'), 130);
     expect(find.byType(BudgetCompanionSkeleton), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -216,9 +216,9 @@ void main() {
   testWidgets('enabling reduced motion finishes the chart intro',
       (tester) async {
     await _pump(tester, _data(), disableAnimations: false);
-    expect(barHeight(tester, 'food'), lessThan(160));
+    expect(barHeight(tester, 'food'), lessThan(130));
     await _pump(tester, _data(), pumpDuration: Duration.zero);
-    expect(barHeight(tester, 'food'), 160);
+    expect(barHeight(tester, 'food'), 130);
     expect(tester.takeException(), isNull);
   });
 
@@ -324,7 +324,6 @@ void main() {
     testWidgets('compact ${sample.$1} bar reveals the exact amount on tap',
         (tester) async {
       final semantics = tester.ensureSemantics();
-      addTearDown(semantics.dispose);
       const amount = 12345.67;
       final data = BudgetCompanionData(
         summary: _data(spent: amount + 5000, budget: 20000).summary,
@@ -356,6 +355,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tapAt(const Offset(4, 4));
       await tester.pumpAndSettle();
+      semantics.dispose();
     });
   }
 
@@ -365,7 +365,7 @@ void main() {
     expect(find.byType(DashboardBudgetHeader), findsOneWidget);
     expect(find.byType(BudgetGaugeIndicator), findsOneWidget);
     expect(find.byType(BudgetCompanionCard), findsNothing);
-    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 | Budget $3,000'), findsOneWidget);
     expect(find.text(r'$1,158'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -407,7 +407,7 @@ void main() {
     expect(find.byType(DashboardBudgetHeaderSkeleton), findsNothing);
     expect(find.byType(BudgetCompanionSkeleton), findsOneWidget);
     expect(find.byType(BudgetGaugeIndicator), findsOneWidget);
-    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 | Budget $3,000'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -452,6 +452,7 @@ void main() {
         (colors.success, colors.budgetSuccessForeground),
         (colors.info, colors.budgetInfoForeground),
         (colors.warning, colors.budgetWarningForeground),
+        (colors.budgetGaugeCaution, colors.budgetCautionForeground),
         (colors.destructive, colors.budgetDangerForeground),
       ]) {
         final background = Color.alphaBlend(
@@ -468,8 +469,8 @@ void main() {
   testWidgets('normal summary and categories have no duplicated comparison',
       (tester) async {
     await _pump(tester, _data());
-    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
-    expect(find.text('Oct · Remaining'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 | Budget $3,000'), findsOneWidget);
+    expect(find.text('OCT · REMAINING'), findsOneWidget);
     expect(find.text('61%'), findsNothing);
     expect(find.text(r'$1,158'), findsOneWidget);
     expect(find.text('8% less than last month'), findsNothing);
@@ -478,12 +479,12 @@ void main() {
         find.byKey(const ValueKey('budget-companion-bubble')), findsOneWidget);
     expect(find.text('Spending by category'), findsNothing);
     expect(tester.getSize(find.byKey(const ValueKey('budget-bar-food'))).height,
-        160);
+        130);
     expect(
         tester
             .getSize(find.byKey(const ValueKey('budget-bar-shopping')))
             .height,
-        closeTo(160 * 384 / 498, .01));
+        closeTo(130 * 384 / 498, .01));
     final viewport = tester
         .getRect(find.byKey(const ValueKey('budget-companion-categories')));
     final nextBar =
@@ -600,7 +601,7 @@ void main() {
         (tester) async {
       await _pump(tester, _data(spent: sample.$1, budget: 100));
       expect(
-          find.text(sample.$1 > 100 ? 'Oct · Over budget' : 'Oct · Remaining'),
+          find.text(sample.$1 > 100 ? 'OCT · OVER BUDGET' : 'OCT · REMAINING'),
           findsOneWidget);
       final bubble = find.byKey(const ValueKey('budget-companion-bubble'));
       final l10n = AppLocalizations.of(tester.element(bubble))!;
@@ -649,8 +650,8 @@ void main() {
   testWidgets('zero spending renders a meaningful empty chart', (tester) async {
     await _pump(tester, _data(spent: 0, categories: false));
     expect(find.text(r'$3,000'), findsOneWidget);
-    expect(_summaryCopy(r'Spent $0 / Budget $3,000'), findsOneWidget);
-    expect(find.text('Oct · Remaining'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $0 | Budget $3,000'), findsOneWidget);
+    expect(find.text('OCT · REMAINING'), findsOneWidget);
     expect(find.text('No Expenses Yet'), findsOneWidget);
     expect(find.text('100% less than last month'), findsNothing);
     expect(find.byKey(const ValueKey('budget-bar-food')), findsNothing);
@@ -659,7 +660,7 @@ void main() {
   testWidgets('RPC-only spending never looks like an authoritative empty total',
       (tester) async {
     await _pump(tester, _data(categories: false));
-    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 | Budget $3,000'), findsOneWidget);
     expect(find.text('No category spending available'), findsOneWidget);
     expect(find.text('No previous-period comparison'), findsNothing);
     expect(find.text('0% less than last month'), findsNothing);
@@ -707,7 +708,7 @@ void main() {
           isRefreshing: true,
         ),
         onRetry: () => retried = true);
-    expect(_summaryCopy(r'Spent $1,842 / Budget $3,000'), findsOneWidget);
+    expect(_summaryCopy(r'Spent $1,842 | Budget $3,000'), findsOneWidget);
     expect(find.byType(BudgetCompanionSkeleton), findsNothing);
     await tester.ensureVisible(find.text('Retry'));
     await tester.tap(find.text('Retry'));

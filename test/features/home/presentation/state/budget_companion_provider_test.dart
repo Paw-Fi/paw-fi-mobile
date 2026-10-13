@@ -239,11 +239,17 @@ void main() {
 
   for (final sample in [
     (0.0, BudgetCompanionReaction.happy),
-    (59.0, BudgetCompanionReaction.happy),
+    (49.99, BudgetCompanionReaction.happy),
+    (50.0, BudgetCompanionReaction.encouraging),
+    (56.5276667, BudgetCompanionReaction.encouraging),
+    (59.0, BudgetCompanionReaction.encouraging),
     (60.0, BudgetCompanionReaction.encouraging),
-    (79.0, BudgetCompanionReaction.encouraging),
+    (74.99, BudgetCompanionReaction.encouraging),
+    (75.0, BudgetCompanionReaction.concerned),
+    (79.0, BudgetCompanionReaction.concerned),
     (80.0, BudgetCompanionReaction.concerned),
-    (100.0, BudgetCompanionReaction.concerned),
+    (99.99, BudgetCompanionReaction.concerned),
+    (100.0, BudgetCompanionReaction.overBudget),
     (108.0, BudgetCompanionReaction.overBudget),
   ]) {
     test('budget reaction at ${sample.$1} percent', () {
@@ -352,6 +358,8 @@ void main() {
       container
           .read(homeFilterProvider.notifier)
           .setSelectedCurrencies(['EUR', 'USD']);
+      container.read(homePeriodSelectionProvider('user-1'));
+      await Future<void>.delayed(Duration.zero);
       await container.pump();
       final request = container.read(budgetCompanionRequestProvider)!;
       final ringKey = buildHomePeriodPocketsScopeParams(

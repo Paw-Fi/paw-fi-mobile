@@ -19,6 +19,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
   final Ref ref;
   final Set<String> _pendingServerExpenseIds = <String>{};
+  int _optimisticRevision = 0;
 
   static const int _maxRetries = 3;
   static const Duration _baseRetryDelay = Duration(seconds: 2);
@@ -215,8 +216,10 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
       // Store ALL data in both allExpenses/allBudgets AND expenses/budgets
       // Filtering will be done locally in the home page
-      final currentState = state;
       await _cacheServerExpenses(allExpenses);
+      await reconcileOptimisticTransactionsFromLocalCache(userId);
+      if (!mounted || _loadOperationId != currentOperationId) return;
+      final currentState = state;
       final mergedExpenses = _mergeWithLocalExpenses(
         serverExpenses: allExpenses,
         current: currentState,
@@ -395,6 +398,8 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     if (database == null) return false;
 
     try {
+      await reconcileOptimisticTransactionsFromLocalCache(userId);
+      if (!mounted) return false;
       final localExpenses = await database.getRecentTransactions(
         userId: userId,
         householdId: householdId,
@@ -473,6 +478,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   }
 
   void addOptimisticTransaction(ExpenseEntry entry) {
+    _optimisticRevision++;
     final updatedExpenses = _prependDedupedById(
       nextEntry: entry,
       existing: state.expenses,
@@ -489,6 +495,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   }
 
   void removeOptimisticTransactionById(String id) {
+    _optimisticRevision++;
     if (id.isNotEmpty) {
       _pendingServerExpenseIds.remove(id);
     }
@@ -499,6 +506,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   }
 
   void replaceOptimisticTransaction(String optimisticId, ExpenseEntry entry) {
+    _optimisticRevision++;
     if (entry.id.isNotEmpty) {
       _pendingServerExpenseIds.add(entry.id);
     }
@@ -519,6 +527,96 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         dropId: optimisticId,
       ),
     );
+  }
+
+  /// Retire legacy in-memory create aliases only after durable reconciliation.
+  /// A missing receipt can be a new input whose SQLite write has not committed.
+  Future<void> reconcileOptimisticTransactionsFromLocalCache(
+      String userId) async {
+    if (_activeLoadUserId != null && _activeLoadUserId != userId) return;
+    final revision = _optimisticRevision;
+    final aliases = state.allExpenses
+        .where((entry) =>
+            (entry.id.startsWith('optimistic_') ||
+                _pendingServerExpenseIds.contains(entry.id)) &&
+            (entry.userId == null || entry.userId == userId) &&
+            entry.householdId?.trim().isNotEmpty != true)
+        .toList(growable: false);
+    if (aliases.isEmpty || userId.isEmpty) return;
+    final database = await _localDatabaseOrNull();
+    if (database == null || !mounted || revision != _optimisticRevision) return;
+    try {
+      final localRevision = database.transactionRevision;
+      final rows = await database.getTransactionsFeedItems(
+        LocalTransactionsFeedQuery(
+            userId: userId, householdId: null, pageSize: 500),
+      );
+      final receipts = {
+        for (final mutation in await database.getOutboxMutations())
+          if (mutation.entityType == 'transaction' &&
+              mutation.operation == 'create')
+            mutation.entityId: mutation,
+      };
+      if (!mounted ||
+          revision != _optimisticRevision ||
+          (_activeLoadUserId != null && _activeLoadUserId != userId) ||
+          localRevision != database.transactionRevision) {
+        return;
+      }
+      final byAlias = <String, ExpenseEntry>{};
+      for (final row in rows) {
+        byAlias[row.id] = row;
+        final recordId = row.clientRecordId;
+        if (recordId != null && recordId.isNotEmpty) byAlias[recordId] = row;
+        final key = row.idempotencyKey;
+        if (key != null && key.startsWith('mobile:optimistic_')) {
+          byAlias[key.substring('mobile:'.length)] = row;
+        }
+      }
+      final replacements = <String, ExpenseEntry?>{};
+      for (final alias in aliases) {
+        final row = byAlias[alias.id];
+        final key = alias.idempotencyKey;
+        final originalId = alias.clientRecordId ??
+            (key?.startsWith('mobile:optimistic_') == true
+                ? key!.substring('mobile:'.length)
+                : alias.id);
+        final receipt = receipts[originalId];
+        if (row != null) {
+          replacements[alias.id] = row;
+        } else if (receipt?.status == localMutationStatusSynced ||
+            receipt?.status == localMutationStatusCancelled) {
+          replacements[alias.id] = null;
+        }
+      }
+      if (replacements.isEmpty) return;
+      for (final entry in replacements.entries) {
+        if (entry.value == null) _pendingServerExpenseIds.remove(entry.key);
+      }
+      final canonicalRows = {
+        for (final row in replacements.values)
+          if (row != null) row.id: row,
+      };
+      List<ExpenseEntry> reconcile(List<ExpenseEntry> entries) {
+        final seen = <String>{};
+        return [
+          for (final entry in entries)
+            if ((replacements.containsKey(entry.id)
+                    ? replacements[entry.id]
+                    : entry)
+                case final ExpenseEntry resolved)
+              if (seen.add(resolved.id)) canonicalRows[resolved.id] ?? resolved,
+        ];
+      }
+
+      _optimisticRevision++;
+      state = state.copyWith(
+        expenses: reconcile(state.expenses),
+        allExpenses: reconcile(state.allExpenses),
+      );
+    } catch (_) {
+      // An unavailable local read must not erase pending user input.
+    }
   }
 
   List<ExpenseEntry> _prependDedupedById({

@@ -29,6 +29,14 @@ enum BudgetCompanionReaction {
   planning
 }
 
+BudgetCompanionReaction budgetCompanionReactionForProgress(double? ratio) {
+  if (ratio == null) return BudgetCompanionReaction.planning;
+  if (ratio >= 1) return BudgetCompanionReaction.overBudget;
+  if (ratio >= .75) return BudgetCompanionReaction.concerned;
+  if (ratio >= .5) return BudgetCompanionReaction.encouraging;
+  return BudgetCompanionReaction.happy;
+}
+
 /// Presentation of canonical totals; no persisted or independently fetched state.
 class BudgetCompanionSummary {
   const BudgetCompanionSummary({required this.spent, this.budget});
@@ -41,14 +49,8 @@ class BudgetCompanionSummary {
   double get barProgress => (progress ?? 0).clamp(0.0, 1.0);
   double? get remaining => hasBudget ? budget! - spent : null;
 
-  BudgetCompanionReaction get reaction {
-    final ratio = progress;
-    if (ratio == null) return BudgetCompanionReaction.planning;
-    if (ratio > 1) return BudgetCompanionReaction.overBudget;
-    if (ratio >= .8) return BudgetCompanionReaction.concerned;
-    if (ratio >= .6) return BudgetCompanionReaction.encouraging;
-    return BudgetCompanionReaction.happy;
-  }
+  BudgetCompanionReaction get reaction =>
+      budgetCompanionReactionForProgress(progress);
 
   @override
   bool operator ==(Object other) =>
