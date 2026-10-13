@@ -62,7 +62,10 @@ class _HouseholdMembersSectionState
 
     final invites = invitesAsync.valueOrNull ?? [];
     final pendingInvites = invites
-        .where((invite) => invite.status == InviteStatus.pending)
+        .where((invite) =>
+            !invite.isReusable &&
+            (invite.status == InviteStatus.pending ||
+                invite.status == InviteStatus.expired))
         .toList();
     // Permissions
     final currentUserMember = membersAsync.value!.firstWhere(
@@ -84,23 +87,6 @@ class _HouseholdMembersSectionState
 
     return Column(
       children: [
-        if (canManageMembers) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(children: [
-              PrimaryAdaptiveButton(
-                onPressed: () => showHouseholdInviteComposer(context,
-                    householdId: widget.householdId),
-                prefixIcon: const Icon(CupertinoIcons.link),
-                child: Text(context.l10n.shareGroupLink),
-              ),
-              const SizedBox(height: 12),
-              Text(context.l10n.groupInviteLinkDescription,
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.mutedForeground)),
-            ]),
-          ),
-        ],
         _buildMembersList(
           context,
           membersAsync.value!,
@@ -108,6 +94,73 @@ class _HouseholdMembersSectionState
           canManageMembers,
           currentUserRole,
           currentUserId,
+        ),
+        if (canManageMembers) _buildInviteMembersSection(context),
+      ],
+    );
+  }
+
+  Widget _buildInviteMembersSection(BuildContext context,
+      {bool enabled = true}) {
+    final scheme = Theme.of(context).colorScheme;
+    return _buildSettingsSection(
+      context,
+      title: context.l10n.inviteMembers,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(context.l10n.inviteMembersDescription,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: scheme.mutedForeground, height: 1.5)),
+              const SizedBox(height: 16),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: PrimaryAdaptiveButton(
+                        onPressed: enabled
+                            ? () => showHouseholdInviteComposer(context,
+                                householdId: widget.householdId)
+                            : null,
+                        child: Text(context.l10n.shareGroupLink,
+                            maxLines: 10,
+                            overflow: TextOverflow.visible,
+                            style: const TextStyle(fontSize: 14)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: scheme.copyWith(
+                            primary: scheme.primary.withValues(alpha: 0.12),
+                            onPrimary: scheme.primary,
+                          ),
+                        ),
+                        child: PrimaryAdaptiveButton(
+                          onPressed: enabled
+                              ? () => showHouseholdInviteComposer(context,
+                                  householdId: widget.householdId,
+                                  isReusable: false)
+                              : null,
+                          child: Text(context.l10n.inviteByEmail,
+                              maxLines: 10,
+                              overflow: TextOverflow.visible,
+                              style: const TextStyle(fontSize: 14)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -126,6 +179,18 @@ class _HouseholdMembersSectionState
     return _buildSettingsSection(
       context,
       title: context.l10n.members,
+      headerTrailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: colorScheme.cardSurface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+            MaterialLocalizations.of(context).formatDecimal(members.length),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colorScheme.mutedForeground,
+                fontWeight: FontWeight.w600)),
+      ),
       children: [
         // Member List
         ...members.map((member) {
@@ -200,8 +265,9 @@ class _HouseholdMembersSectionState
           );
         }),
         ...pendingInvites.map((invite) {
-          final isExpired = invite.expiresAt != null &&
-              invite.expiresAt!.isBefore(DateTime.now());
+          final isExpired = invite.status == InviteStatus.expired ||
+              (invite.expiresAt != null &&
+                  !invite.expiresAt!.isAfter(DateTime.now()));
 
           return _buildSettingsTile(
             context: context,
@@ -245,32 +311,6 @@ class _HouseholdMembersSectionState
             onTap: canManage ? () => _showInviteActionSheet(invite) : null,
           );
         }),
-        // "Invite New Member" Tile
-        if (canManage)
-          _buildSettingsTile(
-            context: context,
-            leading: _buildIconBadge(
-              context,
-              icon: CupertinoIcons.person_add,
-              iconColor: colorScheme.mutedForeground,
-              backgroundColor:
-                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            ),
-            title: Text(
-              context.l10n.inviteNewMember,
-              style: TextStyle(
-                color: colorScheme.foreground,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            trailing: Icon(
-              CupertinoIcons.chevron_right,
-              size: 14,
-              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
-            ),
-            onTap: () => showHouseholdInviteComposer(context,
-                householdId: widget.householdId, isReusable: false),
-          ),
       ],
     );
   }
@@ -285,40 +325,44 @@ class _HouseholdMembersSectionState
         baseColor: colorScheme.skeletonBase,
         highlightColor: colorScheme.skeletonHighlight,
       ),
-      child: _buildSettingsSection(
-        context,
-        title: context.l10n.members,
-        children: [
-          _buildSettingsTile(
-            context: context,
-            leading: const Bone.circle(size: 40),
-            title: const Bone.text(words: 2, fontSize: 15),
-            subtitle: const Bone.text(words: 3, fontSize: 13),
-            trailing: Text(
-              context.l10n.owner,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.mutedForeground,
+      child: Column(children: [
+        _buildSettingsSection(
+          context,
+          title: context.l10n.members,
+          headerTrailing: const Bone(width: 32, height: 24),
+          children: [
+            _buildSettingsTile(
+              context: context,
+              leading: const Bone.circle(size: 40),
+              title: const Bone.text(words: 2, fontSize: 15),
+              subtitle: const Bone.text(words: 3, fontSize: 13),
+              trailing: Text(
+                context.l10n.owner,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
               ),
             ),
-          ),
-          _buildSettingsTile(
-            context: context,
-            leading: const Bone.circle(size: 40),
-            title: const Bone.text(words: 2, fontSize: 15),
-            subtitle: const Bone.text(words: 3, fontSize: 13),
-            trailing: Text(
-              context.l10n.member,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.mutedForeground,
+            _buildSettingsTile(
+              context: context,
+              leading: const Bone.circle(size: 40),
+              title: const Bone.text(words: 2, fontSize: 15),
+              subtitle: const Bone.text(words: 3, fontSize: 13),
+              trailing: Text(
+                context.l10n.member,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.mutedForeground,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+        _buildInviteMembersSection(context, enabled: false),
+      ]),
     );
   }
 
@@ -326,6 +370,7 @@ class _HouseholdMembersSectionState
     BuildContext context, {
     required String title,
     required List<Widget> children,
+    Widget? headerTrailing,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -334,15 +379,22 @@ class _HouseholdMembersSectionState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1.0,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
+          Row(children: [
+            Expanded(
+                child: Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 1.0,
+                color: colorScheme.mutedForeground,
+              ),
+            )),
+            if (headerTrailing != null) ...[
+              const SizedBox(width: 12),
+              headerTrailing,
+            ],
+          ]),
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(

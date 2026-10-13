@@ -1083,124 +1083,124 @@ class _HouseholdSettingsSkeleton extends StatelessWidget {
     BuildContext context,
     ColorScheme colorScheme,
   ) {
-    return _buildSkeletonSection(
-      context,
-      colorScheme,
-      title: context.l10n.members,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Row(
-            children: [
-              const Bone.circle(size: 40),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Bone.text(words: 2, fontSize: 15),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            context.l10n.you,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.primary,
+    return Column(children: [
+      _buildSkeletonSection(
+        context,
+        colorScheme,
+        title: context.l10n.members,
+        headerTrailing: const Bone(width: 32, height: 24),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              children: [
+                const Bone.circle(size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Bone.text(words: 2, fontSize: 15),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  colorScheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              context.l10n.you,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.primary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    const Bone.text(words: 3, fontSize: 13),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                context.l10n.owner,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Row(
-            children: [
-              const Bone.circle(size: 40),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Bone.text(words: 2, fontSize: 15),
-                    SizedBox(height: 4),
-                    Bone.text(words: 3, fontSize: 13),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                context.l10n.member,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  CupertinoIcons.person_add,
-                  size: 20,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  context.l10n.inviteNewMember,
-                  style: TextStyle(
-                    color: colorScheme.foreground,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 15,
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Bone.text(words: 3, fontSize: 13),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Text(
+                  context.l10n.owner,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    );
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              children: [
+                const Bone.circle(size: 40),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Bone.text(words: 2, fontSize: 15),
+                      SizedBox(height: 4),
+                      Bone.text(words: 3, fontSize: 13),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  context.l10n.member,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      _buildSkeletonSection(
+        context,
+        colorScheme,
+        title: context.l10n.inviteMembers,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Bone.text(words: 7, fontSize: 14),
+                SizedBox(height: 16),
+                Row(children: [
+                  Expanded(
+                      child: Bone(
+                          height: 64,
+                          borderRadius: BorderRadius.all(Radius.circular(16)))),
+                  SizedBox(width: 12),
+                  Expanded(
+                      child: Bone(
+                          height: 64,
+                          borderRadius: BorderRadius.all(Radius.circular(16)))),
+                ]),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ]);
   }
 
   Widget _buildDangerZoneSkeleton(
@@ -1243,21 +1243,29 @@ class _HouseholdSettingsSkeleton extends StatelessWidget {
     ColorScheme colorScheme, {
     required String title,
     required List<Widget> children,
+    Widget? headerTrailing,
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1.0,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
+          Row(children: [
+            Expanded(
+                child: Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 1.0,
+                color: colorScheme.mutedForeground,
+              ),
+            )),
+            if (headerTrailing != null) ...[
+              const SizedBox(width: 12),
+              headerTrailing,
+            ],
+          ]),
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(

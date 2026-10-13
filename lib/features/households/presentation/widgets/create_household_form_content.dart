@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/moneko_text_form_field.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/presentation/widgets/household_image_picker.dart';
 import '../../core/household_constants.dart';
@@ -137,62 +137,32 @@ class CreateHouseholdFormContent extends ConsumerWidget {
     return Semantics(
       label: context.l10n.householdNameInput,
       textField: true,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.appleInputBackground,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.06),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-            ),
-          ],
+      child: MonekoTextFormField(
+        controller: nameController,
+        enabled: !isLoading,
+        placeholder: 'Name This Space',
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        maxLines: 1,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 20,
+          color: colorScheme.foreground,
+          letterSpacing: -0.5,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        child: AdaptiveTextFormField(
-          controller: nameController,
-          enabled: !isLoading,
-          placeholder: 'Name This Space',
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          maxLines: 1,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-            color: colorScheme.foreground,
-            letterSpacing: -0.5,
-          ),
-          decoration: InputDecoration(
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
-            focusedErrorBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            hintStyle: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.mutedForeground.withValues(alpha: 0.5),
-              letterSpacing: -0.5,
-            ),
-          ),
-          validator: (value) {
-            final text = (value ?? nameController.text).trim();
-            if (text.isEmpty) {
-              return context.l10n.pleaseEnterHouseholdName;
-            }
-            if (text.length < HouseholdConstants.minNameLength) {
-              return context.l10n
-                  .nameMinLength(HouseholdConstants.minNameLength);
-            }
-            if (text.length > HouseholdConstants.maxNameLength) {
-              return context.l10n
-                  .nameMaxLength(HouseholdConstants.maxNameLength);
-            }
-            return null;
-          },
-        ),
+        validator: (value) {
+          final text = (value ?? nameController.text).trim();
+          if (text.isEmpty) {
+            return context.l10n.pleaseEnterHouseholdName;
+          }
+          if (text.length < HouseholdConstants.minNameLength) {
+            return context.l10n.nameMinLength(HouseholdConstants.minNameLength);
+          }
+          if (text.length > HouseholdConstants.maxNameLength) {
+            return context.l10n.nameMaxLength(HouseholdConstants.maxNameLength);
+          }
+          return null;
+        },
       ),
     );
   }

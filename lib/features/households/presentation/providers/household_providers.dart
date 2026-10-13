@@ -852,6 +852,7 @@ class HouseholdInvitesNotifier
 final householdInvitesProvider = StateNotifierProvider.family<
     HouseholdInvitesNotifier, AsyncValue<List<HouseholdInvite>>, String>(
   (ref, householdId) {
+    ref.watch(currentUserIdProvider);
     final repository = ref.watch(householdRepositoryProvider);
     return HouseholdInvitesNotifier(repository, householdId);
   },

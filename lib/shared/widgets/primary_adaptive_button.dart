@@ -10,6 +10,7 @@ class PrimaryAdaptiveButton extends StatelessWidget {
     this.prefixIcon,
     required this.child,
     this.isExpanded = true,
+    this.compact = false,
   }) : _isOutlined = false;
 
   const PrimaryAdaptiveButton.outlined({
@@ -18,6 +19,7 @@ class PrimaryAdaptiveButton extends StatelessWidget {
     this.prefixIcon,
     required this.child,
     this.isExpanded = true,
+    this.compact = false,
   }) : _isOutlined = true;
 
   final VoidCallback? onPressed;
@@ -25,6 +27,7 @@ class PrimaryAdaptiveButton extends StatelessWidget {
   final Widget child;
   final bool isExpanded;
   final bool _isOutlined;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -43,10 +46,11 @@ class PrimaryAdaptiveButton extends StatelessWidget {
             ],
           );
 
-    final borderRadius = BorderRadius.circular(16);
+    final borderRadius = BorderRadius.circular(compact ? 10 : 16);
     final foreground = _isOutlined ? scheme.primary : scheme.primaryForeground;
     final button = CupertinoButton(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+      padding: EdgeInsets.symmetric(
+          vertical: compact ? 8 : 16, horizontal: compact ? 16 : 24),
       color:
           _isOutlined ? scheme.surface.withValues(alpha: 0.0) : scheme.primary,
       disabledColor: _isOutlined
@@ -63,9 +67,9 @@ class PrimaryAdaptiveButton extends StatelessWidget {
           color: _isOutlined && onPressed == null
               ? foreground.withValues(alpha: 0.5)
               : foreground,
-          fontSize: 16,
+          fontSize: compact ? 14 : 16,
           fontWeight: FontWeight.w600,
-          letterSpacing: -0.3,
+          letterSpacing: compact ? 0 : -0.3,
         ),
         child: content,
       ),
@@ -73,19 +77,22 @@ class PrimaryAdaptiveButton extends StatelessWidget {
 
     return SizedBox(
       width: isExpanded ? double.infinity : null,
-      child: _isOutlined
-          ? DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: borderRadius,
-                border: Border.all(
-                  color: onPressed == null
-                      ? scheme.primary.withValues(alpha: 0.5)
-                      : scheme.primary,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: compact ? 48 : 0),
+        child: _isOutlined
+            ? DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: borderRadius,
+                  border: Border.all(
+                    color: onPressed == null
+                        ? scheme.primary.withValues(alpha: 0.5)
+                        : scheme.primary,
+                  ),
                 ),
-              ),
-              child: button,
-            )
-          : button,
+                child: button,
+              )
+            : button,
+      ),
     );
   }
 }

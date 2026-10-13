@@ -179,6 +179,15 @@ extension AppColorScheme on ColorScheme {
   /// Primary foreground color (text/icon on primary)
   Color get primaryForeground => onPrimary;
 
+  List<BoxShadow>? get groupedCardShadows => brightness == Brightness.dark
+      ? null
+      : [
+          BoxShadow(
+              color: shadow.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2))
+        ];
+
   /// Secondary foreground color (text/icon on secondary)
   Color get secondaryForeground => onSecondary;
 

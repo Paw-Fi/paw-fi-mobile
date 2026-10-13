@@ -81,6 +81,11 @@ class HouseholdInviteComposerNotifier
   void setMessage(String message) =>
       _update(state.draft.copyWith(personalMessage: message));
 
+  void startNewInvite() {
+    if (state.result.isLoading || !_isActorActive()) return;
+    state = HouseholdInviteComposerState(draft: state.draft);
+  }
+
   Future<void> create() async {
     if (!state.canEdit || !_isActorActive()) return;
     final draft = state.draft;
@@ -91,6 +96,9 @@ class HouseholdInviteComposerNotifier
     state = HouseholdInviteComposerState(draft: draft, result: result);
   }
 }
+
+final householdInviteLibraryFormProvider = StateProvider.autoDispose
+    .family<bool, HouseholdInviteComposerKey>((ref, key) => false);
 
 final householdInviteComposerProvider = StateNotifierProvider.autoDispose
     .family<HouseholdInviteComposerNotifier, HouseholdInviteComposerState,

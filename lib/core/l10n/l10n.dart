@@ -221,15 +221,22 @@ extension WalletOrderL10nX on AppLocalizations {
 
 /// English fallback until the normal translation catalog export.
 extension HouseholdGroupInviteL10nX on AppLocalizations {
+  String get personalMessageOptional => 'Message (optional)';
+  String get inviteLinkCopiedToClipboard => 'Link copied';
+  String get createNewInviteLink => 'Create new link';
+  String get inviteByEmail => 'Invite by email';
+  String get inviteMembersDescription => 'Share a link or invite by email.';
+  String get savedInviteLinks => 'Available links';
+  String get noAvailableInviteLinks => 'No active links.';
   String get shareGroupLink => 'Share group link';
   String get createGroupLink => 'Create group link';
   String get groupInviteLink => 'Group invite link';
   String get groupInviteLinkDescription =>
-      'Share one link with your whole group. Anyone with the link can sign in or create an account and join this space.';
+      'Anyone with this link can join this space.';
   String get inviteIndividual => 'Invite someone individually';
   String get invitedUserRole => 'Join as';
   String get invitationRoleHelp =>
-      'Admins can add shared expenses, view balances, manage space settings, invite people, and manage members.\n\nMembers can add shared expenses and view balances, without managing space settings or members.';
+      'Admins can add expenses, view balances, and manage space settings and members.\n\nMembers can only add expenses and view balances.';
   String get inviteNeverExpires => 'Never expires';
   String get shareInviteLink => 'Share link';
 }

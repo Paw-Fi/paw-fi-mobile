@@ -92,15 +92,19 @@ class DashboardBudgetHeader extends StatelessWidget {
     );
     // The header belongs to the page background, without a card surface,
     // border, shadow or rounded container around the mascot and gauge.
-    return Padding(
-      key: const ValueKey('dashboard-budget-header'),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: MediaQuery.disableAnimationsOf(context)
-          ? content
-          : AnimatedSize(
-              duration: _motion(context),
-              alignment: Alignment.topCenter,
-              child: content),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onBudgetTap,
+      child: Padding(
+        key: const ValueKey('dashboard-budget-header'),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: MediaQuery.disableAnimationsOf(context)
+            ? content
+            : AnimatedSize(
+                duration: _motion(context),
+                alignment: Alignment.topCenter,
+                child: content),
+      ),
     );
   }
 }
