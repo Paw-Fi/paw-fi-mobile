@@ -36,6 +36,7 @@ import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
 import 'package:moneko/features/home/presentation/utils/smart_transaction_input.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
+import 'package:moneko/features/home/presentation/widgets/transaction_receipt_image.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -1479,29 +1480,23 @@ class _UnifiedTransactionSheetV2State
                   _showFullScreenImage(localImagePath, receiptImageUrl),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: localImagePath != null
-                    ? Image.file(
-                        File(localImagePath),
-                        width: double.infinity,
-                        height: 200,
-                        fit: BoxFit.cover,
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: receiptImageUrl!,
-                        width: double.infinity,
-                        height: 200,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          height: 200,
-                          alignment: Alignment.center,
-                          child: const CircularProgressIndicator(),
-                        ),
-                        errorWidget: (_, __, ___) => Container(
-                          height: 200,
-                          color: colorScheme.surfaceContainerHighest,
-                          child: const Icon(Icons.broken_image),
-                        ),
-                      ),
+                child: TransactionReceiptImage(
+                  localImagePath: localImagePath,
+                  imageUrl: receiptImageUrl,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  placeholder: (context) => Container(
+                    height: 200,
+                    alignment: Alignment.center,
+                    child: const CircularProgressIndicator(),
+                  ),
+                  unavailable: (_) => Container(
+                    height: 200,
+                    color: colorScheme.surfaceContainerHighest,
+                    child: const Icon(Icons.broken_image),
+                  ),
+                ),
               ),
             )
           : InkWell(
@@ -5181,44 +5176,40 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
           transformationController: _transformationController,
           minScale: 0.5,
           maxScale: 4.0,
-          child: _displayLocalImagePath != null
-              ? Image.file(
-                  File(_displayLocalImagePath!),
+          child: _displayLocalImagePath != null || _displayImageUrl != null
+              ? TransactionReceiptImage(
+                  localImagePath: _displayLocalImagePath,
+                  imageUrl: _displayImageUrl,
                   fit: BoxFit.contain,
-                )
-              : _displayImageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: _displayImageUrl!,
-                      fit: BoxFit.contain,
-                      placeholder: (context, url) => Center(
-                        child: CircularProgressIndicator(
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                      errorWidget: (context, url, error) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported_outlined,
-                                size: 64,
-                                color: colorScheme.mutedForeground,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                context.l10n.failedToLoadImage,
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
+                  placeholder: (context) => Center(
+                    child: CircularProgressIndicator(
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  unavailable: (context) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.image_not_supported_outlined,
+                            size: 64,
+                            color: colorScheme.mutedForeground,
                           ),
-                        );
-                      },
-                    )
-                  : const SizedBox(),
+                          const SizedBox(height: 16),
+                          Text(
+                            context.l10n.failedToLoadImage,
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                )
+              : const SizedBox(),
         ),
       ),
     );

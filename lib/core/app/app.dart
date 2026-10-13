@@ -9,6 +9,7 @@ import 'package:moneko/core/services/widget_session_provider.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
+import 'package:moneko/core/app/app_material_surface.dart';
 import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/app/fallback_localizations.dart';
@@ -277,7 +278,8 @@ class _AppState extends ConsumerState<App> {
               context: context,
               locale: locale,
               delegates: localizationsDelegates,
-              child: Stack(
+              child: AppMaterialSurface(
+                  child: Stack(
                 fit: StackFit.expand,
                 children: [
                   AiShareIntentListener(
@@ -321,7 +323,7 @@ class _AppState extends ConsumerState<App> {
                     ),
                   ),
                 ],
-              ),
+              )),
             ),
           ),
         );
