@@ -476,6 +476,9 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                 backgroundColor: colorScheme.surface,
                 title: Text(
                   categoryName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
                   style: TextStyle(
                     color: colorScheme.foreground,
                     fontSize: 18,
@@ -544,19 +547,34 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      child: Row(
-                        children: [
-                          Expanded(
-                              child: _buildTrendMiniChart(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final showSingleColumn = constraints.maxWidth < 360 ||
+                              MediaQuery.textScalerOf(context).scale(14) > 17;
+                          final trend = _buildTrendMiniChart(
                             colorScheme,
                             aggregateMonthGroups,
                             isLoading: feedState.isLoading,
-                          )),
-                          const SizedBox(width: 12),
-                          Expanded(
-                              child: _buildMerchantSplitCard(
-                                  colorScheme, sortedMerchants, symbol)),
-                        ],
+                          );
+                          final merchants = _buildMerchantSplitCard(
+                              colorScheme, sortedMerchants, symbol);
+                          if (showSingleColumn) {
+                            return Column(
+                              children: [
+                                trend,
+                                const SizedBox(height: 12),
+                                merchants,
+                              ],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              Expanded(child: trend),
+                              const SizedBox(width: 12),
+                              Expanded(child: merchants),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -654,74 +672,97 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: colorScheme.homeCardSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colorScheme.homeCardBorder),
+          boxShadow: colorScheme.groupedCardShadows,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: icon,
                 ),
-                child: icon,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      categoryName,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$symbol${formatLocalizedNumber(context, totalSpent)}',
-                      style: WidgetTextStyles.roundedNumber(
-                        Theme.of(context),
-                        baseStyle: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.foreground,
-                          letterSpacing: -1,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        categoryName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        '$symbol${formatLocalizedNumber(context, totalSpent)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WidgetTextStyles.roundedNumber(
+                          Theme.of(context),
+                          baseStyle: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.foreground,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _SummaryStatItem(
-                label: 'COUNT',
-                value: '$count',
-                colorScheme: colorScheme,
-              ),
-              _SummaryStatItem(
-                label: 'AVERAGE',
-                value: '$symbol${formatLocalizedNumber(context, avg)}',
-                colorScheme: colorScheme,
-              ),
-              _SummaryStatItem(
-                label: 'TOP MERCHANT',
-                value: topMerchant != null ? topMerchant.key : '-',
-                colorScheme: colorScheme,
-                crossAxisAlignment: CrossAxisAlignment.end,
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 18),
+            Divider(
+                height: 1, color: colorScheme.outline.withValues(alpha: .2)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _SummaryStatItem(
+                    label: 'COUNT',
+                    value: '$count',
+                    colorScheme: colorScheme,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SummaryStatItem(
+                    label: 'AVERAGE',
+                    value: '$symbol${formatLocalizedNumber(context, avg)}',
+                    colorScheme: colorScheme,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SummaryStatItem(
+                    label: 'TOP MERCHANT',
+                    value: topMerchant?.key ?? '-',
+                    colorScheme: colorScheme,
+                    showFullValueOnLongPress: topMerchant != null,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -732,6 +773,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     if (monthGroups.isEmpty && !isLoading) return const SizedBox.shrink();
 
     var chronologicalGroups = monthGroups.reversed.toList();
+    final textScale = MediaQuery.textScalerOf(context).scale(12) / 12;
 
     if (isLoading && chronologicalGroups.isEmpty) {
       // Mock data for skeleton
@@ -748,7 +790,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     return Skeletonizer(
       enabled: isLoading,
       child: Container(
-        height: 100,
+        height: 148.0 * textScale.clamp(1.0, 1.6).toDouble(),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: colorScheme.card,
@@ -768,7 +810,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             ),
             const Spacer(),
             SizedBox(
-              height: 40,
+              height: 76,
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceEvenly,
@@ -793,6 +835,37 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                 ),
               ),
             ),
+            if (monthGroups.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatTrendMonth(context, chronologicalGroups.first),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ),
+                  if (chronologicalGroups.length > 1)
+                    Expanded(
+                      child: Text(
+                        _formatTrendMonth(context, chronologicalGroups.last),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -802,9 +875,11 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   Widget _buildMerchantSplitCard(ColorScheme colorScheme,
       List<MapEntry<String, double>> topMerchants, String symbol) {
     final top3 = topMerchants.take(3).toList();
+    final categoryColor = getCategoryColor(widget.categoryKey, context);
+    final textScale = MediaQuery.textScalerOf(context).scale(12) / 12;
 
     return Container(
-      height: 100,
+      height: 148.0 * textScale.clamp(1.0, 1.6).toDouble(),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.card,
@@ -816,6 +891,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         children: [
           Text(
             'Top Merchants',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -833,25 +910,59 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: top3.map((e) {
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          e.key,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.foreground,
-                              fontWeight: FontWeight.w500),
+                  final fraction = top3.first.value <= 0
+                      ? 0.0
+                      : (e.value / top3.first.value).clamp(0.0, 1.0).toDouble();
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Tooltip(
+                                message: e.key,
+                                child: Text(
+                                  e.key,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: colorScheme.foreground,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '$symbol${formatLocalizedNumber(context, e.value)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      Text(
-                        '$symbol${formatLocalizedNumber(context, e.value)}',
-                        style: TextStyle(
-                            fontSize: 11, color: colorScheme.mutedForeground),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: fraction,
+                            minHeight: 3,
+                            color: categoryColor,
+                            backgroundColor:
+                                colorScheme.muted.withValues(alpha: .55),
+                          ),
+                        ),
+                      ],
+                    ),
                   );
                 }).toList(),
               ),
@@ -941,14 +1052,22 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                 ),
               ),
               alignment: Alignment.center,
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected
-                      ? colorScheme.primaryForeground
-                      : colorScheme.foreground,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.72,
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? colorScheme.primaryForeground
+                        : colorScheme.foreground,
+                  ),
                 ),
               ),
             ),
@@ -973,6 +1092,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
       child: Text(
         dateLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
@@ -1011,6 +1132,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         children: [
           Text(
             dateLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -1110,44 +1233,63 @@ class _SummaryStatItem extends StatelessWidget {
   final String label;
   final String value;
   final ColorScheme colorScheme;
-  final CrossAxisAlignment crossAxisAlignment;
+  final bool showFullValueOnLongPress;
 
   const _SummaryStatItem({
     required this.label,
     required this.value,
     required this.colorScheme,
-    this.crossAxisAlignment = CrossAxisAlignment.start,
+    this.showFullValueOnLongPress = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: crossAxisAlignment,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.mutedForeground,
-            letterSpacing: 0.5,
+    final valueText = Text(
+      value,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: colorScheme.foreground,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+      decoration: BoxDecoration(
+        color: colorScheme.muted.withValues(alpha: .55),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+              letterSpacing: 0.5,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.foreground,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+          const SizedBox(height: 5),
+          if (showFullValueOnLongPress)
+            Tooltip(message: value, child: valueText)
+          else
+            valueText,
+        ],
+      ),
     );
   }
 }
+
+String _formatTrendMonth(BuildContext context, MonthTransactionGroup group) =>
+    DateFormat('MMM yy', Localizations.localeOf(context).toString())
+        .format(group.monthStart);
 
 class _StickyFilterDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;

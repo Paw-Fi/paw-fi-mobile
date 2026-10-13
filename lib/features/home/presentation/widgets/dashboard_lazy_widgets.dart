@@ -147,6 +147,8 @@ class LazyDashboardBudgetCompanionCard extends ConsumerWidget {
       data: data,
       currency:
           request?.currency ?? ref.watch(selectedHomeCurrencyCodeProvider),
+      initialStartDate: request?.query.startDate,
+      initialEndDate: request?.query.endDate,
       useCustomCategoryStyles: request?.query.householdId == null,
       onRetry: () => _retryBudgetCompanion(ref, request, data),
     );

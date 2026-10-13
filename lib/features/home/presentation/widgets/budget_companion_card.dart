@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/pages/category_details_page.dart';
 import 'package:moneko/features/home/presentation/state/budget_companion_provider.dart';
 
 import 'package:moneko/features/utils/currency.dart';
@@ -21,12 +22,16 @@ class BudgetCompanionCard extends StatelessWidget {
     required this.data,
     required this.currency,
     required this.onRetry,
+    this.initialStartDate,
+    this.initialEndDate,
     this.useCustomCategoryStyles = false,
   });
 
   final BudgetCompanionData data;
   final String currency;
   final VoidCallback onRetry;
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
   final bool useCustomCategoryStyles;
 
   @override
@@ -46,6 +51,8 @@ class BudgetCompanionCard extends StatelessWidget {
           // claim of zero total spending.
           hasSpending: data.summary.valueOrNull?.spent != 0,
           onRetry: onRetry,
+          initialStartDate: initialStartDate,
+          initialEndDate: initialEndDate,
           motion: _motion(context),
         ),
       ],
@@ -77,6 +84,8 @@ class _CategorySheet extends StatefulWidget {
     required this.useCustomStyles,
     required this.hasSpending,
     required this.onRetry,
+    required this.initialStartDate,
+    required this.initialEndDate,
     required this.motion,
   });
 
@@ -86,6 +95,8 @@ class _CategorySheet extends StatefulWidget {
   final bool useCustomStyles;
   final bool hasSpending;
   final VoidCallback onRetry;
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
   final Duration motion;
 
   @override
@@ -194,6 +205,8 @@ class _CategorySheetState extends State<_CategorySheet>
                     currency: widget.currency,
                     useCustomStyles: widget.useCustomStyles,
                     hasSpending: widget.hasSpending,
+                    initialStartDate: widget.initialStartDate,
+                    initialEndDate: widget.initialEndDate,
                     intro: _intro,
                   )
                 : widget.hasError
@@ -212,11 +225,15 @@ class _CategoryBars extends StatelessWidget {
       required this.currency,
       required this.useCustomStyles,
       required this.hasSpending,
+      required this.initialStartDate,
+      required this.initialEndDate,
       required this.intro});
   final List<BudgetCompanionCategory> categories;
   final String currency;
   final bool useCustomStyles;
   final bool hasSpending;
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
   final Animation<double> intro;
 
   @override
@@ -262,6 +279,8 @@ class _CategoryBars extends StatelessWidget {
                             category: categories[index],
                             currency: currency,
                             useCustomStyles: useCustomStyles,
+                            initialStartDate: initialStartDate,
+                            initialEndDate: initialEndDate,
                             // Bound the stagger so even long lists finish together.
                             entrance: Interval(.1 + index.clamp(0, 6) * .04,
                                     .76 + index.clamp(0, 6) * .04,
@@ -281,10 +300,14 @@ class _CategoryBar extends StatelessWidget {
       {required this.category,
       required this.currency,
       required this.useCustomStyles,
+      required this.initialStartDate,
+      required this.initialEndDate,
       required this.entrance});
   final BudgetCompanionCategory category;
   final String currency;
   final bool useCustomStyles;
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
   final double entrance;
 
   @override
@@ -297,58 +320,74 @@ class _CategoryBar extends StatelessWidget {
     final compactAmount =
         formatCompactCurrency(category.amount, currency, context: context);
     final label = getCategoryTranslation(context, category.category);
+    void openCategoryDetails() => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CategoryDetailsPage(
+              categoryKey: category.category,
+              currency: currency,
+              initialStartDate: initialStartDate,
+              initialEndDate: initialEndDate,
+            ),
+          ),
+        );
     return Semantics(
         label: '$label: $amount',
+        button: true,
+        onTap: openCategoryDetails,
         child: ExcludeSemantics(
             child: Tooltip(
                 message: '$label: $amount',
-                triggerMode: TooltipTriggerMode.tap,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    SizedBox(
-                        height: barAreaHeight,
-                        child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: AnimatedContainer(
-                              key: ValueKey('budget-bar-${category.category}'),
-                              duration: entrance < 1
-                                  ? Duration.zero
-                                  : _motion(context),
-                              curve: Curves.easeOutCubic,
-                              width: barWidth,
-                              height: barAreaHeight *
-                                  category.heightFactor *
-                                  entrance,
-                              decoration: BoxDecoration(
-                                  color: Color.alphaBlend(
-                                      color.withValues(alpha: .5),
-                                      colors.surface),
-                                  borderRadius: BorderRadius.circular(16)),
-                            ))),
-                    const SizedBox(height: 7),
-                    FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(compactAmount,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(
-                                    color: colors.foreground,
-                                    fontWeight: FontWeight.w700))),
-                    const SizedBox(height: 7),
-                    ClipOval(
-                        child: Container(
-                            width: iconDiameter,
-                            height: iconDiameter,
-                            decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: color.withValues(alpha: .16)),
-                            child: buildCategoryIcon(category.category,
-                                size: iconDiameter,
-                                useCustomStyleOverrides: useCustomStyles))),
-                  ]),
-                ))));
+                triggerMode: TooltipTriggerMode.longPress,
+                child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: openCategoryDetails,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        SizedBox(
+                            height: barAreaHeight,
+                            child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: AnimatedContainer(
+                                  key: ValueKey(
+                                      'budget-bar-${category.category}'),
+                                  duration: entrance < 1
+                                      ? Duration.zero
+                                      : _motion(context),
+                                  curve: Curves.easeOutCubic,
+                                  width: barWidth,
+                                  height: barAreaHeight *
+                                      category.heightFactor *
+                                      entrance,
+                                  decoration: BoxDecoration(
+                                      color: Color.alphaBlend(
+                                          color.withValues(alpha: .5),
+                                          colors.surface),
+                                      borderRadius: BorderRadius.circular(16)),
+                                ))),
+                        const SizedBox(height: 7),
+                        FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(compactAmount,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(
+                                        color: colors.foreground,
+                                        fontWeight: FontWeight.w700))),
+                        const SizedBox(height: 7),
+                        ClipOval(
+                            child: Container(
+                                width: iconDiameter,
+                                height: iconDiameter,
+                                decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: color.withValues(alpha: .16)),
+                                child: buildCategoryIcon(category.category,
+                                    size: iconDiameter,
+                                    useCustomStyleOverrides: useCustomStyles))),
+                      ]),
+                    )))));
   }
 }
 
