@@ -10,6 +10,8 @@ import 'package:moneko/features/wallets/presentation/widgets/wallet_account_stac
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_mesh_gradient_painter.dart';
 
+const _headerShadowInset = 10.0;
+
 class WalletStackCard extends StatelessWidget {
   const WalletStackCard({
     super.key,
@@ -106,7 +108,7 @@ class WalletStackCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: palette.primaryText,
+                    color: palette.headlineText,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -152,7 +154,7 @@ class WalletStackCard extends StatelessWidget {
             child: Text(
               '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
               style: TextStyle(
-                color: palette.primaryText,
+                color: palette.headlineText,
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0,
@@ -183,7 +185,7 @@ class WalletStackCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: palette.primaryText,
+                            color: palette.headlineText,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
@@ -296,7 +298,7 @@ class WalletStackCard extends StatelessWidget {
                         Text(
                           balanceLabel,
                           style: TextStyle(
-                            color: palette.secondaryText,
+                            color: palette.headlineText,
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
@@ -307,7 +309,7 @@ class WalletStackCard extends StatelessWidget {
                           Icon(
                             Icons.chevron_right,
                             size: 12,
-                            color: palette.secondaryText,
+                            color: palette.headlineText,
                           ),
                         ],
                       ],
@@ -316,7 +318,7 @@ class WalletStackCard extends StatelessWidget {
                     Text(
                       '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
                       style: TextStyle(
-                        color: palette.primaryText,
+                        color: palette.headlineText,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0,
@@ -352,17 +354,25 @@ class WalletStackCard extends StatelessWidget {
                 ),
               ),
             ),
+            // AnimatedCrossFade clips to its bounds; the inset gives the
+            // icon's circular shadow room so it is not cut into a square.
             Positioned(
-              top: 28,
-              left: 20,
-              right: 20,
+              top: 28 - _headerShadowInset,
+              left: 20 - _headerShadowInset,
+              right: 20 - _headerShadowInset,
               child: AnimatedCrossFade(
                 duration: const Duration(milliseconds: 300),
                 crossFadeState: isExpanded
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
-                firstChild: collapsedHeader,
-                secondChild: expandedHeader,
+                firstChild: Padding(
+                  padding: const EdgeInsets.all(_headerShadowInset),
+                  child: collapsedHeader,
+                ),
+                secondChild: Padding(
+                  padding: const EdgeInsets.all(_headerShadowInset),
+                  child: expandedHeader,
+                ),
                 alignment: Alignment.topCenter,
               ),
             ),

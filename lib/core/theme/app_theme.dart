@@ -1203,6 +1203,10 @@ class WalletColorPalette {
   final Color badgeBackground;
   final Color badgeForeground;
 
+  /// Wallet title, balance label/chevron and balance amount are always white
+  /// in both themes, independent of the generated surface.
+  Color get headlineText => const Color(0xFFFFFFFF);
+
   LinearGradient get progressGradient => LinearGradient(
         colors: [progressFillStart, progressFillEnd],
       );
@@ -1354,102 +1358,192 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
       tint(lightness, chromaScale, hue).toColor();
   const white = Color(0xFFFFFFFF);
 
-  // Light: a vibrant upper surface dissolving into an airy, near-white base.
+  // Light: a luminous aurora whose colorful upper sky dissolves through soft,
+  // cloud-like tints into a near-white base.
   // Dark: a richer surface sinking into deep, still-tinted lower tones.
   final bottom = dark
       ? tone - 0.19 + yellowLift * 0.07
-      : math.min(0.985, math.max(0.955, tone + 0.12));
+      : math.min(0.988, math.max(0.965, tone + 0.14));
   final washMiddle =
-      dark ? tone - 0.12 + yellowLift * 0.04 : tone + (bottom - tone) * 0.62;
+      dark ? tone - 0.12 + yellowLift * 0.04 : tone + (bottom - tone) * 0.5;
+  double toward(double t) => tone + (bottom - tone) * t;
   final upper = color(tone, 1);
   final middle = color(washMiddle, dark ? 0.88 : 0.5);
-  final lower = color(bottom, dark ? 0.7 : 0.14);
+  final lower = color(bottom, dark ? 0.7 : 0.1);
   final shade = dark ? color(0.10, 0.45) : color(0.45, 0.5);
-  final meshLayers = List<WalletMeshLayer>.unmodifiable([
-    WalletMeshLayer.vertical(
-      begin: 0,
-      end: 1,
-      colors: [
-        upper,
-        color(dark ? tone - 0.03 : tone + 0.05, dark ? 1.0 : 0.88),
-        middle,
-        lower,
-      ],
-      stops: const [0, 0.3, 0.66, 1],
-    ),
-    // Irregular sources with distinct radii, strengths and neighboring hues.
-    WalletMeshLayer.radial(
-      center: const Offset(0.06, 0),
-      radius: const Size(0.78, 0.62),
-      color: color(dark ? tone + 0.02 : tone - 0.025, dark ? 1.18 : 1.1, -14),
-      opacity: dark ? 0.8 : 0.85,
-    ),
-    WalletMeshLayer.radial(
-      center: const Offset(0.97, 0.08),
-      radius: const Size(0.6, 0.55),
-      color: color(dark ? tone - 0.09 : tone - 0.05, dark ? 1.12 : 1, 11),
-      opacity: dark ? 0.75 : 0.7,
-    ),
-    WalletMeshLayer.radial(
-      center: const Offset(0.55, 0.41),
-      radius: const Size(0.55, 0.36),
-      color: color(dark ? tone - 0.01 : tone + 0.1, dark ? 0.95 : 0.7, -6),
-      opacity: dark ? 0.45 : 0.5,
-    ),
-    WalletMeshLayer.radial(
-      center: const Offset(0.1, 0.79),
-      radius: const Size(0.6, 0.41),
-      color: color(dark ? tone - 0.15 : tone + (bottom - tone) * 0.7,
-          dark ? 0.92 : 0.42, 8),
-      opacity: dark ? 0.6 : 0.55,
-    ),
-    WalletMeshLayer.radial(
-      center: const Offset(0.9, 0.7),
-      radius: const Size(0.5, 0.38),
-      color: color(dark ? tone - 0.11 : tone + (bottom - tone) * 0.55,
-          dark ? 0.8 : 0.5, -10),
-      opacity: 0.45,
-    ),
-    WalletMeshLayer.radial(
-      center: const Offset(0.5, 1.1),
-      radius: const Size(0.95, 0.49),
-      color: color(dark ? bottom - 0.03 : bottom + 0.01, dark ? 0.62 : 0.08),
-      opacity: dark ? 0.8 : 0.85,
-    ),
-    // Ambient lighting: a satin sheen from above, a soft key light at the
-    // upper left, a faint fill on the right edge and gentle lower falloff.
-    WalletMeshLayer.vertical(
-      begin: 0,
-      end: dark ? 0.3 : 0.34,
-      colors: [
-        white.withValues(alpha: dark ? 0.09 : 0.22),
-        white.withValues(alpha: dark ? 0.03 : 0.07),
-        white.withValues(alpha: 0),
-      ],
-      stops: const [0, 0.45, 1],
-    ),
-    WalletMeshLayer.radial(
-      center: const Offset(0.2, -0.06),
-      radius: const Size(0.55, 0.32),
-      color: dark ? color(0.95, 0.15) : white,
-      opacity: dark ? 0.12 : 0.2,
-    ),
-    WalletMeshLayer.radial(
-      center: const Offset(1.02, 0.25),
-      radius: const Size(0.25, 0.4),
-      color: dark ? color(0.9, 0.2) : white,
-      opacity: dark ? 0.06 : 0.1,
-    ),
-    WalletMeshLayer.vertical(
-      begin: dark ? 0.78 : 0.8,
-      end: 1,
-      colors: [
-        shade.withValues(alpha: 0),
-        shade.withValues(alpha: dark ? 0.18 : 0.05),
-      ],
-      stops: const [0, 1],
-    ),
-  ]);
+  final meshLayers = List<WalletMeshLayer>.unmodifiable(dark
+      ? [
+          WalletMeshLayer.vertical(
+            begin: 0,
+            end: 1,
+            colors: [upper, color(tone - 0.03, 1.0), middle, lower],
+            stops: const [0, 0.3, 0.66, 1],
+          ),
+          // Irregular sources with distinct radii, strengths and hues.
+          WalletMeshLayer.radial(
+            center: const Offset(0.06, 0),
+            radius: const Size(0.78, 0.62),
+            color: color(tone + 0.02, 1.18, -14),
+            opacity: 0.8,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.97, 0.08),
+            radius: const Size(0.6, 0.55),
+            color: color(tone - 0.09, 1.12, 11),
+            opacity: 0.75,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.55, 0.41),
+            radius: const Size(0.55, 0.36),
+            color: color(tone - 0.01, 0.95, -6),
+            opacity: 0.45,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.1, 0.79),
+            radius: const Size(0.6, 0.41),
+            color: color(tone - 0.15, 0.92, 8),
+            opacity: 0.6,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.9, 0.7),
+            radius: const Size(0.5, 0.38),
+            color: color(tone - 0.11, 0.8, -10),
+            opacity: 0.45,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.5, 1.1),
+            radius: const Size(0.95, 0.49),
+            color: color(bottom - 0.03, 0.62),
+            opacity: 0.8,
+          ),
+          // Ambient lighting: a satin sheen from above, a soft key light at
+          // the upper left, a faint right-edge fill and gentle lower falloff.
+          WalletMeshLayer.vertical(
+            begin: 0,
+            end: 0.3,
+            colors: [
+              white.withValues(alpha: 0.09),
+              white.withValues(alpha: 0.03),
+              white.withValues(alpha: 0),
+            ],
+            stops: const [0, 0.45, 1],
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.2, -0.06),
+            radius: const Size(0.55, 0.32),
+            color: color(0.95, 0.15),
+            opacity: 0.12,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(1.02, 0.25),
+            radius: const Size(0.25, 0.4),
+            color: color(0.9, 0.2),
+            opacity: 0.06,
+          ),
+          WalletMeshLayer.vertical(
+            begin: 0.78,
+            end: 1,
+            colors: [
+              shade.withValues(alpha: 0),
+              shade.withValues(alpha: 0.18),
+            ],
+            stops: const [0, 1],
+          ),
+        ]
+      : [
+          // The linear base holds the sky color through the upper third,
+          // then fades smoothly into a very light tint.
+          WalletMeshLayer.vertical(
+            begin: 0,
+            end: 1,
+            colors: [upper, color(tone + 0.02, 0.95), middle, lower],
+            stops: const [0, 0.3, 0.62, 1],
+          ),
+          // Neighboring tones stay close in lightness and use moderate
+          // opacity, so the sources blend like light rather than circles.
+          WalletMeshLayer.radial(
+            center: const Offset(0.04, -0.02),
+            radius: const Size(0.86, 0.64),
+            color: color(tone - 0.02, 1.05, -12),
+            opacity: 0.72,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.98, 0.06),
+            radius: const Size(0.68, 0.58),
+            color: color(tone - 0.03, 0.95, 10),
+            opacity: 0.55,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.48, 0.36),
+            radius: const Size(0.66, 0.4),
+            color: color(tone + 0.07, 0.66, -5),
+            opacity: 0.4,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.78, 0.5),
+            radius: const Size(0.5, 0.32),
+            color: color(toward(0.45), 0.5, 6),
+            opacity: 0.35,
+          ),
+          // Soft clouds carry the transition into the pale base.
+          WalletMeshLayer.radial(
+            center: const Offset(0.14, 0.76),
+            radius: const Size(0.7, 0.42),
+            color: color(toward(0.75), 0.3, 6),
+            opacity: 0.5,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.9, 0.84),
+            radius: const Size(0.6, 0.4),
+            color: color(toward(0.68), 0.36, -8),
+            opacity: 0.38,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.45, 1.08),
+            radius: const Size(1.1, 0.54),
+            color: color(bottom + 0.006, 0.06),
+            opacity: 0.9,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.85, 1.02),
+            radius: const Size(0.6, 0.36),
+            color: color(bottom, 0.1, 8),
+            opacity: 0.55,
+          ),
+          // One light direction for every card: a satin sheen from above,
+          // a key light at the upper left and a faint right-edge fill.
+          WalletMeshLayer.vertical(
+            begin: 0,
+            end: 0.32,
+            colors: [
+              white.withValues(alpha: 0.15),
+              white.withValues(alpha: 0.05),
+              white.withValues(alpha: 0),
+            ],
+            stops: const [0, 0.45, 1],
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(0.18, -0.08),
+            radius: const Size(0.6, 0.34),
+            color: white,
+            opacity: 0.16,
+          ),
+          WalletMeshLayer.radial(
+            center: const Offset(1.03, 0.28),
+            radius: const Size(0.26, 0.42),
+            color: white,
+            opacity: 0.08,
+          ),
+          WalletMeshLayer.vertical(
+            begin: 0.82,
+            end: 1,
+            colors: [
+              shade.withValues(alpha: 0),
+              shade.withValues(alpha: 0.035),
+            ],
+            stops: const [0, 1],
+          ),
+        ]);
   // Foregrounds are measured against the composited surface as painted,
   // sampled across the whole content region of the expanded card.
   final surfaces = [
