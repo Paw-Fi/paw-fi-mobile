@@ -1311,9 +1311,10 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
   final source = _WalletOklch.fromColor(original);
   final dark = brightness == Brightness.dark;
   // Soft-knee chroma compression: muted selections are never boosted, neon
-  // selections are tamed. The lower dark ceiling keeps large surfaces quiet.
+  // selections are tamed. Dark surfaces are deeper, so they carry a higher
+  // ceiling to stay vibrant instead of muddy.
   // Achromatic inputs remain achromatic; do not invent an arbitrary hue.
-  final chromaLimit = dark ? 0.135 : 0.165;
+  final chromaLimit = dark ? 0.175 : 0.165;
   final chroma = source.chroma < 0.008
       ? 0.0
       : source.chroma /
@@ -1322,23 +1323,32 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
   // part of the source lightness survives: yellow stays yellow rather than
   // olive and deep violet stays deep. Dark tones are capped so the surface
   // keeps light foregrounds legible.
+  final baseHue = dark ? _walletDarkHue(source.hue) : source.hue;
+  final hueDegrees = (baseHue * 180 / math.pi) % 360;
+  // Yellow only reads as yellow when it is light; a deep dark surface turns
+  // it brown. Dark yellow wallets stay luminous and take dark foregrounds,
+  // which the contrast search below selects automatically. Measured on the
+  // selected hue so the warm drift cannot darken amber-leaning yellows.
+  final yellowLift = dark && chroma > 0
+      ? _walletHueBump((source.hue * 180 / math.pi) % 360, 92, 26)
+      : 0.0;
   final tone = chroma == 0
       ? (dark ? 0.34 + source.lightness * 0.16 : 0.60 + source.lightness * 0.27)
       : math.min(
-          dark ? 0.53 : 0.83,
-          (dark ? 0.50 : 0.69) +
-              (source.lightness - 0.65).clamp(-0.15, 0.3) *
-                  (dark ? 0.12 : 0.45),
-        );
+            dark ? 0.53 : 0.83,
+            (dark ? 0.50 : 0.69) +
+                (source.lightness - 0.65).clamp(-0.15, 0.3) *
+                    (dark ? 0.12 : 0.45),
+          ) +
+          yellowLift * 0.21;
   // Neighboring-hue offsets are damped around yellow, where small OKLCH hue
   // changes read as lime or amber instead of a harmonious variation.
-  final hueDegrees = (source.hue * 180 / math.pi) % 360;
-  final hueSpread = 1 - 0.65 * math.exp(-math.pow((hueDegrees - 108) / 22, 2));
+  final hueSpread = 1 - 0.65 * _walletHueBump(hueDegrees, 108, 22);
   _WalletOklch tint(double lightness, double chromaScale, [double hue = 0]) =>
       _WalletOklch(
         lightness.clamp(0.0, 1.0),
         chroma * chromaScale,
-        source.hue + hue * hueSpread * math.pi / 180,
+        baseHue + hue * hueSpread * math.pi / 180,
       );
   Color color(double lightness, double chromaScale, [double hue = 0]) =>
       tint(lightness, chromaScale, hue).toColor();
@@ -1346,20 +1356,22 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
 
   // Light: a vibrant upper surface dissolving into an airy, near-white base.
   // Dark: a richer surface sinking into deep, still-tinted lower tones.
-  final bottom =
-      dark ? tone - 0.19 : math.min(0.985, math.max(0.955, tone + 0.12));
-  final washMiddle = dark ? tone - 0.12 : tone + (bottom - tone) * 0.62;
+  final bottom = dark
+      ? tone - 0.19 + yellowLift * 0.07
+      : math.min(0.985, math.max(0.955, tone + 0.12));
+  final washMiddle =
+      dark ? tone - 0.12 + yellowLift * 0.04 : tone + (bottom - tone) * 0.62;
   final upper = color(tone, 1);
-  final middle = color(washMiddle, dark ? 0.72 : 0.5);
-  final lower = color(bottom, dark ? 0.5 : 0.14);
-  final shade = dark ? color(0.10, 0.3) : color(0.45, 0.5);
+  final middle = color(washMiddle, dark ? 0.88 : 0.5);
+  final lower = color(bottom, dark ? 0.7 : 0.14);
+  final shade = dark ? color(0.10, 0.45) : color(0.45, 0.5);
   final meshLayers = List<WalletMeshLayer>.unmodifiable([
     WalletMeshLayer.vertical(
       begin: 0,
       end: 1,
       colors: [
         upper,
-        color(dark ? tone - 0.03 : tone + 0.05, dark ? 0.95 : 0.88),
+        color(dark ? tone - 0.03 : tone + 0.05, dark ? 1.0 : 0.88),
         middle,
         lower,
       ],
@@ -1369,39 +1381,39 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
     WalletMeshLayer.radial(
       center: const Offset(0.06, 0),
       radius: const Size(0.78, 0.62),
-      color: color(dark ? tone + 0.02 : tone - 0.025, dark ? 1.12 : 1.1, -14),
+      color: color(dark ? tone + 0.02 : tone - 0.025, dark ? 1.18 : 1.1, -14),
       opacity: dark ? 0.8 : 0.85,
     ),
     WalletMeshLayer.radial(
       center: const Offset(0.97, 0.08),
       radius: const Size(0.6, 0.55),
-      color: color(dark ? tone - 0.09 : tone - 0.05, dark ? 1.05 : 1, 11),
+      color: color(dark ? tone - 0.09 : tone - 0.05, dark ? 1.12 : 1, 11),
       opacity: dark ? 0.75 : 0.7,
     ),
     WalletMeshLayer.radial(
       center: const Offset(0.55, 0.41),
       radius: const Size(0.55, 0.36),
-      color: color(dark ? tone - 0.01 : tone + 0.1, dark ? 0.85 : 0.7, -6),
+      color: color(dark ? tone - 0.01 : tone + 0.1, dark ? 0.95 : 0.7, -6),
       opacity: dark ? 0.45 : 0.5,
     ),
     WalletMeshLayer.radial(
       center: const Offset(0.1, 0.79),
       radius: const Size(0.6, 0.41),
       color: color(dark ? tone - 0.15 : tone + (bottom - tone) * 0.7,
-          dark ? 0.78 : 0.42, 8),
+          dark ? 0.92 : 0.42, 8),
       opacity: dark ? 0.6 : 0.55,
     ),
     WalletMeshLayer.radial(
       center: const Offset(0.9, 0.7),
       radius: const Size(0.5, 0.38),
       color: color(dark ? tone - 0.11 : tone + (bottom - tone) * 0.55,
-          dark ? 0.62 : 0.5, -10),
+          dark ? 0.8 : 0.5, -10),
       opacity: 0.45,
     ),
     WalletMeshLayer.radial(
       center: const Offset(0.5, 1.1),
       radius: const Size(0.95, 0.49),
-      color: color(dark ? bottom - 0.03 : bottom + 0.01, dark ? 0.45 : 0.08),
+      color: color(dark ? bottom - 0.03 : bottom + 0.01, dark ? 0.62 : 0.08),
       opacity: dark ? 0.8 : 0.85,
     ),
     // Ambient lighting: a satin sheen from above, a soft key light at the
@@ -1476,7 +1488,7 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
       minimumContrast: 3,
     ),
     progressTrack: dark ? color(0.24, 0.35) : color(0.86, 0.38),
-    progressFillStart: dark ? color(0.68, 1.05, -8) : color(0.6, 1.1, -8),
+    progressFillStart: dark ? color(0.68, 1.15, -8) : color(0.6, 1.1, -8),
     progressFillEnd: dark ? color(0.75, 0.9, 8) : color(0.67, 0.95, 8),
     primaryText: _walletForeground(
       surfaces,
@@ -1516,6 +1528,24 @@ Color _walletSurfaceAt(
     blue = color.b * alpha + blue * (1 - alpha);
   }
   return Color.from(alpha: 1, red: red, green: green, blue: blue);
+}
+
+/// Dark surfaces drift warm hues slightly toward their richer neighbors:
+/// yellow toward amber, orange toward red-orange, pink toward red and lime
+/// toward emerald. Light surfaces keep the selected hue.
+double _walletDarkHue(double hue) {
+  final degrees = (hue * 180 / math.pi) % 360;
+  final shift = -10 * _walletHueBump(degrees, 102, 21) -
+      5.5 * _walletHueBump(degrees, 58, 15) +
+      11 * _walletHueBump(degrees, 355, 21) +
+      7 * _walletHueBump(degrees, 140, 19);
+  return hue + shift * math.pi / 180;
+}
+
+/// Gaussian weight of [degrees] around [center], measured around the circle.
+double _walletHueBump(double degrees, double center, double width) {
+  final distance = ((degrees - center + 540) % 360) - 180;
+  return math.exp(-math.pow(distance / width, 2));
 }
 
 /// Walks lightness away from the surface first, then the other way, keeping
