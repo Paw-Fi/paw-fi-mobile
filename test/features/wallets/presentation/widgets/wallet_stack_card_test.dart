@@ -174,7 +174,7 @@ void main() {
     expect(find.text('€0'), findsOneWidget);
   });
 
-  testWidgets('debt progress uses success colors in both themes',
+  testWidgets('debt progress uses wallet palette colors in both themes',
       (tester) async {
     for (final isDark in [false, true]) {
       await pumpCard(tester, balanceCents: -2500000, isDark: isDark);
@@ -182,7 +182,8 @@ void main() {
       final finder = find.byType(LinearProgressIndicator);
       final indicator = tester.widget<LinearProgressIndicator>(finder);
       final colors = Theme.of(tester.element(finder)).colorScheme;
-      expect(indicator.valueColor!.value, colors.success);
+      expect(indicator.valueColor!.value,
+          colors.walletPalette(const Color(0xFFFF6467)).progressFillStart);
       expect(find.text('-€25,000'), findsWidgets);
       expect(tester.takeException(), isNull);
     }

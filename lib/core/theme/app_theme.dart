@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' show ColorSpace;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -77,6 +80,11 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 
 /// Additional semantic colors mapped onto Material [ColorScheme]
 extension AppColorScheme on ColorScheme {
+  WalletColorPalette walletPalette(Color walletColor) => generateWalletPalette(
+        walletColor: walletColor,
+        brightness: brightness,
+      );
+
   // The branded Plus introduction uses the same palette in both themes.
   Color get plusIntroTop => const Color(0xFF7953FF);
   Color get plusIntroBottom => const Color(0xFFB561F4);
@@ -1143,5 +1151,502 @@ class AppSnackBarStyles {
       showCloseIcon: false,
       disabledActionTextColor: scheme.mutedForeground,
     );
+  }
+}
+
+/// Display-only wallet colors. The persisted custom color is never rewritten.
+///
+/// OKLCH tones retain hue while varying lightness/chroma independently. Gamut
+/// mapping reduces chroma, rather than clipping RGB channels and changing hue.
+///
+/// The card surface is an organic mesh: a tonal wash, several irregular soft
+/// color sources and ambient lighting layers, all in normalized card space.
+@immutable
+class WalletColorPalette {
+  const WalletColorPalette._({
+    required this.backgroundStart,
+    required this.meshLayers,
+    required this.edgeHighlight,
+    required this.edgeLowlight,
+    required this.shadow,
+    required this.iconBackground,
+    required this.iconBackgroundEnd,
+    required this.iconRim,
+    required this.iconShadow,
+    required this.iconForeground,
+    required this.progressTrack,
+    required this.progressFillStart,
+    required this.progressFillEnd,
+    required this.primaryText,
+    required this.secondaryText,
+    required this.border,
+    required this.badgeBackground,
+    required this.badgeForeground,
+  });
+
+  final Color backgroundStart;
+  final List<WalletMeshLayer> meshLayers;
+  final Color edgeHighlight;
+  final Color edgeLowlight;
+  final Color shadow;
+  final Color iconBackground;
+  final Color iconBackgroundEnd;
+  final Color iconRim;
+  final Color iconShadow;
+  final Color iconForeground;
+  final Color progressTrack;
+  final Color progressFillStart;
+  final Color progressFillEnd;
+  final Color primaryText;
+  final Color secondaryText;
+  final Color border;
+  final Color badgeBackground;
+  final Color badgeForeground;
+
+  LinearGradient get progressGradient => LinearGradient(
+        colors: [progressFillStart, progressFillEnd],
+      );
+
+  LinearGradient get iconSurfaceGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [iconBackground, iconBackgroundEnd],
+      );
+
+  List<BoxShadow> get iconShadows => [
+        BoxShadow(color: iconShadow, blurRadius: 6, offset: const Offset(0, 2)),
+      ];
+}
+
+const _walletMeshFalloffStops = [
+  0.0,
+  0.125,
+  0.25,
+  0.375,
+  0.5,
+  0.625,
+  0.75,
+  0.875,
+  1.0,
+];
+
+/// One soft layer in normalized card space: x spans the card width, y spans
+/// the expanded card height, so a collapsed card shows the top of the same
+/// surface. Radial layers fade along a smootherstep curve, which has zero
+/// slope at both ends and therefore no visible circular boundary.
+@immutable
+class WalletMeshLayer {
+  WalletMeshLayer.radial({
+    required Offset this.center,
+    required Size this.radius,
+    required Color color,
+    required double opacity,
+  })  : begin = 0,
+        end = 1,
+        stops = _walletMeshFalloffStops,
+        colors = List.unmodifiable([
+          for (final t in _walletMeshFalloffStops)
+            color.withValues(
+              alpha: opacity * (1 - t * t * t * (t * (t * 6 - 15) + 10)),
+            ),
+        ]);
+
+  WalletMeshLayer.vertical({
+    required this.begin,
+    required this.end,
+    required List<Color> colors,
+    required List<double> stops,
+  })  : center = null,
+        radius = null,
+        colors = List.unmodifiable(colors),
+        stops = List.unmodifiable(stops);
+
+  final Offset? center;
+  final Size? radius;
+  final double begin;
+  final double end;
+  final List<Color> colors;
+  final List<double> stops;
+
+  Color colorAt(double x, double y) {
+    final double t;
+    if (center case final center?) {
+      final dx = (x - center.dx) / radius!.width;
+      final dy = (y - center.dy) / radius!.height;
+      t = math.sqrt(dx * dx + dy * dy).clamp(0.0, 1.0);
+    } else {
+      t = ((y - begin) / (end - begin)).clamp(0.0, 1.0);
+    }
+    for (var index = 1; index < stops.length; index++) {
+      if (t <= stops[index]) {
+        final span = stops[index] - stops[index - 1];
+        return Color.lerp(colors[index - 1], colors[index],
+            span <= 0 ? 1 : (t - stops[index - 1]) / span)!;
+      }
+    }
+    return colors.last;
+  }
+}
+
+// Bounded FIFO cache: rebuilds/expansion reuse the palette, but a color picker
+// cannot accumulate unbounded entries. Theme and the exact input are the key.
+final _walletDisplayPaletteCache = <(Color, Brightness), WalletColorPalette>{};
+
+WalletColorPalette generateWalletPalette({
+  required Color walletColor,
+  required Brightness brightness,
+}) {
+  final key = (walletColor, brightness);
+  final cached = _walletDisplayPaletteCache[key];
+  if (cached != null) return cached;
+  final palette = _buildWalletPalette(walletColor, brightness);
+  if (_walletDisplayPaletteCache.length >= 128) {
+    _walletDisplayPaletteCache.remove(_walletDisplayPaletteCache.keys.first);
+  }
+  _walletDisplayPaletteCache[key] = palette;
+  return palette;
+}
+
+WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
+  final source = _WalletOklch.fromColor(original);
+  final dark = brightness == Brightness.dark;
+  // Soft-knee chroma compression: muted selections are never boosted, neon
+  // selections are tamed. The lower dark ceiling keeps large surfaces quiet.
+  // Achromatic inputs remain achromatic; do not invent an arbitrary hue.
+  final chromaLimit = dark ? 0.135 : 0.165;
+  final chroma = source.chroma < 0.008
+      ? 0.0
+      : source.chroma /
+          math.pow(1 + math.pow(source.chroma / chromaLimit, 4), 0.25);
+  // Lightness is normalized so every wallet feels equally luminous. A small
+  // part of the source lightness survives: yellow stays yellow rather than
+  // olive and deep violet stays deep. Dark tones are capped so the surface
+  // keeps light foregrounds legible.
+  final tone = chroma == 0
+      ? (dark ? 0.34 + source.lightness * 0.16 : 0.60 + source.lightness * 0.27)
+      : math.min(
+          dark ? 0.53 : 0.83,
+          (dark ? 0.50 : 0.69) +
+              (source.lightness - 0.65).clamp(-0.15, 0.3) *
+                  (dark ? 0.12 : 0.45),
+        );
+  // Neighboring-hue offsets are damped around yellow, where small OKLCH hue
+  // changes read as lime or amber instead of a harmonious variation.
+  final hueDegrees = (source.hue * 180 / math.pi) % 360;
+  final hueSpread = 1 - 0.65 * math.exp(-math.pow((hueDegrees - 108) / 22, 2));
+  _WalletOklch tint(double lightness, double chromaScale, [double hue = 0]) =>
+      _WalletOklch(
+        lightness.clamp(0.0, 1.0),
+        chroma * chromaScale,
+        source.hue + hue * hueSpread * math.pi / 180,
+      );
+  Color color(double lightness, double chromaScale, [double hue = 0]) =>
+      tint(lightness, chromaScale, hue).toColor();
+  const white = Color(0xFFFFFFFF);
+
+  // Light: a vibrant upper surface dissolving into an airy, near-white base.
+  // Dark: a richer surface sinking into deep, still-tinted lower tones.
+  final bottom =
+      dark ? tone - 0.19 : math.min(0.985, math.max(0.955, tone + 0.12));
+  final washMiddle = dark ? tone - 0.12 : tone + (bottom - tone) * 0.62;
+  final upper = color(tone, 1);
+  final middle = color(washMiddle, dark ? 0.72 : 0.5);
+  final lower = color(bottom, dark ? 0.5 : 0.14);
+  final shade = dark ? color(0.10, 0.3) : color(0.45, 0.5);
+  final meshLayers = List<WalletMeshLayer>.unmodifiable([
+    WalletMeshLayer.vertical(
+      begin: 0,
+      end: 1,
+      colors: [
+        upper,
+        color(dark ? tone - 0.03 : tone + 0.05, dark ? 0.95 : 0.88),
+        middle,
+        lower,
+      ],
+      stops: const [0, 0.3, 0.66, 1],
+    ),
+    // Irregular sources with distinct radii, strengths and neighboring hues.
+    WalletMeshLayer.radial(
+      center: const Offset(0.06, 0),
+      radius: const Size(0.78, 0.62),
+      color: color(dark ? tone + 0.02 : tone - 0.025, dark ? 1.12 : 1.1, -14),
+      opacity: dark ? 0.8 : 0.85,
+    ),
+    WalletMeshLayer.radial(
+      center: const Offset(0.97, 0.08),
+      radius: const Size(0.6, 0.55),
+      color: color(dark ? tone - 0.09 : tone - 0.05, dark ? 1.05 : 1, 11),
+      opacity: dark ? 0.75 : 0.7,
+    ),
+    WalletMeshLayer.radial(
+      center: const Offset(0.55, 0.41),
+      radius: const Size(0.55, 0.36),
+      color: color(dark ? tone - 0.01 : tone + 0.1, dark ? 0.85 : 0.7, -6),
+      opacity: dark ? 0.45 : 0.5,
+    ),
+    WalletMeshLayer.radial(
+      center: const Offset(0.1, 0.79),
+      radius: const Size(0.6, 0.41),
+      color: color(dark ? tone - 0.15 : tone + (bottom - tone) * 0.7,
+          dark ? 0.78 : 0.42, 8),
+      opacity: dark ? 0.6 : 0.55,
+    ),
+    WalletMeshLayer.radial(
+      center: const Offset(0.9, 0.7),
+      radius: const Size(0.5, 0.38),
+      color: color(dark ? tone - 0.11 : tone + (bottom - tone) * 0.55,
+          dark ? 0.62 : 0.5, -10),
+      opacity: 0.45,
+    ),
+    WalletMeshLayer.radial(
+      center: const Offset(0.5, 1.1),
+      radius: const Size(0.95, 0.49),
+      color: color(dark ? bottom - 0.03 : bottom + 0.01, dark ? 0.45 : 0.08),
+      opacity: dark ? 0.8 : 0.85,
+    ),
+    // Ambient lighting: a satin sheen from above, a soft key light at the
+    // upper left, a faint fill on the right edge and gentle lower falloff.
+    WalletMeshLayer.vertical(
+      begin: 0,
+      end: dark ? 0.3 : 0.34,
+      colors: [
+        white.withValues(alpha: dark ? 0.09 : 0.22),
+        white.withValues(alpha: dark ? 0.03 : 0.07),
+        white.withValues(alpha: 0),
+      ],
+      stops: const [0, 0.45, 1],
+    ),
+    WalletMeshLayer.radial(
+      center: const Offset(0.2, -0.06),
+      radius: const Size(0.55, 0.32),
+      color: dark ? color(0.95, 0.15) : white,
+      opacity: dark ? 0.12 : 0.2,
+    ),
+    WalletMeshLayer.radial(
+      center: const Offset(1.02, 0.25),
+      radius: const Size(0.25, 0.4),
+      color: dark ? color(0.9, 0.2) : white,
+      opacity: dark ? 0.06 : 0.1,
+    ),
+    WalletMeshLayer.vertical(
+      begin: dark ? 0.78 : 0.8,
+      end: 1,
+      colors: [
+        shade.withValues(alpha: 0),
+        shade.withValues(alpha: dark ? 0.18 : 0.05),
+      ],
+      stops: const [0, 1],
+    ),
+  ]);
+  // Foregrounds are measured against the composited surface as painted,
+  // sampled across the whole content region of the expanded card.
+  final surfaces = [
+    for (var row = 0; row <= 8; row++)
+      for (var column = 0; column <= 8; column++)
+        _walletSurfaceAt(
+            upper, meshLayers, 0.06 + column * 0.11, 0.08 + row * 0.11),
+  ];
+  final iconBackground = dark ? color(0.31, 0.32) : color(0.995, 0.01);
+  final iconBackgroundEnd = dark ? color(0.22, 0.26) : color(0.955, 0.08);
+  final iconSurfaces = [iconBackground, iconBackgroundEnd];
+  return WalletColorPalette._(
+    backgroundStart: upper,
+    meshLayers: meshLayers,
+    edgeHighlight: dark
+        ? color(0.88, 0.3).withValues(alpha: 0.28)
+        : white.withValues(alpha: 0.7),
+    edgeLowlight: dark
+        ? color(0.06, 0.2).withValues(alpha: 0.3)
+        : color(0.62, 0.5).withValues(alpha: 0.22),
+    shadow: dark
+        ? color(0.04, 0.25).withValues(alpha: 0.85)
+        : color(0.3, 0.7).withValues(alpha: 0.5),
+    iconBackground: iconBackground,
+    iconBackgroundEnd: iconBackgroundEnd,
+    iconRim: dark
+        ? color(0.62, 0.45).withValues(alpha: 0.4)
+        : white.withValues(alpha: 0.85),
+    iconShadow: dark
+        ? color(0.05, 0.2).withValues(alpha: 0.5)
+        : color(0.35, 0.6).withValues(alpha: 0.22),
+    iconForeground: _walletForeground(
+      iconSurfaces,
+      dark ? tint(0.82, 1.05, -6) : tint(0.58, 1.15, -6),
+      preferLight: dark,
+      minimumContrast: 3,
+    ),
+    progressTrack: dark ? color(0.24, 0.35) : color(0.86, 0.38),
+    progressFillStart: dark ? color(0.68, 1.05, -8) : color(0.6, 1.1, -8),
+    progressFillEnd: dark ? color(0.75, 0.9, 8) : color(0.67, 0.95, 8),
+    primaryText: _walletForeground(
+      surfaces,
+      dark ? tint(0.985, 0.04) : tint(0.25, 0.35),
+      preferLight: dark,
+    ),
+    secondaryText: _walletForeground(
+      surfaces,
+      dark ? tint(0.9, 0.1) : tint(0.37, 0.3),
+      preferLight: dark,
+    ),
+    border: dark ? color(0.42, 0.35) : color(0.99, 0.03),
+    badgeBackground: iconBackground,
+    badgeForeground: _walletForeground(
+      iconSurfaces,
+      dark ? tint(0.92, 0.12) : tint(0.32, 0.3),
+      preferLight: dark,
+    ),
+  );
+}
+
+/// sRGB source-over compositing of [layers], matching the painter.
+Color _walletSurfaceAt(
+  Color base,
+  List<WalletMeshLayer> layers,
+  double x,
+  double y,
+) {
+  var red = base.r;
+  var green = base.g;
+  var blue = base.b;
+  for (final layer in layers) {
+    final color = layer.colorAt(x, y);
+    final alpha = color.a;
+    red = color.r * alpha + red * (1 - alpha);
+    green = color.g * alpha + green * (1 - alpha);
+    blue = color.b * alpha + blue * (1 - alpha);
+  }
+  return Color.from(alpha: 1, red: red, green: green, blue: blue);
+}
+
+/// Walks lightness away from the surface first, then the other way, keeping
+/// the preferred hue/chroma. Never relies on alpha, which could silently fail
+/// contrast on the colorful parts of the surface.
+Color _walletForeground(
+  List<Color> backgrounds,
+  _WalletOklch preferred, {
+  required bool preferLight,
+  double minimumContrast = 4.5,
+}) {
+  var best = preferred.toColor();
+  var bestContrast = _walletMinimumContrast(best, backgrounds);
+  for (final direction in [preferLight ? 1 : -1, preferLight ? -1 : 1]) {
+    for (var step = 0; step <= 100; step++) {
+      final lightness = preferred.lightness + direction * step * 0.01;
+      if (lightness < 0 || lightness > 1) break;
+      final candidate =
+          _WalletOklch(lightness, preferred.chroma, preferred.hue).toColor();
+      final contrast = _walletMinimumContrast(candidate, backgrounds);
+      if (contrast >= minimumContrast) return candidate;
+      if (contrast > bestContrast) {
+        best = candidate;
+        bestContrast = contrast;
+      }
+    }
+  }
+  return best;
+}
+
+double _walletMinimumContrast(Color foreground, List<Color> backgrounds) {
+  final foregroundLuminance = foreground.computeLuminance();
+  var minimum = double.infinity;
+  for (final background in backgrounds) {
+    final luminance = background.computeLuminance();
+    final ratio = (math.max(foregroundLuminance, luminance) + 0.05) /
+        (math.min(foregroundLuminance, luminance) + 0.05);
+    minimum = math.min(minimum, ratio);
+  }
+  return minimum;
+}
+
+/// Bjorn Ottosson's public-domain Oklab matrices:
+/// https://bottosson.github.io/posts/oklab/ (linear sRGB, D65).
+class _WalletOklch {
+  const _WalletOklch(this.lightness, this.chroma, this.hue);
+
+  final double lightness;
+  final double chroma;
+  final double hue;
+
+  factory _WalletOklch.fromColor(Color color) {
+    // Normalize wide-gamut inputs before applying the sRGB transfer function.
+    final srgb = color.withValues(colorSpace: ColorSpace.sRGB);
+    double linear(double value) => value <= 0.04045
+        ? value / 12.92
+        : math.pow((value + 0.055) / 1.055, 2.4).toDouble();
+    final r = linear(srgb.r);
+    final g = linear(srgb.g);
+    final b = linear(srgb.b);
+    final l = math
+        .pow(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b, 1 / 3)
+        .toDouble();
+    final m = math
+        .pow(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b, 1 / 3)
+        .toDouble();
+    final s = math
+        .pow(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b, 1 / 3)
+        .toDouble();
+    final a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
+    final labB = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
+    return _WalletOklch(
+      0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+      math.sqrt(a * a + labB * labB),
+      math.atan2(labB, a),
+    );
+  }
+
+  _WalletOklch mix(_WalletOklch other, double t) => _WalletOklch(
+        lightness + (other.lightness - lightness) * t,
+        chroma + (other.chroma - chroma) * t,
+        hue,
+      );
+
+  (double, double, double) _linearRgb(double mappedChroma) {
+    final a = mappedChroma * math.cos(hue);
+    final b = mappedChroma * math.sin(hue);
+    final l = lightness + 0.3963377774 * a + 0.2158037573 * b;
+    final m = lightness - 0.1055613458 * a - 0.0638541728 * b;
+    final s = lightness - 0.0894841775 * a - 1.2914855480 * b;
+    return (
+      4.0767416621 * l * l * l -
+          3.3077115913 * m * m * m +
+          0.2309699292 * s * s * s,
+      -1.2684380046 * l * l * l +
+          2.6097574011 * m * m * m -
+          0.3413193965 * s * s * s,
+      -0.0041960863 * l * l * l -
+          0.7034186147 * m * m * m +
+          1.7076147010 * s * s * s,
+    );
+  }
+
+  Color toColor() {
+    bool inGamut((double, double, double) rgb) => [rgb.$1, rgb.$2, rgb.$3]
+        .every((channel) => channel >= 0 && channel <= 1);
+    var rgb = _linearRgb(chroma);
+    if (!inGamut(rgb)) {
+      var low = 0.0;
+      var high = chroma;
+      for (var iteration = 0; iteration < 24; iteration++) {
+        final candidate = (low + high) / 2;
+        if (inGamut(_linearRgb(candidate))) {
+          low = candidate;
+        } else {
+          high = candidate;
+        }
+      }
+      rgb = _linearRgb(low);
+    }
+    double encoded(double channel) {
+      final value = channel.clamp(0.0, 1.0);
+      return value <= 0.0031308
+          ? value * 12.92
+          : 1.055 * math.pow(value, 1 / 2.4) - 0.055;
+    }
+
+    return Color.from(
+        alpha: 1,
+        red: encoded(rgb.$1),
+        green: encoded(rgb.$2),
+        blue: encoded(rgb.$3));
   }
 }

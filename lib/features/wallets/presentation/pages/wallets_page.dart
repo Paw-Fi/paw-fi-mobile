@@ -38,6 +38,7 @@ import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_bi
 import 'package:moneko/features/wallets/presentation/widgets/add_wallet_option_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_account_stack.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
@@ -998,7 +999,16 @@ class _WalletAccountStack extends ConsumerWidget {
               ),
         isExpanded: isExpanded,
         headerAction: isExpanded && (selectedCurrencies?.length ?? 0) > 1
-            ? _WalletCurrencyFlagBadge(currencyCode: wallet.currency)
+            ? _WalletCurrencyFlagBadge(
+                currencyCode: wallet.currency,
+                foregroundColor: Theme.of(context)
+                    .colorScheme
+                    .walletPalette(
+                      parseWalletColor(
+                          wallet.color, Theme.of(context).colorScheme.primary),
+                    )
+                    .primaryText,
+              )
             : null,
       ),
     );
@@ -1008,13 +1018,14 @@ class _WalletAccountStack extends ConsumerWidget {
 class _WalletCurrencyFlagBadge extends StatelessWidget {
   const _WalletCurrencyFlagBadge({
     required this.currencyCode,
+    required this.foregroundColor,
   });
 
   final String currencyCode;
+  final Color foregroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final normalizedCurrency = currencyCode.trim().toUpperCase();
     final flagPath = getCurrencyFlagPath(normalizedCurrency);
     final fallbackLabel = normalizedCurrency.isNotEmpty
@@ -1031,7 +1042,7 @@ class _WalletCurrencyFlagBadge extends StatelessWidget {
                 child: Text(
                   fallbackLabel,
                   style: TextStyle(
-                    color: colorScheme.foreground,
+                    color: foregroundColor,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),

@@ -86,8 +86,16 @@ class WalletLogoAvatar extends StatelessWidget {
     required this.baseColor,
     required this.size,
     required this.iconSize,
+    this.backgroundColor,
+    this.backgroundGradient,
+    this.rimColor,
+    this.shadows,
   });
 
+  final Color? backgroundColor;
+  final Gradient? backgroundGradient;
+  final Color? rimColor;
+  final List<BoxShadow>? shadows;
   final String? logoUrl;
   final IconData icon;
   final Color baseColor;
@@ -103,7 +111,11 @@ class WalletLogoAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: baseColor.withValues(alpha: 0.22),
+        color: backgroundColor ?? baseColor.withValues(alpha: 0.22),
+        gradient: backgroundGradient,
+        border:
+            rimColor == null ? null : Border.all(color: rimColor!, width: 0.75),
+        boxShadow: shadows,
         shape: BoxShape.circle,
       ),
       child: ClipOval(

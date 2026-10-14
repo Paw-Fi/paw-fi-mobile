@@ -6,7 +6,9 @@ import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_account_stack.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_mesh_gradient_painter.dart';
 
 class WalletStackCard extends StatelessWidget {
   const WalletStackCard({
@@ -75,18 +77,9 @@ class WalletStackCard extends StatelessWidget {
       progress = 1.0;
     }
 
-    final walletColorRaw = wallet.color.toUpperCase() == '#6B7280'
-        ? colorScheme.primary
-        : parseWalletColor(wallet.color, colorScheme.primary);
-    final baseColor = AppTheme.tunedPocketBaseColor(
-      walletColorRaw,
-      colorScheme,
-      hasCustomColor: wallet.color.toUpperCase() != '#6B7280',
+    final palette = colorScheme.walletPalette(
+      parseWalletColor(wallet.color, colorScheme.primary),
     );
-
-    final backgroundTint = colorScheme.pocketTileFill(baseColor);
-    final opaqueBackground =
-        Color.alphaBlend(backgroundTint, colorScheme.surface);
 
     final collapsedHeader = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -94,7 +87,11 @@ class WalletStackCard extends StatelessWidget {
         WalletLogoAvatar(
           logoUrl: wallet.logoUrl,
           icon: resolveWalletIcon(wallet.icon),
-          baseColor: baseColor,
+          baseColor: palette.iconForeground,
+          backgroundColor: palette.iconBackground,
+          backgroundGradient: palette.iconSurfaceGradient,
+          rimColor: palette.iconRim,
+          shadows: palette.iconShadows,
           size: 36,
           iconSize: 18,
         ),
@@ -109,7 +106,7 @@ class WalletStackCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: colorScheme.foreground,
+                    color: palette.primaryText,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -120,7 +117,7 @@ class WalletStackCard extends StatelessWidget {
                 Icon(
                   Icons.star_rounded,
                   size: 16,
-                  color: baseColor.withValues(alpha: 0.8),
+                  color: palette.primaryText,
                 ),
               ],
               if (showAnalyticsExclusionStatus) ...[
@@ -134,7 +131,7 @@ class WalletStackCard extends StatelessWidget {
                           child: Icon(
                             Icons.visibility_off_rounded,
                             size: 16,
-                            color: colorScheme.mutedForeground,
+                            color: palette.secondaryText,
                             semanticLabel: context.l10n.excludedFromAnalytics,
                           ),
                         )
@@ -155,9 +152,7 @@ class WalletStackCard extends StatelessWidget {
             child: Text(
               '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
               style: TextStyle(
-                color: isNegative
-                    ? colorScheme.destructive
-                    : colorScheme.foreground,
+                color: palette.primaryText,
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0,
@@ -188,7 +183,7 @@ class WalletStackCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: colorScheme.foreground,
+                            color: palette.primaryText,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
@@ -197,7 +192,7 @@ class WalletStackCard extends StatelessWidget {
                       if (showAnalyticsExclusionStatus &&
                           wallet.excludeFromAnalytics) ...[
                         const SizedBox(width: 12),
-                        const _AnalyticsExclusionBadge(),
+                        _AnalyticsExclusionBadge(palette: palette),
                       ],
                     ],
                   ),
@@ -208,7 +203,7 @@ class WalletStackCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: colorScheme.mutedForeground,
+                        color: palette.secondaryText,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -241,10 +236,10 @@ class WalletStackCard extends StatelessWidget {
                 height: 36,
                 padding: const EdgeInsets.only(left: 4, right: 12),
                 decoration: BoxDecoration(
-                  color: baseColor.withValues(alpha: 0.1),
+                  color: palette.badgeBackground,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: baseColor.withValues(alpha: 0.2),
+                    color: palette.border,
                     width: 1,
                   ),
                 ),
@@ -254,7 +249,11 @@ class WalletStackCard extends StatelessWidget {
                     WalletLogoAvatar(
                       logoUrl: wallet.logoUrl,
                       icon: resolveWalletIcon(wallet.icon),
-                      baseColor: baseColor,
+                      baseColor: palette.iconForeground,
+                      backgroundColor: palette.iconBackground,
+                      backgroundGradient: palette.iconSurfaceGradient,
+                      rimColor: palette.iconRim,
+                      shadows: palette.iconShadows,
                       size: 28,
                       iconSize: 14,
                     ),
@@ -262,7 +261,7 @@ class WalletStackCard extends StatelessWidget {
                     Text(
                       context.l10n.primary,
                       style: TextStyle(
-                        color: baseColor,
+                        color: palette.badgeForeground,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
@@ -275,7 +274,11 @@ class WalletStackCard extends StatelessWidget {
               WalletLogoAvatar(
                 logoUrl: wallet.logoUrl,
                 icon: resolveWalletIcon(wallet.icon),
-                baseColor: baseColor,
+                baseColor: palette.iconForeground,
+                backgroundColor: palette.iconBackground,
+                backgroundGradient: palette.iconSurfaceGradient,
+                rimColor: palette.iconRim,
+                shadows: palette.iconShadows,
                 size: 36,
                 iconSize: 18,
               ),
@@ -293,7 +296,7 @@ class WalletStackCard extends StatelessWidget {
                         Text(
                           balanceLabel,
                           style: TextStyle(
-                            color: colorScheme.mutedForeground,
+                            color: palette.secondaryText,
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
@@ -304,7 +307,7 @@ class WalletStackCard extends StatelessWidget {
                           Icon(
                             Icons.chevron_right,
                             size: 12,
-                            color: colorScheme.mutedForeground,
+                            color: palette.secondaryText,
                           ),
                         ],
                       ],
@@ -313,9 +316,7 @@ class WalletStackCard extends StatelessWidget {
                     Text(
                       '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
                       style: TextStyle(
-                        color: isNegative
-                            ? colorScheme.destructive
-                            : colorScheme.foreground,
+                        color: palette.primaryText,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0,
@@ -334,147 +335,157 @@ class WalletStackCard extends StatelessWidget {
       mode: MonekoTextScaling.constrained,
       child: PhysicalShape(
         clipper: const _OrganicWalletCardClipper(),
-        color: opaqueBackground,
+        clipBehavior: Clip.antiAlias,
+        color: palette.backgroundStart,
         elevation: isExpanded ? 8.0 : 4.0,
-        shadowColor: colorScheme.shadow.withValues(alpha: 0.5),
-        child: CustomPaint(
-          foregroundPainter: _OrganicWalletCardBorderPainter(
-            color: colorScheme.walletCardCollapsedBorder,
-            strokeWidth: 0.05,
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 28,
-                left: 20,
-                right: 20,
-                child: AnimatedCrossFade(
-                  duration: const Duration(milliseconds: 300),
-                  crossFadeState: isExpanded
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  firstChild: collapsedHeader,
-                  secondChild: expandedHeader,
-                  alignment: Alignment.topCenter,
+        shadowColor: palette.shadow,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: WalletMeshGradientPainter(
+                    palette: palette,
+                    shape: const _OrganicWalletCardClipper(),
+                    referenceHeight: WalletAccountStack.expandedHeight,
+                  ),
                 ),
               ),
-              Positioned(
-                bottom: 24,
-                left: 20,
-                right: 20,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: isExpanded ? 1.0 : 0.0,
-                  child: IgnorePointer(
-                    ignoring: !isExpanded,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (footer != null)
-                          footer!
-                        else if (showGoalProgress) ...[
-                          if (isDebtWallet) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      hasPositiveDebtGoal
-                                          ? context.l10n.walletStartingBalance
-                                          : context.l10n.walletRepaid,
-                                      style: TextStyle(
-                                        color: colorScheme.mutedForeground,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      hasPositiveDebtGoal
-                                          ? context.l10n.walletTargetBalance
-                                          : context.l10n.walletInitialDebt,
-                                      style: TextStyle(
-                                        color: colorScheme.mutedForeground,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                          ],
+            ),
+            Positioned(
+              top: 28,
+              left: 20,
+              right: 20,
+              child: AnimatedCrossFade(
+                duration: const Duration(milliseconds: 300),
+                crossFadeState: isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: collapsedHeader,
+                secondChild: expandedHeader,
+                alignment: Alignment.topCenter,
+              ),
+            ),
+            Positioned(
+              bottom: 24,
+              left: 20,
+              right: 20,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: isExpanded ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !isExpanded,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (footer != null)
+                        footer!
+                      else if (showGoalProgress) ...[
+                        if (isDebtWallet) ...[
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                hasPositiveDebtGoal
-                                    ? '-$symbol${formatLocalizedNumber(context, double.parse(formatAmount(initialDebtCents / 100.0)))}'
-                                    : '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    hasPositiveDebtGoal
+                                        ? context.l10n.walletStartingBalance
+                                        : context.l10n.walletRepaid,
+                                    style: TextStyle(
+                                      color: palette.secondaryText,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              Text(
-                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(hasPositiveDebtGoal ? targetBalanceCents / 100.0 : goal)))}',
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    hasPositiveDebtGoal
+                                        ? context.l10n.walletTargetBalance
+                                        : context.l10n.walletInitialDebt,
+                                    style: TextStyle(
+                                      color: palette.secondaryText,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: TweenAnimationBuilder<double>(
-                              tween:
-                                  Tween<double>(begin: progress, end: progress),
-                              duration: MediaQuery.disableAnimationsOf(context)
-                                  ? Duration.zero
-                                  : const Duration(milliseconds: 200),
-                              curve: Curves.easeInOut,
-                              builder: (context, animatedProgress, _) =>
-                                  LinearProgressIndicator(
-                                minHeight: 12,
-                                value: animatedProgress,
-                                semanticsLabel: isDebtWallet
-                                    ? hasPositiveDebtGoal
-                                        ? context.l10n.walletTargetBalance
-                                        : context.l10n.walletRepaid
-                                    : null,
-                                backgroundColor: isDebtWallet
-                                    ? colorScheme.mutedForeground
-                                        .withValues(alpha: 0.15)
-                                    : baseColor.withValues(alpha: 0.15),
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  isDebtWallet
-                                      ? colorScheme.success
-                                      : baseColor,
+                          const SizedBox(height: 4),
+                        ],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              hasPositiveDebtGoal
+                                  ? '-$symbol${formatLocalizedNumber(context, double.parse(formatAmount(initialDebtCents / 100.0)))}'
+                                  : '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
+                              style: TextStyle(
+                                color: palette.secondaryText,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(hasPositiveDebtGoal ? targetBalanceCents / 100.0 : goal)))}',
+                              style: TextStyle(
+                                color: palette.secondaryText,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: TweenAnimationBuilder<double>(
+                            tween:
+                                Tween<double>(begin: progress, end: progress),
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            builder: (context, animatedProgress, _) =>
+                                ColoredBox(
+                              color: palette.progressTrack,
+                              child: ShaderMask(
+                                shaderCallback:
+                                    palette.progressGradient.createShader,
+                                blendMode: BlendMode.srcIn,
+                                child: LinearProgressIndicator(
+                                  minHeight: 12,
+                                  value: animatedProgress,
+                                  semanticsLabel: isDebtWallet
+                                      ? hasPositiveDebtGoal
+                                          ? context.l10n.walletTargetBalance
+                                          : context.l10n.walletRepaid
+                                      : null,
+                                  backgroundColor: palette.progressTrack
+                                      .withValues(alpha: 0),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    palette.progressFillStart,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ],
-                        if (footer == null) const SizedBox(height: 24),
+                        ),
                       ],
-                    ),
+                      if (footer == null) const SizedBox(height: 24),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -547,19 +558,20 @@ class EmptyWalletStackCard extends StatelessWidget {
 }
 
 class _AnalyticsExclusionBadge extends StatelessWidget {
-  const _AnalyticsExclusionBadge();
+  const _AnalyticsExclusionBadge({required this.palette});
+
+  final WalletColorPalette palette;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: colorScheme.muted.withValues(alpha: 0.5),
+          color: palette.badgeBackground,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: colorScheme.border),
+          border: Border.all(color: palette.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -567,13 +579,13 @@ class _AnalyticsExclusionBadge extends StatelessWidget {
             Icon(
               Icons.visibility_off_rounded,
               size: 14,
-              color: colorScheme.mutedForeground,
+              color: palette.badgeForeground,
             ),
             const SizedBox(width: 6),
             Text(
               context.l10n.excludedFromAnalytics,
               style: TextStyle(
-                color: colorScheme.mutedForeground,
+                color: palette.badgeForeground,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
