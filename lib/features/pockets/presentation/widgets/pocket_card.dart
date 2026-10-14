@@ -10,6 +10,7 @@ import 'package:moneko/features/pockets/presentation/constants/pocket_style_cons
 import 'package:moneko/features/pockets/presentation/widgets/liquid_pocket.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/mesh_gradient_painter.dart';
 
 class PocketCard extends StatelessWidget {
   const PocketCard({
@@ -37,30 +38,19 @@ class PocketCard extends StatelessWidget {
     final progress = limit > 0 ? (pocket.spent / limit) : 0.0;
     final isOverBudget = !isSkeleton && pocket.isOverBudget(totalBudget);
 
-    // Determine base color
-    Color baseColor;
-    if (isSkeleton) {
-      // Neutral light grey when showing skeletons, avoid pocket accent colors
-      baseColor = colorScheme.surfaceContainerHighest;
-    } else {
-      baseColor = getPocketColor(pocket.color, colorScheme.primary);
-      baseColor = AppTheme.tunedPocketBaseColor(
-        baseColor,
-        colorScheme,
-        hasCustomColor: pocket.color != null,
-      );
-    }
-
-    final Color fillColor;
-    if (isSkeleton) {
-      fillColor = baseColor;
-    } else if (isOverBudget) {
-      fillColor = colorScheme.error;
-    } else if (progress > 0.9) {
-      fillColor = colorScheme.warning;
-    } else {
-      fillColor = baseColor;
-    }
+    // Neutral light grey when showing skeletons, avoid pocket accent colors
+    final palette = colorScheme.pocketPalette(
+      isSkeleton
+          ? colorScheme.surfaceContainerHighest
+          : getPocketColor(pocket.color, colorScheme.primary),
+    );
+    final fillPalette = isSkeleton
+        ? palette
+        : isOverBudget
+            ? colorScheme.pocketPalette(colorScheme.error)
+            : progress > 0.9
+                ? colorScheme.pocketPalette(colorScheme.warning)
+                : palette;
 
     final iconData = getPocketIconData(pocket.icon);
 
@@ -93,17 +83,11 @@ class PocketCard extends StatelessWidget {
       mode: MonekoTextScaling.constrained,
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.pocketCardSurface,
+          color: palette.surface.base,
           borderRadius: BorderRadius.circular(32),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          boxShadow: palette.cardShadows,
           border: Border.all(
-            color: colorScheme.pocketCardBorder,
+            color: palette.border,
             width: 1,
           ),
         ),
@@ -111,6 +95,16 @@ class PocketCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(32),
           child: Stack(
             children: [
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: MeshGradientPainter(
+                      surface: palette.surface,
+                      shape: const RoundedRectClipper(32),
+                    ),
+                  ),
+                ),
+              ),
               // Liquid Animation
               Positioned.fill(
                 child: TweenAnimationBuilder<double>(
@@ -120,7 +114,7 @@ class PocketCard extends StatelessWidget {
                   builder: (context, value, child) {
                     return LiquidPocket(
                       fillLevel: value,
-                      color: fillColor,
+                      palette: fillPalette,
                     );
                   },
                 ),
@@ -142,8 +136,7 @@ class PocketCard extends StatelessWidget {
                             _PocketLogoAvatar(
                               logoUrl: pocket.logoUrl,
                               iconData: iconData,
-                              baseColor: baseColor,
-                              colorScheme: colorScheme,
+                              palette: palette,
                             ),
                             if (isOverBudget)
                               Container(
@@ -167,12 +160,17 @@ class PocketCard extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: colorScheme.pocketGlassSurfaceSoft,
+                            color: palette.panel,
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: palette.panelBorder,
+                              width: 0.75,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: colorScheme.pocketGlassShadow,
-                                blurRadius: 4,
+                                color: palette.shadow,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
@@ -186,7 +184,7 @@ class PocketCard extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: colorScheme.pocketTitle,
+                                  color: palette.title,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -212,7 +210,7 @@ class PocketCard extends StatelessWidget {
                                             fontWeight: FontWeight.w600,
                                             color: isOverBudget
                                                 ? colorScheme.error
-                                                : colorScheme.pocketTitle,
+                                                : palette.title,
                                           ),
                                         ),
                                         TextSpan(
@@ -220,7 +218,7 @@ class PocketCard extends StatelessWidget {
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w500,
-                                            color: colorScheme.pocketSubtitle,
+                                            color: palette.subtitle,
                                           ),
                                         ),
                                       ],
@@ -270,7 +268,7 @@ class PocketCard extends StatelessWidget {
                                 child: Container(
                                   height: 4,
                                   width: double.infinity,
-                                  color: colorScheme.pocketProgressTrack,
+                                  color: palette.progressTrack,
                                   child: LayoutBuilder(
                                     builder: (context, constraints) {
                                       return Stack(
@@ -282,14 +280,8 @@ class PocketCard extends StatelessWidget {
                                             width: constraints.maxWidth *
                                                 progress.clamp(0.0, 1.0),
                                             decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: getProgressGradient(
-                                                  colorScheme,
-                                                  baseColor,
-                                                  progress,
-                                                  isOverBudget,
-                                                ),
-                                              ),
+                                              gradient:
+                                                  fillPalette.progressGradient,
                                             ),
                                           ),
                                         ],
@@ -318,14 +310,12 @@ class _PocketLogoAvatar extends StatelessWidget {
   const _PocketLogoAvatar({
     required this.logoUrl,
     required this.iconData,
-    required this.baseColor,
-    required this.colorScheme,
+    required this.palette,
   });
 
   final String? logoUrl;
   final IconData iconData;
-  final Color baseColor;
-  final ColorScheme colorScheme;
+  final PocketColorPalette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -347,12 +337,12 @@ class _PocketLogoAvatar extends StatelessWidget {
             placeholder: (_, __) {
               return _PocketFallbackIcon(
                 iconData: iconData,
-                baseColor: baseColor,
+                baseColor: palette.iconForeground,
               );
             },
             errorWidget: (_, __, ___) => _PocketFallbackIcon(
               iconData: iconData,
-              baseColor: baseColor,
+              baseColor: palette.iconForeground,
             ),
           ),
         ),
@@ -363,18 +353,16 @@ class _PocketLogoAvatar extends StatelessWidget {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: colorScheme.pocketGlassSurface,
+        gradient: palette.iconSurfaceGradient,
+        border: Border.all(color: palette.iconRim, width: 0.75),
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.pocketIconShadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: palette.iconShadows,
       ),
       child: ClipOval(
-        child: _PocketFallbackIcon(iconData: iconData, baseColor: baseColor),
+        child: _PocketFallbackIcon(
+          iconData: iconData,
+          baseColor: palette.iconForeground,
+        ),
       ),
     );
   }

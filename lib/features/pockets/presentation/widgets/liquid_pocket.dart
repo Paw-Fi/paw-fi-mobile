@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'liquid_painter.dart';
 
 class LiquidPocket extends HookWidget {
   final double fillLevel;
-  final Color color;
-  final Widget? child;
+  final PocketColorPalette palette;
 
   const LiquidPocket({
     super.key,
     required this.fillLevel,
-    required this.color,
-    this.child,
+    required this.palette,
   });
 
   @override
@@ -20,47 +19,36 @@ class LiquidPocket extends HookWidget {
       duration: const Duration(seconds: 2),
     )..repeat();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: Stack(
-        children: [
-          // Background (empty part)
-          Container(color: color.withValues(alpha: 0.1)),
-
-          // Liquid Layer 1 (Back)
-          AnimatedBuilder(
-            animation: controller,
-            builder: (context, _) {
-              return CustomPaint(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          final phase = controller.value * 2 * 3.14159;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // Liquid Layer 1 (Back)
+              CustomPaint(
                 painter: LiquidPainter(
                   fillLevel: fillLevel,
-                  color: color.withValues(alpha: 0.3),
-                  phase: controller.value * 2 * 3.14159,
+                  colors: [palette.liquidBack, palette.liquidBack],
+                  phase: phase,
                   amplitude: 8,
                 ),
-                size: Size.infinite,
-              );
-            },
-          ),
-
-          // Liquid Layer 2 (Front)
-          AnimatedBuilder(
-            animation: controller,
-            builder: (context, _) {
-              return CustomPaint(
+              ),
+              // Liquid Layer 2 (Front)
+              CustomPaint(
                 painter: LiquidPainter(
                   fillLevel: fillLevel,
-                  color: color,
-                  phase: (controller.value * 2 * 3.14159) + 1.5, // Offset phase
+                  colors: [palette.liquidFront, palette.liquidFrontDeep],
+                  phase: phase + 1.5, // Offset phase
                   amplitude: 10,
+                  crestColor: palette.liquidCrest,
                 ),
-                size: Size.infinite,
-              );
-            },
-          ),
-
-          if (child != null) child!,
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

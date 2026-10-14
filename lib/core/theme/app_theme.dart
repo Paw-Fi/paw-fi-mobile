@@ -85,6 +85,11 @@ extension AppColorScheme on ColorScheme {
         brightness: brightness,
       );
 
+  PocketColorPalette pocketPalette(Color pocketColor) => generatePocketPalette(
+        pocketColor: pocketColor,
+        brightness: brightness,
+      );
+
   // The branded Plus introduction uses the same palette in both themes.
   Color get plusIntroTop => const Color(0xFF7953FF);
   Color get plusIntroBottom => const Color(0xFFB561F4);
@@ -383,16 +388,6 @@ extension AppColorScheme on ColorScheme {
       ? AppTheme.darkCardBg
       : AppTheme.lightPocketAddSurface;
 
-  /// Pockets: Add tile border
-  Color get pocketAddBorder => brightness == Brightness.dark
-      ? AppTheme.darkBorderSubtle
-      : AppTheme.lightBorder.withValues(alpha: 0.15);
-
-  /// Pockets: Add tile label
-  Color get pocketAddText => brightness == Brightness.dark
-      ? AppTheme.darkForeground
-      : AppTheme.lightForeground;
-
   /// Pockets: Card surface
   Color get pocketCardSurface => brightness == Brightness.dark
       ? AppTheme.darkCardBg
@@ -402,16 +397,6 @@ extension AppColorScheme on ColorScheme {
   Color get pocketCardBorder => brightness == Brightness.dark
       ? AppTheme.darkBorderSubtle
       : AppTheme.lightBorder.withValues(alpha: 0.4);
-
-  /// Pockets: Glass overlay surface (icons/labels)
-  Color get pocketGlassSurface => brightness == Brightness.dark
-      ? AppTheme.darkCardBg.withValues(alpha: 0.9)
-      : Colors.white.withValues(alpha: 0.9);
-
-  /// Pockets: Softer glass overlay surface
-  Color get pocketGlassSurfaceSoft => brightness == Brightness.dark
-      ? AppTheme.darkCardBg.withValues(alpha: 0.88)
-      : Colors.white.withValues(alpha: 0.85);
 
   /// Pockets: Glass shadow
   Color get pocketGlassShadow => shadow.withValues(
@@ -764,57 +749,6 @@ class AppTheme {
     return baseColor;
   }
 
-  /// Pockets: progress gradient tuned for the current theme
-  static List<Color> pocketProgressGradient({
-    required ColorScheme scheme,
-    required Color baseColor,
-    required double progress,
-    required bool isOverBudget,
-  }) {
-    final hsl = HSLColor.fromColor(baseColor);
-    final isDark = scheme.brightness == Brightness.dark;
-
-    if (isOverBudget) {
-      final errorColor = isDark
-          ? const HSLColor.fromAHSL(1.0, 0, 0.7, 0.5)
-          : const HSLColor.fromAHSL(1.0, 0, 0.7, 0.45);
-      return [
-        errorColor.toColor(),
-        errorColor
-            .withLightness((errorColor.lightness - 0.1).clamp(0.0, 1.0))
-            .toColor(),
-      ];
-    }
-
-    if (progress > 0.9) {
-      final warningColor = isDark
-          ? const HSLColor.fromAHSL(1.0, 30, 0.8, 0.55)
-          : const HSLColor.fromAHSL(1.0, 30, 0.8, 0.5);
-      return [
-        warningColor.toColor(),
-        warningColor
-            .withLightness((warningColor.lightness - 0.1).clamp(0.0, 1.0))
-            .toColor(),
-      ];
-    }
-
-    if (isDark) {
-      final brightened =
-          hsl.withLightness((hsl.lightness + 0.1).clamp(0.0, 1.0));
-      return [
-        brightened.toColor(),
-        brightened
-            .withLightness((brightened.lightness - 0.15).clamp(0.0, 1.0))
-            .toColor(),
-      ];
-    }
-
-    return [
-      baseColor,
-      hsl.withLightness((hsl.lightness - 0.1).clamp(0.0, 1.0)).toColor(),
-    ];
-  }
-
   /// Pockets: detail header gradient
   static List<Color> pocketDetailsGradient(
     Color baseColor,
@@ -1164,10 +1098,7 @@ class AppSnackBarStyles {
 @immutable
 class WalletColorPalette {
   const WalletColorPalette._({
-    required this.backgroundStart,
-    required this.meshLayers,
-    required this.edgeHighlight,
-    required this.edgeLowlight,
+    required this.surface,
     required this.shadow,
     required this.iconBackground,
     required this.iconBackgroundEnd,
@@ -1184,10 +1115,7 @@ class WalletColorPalette {
     required this.badgeForeground,
   });
 
-  final Color backgroundStart;
-  final List<WalletMeshLayer> meshLayers;
-  final Color edgeHighlight;
-  final Color edgeLowlight;
+  final MeshSurface surface;
   final Color shadow;
   final Color iconBackground;
   final Color iconBackgroundEnd;
@@ -1222,6 +1150,23 @@ class WalletColorPalette {
       ];
 }
 
+/// A painted mesh surface: an opaque base, soft layers composited over it in
+/// normalized space, and a fine edge highlight fading to a tinted lowlight.
+@immutable
+class MeshSurface {
+  const MeshSurface({
+    required this.base,
+    required this.layers,
+    required this.edgeHighlight,
+    required this.edgeLowlight,
+  });
+
+  final Color base;
+  final List<MeshGradientLayer> layers;
+  final Color edgeHighlight;
+  final Color edgeLowlight;
+}
+
 const _walletMeshFalloffStops = [
   0.0,
   0.125,
@@ -1239,8 +1184,8 @@ const _walletMeshFalloffStops = [
 /// surface. Radial layers fade along a smootherstep curve, which has zero
 /// slope at both ends and therefore no visible circular boundary.
 @immutable
-class WalletMeshLayer {
-  WalletMeshLayer.radial({
+class MeshGradientLayer {
+  MeshGradientLayer.radial({
     required Offset this.center,
     required Size this.radius,
     required Color color,
@@ -1255,7 +1200,7 @@ class WalletMeshLayer {
             ),
         ]);
 
-  WalletMeshLayer.vertical({
+  MeshGradientLayer.vertical({
     required this.begin,
     required this.end,
     required List<Color> colors,
@@ -1371,46 +1316,46 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
   final middle = color(washMiddle, dark ? 0.88 : 0.5);
   final lower = color(bottom, dark ? 0.7 : 0.1);
   final shade = dark ? color(0.10, 0.45) : color(0.45, 0.5);
-  final meshLayers = List<WalletMeshLayer>.unmodifiable(dark
+  final meshLayers = List<MeshGradientLayer>.unmodifiable(dark
       ? [
-          WalletMeshLayer.vertical(
+          MeshGradientLayer.vertical(
             begin: 0,
             end: 1,
             colors: [upper, color(tone - 0.03, 1.0), middle, lower],
             stops: const [0, 0.3, 0.66, 1],
           ),
           // Irregular sources with distinct radii, strengths and hues.
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.06, 0),
             radius: const Size(0.78, 0.62),
             color: color(tone + 0.02, 1.18, -14),
             opacity: 0.8,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.97, 0.08),
             radius: const Size(0.6, 0.55),
             color: color(tone - 0.09, 1.12, 11),
             opacity: 0.75,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.55, 0.41),
             radius: const Size(0.55, 0.36),
             color: color(tone - 0.01, 0.95, -6),
             opacity: 0.45,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.1, 0.79),
             radius: const Size(0.6, 0.41),
             color: color(tone - 0.15, 0.92, 8),
             opacity: 0.6,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.9, 0.7),
             radius: const Size(0.5, 0.38),
             color: color(tone - 0.11, 0.8, -10),
             opacity: 0.45,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.5, 1.1),
             radius: const Size(0.95, 0.49),
             color: color(bottom - 0.03, 0.62),
@@ -1418,7 +1363,7 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
           ),
           // Ambient lighting: a satin sheen from above, a soft key light at
           // the upper left, a faint right-edge fill and gentle lower falloff.
-          WalletMeshLayer.vertical(
+          MeshGradientLayer.vertical(
             begin: 0,
             end: 0.3,
             colors: [
@@ -1428,19 +1373,19 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
             ],
             stops: const [0, 0.45, 1],
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.2, -0.06),
             radius: const Size(0.55, 0.32),
             color: color(0.95, 0.15),
             opacity: 0.12,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(1.02, 0.25),
             radius: const Size(0.25, 0.4),
             color: color(0.9, 0.2),
             opacity: 0.06,
           ),
-          WalletMeshLayer.vertical(
+          MeshGradientLayer.vertical(
             begin: 0.78,
             end: 1,
             colors: [
@@ -1453,7 +1398,7 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
       : [
           // The linear base holds the sky color through the upper third,
           // then fades smoothly into a very light tint.
-          WalletMeshLayer.vertical(
+          MeshGradientLayer.vertical(
             begin: 0,
             end: 1,
             colors: [upper, color(tone + 0.02, 0.95), middle, lower],
@@ -1461,50 +1406,50 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
           ),
           // Neighboring tones stay close in lightness and use moderate
           // opacity, so the sources blend like light rather than circles.
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.04, -0.02),
             radius: const Size(0.86, 0.64),
             color: color(tone - 0.02, 1.05, -12),
             opacity: 0.72,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.98, 0.06),
             radius: const Size(0.68, 0.58),
             color: color(tone - 0.03, 0.95, 10),
             opacity: 0.55,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.48, 0.36),
             radius: const Size(0.66, 0.4),
             color: color(tone + 0.07, 0.66, -5),
             opacity: 0.4,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.78, 0.5),
             radius: const Size(0.5, 0.32),
             color: color(toward(0.45), 0.5, 6),
             opacity: 0.35,
           ),
           // Soft clouds carry the transition into the pale base.
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.14, 0.76),
             radius: const Size(0.7, 0.42),
             color: color(toward(0.75), 0.3, 6),
             opacity: 0.5,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.9, 0.84),
             radius: const Size(0.6, 0.4),
             color: color(toward(0.68), 0.36, -8),
             opacity: 0.38,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.45, 1.08),
             radius: const Size(1.1, 0.54),
             color: color(bottom + 0.006, 0.06),
             opacity: 0.9,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.85, 1.02),
             radius: const Size(0.6, 0.36),
             color: color(bottom, 0.1, 8),
@@ -1512,7 +1457,7 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
           ),
           // One light direction for every card: a satin sheen from above,
           // a key light at the upper left and a faint right-edge fill.
-          WalletMeshLayer.vertical(
+          MeshGradientLayer.vertical(
             begin: 0,
             end: 0.32,
             colors: [
@@ -1522,19 +1467,19 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
             ],
             stops: const [0, 0.45, 1],
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(0.18, -0.08),
             radius: const Size(0.6, 0.34),
             color: white,
             opacity: 0.16,
           ),
-          WalletMeshLayer.radial(
+          MeshGradientLayer.radial(
             center: const Offset(1.03, 0.28),
             radius: const Size(0.26, 0.42),
             color: white,
             opacity: 0.08,
           ),
-          WalletMeshLayer.vertical(
+          MeshGradientLayer.vertical(
             begin: 0.82,
             end: 1,
             colors: [
@@ -1556,14 +1501,16 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
   final iconBackgroundEnd = dark ? color(0.22, 0.26) : color(0.955, 0.08);
   final iconSurfaces = [iconBackground, iconBackgroundEnd];
   return WalletColorPalette._(
-    backgroundStart: upper,
-    meshLayers: meshLayers,
-    edgeHighlight: dark
-        ? color(0.88, 0.3).withValues(alpha: 0.28)
-        : white.withValues(alpha: 0.7),
-    edgeLowlight: dark
-        ? color(0.06, 0.2).withValues(alpha: 0.3)
-        : color(0.62, 0.5).withValues(alpha: 0.22),
+    surface: MeshSurface(
+      base: upper,
+      layers: meshLayers,
+      edgeHighlight: dark
+          ? color(0.88, 0.3).withValues(alpha: 0.28)
+          : white.withValues(alpha: 0.7),
+      edgeLowlight: dark
+          ? color(0.06, 0.2).withValues(alpha: 0.3)
+          : color(0.62, 0.5).withValues(alpha: 0.22),
+    ),
     shadow: dark
         ? color(0.04, 0.25).withValues(alpha: 0.85)
         : color(0.3, 0.7).withValues(alpha: 0.5),
@@ -1607,7 +1554,7 @@ WalletColorPalette _buildWalletPalette(Color original, Brightness brightness) {
 /// sRGB source-over compositing of [layers], matching the painter.
 Color _walletSurfaceAt(
   Color base,
-  List<WalletMeshLayer> layers,
+  List<MeshGradientLayer> layers,
   double x,
   double y,
 ) {
@@ -1640,6 +1587,234 @@ double _walletDarkHue(double hue) {
 double _walletHueBump(double degrees, double center, double width) {
   final distance = ((degrees - center + 540) % 360) - 180;
   return math.exp(-math.pow(distance / width, 2));
+}
+
+/// Display-only pocket colors, sharing the wallet OKLCH system so pockets
+/// match the wallet cards. The persisted pocket color is never rewritten.
+///
+/// The card body is a quiet aurora tint; the spending liquid carries the
+/// vivid color. Status palettes (warning/over budget) are generated the same
+/// way from the semantic status colors.
+@immutable
+class PocketColorPalette {
+  const PocketColorPalette._({
+    required this.surface,
+    required this.border,
+    required this.shadow,
+    required this.liquidBack,
+    required this.liquidFront,
+    required this.liquidFrontDeep,
+    required this.liquidCrest,
+    required this.panel,
+    required this.panelBorder,
+    required this.title,
+    required this.subtitle,
+    required this.iconBackground,
+    required this.iconBackgroundEnd,
+    required this.iconRim,
+    required this.iconShadow,
+    required this.iconForeground,
+    required this.progressTrack,
+    required this.progressFillStart,
+    required this.progressFillEnd,
+  });
+
+  final MeshSurface surface;
+  final Color border;
+  final Color shadow;
+  final Color liquidBack;
+  final Color liquidFront;
+  final Color liquidFrontDeep;
+  final Color liquidCrest;
+  final Color panel;
+  final Color panelBorder;
+  final Color title;
+  final Color subtitle;
+  final Color iconBackground;
+  final Color iconBackgroundEnd;
+  final Color iconRim;
+  final Color iconShadow;
+  final Color iconForeground;
+  final Color progressTrack;
+  final Color progressFillStart;
+  final Color progressFillEnd;
+
+  LinearGradient get progressGradient => LinearGradient(
+        colors: [progressFillStart, progressFillEnd],
+      );
+
+  LinearGradient get iconSurfaceGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [iconBackground, iconBackgroundEnd],
+      );
+
+  List<BoxShadow> get iconShadows => [
+        BoxShadow(color: iconShadow, blurRadius: 6, offset: const Offset(0, 2)),
+      ];
+
+  List<BoxShadow> get cardShadows => [
+        BoxShadow(color: shadow, blurRadius: 24, offset: const Offset(0, 8)),
+      ];
+}
+
+final _pocketDisplayPaletteCache = <(Color, Brightness), PocketColorPalette>{};
+
+PocketColorPalette generatePocketPalette({
+  required Color pocketColor,
+  required Brightness brightness,
+}) {
+  final key = (pocketColor, brightness);
+  final cached = _pocketDisplayPaletteCache[key];
+  if (cached != null) return cached;
+  final palette = _buildPocketPalette(pocketColor, brightness);
+  if (_pocketDisplayPaletteCache.length >= 128) {
+    _pocketDisplayPaletteCache.remove(_pocketDisplayPaletteCache.keys.first);
+  }
+  _pocketDisplayPaletteCache[key] = palette;
+  return palette;
+}
+
+PocketColorPalette _buildPocketPalette(Color original, Brightness brightness) {
+  final source = _WalletOklch.fromColor(original);
+  final dark = brightness == Brightness.dark;
+  final chromaLimit = dark ? 0.16 : 0.165;
+  final chroma = source.chroma < 0.008
+      ? 0.0
+      : source.chroma /
+          math.pow(1 + math.pow(source.chroma / chromaLimit, 4), 0.25);
+  // Normalized liquid tone, keeping a little source lightness so yellow stays
+  // yellow; neutral pockets stay neutral.
+  final tone = chroma == 0
+      ? (dark ? 0.5 + source.lightness * 0.2 : 0.55 + source.lightness * 0.25)
+      : (dark ? 0.62 : 0.69) +
+          (source.lightness - 0.65).clamp(-0.15, 0.3) * (dark ? 0.2 : 0.35);
+  final hueSpread =
+      1 - 0.65 * _walletHueBump((source.hue * 180 / math.pi) % 360, 108, 22);
+  _WalletOklch tint(double lightness, double chromaScale, [double hue = 0]) =>
+      _WalletOklch(
+        lightness.clamp(0.0, 1.0),
+        chroma * chromaScale,
+        source.hue + hue * hueSpread * math.pi / 180,
+      );
+  Color color(double lightness, double chromaScale, [double hue = 0]) =>
+      tint(lightness, chromaScale, hue).toColor();
+  const white = Color(0xFFFFFFFF);
+
+  // Light: an airy near-white body touched by a soft aurora of the pocket
+  // hue. Dark: a deep tinted body with a faint luminous corner.
+  final base = dark ? color(0.22, 0.3) : color(0.975, 0.06);
+  final layers = List<MeshGradientLayer>.unmodifiable([
+    MeshGradientLayer.vertical(
+      begin: 0,
+      end: 1,
+      colors: dark
+          ? [color(0.27, 0.45), color(0.22, 0.34), color(0.19, 0.28)]
+          : [color(0.955, 0.16), color(0.972, 0.09), color(0.985, 0.04)],
+      stops: const [0, 0.5, 1],
+    ),
+    MeshGradientLayer.radial(
+      center: const Offset(0.08, -0.02),
+      radius: const Size(0.95, 0.62),
+      color: dark ? color(0.34, 0.7, -12) : color(0.92, 0.32, -12),
+      opacity: dark ? 0.55 : 0.6,
+    ),
+    MeshGradientLayer.radial(
+      center: const Offset(1.0, 0.12),
+      radius: const Size(0.62, 0.5),
+      color: dark ? color(0.26, 0.6, 10) : color(0.94, 0.24, 10),
+      opacity: dark ? 0.45 : 0.45,
+    ),
+    MeshGradientLayer.radial(
+      center: const Offset(0.5, 1.08),
+      radius: const Size(1.05, 0.5),
+      color: dark ? color(0.16, 0.3) : white,
+      opacity: dark ? 0.6 : 0.7,
+    ),
+    MeshGradientLayer.radial(
+      center: const Offset(0.2, -0.08),
+      radius: const Size(0.6, 0.34),
+      color: dark ? color(0.95, 0.15) : white,
+      opacity: dark ? 0.08 : 0.35,
+    ),
+  ]);
+  final liquidFront =
+      dark ? color(tone, 1.08, -8) : color(tone - 0.02, 1.05, -8);
+  final liquidFrontDeep =
+      dark ? color(tone - 0.12, 1.12, 8) : color(tone - 0.1, 1.1, 8);
+  final panel = dark
+      ? color(0.17, 0.18).withValues(alpha: 0.78)
+      : white.withValues(alpha: 0.8);
+  // Text sits on the translucent panel, which may overlay either the body or
+  // the liquid; measure against the panel composited over both.
+  final panelSurfaces = [
+    for (final under in [
+      base,
+      color(dark ? 0.27 : 0.92, dark ? 0.6 : 0.3),
+      liquidFront,
+      liquidFrontDeep,
+    ])
+      Color.alphaBlend(panel, under),
+  ];
+  final iconBackground = dark ? color(0.31, 0.32) : color(0.995, 0.01);
+  final iconBackgroundEnd = dark ? color(0.22, 0.26) : color(0.955, 0.08);
+  return PocketColorPalette._(
+    surface: MeshSurface(
+      base: base,
+      layers: layers,
+      edgeHighlight: dark
+          ? color(0.85, 0.3).withValues(alpha: 0.22)
+          : white.withValues(alpha: 0.85),
+      edgeLowlight: dark
+          ? color(0.05, 0.2).withValues(alpha: 0.3)
+          : color(0.6, 0.4).withValues(alpha: 0.16),
+    ),
+    border: dark
+        ? color(0.34, 0.35).withValues(alpha: 0.8)
+        : color(0.88, 0.18).withValues(alpha: 0.7),
+    shadow: dark
+        ? color(0.03, 0.2).withValues(alpha: 0.45)
+        : color(0.35, 0.6).withValues(alpha: 0.12),
+    liquidBack: dark
+        ? color(tone - 0.08, 0.8, 10).withValues(alpha: 0.5)
+        : color(tone + 0.08, 0.7, 10).withValues(alpha: 0.45),
+    liquidFront: liquidFront,
+    liquidFrontDeep: liquidFrontDeep,
+    liquidCrest: dark
+        ? color(0.9, 0.3).withValues(alpha: 0.35)
+        : white.withValues(alpha: 0.55),
+    panel: panel,
+    panelBorder: dark
+        ? color(0.45, 0.3).withValues(alpha: 0.3)
+        : white.withValues(alpha: 0.9),
+    title: _walletForeground(
+      panelSurfaces,
+      dark ? tint(0.97, 0.04) : tint(0.25, 0.3),
+      preferLight: dark,
+    ),
+    subtitle: _walletForeground(
+      panelSurfaces,
+      dark ? tint(0.8, 0.08) : tint(0.45, 0.25),
+      preferLight: dark,
+    ),
+    iconBackground: iconBackground,
+    iconBackgroundEnd: iconBackgroundEnd,
+    iconRim: dark
+        ? color(0.62, 0.45).withValues(alpha: 0.4)
+        : white.withValues(alpha: 0.85),
+    iconShadow: dark
+        ? color(0.05, 0.2).withValues(alpha: 0.5)
+        : color(0.35, 0.6).withValues(alpha: 0.22),
+    iconForeground: _walletForeground(
+      [iconBackground, iconBackgroundEnd],
+      dark ? tint(0.82, 1.05, -6) : tint(0.58, 1.15, -6),
+      preferLight: dark,
+      minimumContrast: 3,
+    ),
+    progressTrack: dark ? color(0.28, 0.3) : color(0.9, 0.25),
+    progressFillStart: dark ? color(0.68, 1.1, -8) : color(0.6, 1.1, -8),
+    progressFillEnd: dark ? color(0.75, 0.9, 8) : color(0.67, 0.95, 8),
+  );
 }
 
 /// Walks lightness away from the surface first, then the other way, keeping

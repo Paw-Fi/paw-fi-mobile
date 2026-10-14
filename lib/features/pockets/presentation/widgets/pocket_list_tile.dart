@@ -7,6 +7,7 @@ import 'package:moneko/features/pockets/presentation/constants/pocket_icon_const
 import 'package:moneko/features/pockets/presentation/constants/pocket_style_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/mesh_gradient_painter.dart';
 
 class PocketListTile extends StatelessWidget {
   const PocketListTile({
@@ -30,27 +31,20 @@ class PocketListTile extends StatelessWidget {
     final progress = limit > 0 ? (pocket.spent / limit) : 0.0;
     final isOverBudget = pocket.isOverBudget(totalBudget);
 
-    Color baseColor = getPocketColor(pocket.color, colorScheme.primary);
-    baseColor = AppTheme.tunedPocketBaseColor(
-      baseColor,
-      colorScheme,
-      hasCustomColor: pocket.color != null,
+    final palette = colorScheme.pocketPalette(
+      getPocketColor(pocket.color, colorScheme.primary),
     );
-
-    final Color fillColor;
-    if (isOverBudget) {
-      fillColor = colorScheme.error;
-    } else if (progress > 0.9) {
-      fillColor = colorScheme.warning;
-    } else {
-      fillColor = baseColor;
-    }
+    final fillPalette = isOverBudget
+        ? colorScheme.pocketPalette(colorScheme.error)
+        : progress > 0.9
+            ? colorScheme.pocketPalette(colorScheme.warning)
+            : palette;
 
     final iconData = getPocketIconData(pocket.icon);
 
     // Derive text colors for readability based on theme and background
-    final titleColor = colorScheme.pocketTitle;
-    final subtitleColor = colorScheme.pocketSubtitle;
+    final titleColor = palette.title;
+    final subtitleColor = palette.subtitle;
 
     final currencySymbol = resolveCurrencySymbol(currency);
     final spentNormalized = double.parse(formatAmount(pocket.spent));
@@ -76,81 +70,116 @@ class PocketListTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        // The mesh's soft sources extend past the tile; clip them to its
+        // rounded shape so they cannot read as a misaligned shadow.
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: colorScheme.pocketTileFill(fillColor),
+          color: fillPalette.surface.base,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: colorScheme.pocketTileBorder,
+            color: fillPalette.border,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.05),
+              color: fillPalette.shadow,
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              // Icon chip
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colorScheme.pocketTileIconSurface,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.pocketIconShadow,
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  iconData,
-                  size: 20,
-                  color: baseColor,
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Main content card
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
+        child: CustomPaint(
+          painter: MeshGradientPainter(
+            surface: fillPalette.surface,
+            shape: const RoundedRectClipper(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                // Icon chip
+                Container(
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: colorScheme.pocketTileContentSurface,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.pocketGlassShadow,
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    gradient: palette.iconSurfaceGradient,
+                    border: Border.all(color: palette.iconRim, width: 0.75),
+                    shape: BoxShape.circle,
+                    boxShadow: palette.iconShadows,
                   ),
-                  child: isLargeText
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _PocketTitleAndProgress(
-                              pocket: pocket,
-                              isOverBudget: isOverBudget,
-                              progress: progress,
-                              rolloverBadgeText: rolloverBadgeText,
-                              titleColor: titleColor,
-                              baseColor: baseColor,
-                              colorScheme: colorScheme,
-                            ),
-                            const SizedBox(height: 10),
-                            Align(
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: _PocketAmounts(
+                  child: Icon(
+                    iconData,
+                    size: 20,
+                    color: palette.iconForeground,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // Main content card
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.panel,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: palette.panelBorder,
+                        width: 0.75,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: palette.shadow,
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: isLargeText
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _PocketTitleAndProgress(
+                                pocket: pocket,
+                                isOverBudget: isOverBudget,
+                                progress: progress,
+                                rolloverBadgeText: rolloverBadgeText,
+                                titleColor: titleColor,
+                                trackColor: palette.progressTrack,
+                                progressGradient: fillPalette.progressGradient,
+                                colorScheme: colorScheme,
+                              ),
+                              const SizedBox(height: 10),
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: _PocketAmounts(
+                                  spentDisplay: spentDisplay,
+                                  limitDisplay: limitDisplay,
+                                  isOverBudget: isOverBudget,
+                                  titleColor: titleColor,
+                                  subtitleColor: subtitleColor,
+                                  colorScheme: colorScheme,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: _PocketTitleAndProgress(
+                                  pocket: pocket,
+                                  isOverBudget: isOverBudget,
+                                  progress: progress,
+                                  rolloverBadgeText: rolloverBadgeText,
+                                  titleColor: titleColor,
+                                  trackColor: palette.progressTrack,
+                                  progressGradient:
+                                      fillPalette.progressGradient,
+                                  colorScheme: colorScheme,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              _PocketAmounts(
                                 spentDisplay: spentDisplay,
                                 limitDisplay: limitDisplay,
                                 isOverBudget: isOverBudget,
@@ -158,36 +187,12 @@ class PocketListTile extends StatelessWidget {
                                 subtitleColor: subtitleColor,
                                 colorScheme: colorScheme,
                               ),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            Expanded(
-                              child: _PocketTitleAndProgress(
-                                pocket: pocket,
-                                isOverBudget: isOverBudget,
-                                progress: progress,
-                                rolloverBadgeText: rolloverBadgeText,
-                                titleColor: titleColor,
-                                baseColor: baseColor,
-                                colorScheme: colorScheme,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            _PocketAmounts(
-                              spentDisplay: spentDisplay,
-                              limitDisplay: limitDisplay,
-                              isOverBudget: isOverBudget,
-                              titleColor: titleColor,
-                              subtitleColor: subtitleColor,
-                              colorScheme: colorScheme,
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -202,7 +207,8 @@ class _PocketTitleAndProgress extends StatelessWidget {
     required this.progress,
     required this.rolloverBadgeText,
     required this.titleColor,
-    required this.baseColor,
+    required this.trackColor,
+    required this.progressGradient,
     required this.colorScheme,
   });
 
@@ -211,7 +217,8 @@ class _PocketTitleAndProgress extends StatelessWidget {
   final double progress;
   final String? rolloverBadgeText;
   final Color titleColor;
-  final Color baseColor;
+  final Color trackColor;
+  final Gradient progressGradient;
   final ColorScheme colorScheme;
 
   @override
@@ -246,21 +253,12 @@ class _PocketTitleAndProgress extends StatelessWidget {
           child: Container(
             height: 4,
             width: double.infinity,
-            color: colorScheme.pocketProgressTrack,
+            color: trackColor,
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: progress.clamp(0.0, 1.0),
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: getProgressGradient(
-                      colorScheme,
-                      baseColor,
-                      progress,
-                      isOverBudget,
-                    ),
-                  ),
-                ),
+                decoration: BoxDecoration(gradient: progressGradient),
               ),
             ),
           ),

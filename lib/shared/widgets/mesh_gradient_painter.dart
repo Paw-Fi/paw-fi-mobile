@@ -3,30 +3,30 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
-/// Paints the wallet card surface: an organic mesh of soft color sources,
-/// ambient lighting and a fine edge highlight following [shape].
+/// Paints a [MeshSurface]: an organic mesh of soft color sources, ambient
+/// lighting and a fine edge highlight following [shape].
 ///
-/// Mesh coordinates are normalized to the card width and [referenceHeight],
-/// so a collapsed card shows the upper part of the same surface it reveals
-/// when expanded. Only gradients are used; no runtime blur filters.
-class WalletMeshGradientPainter extends CustomPainter {
-  const WalletMeshGradientPainter({
-    required this.palette,
+/// Mesh coordinates are normalized to the width and [referenceHeight] (the
+/// painted height when null), so a partially revealed card can show the
+/// upper part of the same surface. Only gradients are used; no blur filters.
+class MeshGradientPainter extends CustomPainter {
+  const MeshGradientPainter({
+    required this.surface,
     required this.shape,
-    this.referenceHeight = 240,
+    this.referenceHeight,
   });
 
-  final WalletColorPalette palette;
+  final MeshSurface surface;
   final CustomClipper<Path> shape;
-  final double referenceHeight;
+  final double? referenceHeight;
 
   @override
   void paint(Canvas canvas, Size size) {
     final bounds = Offset.zero & size;
     final width = size.width;
-    final height = referenceHeight;
-    canvas.drawRect(bounds, Paint()..color = palette.backgroundStart);
-    for (final layer in palette.meshLayers) {
+    final height = referenceHeight ?? size.height;
+    canvas.drawRect(bounds, Paint()..color = surface.base);
+    for (final layer in surface.layers) {
       final center = layer.center;
       if (center == null) {
         canvas.drawRect(
@@ -71,9 +71,9 @@ class WalletMeshGradientPainter extends CustomPainter {
           Offset.zero,
           Offset(0, size.height),
           [
-            palette.edgeHighlight,
-            palette.edgeHighlight.withValues(alpha: 0),
-            palette.edgeLowlight,
+            surface.edgeHighlight,
+            surface.edgeHighlight.withValues(alpha: 0),
+            surface.edgeLowlight,
           ],
           const [0, 0.45, 1],
         ),
@@ -81,8 +81,26 @@ class WalletMeshGradientPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant WalletMeshGradientPainter oldDelegate) =>
-      oldDelegate.palette != palette ||
+  bool shouldRepaint(covariant MeshGradientPainter oldDelegate) =>
+      oldDelegate.surface != surface ||
       oldDelegate.shape != shape ||
       oldDelegate.referenceHeight != referenceHeight;
+}
+
+/// Rounded-rectangle outline for [MeshGradientPainter] edge highlights.
+class RoundedRectClipper extends CustomClipper<Path> {
+  const RoundedRectClipper(this.radius);
+
+  final double radius;
+
+  @override
+  Path getClip(Size size) => Path()
+    ..addRRect(RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    ));
+
+  @override
+  bool shouldReclip(covariant RoundedRectClipper oldClipper) =>
+      oldClipper.radius != radius;
 }

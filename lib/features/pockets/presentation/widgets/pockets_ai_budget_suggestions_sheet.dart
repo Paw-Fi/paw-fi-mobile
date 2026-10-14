@@ -3,7 +3,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/pockets/presentation/pages/pockets_ai_budget_suggestions_page.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
-
 class PocketsAiBudgetSuggestionsSheet extends StatelessWidget {
   const PocketsAiBudgetSuggestionsSheet({
     super.key,

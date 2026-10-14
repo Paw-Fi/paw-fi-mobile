@@ -6,9 +6,9 @@ import 'package:moneko/core/theme/moneko_text_scaling.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/shared/widgets/mesh_gradient_painter.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_account_stack.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
-import 'package:moneko/features/wallets/presentation/widgets/wallet_mesh_gradient_painter.dart';
 
 const _headerShadowInset = 10.0;
 
@@ -338,7 +338,7 @@ class WalletStackCard extends StatelessWidget {
       child: PhysicalShape(
         clipper: const _OrganicWalletCardClipper(),
         clipBehavior: Clip.antiAlias,
-        color: palette.backgroundStart,
+        color: palette.surface.base,
         elevation: isExpanded ? 8.0 : 4.0,
         shadowColor: palette.shadow,
         child: Stack(
@@ -346,8 +346,8 @@ class WalletStackCard extends StatelessWidget {
             Positioned.fill(
               child: RepaintBoundary(
                 child: CustomPaint(
-                  painter: WalletMeshGradientPainter(
-                    palette: palette,
+                  painter: MeshGradientPainter(
+                    surface: palette.surface,
                     shape: const _OrganicWalletCardClipper(),
                     referenceHeight: WalletAccountStack.expandedHeight,
                   ),
