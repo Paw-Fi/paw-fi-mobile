@@ -8,6 +8,7 @@ import 'package:moneko/core/utils/currency_rate_provider.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -20,6 +21,7 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/utils/converted_transaction_summary.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_row_display_entry.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
 import 'package:moneko/features/home/presentation/widgets/transactions_pie_chart.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -219,6 +221,8 @@ class _DailyFinancialDetailsPageState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
+    final contact =
+        ref.watch(analyticsProvider.select((state) => state.contact));
     final monthStart = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
     final monthEnd = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
     final initialMonth = DateTime(widget.date.year, widget.date.month);
@@ -513,13 +517,19 @@ class _DailyFinancialDetailsPageState
                                       merchantStructuredName:
                                           t.merchantStructuredName,
                                       merchantName: t.merchant,
-                                      date: t.date,
+                                      date: composeTransactionDisplayDateTime(
+                                        transactionDate: t.date,
+                                        createdAt: t.createdAt,
+                                        preferredTimezone:
+                                            contact?.preferredTimezone,
+                                      ),
                                       useCustomCategoryStyleOverrides:
                                           t.householdId?.trim().isEmpty ?? true,
                                       onTap: () {
                                         showTransactionDetailsSheet(
                                           context,
                                           expense: t,
+                                          contact: contact,
                                           recurringTransactionsById:
                                               recurringTransactionsById,
                                           recurringOccurrence: occurrenceResolution
