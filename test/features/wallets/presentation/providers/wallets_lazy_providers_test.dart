@@ -953,6 +953,68 @@ void main() {
     expect(container.read(provider).requireValue.displayedSnapshot, isNotNull);
   });
 
+  test(
+      'transfer create edited before first overlay applies its full native effect',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final container = _offlineWalletContainer(database, scope,
+        sessionState: _cachedWalletState(
+            monthStart: scope.currentMonthStart,
+            balanceCents: 10000,
+            spentCents: 0),
+        hasProviderBalance: false);
+    addTearDown(container.dispose);
+    final network = container.listen(networkReachabilityProvider, (_, __) {});
+    addTearDown(network.close);
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+    final provider = walletsPageStateProvider(scope);
+    final subscription = container.listen(provider, (_, __) {});
+    addTearDown(subscription.close);
+    await container.read(provider.future);
+    List<ExpenseEntry> entries(int fee) =>
+        buildWalletTransferFeedEntries(transferJson: {
+          'id': 'optimistic-transfer-fast',
+          'from_account_id': 'w1',
+          'to_account_id': 'eur-wallet',
+          'amount_cents': 1500,
+          'currency': 'USD',
+          'to_amount_cents': 1200,
+          'to_currency': 'EUR',
+          'fee_amount_cents': fee,
+          'date': '2026-04-12',
+          'created_by_user_id': scope.userId
+        }, fallbackUserId: scope.userId);
+    await database.writeOptimisticWalletTransfer(
+        entries: entries(100),
+        clientMutationId: 'fast-create',
+        entityId: 'optimistic-transfer-fast',
+        payload: {'functionName': 'create-wallet-transfer'});
+    await database.writeOptimisticWalletTransferUpdate(
+        originalEntries: entries(100),
+        updatedEntries: entries(200),
+        clientMutationId: 'fast-edit',
+        transferId: 'optimistic-transfer-fast',
+        payload: {'functionName': 'update-wallet-transfer'});
+    await pumpEventQueue();
+    expect(
+        container
+            .read(provider)
+            .requireValue
+            .displayedSnapshot
+            ?.walletBalances['w1'],
+        8300);
+    expect(
+        container
+            .read(provider)
+            .requireValue
+            .displayedSnapshot
+            ?.spentTotalCents,
+        200);
+  });
+
   for (final scenario in [
     (opening: 10000, providerBacked: true),
     (opening: -10000, providerBacked: false),
@@ -1090,6 +1152,112 @@ void main() {
       expect(restored.displayedSnapshot?.walletBalances['w1'], expectedBalance);
     });
   }
+
+  test(
+      'cached wallet projects cross-currency fee create edit remove and delete',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final scope = buildScope();
+    final container = _offlineWalletContainer(database, scope,
+        sessionState: _cachedWalletState(
+            monthStart: scope.currentMonthStart,
+            balanceCents: 10000,
+            spentCents: 0),
+        hasProviderBalance: false);
+    addTearDown(container.dispose);
+    final network = container.listen(networkReachabilityProvider, (_, __) {});
+    addTearDown(network.close);
+    await container.read(localDatabaseProvider.future);
+    await container.read(networkReachabilityProvider.future);
+    final provider = walletsPageStateProvider(scope);
+    final subscription = container.listen(provider, (_, __) {});
+    addTearDown(subscription.close);
+    await container.read(provider.future);
+    List<ExpenseEntry> entries(int fee) =>
+        buildWalletTransferFeedEntries(transferJson: {
+          'id': 'optimistic-transfer-fx',
+          'from_account_id': 'w1',
+          'to_account_id': 'eur-wallet',
+          'amount_cents': 1500,
+          'currency': 'USD',
+          'to_amount_cents': 1200,
+          'to_currency': 'EUR',
+          'fee_amount_cents': fee,
+          'date': '2026-04-12',
+          'created_by_user_id': scope.userId
+        }, fallbackUserId: scope.userId);
+    await database.writeOptimisticWalletTransfer(
+        entries: entries(100),
+        clientMutationId: 'fx-create',
+        entityId: 'optimistic-transfer-fx',
+        payload: {'functionName': 'create-wallet-transfer'});
+    await pumpEventQueue();
+    expect(
+        container
+            .read(provider)
+            .requireValue
+            .displayedSnapshot
+            ?.walletBalances['w1'],
+        8400);
+    expect(
+        container
+            .read(provider)
+            .requireValue
+            .displayedSnapshot
+            ?.spentTotalCents,
+        100);
+    for (final fee in [200, 0]) {
+      await database.writeOptimisticWalletTransferUpdate(
+          originalEntries: entries(fee == 200 ? 100 : 200),
+          updatedEntries: entries(fee),
+          clientMutationId: 'fx-edit-$fee',
+          transferId: 'optimistic-transfer-fx',
+          payload: {'functionName': 'update-wallet-transfer'});
+      await pumpEventQueue();
+      expect(
+          container
+              .read(provider)
+              .requireValue
+              .displayedSnapshot
+              ?.walletBalances['w1'],
+          8500 - fee);
+      expect(
+          container
+              .read(provider)
+              .requireValue
+              .displayedSnapshot
+              ?.spentTotalCents,
+          fee);
+      expect(
+          container
+              .read(provider)
+              .requireValue
+              .displayedSnapshot
+              ?.incomeTotalCents,
+          0);
+    }
+    await database.writeOptimisticWalletTransferDelete(
+        entries: entries(0),
+        clientMutationId: 'fx-delete',
+        transferId: 'optimistic-transfer-fx',
+        payload: {'functionName': 'delete-wallet-transfer'});
+    await pumpEventQueue();
+    expect(
+        container
+            .read(provider)
+            .requireValue
+            .displayedSnapshot
+            ?.walletBalances['w1'],
+        10000);
+    expect(
+        container
+            .read(provider)
+            .requireValue
+            .displayedSnapshot
+            ?.spentTotalCents,
+        0);
+  });
 
   test(
       'walletsPageStateProvider preserves pending local overlay after stale refresh completes',

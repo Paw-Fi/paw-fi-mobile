@@ -7,6 +7,9 @@ List<String> walletTransferFeedEntryIds(String transferId) => <String>[
       'transfer:$transferId:in',
     ];
 
+String walletTransferFeeEntryId(String transferId) =>
+    'transfer-fee:$transferId';
+
 List<ExpenseEntry> buildWalletTransferFeedEntries({
   required Map<String, dynamic> transferJson,
   required String fallbackUserId,
@@ -26,7 +29,7 @@ List<ExpenseEntry> buildWalletTransferFeedEntries({
   final householdId = _trimmedOrNull(transferJson['household_id']) ??
       fromWallet?.householdId ??
       toWallet?.householdId;
-  return buildWalletTransferFeedEntriesForTransfer(
+  final entries = buildWalletTransferFeedEntriesForTransfer(
     transfer: transfer,
     fallbackUserId: createdByUserId,
     fromWallet: fromWallet,
@@ -35,6 +38,15 @@ List<ExpenseEntry> buildWalletTransferFeedEntries({
     createdAt: createdAt,
     updatedAt: updatedAt,
   );
+  final fee = transferJson['fee_expense'];
+  if (transfer.feeAmountCents > 0 && fee is Map) {
+    entries[2] = ExpenseEntry.fromJson({
+      ...entries[2].toJson(),
+      ...Map<String, dynamic>.from(fee),
+      'transfer_fee_transfer_id': transfer.id,
+    });
+  }
+  return entries;
 }
 
 List<ExpenseEntry> buildWalletTransferFeedEntriesForTransfer({
@@ -62,8 +74,14 @@ List<ExpenseEntry> buildWalletTransferFeedEntriesForTransfer({
       householdId: resolvedHouseholdId,
       date: transfer.date,
       transferTime: transfer.time,
-      amountCents: transfer.amountCents.abs(),
-      currency: transfer.currency.trim().toUpperCase(),
+      amountCents: (direction == 'in'
+              ? transfer.effectiveToAmountCents
+              : transfer.amountCents)
+          .abs(),
+      currency:
+          (direction == 'in' ? transfer.effectiveToCurrency : transfer.currency)
+              .trim()
+              .toUpperCase(),
       category: 'transfers',
       createdAt: createdAt ?? transfer.createdAt ?? DateTime.now().toUtc(),
       updatedAt: updatedAt ?? transfer.updatedAt,
@@ -93,6 +111,29 @@ List<ExpenseEntry> buildWalletTransferFeedEntriesForTransfer({
       wallet: toWallet,
       type: 'income',
     ),
+    if (transfer.feeAmountCents > 0)
+      ExpenseEntry(
+        id: transfer.feeExpenseId ?? walletTransferFeeEntryId(transfer.id),
+        userId: fallbackUserId,
+        householdId: resolvedHouseholdId,
+        date: transfer.date,
+        amountCents: transfer.feeAmountCents,
+        currency: transfer.currency.trim().toUpperCase(),
+        category: 'fees',
+        createdAt: createdAt ?? transfer.createdAt ?? DateTime.now().toUtc(),
+        updatedAt: updatedAt ?? transfer.updatedAt,
+        rawText: note,
+        walletId: transfer.fromAccountId,
+        accountName: fromWallet?.name,
+        accountIcon: fromWallet?.icon,
+        accountColor: fromWallet?.color,
+        type: 'expense',
+        transferFeeTransferId: transfer.id,
+        analyticsClass: 'expense',
+        analyticsIsFinal: true,
+        analyticsSpendingMultiplier: 1,
+        analyticsCountsTowardIncome: false,
+      ),
   ];
 }
 

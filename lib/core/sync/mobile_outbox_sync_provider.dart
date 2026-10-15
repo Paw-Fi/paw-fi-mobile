@@ -619,7 +619,10 @@ Future<void> _reconcileSyncedWalletMutation(
       throw StateError('Transfer sync succeeded without a saved transfer');
     }
     await database.replaceOptimisticWalletTransfer(
-      optimisticIds: walletTransferFeedEntryIds(mutation.entityId),
+      optimisticIds: [
+        ...walletTransferFeedEntryIds(mutation.entityId),
+        walletTransferFeeEntryId(mutation.entityId)
+      ],
       savedEntries: buildWalletTransferFeedEntries(
         transferJson: savedTransfer,
         fallbackUserId: ref.read(authProvider).uid,
@@ -627,6 +630,9 @@ Future<void> _reconcileSyncedWalletMutation(
       clientMutationId: mutation.clientMutationId,
     );
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    ref.invalidate(pocketsProvider);
+    ref.invalidate(pocketDetailsProvider);
   } else if (payload['functionName'] == 'update-wallet-transfer') {
     final savedTransfer = _mapValue(responseBody['data']);
     if (savedTransfer == null) {
@@ -734,13 +740,12 @@ Future<void> _handleCancelledMobileMutation(
   final payload = _decodePayload(mutation.payloadJson);
   if (payload['functionName'] == 'create-wallet-transfer') {
     await database.rollbackOptimisticWalletTransfer(
-      optimisticIds: walletTransferFeedEntryIds(mutation.entityId),
+      optimisticIds: [
+        ...walletTransferFeedEntryIds(mutation.entityId),
+        walletTransferFeeEntryId(mutation.entityId)
+      ],
       clientMutationId: mutation.clientMutationId,
       error: mutation.lastError ?? 'Transfer sync failed',
-    );
-    await database.cancelPendingWalletTransferDependencies(
-      transferId: mutation.entityId,
-      error: mutation.lastError ?? 'Transfer create failed',
     );
     ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
   } else if (payload['functionName'] == 'update-wallet-transfer' ||
@@ -758,6 +763,11 @@ Future<void> _handleCancelledMobileMutation(
     ref,
     _walletIdsForMutation(mutation, payload),
   );
+  ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+  ref.invalidate(pocketsProvider);
+  ref.invalidate(pocketDetailsProvider);
+  ref.read(appMutationErrorProvider.notifier).state =
+      AppMutationErrorEvent(id: mutation.clientMutationId, feature: 'wallets');
 }
 
 bool cancelledPocketMutationStillOwnsOutbox(
@@ -974,6 +984,11 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
       true,
     _ => false,
   };
+  final isWalletTransferMutation = const {
+    'create-wallet-transfer',
+    'update-wallet-transfer',
+    'delete-wallet-transfer',
+  }.contains(functionName);
   Map<String, dynamic>? responseBody;
   try {
     final response = await supabase.functions.invoke(functionName, body: body);
@@ -983,6 +998,10 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
     // Preserve retry semantics for auth, throttling, transport and server errors.
     final details = _mapValue(error.details);
     final code = details?['code']?.toString() ?? '';
+    if (isWalletTransferMutation && isTerminalAiCaptureStatus(error.status)) {
+      throw NonRetryableLocalMutationException(
+          details?['error']?.toString() ?? '$functionName failed');
+    }
     if (isAiCapture && isTerminalAiCaptureStatus(error.status)) {
       throw NonRetryableLocalMutationException(
         details?['error']?.toString() ?? '$functionName failed',
@@ -1000,6 +1019,13 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
   if (responseBody == null || responseBody['success'] != true) {
     final code = responseBody?['code']?.toString() ?? '';
     final status = responseBody?['status'];
+    if (isWalletTransferMutation &&
+        (status is int && isTerminalAiCaptureStatus(status) ||
+            const {'VALIDATION_ERROR', 'NOT_FOUND', 'FORBIDDEN'}
+                .contains(code))) {
+      throw NonRetryableLocalMutationException(
+          responseBody?['error']?.toString() ?? '$functionName failed');
+    }
     if (isAiCapture && status is int && isTerminalAiCaptureStatus(status)) {
       throw NonRetryableLocalMutationException(
         responseBody?['error']?.toString() ?? '$functionName failed',

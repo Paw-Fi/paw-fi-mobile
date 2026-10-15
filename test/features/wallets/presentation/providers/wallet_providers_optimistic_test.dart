@@ -1,4 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -54,6 +63,121 @@ WalletEntity _wallet(
 }
 
 void main() {
+  test(
+      'v2 transfer queues idempotent native principals and fee before dispatch',
+      () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final response = Completer<http.Response>();
+    final requested = Completer<Map<String, dynamic>>();
+    await Supabase.initialize(
+        url: 'http://localhost',
+        anonKey: 'test',
+        httpClient: MockClient((request) async {
+          if (request.url.path.endsWith('/create-wallet-transfer')) {
+            requested.complete(
+                Map<String, dynamic>.from(jsonDecode(request.body) as Map));
+            return response.future;
+          }
+          return http.Response('{}', 200);
+        }));
+    addTearDown(() => Supabase.instance.dispose());
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final wallets = [
+      _wallet('source', currency: 'EUR'),
+      _wallet('target', currency: 'USD')
+    ];
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_RefreshAuth.new),
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      localDatabaseProvider.overrideWith((ref) async => database),
+      effectiveScopeWalletsProvider.overrideWith((ref) => [
+            for (final wallet in wallets)
+              ref.watch(optimisticScopedAccountsOverridesProvider)[wallet.id] ??
+                  wallet,
+          ]),
+    ]);
+    addTearDown(container.dispose);
+    final actions = container.read(walletActionsProvider);
+    final operation = await actions.createTransfer(
+        fromAccountId: 'source',
+        toAccountId: 'target',
+        amountCents: 10000,
+        currency: 'EUR',
+        toAmountCents: 11000,
+        toCurrency: 'USD',
+        exchangeRate: '1.1',
+        feeAmountCents: 125,
+        date: DateTime(2026, 10, 15));
+    final mutation = (await database.getOutboxMutations()).single;
+    final body = Map<String, dynamic>.from(
+        jsonDecode(mutation.payloadJson)['requestBody'] as Map);
+    expect(body['clientRecordId'], mutation.entityId);
+    expect(body['transferContractVersion'], 2);
+    expect(body['toAmountCents'], 11000);
+    expect(body['toCurrency'], 'USD');
+    expect(body['feeAmountCents'], 125);
+    expect(body['exchangeRate'], '1.1');
+    expect(operation.entries, hasLength(3));
+    expect(
+        container
+            .read(optimisticScopedAccountsOverridesProvider)['source']
+            ?.currentBalanceCents,
+        -10125);
+    expect(
+        container
+            .read(optimisticScopedAccountsOverridesProvider)['target']
+            ?.currentBalanceCents,
+        11000);
+    expect(await requested.future, body);
+    final transfer = WalletTransfer(
+        id: mutation.entityId,
+        fromAccountId: 'source',
+        toAccountId: 'target',
+        amountCents: 10000,
+        currency: 'EUR',
+        toAmountCents: 11000,
+        toCurrency: 'USD',
+        exchangeRate: '1.1',
+        feeAmountCents: 125,
+        date: DateTime(2026, 10, 15));
+    await actions.updateTransfer(
+        existingTransfer: transfer,
+        fromAccountId: 'source',
+        toAccountId: 'target',
+        amountCents: 12000,
+        currency: 'EUR',
+        toAmountCents: 13000,
+        toCurrency: 'USD',
+        exchangeRate: '1.08333333',
+        feeAmountCents: 200,
+        date: transfer.date,
+        time: null);
+    expect(
+        container
+            .read(optimisticScopedAccountsOverridesProvider)['source']
+            ?.currentBalanceCents,
+        -12200);
+    expect(
+        container
+            .read(optimisticScopedAccountsOverridesProvider)['target']
+            ?.currentBalanceCents,
+        13000);
+    // The pending edit remains a create dependency and never sends a synthetic ID.
+    expect(
+        (await database.getOutboxMutations())
+            .where((m) => m.status == localMutationStatusQueued),
+        hasLength(2));
+    response.complete(
+        http.Response('{"success":false,"error":"unavailable"}', 503));
+    expect(await operation.completion, isNull);
+    await pumpEventQueue();
+  });
+
   test('wallet list refresh persists after consuming its cache bypass',
       () async {
     TestWidgetsFlutterBinding.ensureInitialized();

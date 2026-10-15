@@ -1667,7 +1667,24 @@ Future<List<_WalletPendingMutationEffect>> _loadWalletPendingMutationEffects(
           : const <String, dynamic>{};
       final isTransferCreate = mutation.entityType == 'wallet' &&
           payloadMap['functionName'] == 'create-wallet-transfer';
-      if (mutation.entityType == 'wallet' && !isTransferCreate) continue;
+      final isTransferUpdate = mutation.entityType == 'wallet' &&
+          payloadMap['functionName'] == 'update-wallet-transfer';
+      final isTransferDelete = mutation.entityType == 'wallet' &&
+          payloadMap['functionName'] == 'delete-wallet-transfer';
+      if (mutation.entityType == 'wallet' &&
+          !isTransferCreate &&
+          !isTransferUpdate &&
+          !isTransferDelete) {
+        continue;
+      }
+      final createdEntries = <String, ExpenseEntry>{};
+      if (isTransferCreate && payloadMap['createdEntries'] is List) {
+        for (final value
+            in (payloadMap['createdEntries'] as List).whereType<Map>()) {
+          final entry = ExpenseEntry.fromJson(Map<String, dynamic>.from(value));
+          createdEntries[entry.id] = entry;
+        }
+      }
       final originals = <String, ExpenseEntry>{};
       final originalEntry = payloadMap['originalEntry'];
       if (originalEntry is Map) {
@@ -1694,10 +1711,12 @@ Future<List<_WalletPendingMutationEffect>> _loadWalletPendingMutationEffects(
           mutation.operation == 'create' ||
           mutation.operation ==
               localRecurringOccurrenceConfirmationMutationOperation;
-      final isDelete = mutation.operation == 'delete_transaction' ||
+      final isDelete = isTransferDelete ||
+          mutation.operation == 'delete_transaction' ||
           mutation.operation == 'delete_recurring_template' ||
           mutation.operation == 'unconfirm_recurring_occurrence';
       final affectedIds = <String>{
+        ...createdEntries.keys,
         ...originals.keys,
         ...currentById.keys,
       };
@@ -1705,7 +1724,8 @@ Future<List<_WalletPendingMutationEffect>> _loadWalletPendingMutationEffects(
         final earlier = effectsById[id];
         final original = earlier == null ? originals[id] : earlier.original;
         final current = isDelete ? null : currentById[id];
-        final keyEntry = current ?? originals[id] ?? earlier?.current;
+        final keyEntry =
+            current ?? originals[id] ?? createdEntries[id] ?? earlier?.current;
         if (keyEntry == null) continue;
         final ownedEntry = keyEntry.copyWith(
           clientMutationId: mutation.clientMutationId,
@@ -1728,7 +1748,8 @@ Future<List<_WalletPendingMutationEffect>> _loadWalletPendingMutationEffects(
     return [
       for (final effect in effectsById.values)
         if (effect.original != null && isInQuery(effect.original!) ||
-            effect.current != null && isInQuery(effect.current!))
+            effect.current != null && isInQuery(effect.current!) ||
+            effect.includedPredecessors.values.any(isInQuery))
           _WalletPendingMutationEffect(
             key: effect.key,
             original: effect.original != null && isInQuery(effect.original!)

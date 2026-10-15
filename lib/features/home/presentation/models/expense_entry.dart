@@ -32,6 +32,7 @@ class ExpenseEntry {
   final String? householdId;
   final DateTime date;
   final String? transferTime;
+  final String? transferFeeTransferId;
   final int amountCents;
   final String? currency;
   final String? category;
@@ -79,6 +80,7 @@ class ExpenseEntry {
     this.householdId,
     required this.date,
     this.transferTime,
+    this.transferFeeTransferId,
     required this.amountCents,
     this.currency,
     this.category,
@@ -189,6 +191,7 @@ class ExpenseEntry {
       householdId: json['household_id'] as String?,
       date: parseDateOnly(json['date']),
       transferTime: json['transfer_time'] as String?,
+      transferFeeTransferId: json['transfer_fee_transfer_id'] as String?,
       amountCents: parseAmountCents(json['amount_cents']),
       currency: canonicalizeCurrencyCode(json['currency'] as String?),
       category: _sanitizeNullable(json['category'] as String?),
@@ -271,6 +274,7 @@ class ExpenseEntry {
       'household_id': householdId,
       'date': formatDateOnlyYmd(date),
       if (id.startsWith('transfer:')) 'transfer_time': transferTime,
+      'transfer_fee_transfer_id': transferFeeTransferId,
       'amount_cents': amountCents,
       'currency': currency,
       'category': category,
@@ -321,6 +325,8 @@ class ExpenseEntry {
     String? userName,
     String? userAvatarUrl,
     String? householdId,
+    String? transferFeeTransferId,
+    bool clearTransferFeeTransferId = false,
     DateTime? date,
     int? amountCents,
     String? currency,
@@ -370,6 +376,9 @@ class ExpenseEntry {
       householdId: householdId ?? this.householdId,
       date: date ?? this.date,
       transferTime: transferTime,
+      transferFeeTransferId: clearTransferFeeTransferId
+          ? null
+          : transferFeeTransferId ?? this.transferFeeTransferId,
       amountCents: amountCents ?? this.amountCents,
       currency: currency ?? this.currency,
       category: category ?? this.category,
