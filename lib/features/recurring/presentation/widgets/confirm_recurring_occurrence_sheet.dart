@@ -688,7 +688,9 @@ class _ConfirmRecurringOccurrenceFormState
         .toList(growable: false);
     final existingWalletId =
         widget.existingOccurrence?.actualTransaction?.walletId;
-    if (!wallets.any((wallet) => wallet.id == _accountId) &&
+    // An unresolved read must not erase the template, actual, or chosen wallet.
+    if (loadedWallets != null &&
+        !wallets.any((wallet) => wallet.id == _accountId) &&
         (!_isEditing || existingWalletId != null)) {
       _accountId = wallets.isEmpty ? null : wallets.first.id;
     }
