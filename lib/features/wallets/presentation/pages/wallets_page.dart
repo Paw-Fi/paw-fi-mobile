@@ -419,11 +419,25 @@ class AccountsPage extends HookConsumerWidget {
         AppToast.info(context, context.l10n.previewMockUpdatesApplied);
         return;
       }
-      final wallets = ref.read(effectiveScopeWalletsProvider);
-      final transferWallets = wallets
-          .where((wallet) => wallets.any((other) =>
-              other.id != wallet.id && other.currency == wallet.currency))
-          .toList(growable: false);
+      final householdId = ref.read(walletScopeHouseholdIdProvider);
+      List<WalletEntity> wallets;
+      try {
+        wallets = await ref.read(
+            shortcutDestinationWalletsByHouseholdIdProvider(householdId)
+                .future);
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+        }
+        return;
+      }
+      if (!context.mounted ||
+          ref.read(authProvider).uid != auth.uid ||
+          ref.read(walletScopeHouseholdIdProvider) != householdId) {
+        return;
+      }
+      final transferWallets =
+          wallets.where((wallet) => !wallet.isArchived).toList(growable: false);
       if (transferWallets.length < 2) {
         AppToast.info(context, context.l10n.needTwoWalletsForTransfer);
         return;
@@ -438,6 +452,11 @@ class AccountsPage extends HookConsumerWidget {
             toAccountId: result.toAccountId,
             amountCents: result.amountCents,
             currency: result.currency,
+            toAmountCents: result.toAmountCents,
+            toCurrency: result.toCurrency,
+            exchangeRate: result.exchangeRate,
+            feeAmountCents: result.feeAmountCents,
+            transferWallets: transferWallets,
             date: result.date,
             time: result.time,
             note: result.note,

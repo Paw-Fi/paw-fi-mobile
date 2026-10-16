@@ -105,7 +105,8 @@ Future<bool?> showTransactionDetailsSheet(
   }
 
   if (!context.mounted) return false;
-  if (isWalletTransferExpenseEntry(expense)) {
+  if (isWalletTransferExpenseEntry(expense) ||
+      expense.transferFeeTransferId != null) {
     return showWalletTransferEditorForExpense(
       context,
       transferExpense: expense,

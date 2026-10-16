@@ -213,6 +213,7 @@ int _recentExpensesSignature(List<ExpenseEntry> expenses) {
       expense.merchantDomain,
       expense.merchantLogoUrl,
       expense.merchantStructuredName,
+      expense.transferFeeTransferId,
       expense.receiptImageUrl,
       expense.localReceiptImagePath,
       expense.splitGroupId,

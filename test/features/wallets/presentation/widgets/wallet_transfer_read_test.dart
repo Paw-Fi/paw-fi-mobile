@@ -17,6 +17,7 @@ const transferId = '00000000-0000-4000-8000-000000000001';
 void main() {
   var offline = false;
   String? serverTime = '14:45:00';
+  var crossCurrency = false;
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     await Supabase.initialize(
@@ -28,6 +29,24 @@ void main() {
           detectSessionInUri: false),
       httpClient: MockClient((request) async {
         if (offline) throw http.ClientException('Offline');
+        if (request.url.path.endsWith('/expenses')) {
+          return http.Response(
+              jsonEncode({
+                'id': '00000000-0000-4000-8000-000000000002',
+                'transfer_fee_transfer_id': transferId,
+                'user_id': 'user-1',
+                'account_id': 'from',
+                'amount_cents': 25,
+                'currency': 'USD',
+                'category': 'other',
+                'type': 'expense',
+                'date': '2026-10-01',
+                'created_at': '2026-10-01T01:00:00Z',
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+              request: request);
+        }
         return http.Response(
             jsonEncode({
               'id': transferId,
@@ -35,6 +54,14 @@ void main() {
               'to_account_id': 'to',
               'amount_cents': 1000,
               'currency': 'USD',
+              if (crossCurrency) ...{
+                'to_amount_cents': 923,
+                'to_currency': 'EUR',
+                'exchange_rate': '0.9231',
+                'fee_amount_cents': 25,
+                'fee_expense_id': '00000000-0000-4000-8000-000000000002',
+                'transfer_contract_version': 2,
+              },
               'date': '2026-10-01',
               'time': serverTime,
               'created_by_user_id': 'user-1',
@@ -101,4 +128,44 @@ void main() {
       expect(loaded?.date, DateTime(2026, 10, 1));
     });
   }
+
+  testWidgets(
+      'cross-currency canonical read and offline reopen preserve both legs and quoted rate',
+      (tester) async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    offline = false;
+    crossCurrency = true;
+    addTearDown(() => crossCurrency = false);
+    WalletTransfer? loaded;
+    Future<void>? readOperation;
+    await tester.pumpWidget(ProviderScope(
+        overrides: [
+          localDatabaseProvider.overrideWith((ref) async => database),
+        ],
+        child: MaterialApp(
+            home: Builder(
+                builder: (context) => TextButton(
+                    onPressed: () {
+                      readOperation = () async {
+                        loaded = await loadWalletTransferForExpense(
+                            context, 'transfer:$transferId:in');
+                      }();
+                    },
+                    child: const Text('Read'))))));
+    for (final isOffline in [false, true]) {
+      offline = isOffline;
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Read'));
+        await readOperation;
+      });
+      await tester.pumpAndSettle();
+      expect(loaded?.effectiveToAmountCents, 923);
+      expect(loaded?.effectiveToCurrency, 'EUR');
+      expect(loaded?.exchangeRate, '0.9231');
+      expect(loaded?.feeAmountCents, 25);
+      expect((await database.getWalletTransferFeeEntry(transferId))?.category,
+          'other');
+    }
+  });
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -14,6 +15,8 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet_transfer.dart';
+import 'package:moneko/features/wallets/presentation/state/wallet_transfer_draft.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_conversion_fields.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_wall_time.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
@@ -72,6 +75,10 @@ class WalletTransferResult {
   final String toAccountId;
   final int amountCents;
   final String currency;
+  final int? toAmountCents;
+  final String? toCurrency;
+  final String? exchangeRate;
+  final int feeAmountCents;
   final DateTime date;
   final String? time;
   final String? note;
@@ -82,6 +89,10 @@ class WalletTransferResult {
     required this.amountCents,
     required this.currency,
     required this.date,
+    this.toAmountCents,
+    this.toCurrency,
+    this.exchangeRate,
+    this.feeAmountCents = 0,
     this.time,
     this.note,
   });
@@ -138,13 +149,29 @@ Future<bool> showWalletTransferEditorForExpense(
 }) async {
   final transfer = await loadWalletTransferForExpense(
     context,
-    transferExpense.id,
+    transferExpense.transferFeeTransferId == null
+        ? transferExpense.id
+        : 'transfer:${transferExpense.transferFeeTransferId}:out',
     wallets: wallets,
   );
+  var availableWallets = wallets;
+  if (transfer != null &&
+      (!wallets.any((w) => w.id == transfer.fromAccountId) ||
+          !wallets.any((w) => w.id == transfer.toAccountId))) {
+    try {
+      if (!context.mounted) return false;
+      availableWallets = await ProviderScope.containerOf(context, listen: false)
+          .read(shortcutDestinationWalletsByHouseholdIdProvider(
+                  transferExpense.householdId)
+              .future);
+    } catch (_) {
+      // Offline editing can still use the already supplied scoped catalog.
+    }
+  }
   if (transfer == null ||
-      wallets.length < 2 ||
-      !wallets.any((wallet) => wallet.id == transfer.fromAccountId) ||
-      !wallets.any((wallet) => wallet.id == transfer.toAccountId)) {
+      availableWallets.length < 2 ||
+      !availableWallets.any((wallet) => wallet.id == transfer.fromAccountId) ||
+      !availableWallets.any((wallet) => wallet.id == transfer.toAccountId)) {
     if (context.mounted) {
       AppToast.error(context, context.l10n.failedToLoad);
     }
@@ -155,7 +182,7 @@ Future<bool> showWalletTransferEditorForExpense(
   var updated = false;
   await showWalletTransferSheet(
     context,
-    wallets: wallets,
+    wallets: availableWallets,
     initialTransfer: transfer,
     onSubmit: (result) async {
       final updatedTransfer = WalletTransfer(
@@ -164,6 +191,12 @@ Future<bool> showWalletTransferEditorForExpense(
         toAccountId: result.toAccountId,
         amountCents: result.amountCents,
         currency: result.currency,
+        toAmountCents: result.toAmountCents,
+        toCurrency: result.toCurrency,
+        exchangeRate: result.exchangeRate,
+        feeAmountCents: result.feeAmountCents,
+        feeExpenseId: transfer.feeExpenseId,
+        transferContractVersion: 2,
         date: result.date,
         time: result.time,
         note: result.note,
@@ -176,6 +209,11 @@ Future<bool> showWalletTransferEditorForExpense(
             toAccountId: result.toAccountId,
             amountCents: result.amountCents,
             currency: result.currency,
+            toAmountCents: result.toAmountCents,
+            toCurrency: result.toCurrency,
+            exchangeRate: result.exchangeRate,
+            feeAmountCents: result.feeAmountCents,
+            transferWallets: availableWallets,
             date: result.date,
             time: result.time,
             note: result.note,
@@ -230,19 +268,31 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
     // Initialize to wallet - first non-from wallet
     final initialToWallet = wallets.firstWhere(
-      (w) =>
-          w.id != fromIdState.value && w.currency == initialFromWallet.currency,
+      (w) => w.id != fromIdState.value,
       orElse: () => wallets.length > 1 ? wallets[1] : wallets.first,
     );
     final toIdState = useState<String>(
       initialTransfer?.toAccountId ?? initialToWallet.id,
     );
 
-    final amountText = useState<String>(
-      initialTransfer == null
-          ? ''
-          : formatAmount(centsToAmount(initialTransfer!.amountCents)),
-    );
+    final seed = useMemoized(() => WalletTransferDraft(
+          sourceCurrency: initialFromWallet.currency,
+          targetCurrency:
+              wallets.firstWhere((w) => w.id == toIdState.value).currency,
+          sourceCents: initialTransfer?.amountCents,
+          targetCents: initialTransfer?.effectiveToAmountCents,
+          rate: initialTransfer?.exchangeRate ??
+              (initialTransfer != null
+                  ? deriveTransferRate(initialTransfer!.amountCents,
+                      initialTransfer!.effectiveToAmountCents)
+                  : initialFromWallet.currency == initialToWallet.currency
+                      ? '1'
+                      : null),
+          feeCents: initialTransfer?.feeAmountCents ?? 0,
+        ));
+    final draft = ref.watch(walletTransferDraftProvider(seed));
+    final draftController =
+        ref.read(walletTransferDraftProvider(seed).notifier);
     final noteController = useTextEditingController(
       text: initialTransfer?.note?.trim() ?? '',
     );
@@ -264,8 +314,10 @@ class _WalletTransferSheet extends HookConsumerWidget {
     final hasUnsavedChanges = isEditing &&
         (fromIdState.value != editingTransfer.fromAccountId ||
             toIdState.value != editingTransfer.toAccountId ||
-            (tryParseMoneyToCents(amountText.value) ?? 0).toInt() !=
-                editingTransfer.amountCents ||
+            draft.sourceCents != editingTransfer.amountCents ||
+            draft.targetCents != editingTransfer.effectiveToAmountCents ||
+            draft.feeCents != editingTransfer.feeAmountCents ||
+            draft.rate != seed.rate ||
             !_isSameCalendarDay(selectedDate.value, editingTransfer.date) ||
             selectedTime.value != editingTransfer.time ||
             _normalizedNote(noteController.text) !=
@@ -304,7 +356,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
     // Parse amount from text
     double getAmountValue() {
-      return (tryParseMoneyToCents(amountText.value) ?? 0) / 100.0;
+      return (draft.sourceCents ?? 0) / 100.0;
     }
 
     Future<void> handleEditAmount() async {
@@ -365,12 +417,14 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
       final result = await showCalculatorKeypadSheet(
         context: context,
-        initialValue: amountText.value,
+        initialValue: draft.sourceCents == null
+            ? ''
+            : (draft.sourceCents! / 100).toStringAsFixed(2),
         prefix: symbol,
         header: header,
       );
       if (result != null) {
-        amountText.value = result;
+        draftController.setSource(tryParseMoneyToCents(result));
       }
     }
 
@@ -409,6 +463,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
       final temp = fromIdState.value;
       fromIdState.value = toIdState.value;
       toIdState.value = temp;
+      draftController.swap();
     }
 
     Future<void> handleSave() async {
@@ -417,14 +472,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
         AppToast.error(context, context.l10n.cannotTransferSameWallet);
         return;
       }
-      if (fromWallet.currency != toWallet.currency) {
-        AppToast.error(
-            context, 'Transfers require wallets with the same currency');
-        return;
-      }
-
-      final amountCents = (tryParseMoneyToCents(amountText.value) ?? 0).toInt();
-      if (amountCents <= 0) {
+      if (!draft.isValid) {
         AppToast.error(context, context.l10n.pleaseEnterValidAmount);
         return;
       }
@@ -432,8 +480,12 @@ class _WalletTransferSheet extends HookConsumerWidget {
       final result = WalletTransferResult(
         fromAccountId: fromIdState.value,
         toAccountId: toIdState.value,
-        amountCents: amountCents,
+        amountCents: draft.sourceCents!,
         currency: fromWallet.currency,
+        toAmountCents: draft.targetCents!,
+        toCurrency: toWallet.currency,
+        exchangeRate: draft.rate,
+        feeAmountCents: draft.feeCents,
         date: selectedDate.value,
         time: selectedTime.value,
         note: noteController.text.trim().isEmpty
@@ -507,18 +559,15 @@ class _WalletTransferSheet extends HookConsumerWidget {
           (w) => w.id == selected,
           orElse: () => fromWallet,
         );
-        final selectedToWallet = wallets.firstWhere(
-          (w) => w.id == toIdState.value,
-          orElse: () => toWallet,
-        );
-        if (toIdState.value == selected ||
-            selectedToWallet.currency != nextFromWallet.currency) {
+        if (toIdState.value == selected) {
           final otherWallet = wallets.firstWhere(
-            (w) => w.id != selected && w.currency == nextFromWallet.currency,
+            (w) => w.id != selected,
             orElse: () => wallets.first,
           );
           toIdState.value = otherWallet.id;
         }
+        draftController.changeCurrencies(nextFromWallet.currency,
+            wallets.firstWhere((w) => w.id == toIdState.value).currency);
       }
     }
 
@@ -527,13 +576,15 @@ class _WalletTransferSheet extends HookConsumerWidget {
         context,
         ref: ref,
         wallets: wallets
-            .where((wallet) => wallet.currency == fromWallet.currency)
+            .where((wallet) => wallet.id != fromWallet.id)
             .toList(growable: false),
         currentId: toIdState.value,
         title: context.l10n.toWallet,
       );
       if (selected != null && selected != toIdState.value) {
         toIdState.value = selected;
+        draftController.changeCurrencies(fromWallet.currency,
+            wallets.firstWhere((w) => w.id == selected).currency);
       }
     }
 
@@ -620,6 +671,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                       children: [
                         // Amount Hero Section - matches unified_transaction_sheet styling
                         GestureDetector(
+                          key: const ValueKey('wallet-transfer-source'),
                           onTap: isSaving.value ? null : handleEditAmount,
                           behavior: HitTestBehavior.opaque,
                           child: Container(
@@ -642,6 +694,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 8),
+                                Text(context.l10n.transferSentAmount),
+                                const SizedBox(height: 4),
                                 Text(
                                   context.l10n.tapToEditAmount,
                                   style: TextStyle(
@@ -853,7 +907,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                   ),
                                   _AnimatedAmountText(
                                     value: toWallet.currentBalanceCents / 100.0,
-                                    symbol: symbol,
+                                    symbol: resolveCurrencySymbol(
+                                        toWallet.currency),
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w400,
@@ -874,6 +929,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                         ),
 
                         const SizedBox(height: 24),
+                        WalletTransferConversionFields(
+                            seed: seed, disabled: isSaving.value),
 
                         Text(
                           context.l10n.date,
@@ -1143,11 +1200,12 @@ Future<WalletTransfer?> loadWalletTransferForExpense(
   String transferExpenseId, {
   List<WalletEntity> wallets = const [],
 }) async {
-  final transferId = extractWalletTransferIdFromExpenseId(transferExpenseId);
-  if (transferId == null) return null;
-
   final database = await ProviderScope.containerOf(context, listen: false)
       .read(localDatabaseProvider.future);
+  final transferId = extractWalletTransferIdFromExpenseId(transferExpenseId) ??
+      (await database.getTransactionByIdOrClientRecordId(transferExpenseId))
+          ?.transferFeeTransferId;
+  if (transferId == null) return null;
   final pendingOutgoing = await database.getTransactionByIdOrClientRecordId(
     'transfer:$transferId:out',
     syncStatus: localSyncStatusLocal,
@@ -1157,29 +1215,57 @@ Future<WalletTransfer?> loadWalletTransferForExpense(
     syncStatus: localSyncStatusLocal,
   );
   if (pendingOutgoing?.walletId != null && pendingIncoming?.walletId != null) {
-    return WalletTransfer(
-      id: transferId,
-      fromAccountId: pendingOutgoing!.walletId!,
-      toAccountId: pendingIncoming!.walletId!,
-      amountCents: pendingOutgoing.amountCents,
-      currency: pendingOutgoing.currency ?? pendingIncoming.currency ?? 'USD',
-      date: pendingOutgoing.date,
-      time: pendingOutgoing.transferTime,
-      createdAt: pendingOutgoing.createdAt,
-      updatedAt: pendingOutgoing.updatedAt,
-      note: _normalizedNote(pendingOutgoing.rawText),
-    );
+    return _transferFromLocalRows(
+        database, transferId, pendingOutgoing!, pendingIncoming!);
   }
 
   try {
     final row = await Supabase.instance.client
         .from('account_transfers')
         .select(
-            'id, from_account_id, to_account_id, amount_cents, currency, date, time, note, created_by_user_id, household_id, created_at, updated_at')
+            'id, from_account_id, to_account_id, amount_cents, currency, to_amount_cents, to_currency, exchange_rate, fee_amount_cents, fee_expense_id, transfer_contract_version, date, time, note, created_by_user_id, household_id, created_at, updated_at')
         .eq('id', transferId)
         .maybeSingle();
     if (row is Map<String, dynamic>) {
       final transfer = WalletTransfer.fromJson(row);
+      if (transfer.feeAmountCents > 0 && transfer.feeExpenseId != null) {
+        final cachedFee = await database.getWalletTransferFeeEntry(transferId);
+        Map<String, dynamic>? feeRow = cachedFee?.toJson();
+        try {
+          final remoteFee = await Supabase.instance.client
+              .from('expenses')
+              .select()
+              .eq('id', transfer.feeExpenseId!)
+              .eq('transfer_fee_transfer_id', transferId)
+              .isFilter('deleted_at', null)
+              .maybeSingle()
+              .timeout(const Duration(seconds: 5));
+          if (remoteFee != null &&
+              remoteFee['amount_cents'] == transfer.feeAmountCents &&
+              remoteFee['currency'] == transfer.currency &&
+              remoteFee['account_id'] == transfer.fromAccountId) {
+            feeRow = remoteFee;
+          }
+        } catch (_) {
+          // Retain cached nonfinancial fee details if the secondary read fails.
+        }
+        if (feeRow != null) {
+          row['fee_expense'] = {
+            ...feeRow,
+            'id': transfer.feeExpenseId,
+            'amount_cents': transfer.feeAmountCents,
+            'currency': transfer.currency,
+            'account_id': transfer.fromAccountId,
+            'date': row['date'],
+            'updated_at': row['updated_at'],
+          };
+        }
+      }
+      await database.upsertJsonCache(
+          namespace: 'wallet_transfer_records',
+          cacheKey: '${row['created_by_user_id']}:$transferId',
+          payload: row,
+          cachedAt: DateTime.now().toUtc());
       await database.upsertTransactions(buildWalletTransferFeedEntries(
         transferJson: row,
         fallbackUserId: row['created_by_user_id'] as String,
@@ -1203,12 +1289,60 @@ Future<WalletTransfer?> loadWalletTransferForExpense(
     'transfer:$transferId:in',
   );
   if (outgoing?.walletId == null || incoming?.walletId == null) return null;
+  return _transferFromLocalRows(database, transferId, outgoing!, incoming!);
+}
+
+Future<WalletTransfer> _transferFromLocalRows(MonekoDatabase database,
+    String transferId, ExpenseEntry outgoing, ExpenseEntry incoming) async {
+  final fee = await database.getWalletTransferFeeEntry(transferId);
+  final cached = await database.getJsonCache(
+      namespace: 'wallet_transfer_records',
+      cacheKey: '${outgoing.userId}:$transferId');
+  Map<String, dynamic>? metadata = cached?.payload;
+  // Pending writes own exact rate precision. The local legs remain authoritative
+  // for amounts/date even when a server create acknowledgement is older.
+  for (final mutation in await database.getOutboxMutations()) {
+    if (mutation.status == localMutationStatusCancelled) continue;
+    final payload = jsonDecode(mutation.payloadJson);
+    if (payload is! Map || payload['requestBody'] is! Map) continue;
+    final body = Map<String, dynamic>.from(payload['requestBody'] as Map);
+    if (body['transferId'] != transferId && mutation.entityId != transferId) {
+      continue;
+    }
+    if (body['amountCents'] == outgoing.amountCents &&
+        body['toAmountCents'] == incoming.amountCents &&
+        body['currency'] == outgoing.currency &&
+        body['toCurrency'] == incoming.currency) {
+      metadata = {
+        ...?metadata,
+        'exchange_rate': body['exchangeRate'],
+        'transfer_contract_version': body['transferContractVersion']
+      };
+    }
+  }
+  final cachedMatches = metadata?['amount_cents'] == outgoing.amountCents &&
+      metadata?['to_amount_cents'] == incoming.amountCents;
+  final rate = metadata?['exchange_rate']?.toString();
+  final compatibleRate = rate != null &&
+      convertTransferCents(outgoing.amountCents, rate) == incoming.amountCents;
+  String? reservedFeeId;
+  if (cachedMatches && metadata != null) {
+    reservedFeeId = metadata['fee_expense_id']?.toString();
+  }
   return WalletTransfer(
     id: transferId,
-    fromAccountId: outgoing!.walletId!,
-    toAccountId: incoming!.walletId!,
+    fromAccountId: outgoing.walletId!,
+    toAccountId: incoming.walletId!,
     amountCents: outgoing.amountCents,
     currency: outgoing.currency ?? incoming.currency ?? 'USD',
+    toAmountCents: incoming.amountCents,
+    toCurrency: incoming.currency,
+    exchangeRate: compatibleRate
+        ? rate
+        : deriveTransferRate(outgoing.amountCents, incoming.amountCents),
+    feeAmountCents: fee?.amountCents ?? 0,
+    feeExpenseId: fee?.id ?? reservedFeeId,
+    transferContractVersion: 2,
     date: outgoing.date,
     time: outgoing.transferTime,
     createdAt: outgoing.createdAt,

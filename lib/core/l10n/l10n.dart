@@ -46,6 +46,23 @@ extension RecurrencePickerL10nX on AppLocalizations {
 }
 
 /// English fallback until these translation-catalog entries are exported.
+extension WalletTransferL10nX on AppLocalizations {
+  String get transferSentAmount => 'Transfer amount';
+  String get transferReceivedAmount => 'Received amount';
+  String get transferExchangeRate => 'Exchange rate';
+  String get transferFee => 'Fee';
+  String get transferTotalDeducted => 'Total deducted';
+  String get transferSuggestedRate => 'Suggested rate';
+  String get transferCalculatedRate => 'Calculated from amounts';
+  String get transferCustomRate => 'Custom rate';
+  String get transferSavedRate => 'Saved rate';
+  String get transferRateUnavailable => 'Enter a rate or both amounts';
+  String get transferStaleRate => 'Cached estimate — check the actual rate';
+  String get transferFeeExplanation =>
+      'Paid from the source wallet. Only the fee counts as spending.';
+  String transferRateAsOf(String date) => 'Suggested rate as of $date';
+}
+
 extension WalletDebtL10nX on AppLocalizations {
   String get walletRemainingDebt => 'Remaining debt';
   String get walletDebtPaidOff => 'Debt paid off';

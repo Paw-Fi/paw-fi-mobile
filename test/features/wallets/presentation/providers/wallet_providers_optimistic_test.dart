@@ -112,6 +112,11 @@ void main() {
         toCurrency: 'USD',
         exchangeRate: '1.1',
         feeAmountCents: 125,
+        // The picker catalog can be older than mounted wallet balances.
+        transferWallets: [
+          for (final wallet in wallets)
+            wallet.copyWith(currentBalanceCents: 999999)
+        ],
         date: DateTime(2026, 10, 15));
     final mutation = (await database.getOutboxMutations()).single;
     final body = Map<String, dynamic>.from(

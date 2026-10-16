@@ -858,10 +858,23 @@ class WalletDetailsPage extends HookConsumerWidget {
 
     Future<void> onTransfer() async {
       // Get all wallets for transfer selection
-      final scopedAccounts =
-          ref.read(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
+      List<WalletEntity> scopedAccounts;
+      try {
+        scopedAccounts = await ref.read(
+            shortcutDestinationWalletsByHouseholdIdProvider(
+                    latestWallet.householdId)
+                .future);
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+        }
+        return;
+      }
+      if (!context.mounted || ref.read(authProvider).uid != currentUserId) {
+        return;
+      }
       final transferWallets = scopedAccounts
-          .where((wallet) => wallet.currency == latestWallet.currency)
+          .where((wallet) => !wallet.isArchived)
           .toList(growable: false);
       if (transferWallets.length < 2) {
         AppToast.info(context, context.l10n.needTwoWalletsForTransfer);
@@ -879,6 +892,11 @@ class WalletDetailsPage extends HookConsumerWidget {
             toAccountId: result.toAccountId,
             amountCents: result.amountCents,
             currency: result.currency,
+            toAmountCents: result.toAmountCents,
+            toCurrency: result.toCurrency,
+            exchangeRate: result.exchangeRate,
+            feeAmountCents: result.feeAmountCents,
+            transferWallets: transferWallets,
             date: result.date,
             time: result.time,
             note: result.note,

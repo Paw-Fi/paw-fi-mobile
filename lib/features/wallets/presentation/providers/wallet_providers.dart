@@ -20,6 +20,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallets_cache_sto
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_transfer_feed_entries.dart';
+import 'package:moneko/features/wallets/presentation/state/wallet_transfer_draft.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/bank_accounts_provider.dart';
@@ -1043,18 +1044,20 @@ class WalletActions {
     String? toCurrency,
     String? exchangeRate,
     int feeAmountCents = 0,
+    List<WalletEntity>? transferWallets,
     String? time,
     String? note,
   }) async {
     final authHeaders = _requireAuthHeaders();
+    final wallets = _currentTransferWallets(transferWallets);
     _validateTransferWalletCurrencies(
+        wallets: wallets,
         fromAccountId: fromAccountId,
         toAccountId: toAccountId,
         currency: currency,
         toCurrency: toCurrency ?? currency);
     _validateTransferAmounts(
         amountCents, toAmountCents ?? amountCents, feeAmountCents);
-    final wallets = ref.read(effectiveScopeWalletsProvider);
     final fromWallet =
         wallets.firstWhereOrNull((wallet) => wallet.id == fromAccountId);
     final toWallet =
@@ -1069,7 +1072,10 @@ class WalletActions {
       'currency': currency,
       'toAmountCents': toAmountCents ?? amountCents,
       'toCurrency': toCurrency ?? currency,
-      'exchangeRate': exchangeRate,
+      'exchangeRate': exchangeRate ??
+          (currency == (toCurrency ?? currency)
+              ? '1'
+              : deriveTransferRate(amountCents, toAmountCents ?? amountCents)),
       'feeAmountCents': feeAmountCents,
       'transferContractVersion': 2,
       'clientRecordId': transferMutationEntityId,
@@ -1226,11 +1232,13 @@ class WalletActions {
     String? toCurrency,
     String? exchangeRate,
     int feeAmountCents = 0,
+    List<WalletEntity>? transferWallets,
     String? note,
   }) async {
     _requireAuthHeaders();
     final localDatabase = await ref.read(localDatabaseProvider.future);
     _validateTransferWalletCurrencies(
+      wallets: _currentTransferWallets(transferWallets),
       fromAccountId: fromAccountId,
       toAccountId: toAccountId,
       currency: currency,
@@ -1242,7 +1250,7 @@ class WalletActions {
         await _resolveLocalTransferId(localDatabase, existingTransfer.id);
     final mutationEntityId =
         'update-transfer:${existingTransfer.id}:${DateTime.now().microsecondsSinceEpoch}';
-    final wallets = ref.read(effectiveScopeWalletsProvider);
+    final wallets = _currentTransferWallets(transferWallets);
     final cachedEntries =
         await localDatabase.getWalletTransferEntries(transferId);
     final originalEntries = cachedEntries.isNotEmpty
@@ -1278,6 +1286,22 @@ class WalletActions {
       transfer: updatedTransfer,
       wallets: wallets,
     );
+    final originalFee = originalEntries
+        .firstWhereOrNull((entry) => entry.transferFeeTransferId != null);
+    if (feeAmountCents > 0 && originalFee != null) {
+      final feeIndex = updatedEntries
+          .indexWhere((entry) => entry.transferFeeTransferId != null);
+      updatedEntries[feeIndex] = originalFee.copyWith(
+        amountCents: feeAmountCents,
+        currency: currency,
+        accountId: fromAccountId,
+        accountName: updatedEntries[feeIndex].accountName,
+        accountIcon: updatedEntries[feeIndex].accountIcon,
+        accountColor: updatedEntries[feeIndex].accountColor,
+        date: date,
+        transferFeeTransferId: transferId,
+      );
+    }
     try {
       final requestBody = {
         'transferId': transferId,
@@ -1287,7 +1311,11 @@ class WalletActions {
         'currency': currency,
         'toAmountCents': updatedTransfer.effectiveToAmountCents,
         'toCurrency': updatedTransfer.effectiveToCurrency,
-        'exchangeRate': exchangeRate,
+        'exchangeRate': exchangeRate ??
+            (currency == updatedTransfer.effectiveToCurrency
+                ? '1'
+                : deriveTransferRate(
+                    amountCents, updatedTransfer.effectiveToAmountCents)),
         'feeAmountCents': feeAmountCents,
         'transferContractVersion': 2,
         'date': formatDateOnlyYmd(date),
@@ -1463,13 +1491,21 @@ class WalletActions {
     );
   }
 
+  List<WalletEntity> _currentTransferWallets(List<WalletEntity>? catalog) => {
+        for (final wallet in catalog ?? const <WalletEntity>[])
+          wallet.id: wallet,
+        for (final wallet in ref.read(effectiveScopeWalletsProvider))
+          wallet.id: wallet,
+        ...ref.read(optimisticScopedAccountsOverridesProvider),
+      }.values.toList(growable: false);
+
   void _validateTransferWalletCurrencies({
+    required List<WalletEntity> wallets,
     required String fromAccountId,
     required String toAccountId,
     required String currency,
     required String toCurrency,
   }) {
-    final wallets = ref.read(effectiveScopeWalletsProvider);
     final from =
         wallets.firstWhereOrNull((wallet) => wallet.id == fromAccountId);
     final to = wallets.firstWhereOrNull((wallet) => wallet.id == toAccountId);

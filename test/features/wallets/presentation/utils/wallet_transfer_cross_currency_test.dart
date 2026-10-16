@@ -170,7 +170,7 @@ void main() {
         saved: [pocket],
         editing: [pocket.copyWith()],
         envelopeCategories: {
-          'bank': ['fees']
+          'bank': ['bank fees']
         },
         aggregateTotalSpent: 0);
     final projected = rebuildPocketSpendingFromLocalFeed(

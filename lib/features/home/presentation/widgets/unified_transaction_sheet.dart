@@ -60,6 +60,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as household_split;
 import 'package:moneko/core/l10n/l10n.dart';
@@ -150,6 +151,11 @@ Future<bool?> showUnifiedTransactionSheet(
 }) {
   assert(existingExpense != null || newExpense != null,
       'Must provide either existingExpense or newExpense');
+
+  if (existingExpense?.transferFeeTransferId != null) {
+    return showWalletTransferEditorForExpense(context,
+        transferExpense: existingExpense!, wallets: const []);
+  }
 
   return showModalBottomSheet<bool>(
     context: context,
