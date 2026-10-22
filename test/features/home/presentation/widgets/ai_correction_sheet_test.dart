@@ -8,7 +8,8 @@ void main() {
       question: 'Who gets the remaining 30?',
       choices: ['Give 30 to Alice', 'Give 30 to myself']);
 
-  Future<void> mount(WidgetTester tester, void Function(String?) result) async {
+  Future<void> mount(
+      WidgetTester tester, void Function(AiCorrectionResult?) result) async {
     await tester.pumpWidget(MaterialApp(
         home: Builder(
             builder: (context) => Scaffold(
@@ -23,31 +24,43 @@ void main() {
 
   testWidgets('choice returns the selected answer without any persistence',
       (tester) async {
-    String? result;
+    AiCorrectionResult? result;
     await mount(tester, (value) => result = value);
     await tester.tap(find.text('Give 30 to Alice'));
     await tester.pumpAndSettle();
-    expect(result, 'Give 30 to Alice');
+    expect(result?.answer, 'Give 30 to Alice');
+    expect(result?.isCancelled, isFalse);
   });
 
   testWidgets('custom answer accepts multilingual financial corrections',
       (tester) async {
-    String? result;
+    AiCorrectionResult? result;
     await mount(tester, (value) => result = value);
     await tester.enterText(find.byType(EditableText), '合計は70です');
     await tester.pump();
     await tester.ensureVisible(find.text('Continue'));
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(result, '合計は70です');
+    expect(result?.answer, '合計は70です');
+    expect(result?.isCancelled, isFalse);
   });
 
-  testWidgets('cancel returns null and does not select a default choice',
+  testWidgets('explicit cancel is distinct from passive dismissal',
       (tester) async {
-    String? result = 'not completed';
+    AiCorrectionResult? result;
     await mount(tester, (value) => result = value);
     await tester.ensureVisible(find.text('Cancel'));
     await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(result?.isCancelled, isTrue);
+    expect(result?.answer, isNull);
+  });
+
+  testWidgets('passive dismissal returns no cancellation or answer',
+      (tester) async {
+    AiCorrectionResult? result = const AiCorrectionResult.cancelled();
+    await mount(tester, (value) => result = value);
+    await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
     expect(result, isNull);
   });

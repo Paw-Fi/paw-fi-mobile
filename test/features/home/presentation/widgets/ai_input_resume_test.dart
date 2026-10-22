@@ -113,19 +113,28 @@ void main() {
     'file-stream-failure',
     'offline',
     'receipt-dismiss',
+    'receipt-cancel',
+    'clarification-cancel',
+    'receipt-owner-change',
     'no-consent',
     'revoked-consent',
     'receipt-consent-revoked'
   ]) {
     final cancel = scenario == 'cancel' ||
+        scenario == 'receipt-cancel' ||
+        scenario == 'clarification-cancel' ||
         scenario == 'retryable-retry' ||
         scenario == 'retryable-cancel' ||
         scenario == 'file-stream-failure';
     final isAnalysisFailure = scenario.startsWith('retryable');
     final isReceipt = scenario.startsWith('receipt-');
+    final isClarification = isReceipt || scenario == 'clarification-cancel';
     final consentBlocked =
         scenario == 'no-consent' || scenario == 'revoked-consent';
     const receiptQuestion = 'レシートの合計は？';
+    // ErrorHandler currently normalizes the safe backend message's casing.
+    const displayedAnalysisError =
+        "We couldn't check the transaction details. please try again.";
     testWidgets(
         'resumed analysis $scenario preserves durable capture ownership',
         (tester) async {
@@ -140,8 +149,13 @@ void main() {
         await consentRepository.setConsent('owner', false);
       }
       final root = Directory.systemTemp.createTempSync('moneko-ai-cancel-');
-      final database = MonekoDatabase.inMemory();
-      final repository =
+      final reopenAfterCancel =
+          scenario == 'receipt-cancel' || scenario == 'clarification-cancel';
+      var database = reopenAfterCancel
+          ? MonekoDatabase.fromExistingDatabaseForTesting(
+              sqlite.sqlite3.open('${root.path}/capture.sqlite'))
+          : MonekoDatabase.inMemory();
+      var repository =
           AiInputCaptureRepository(database, directory: () async => root);
       final capture = (await tester
           .runAsync(() => repository.capture(userId: 'owner', body: {
@@ -168,11 +182,13 @@ void main() {
       requestHandler = (request) async {
         expect(request.url.path, '/functions/v1/analyze-expense');
         requests++;
-        if (isReceipt) {
+        if (isClarification) {
           final body = jsonDecode(request.body) as Map;
-          expect(body['accountId'], 'selected-wallet');
-          expect(body['image'],
-              {'data': 'cmVjZWlwdA==', 'contentType': 'image/png'});
+          if (isReceipt) {
+            expect(body['accountId'], 'selected-wallet');
+            expect(body['image'],
+                {'data': 'cmVjZWlwdA==', 'contentType': 'image/png'});
+          }
           if (requests > 1) {
             return http.Response(jsonEncode({'success': false}), 503,
                 headers: {'content-type': 'application/json'});
@@ -254,7 +270,8 @@ void main() {
       final l10n = AppLocalizations.of(mountedContext)!;
       expect(find.byType(AiProcessingConsentDialog), findsNothing);
       final showsDialog = !consentBlocked && scenario != 'offline';
-      final dialogText = isReceipt ? receiptQuestion : l10n.failedToAnalyze;
+      final dialogText =
+          isClarification ? receiptQuestion : l10n.failedToAnalyze;
       for (var attempt = 0;
           showsDialog &&
               attempt < 20 &&
@@ -271,8 +288,7 @@ void main() {
         if (isAnalysisFailure) {
           expect(find.text(l10n.aiInputSavedForLater), findsNothing);
           expect(
-            find.text(
-                "We couldn't check the transaction details. Please try again."),
+            find.text(displayedAnalysisError),
             findsOneWidget,
           );
           await tester.pump(const Duration(seconds: 5));
@@ -295,7 +311,7 @@ void main() {
             expect(find.text(l10n.failedToAnalyze), findsOneWidget);
           }
         }
-        if (scenario == 'owner-change') {
+        if (scenario == 'owner-change' || scenario == 'receipt-owner-change') {
           (container.read(authProvider.notifier) as _Auth).changeUser();
           await tester.pump();
         }
@@ -311,7 +327,10 @@ void main() {
           await tester.pump();
           await tester.ensureVisible(find.text('５０円'));
           await tester.tap(find.text('５０円'));
-        } else if (cancel || scenario == 'owner-change') {
+        } else if (cancel ||
+            scenario == 'owner-change' ||
+            scenario == 'receipt-owner-change') {
+          await tester.ensureVisible(find.text(l10n.cancel));
           await tester.tap(find.text(l10n.cancel));
         } else {
           Navigator.of(mountedContext).pop();
@@ -342,15 +361,27 @@ void main() {
               userId: 'owner', householdId: null),
           isEmpty);
       if (cancel) {
-        container.read(aiInputResumeControllerProvider).wake();
+        if (reopenAfterCancel) {
+          await database.close();
+          database = MonekoDatabase.fromExistingDatabaseForTesting(
+              sqlite.sqlite3.open('${root.path}/capture.sqlite'));
+          repository =
+              AiInputCaptureRepository(database, directory: () async => root);
+          container.invalidate(aiInputCaptureRepositoryProvider);
+          expect(await repository.pending('owner'), isEmpty);
+          expect((await database.getOutboxMutations()).single.status,
+              localMutationStatusCancelled);
+        }
+        container.invalidate(aiInputResumeControllerProvider);
         await tester
             .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
         expect(requests, expectedRequests);
+        expect(find.text(receiptQuestion), findsNothing);
       } else {
         expect(pending.single.id, capture.id);
         if (scenario == 'retryable') {
-          expect(pending.single.payload['analysisError'],
-              "We couldn't check the transaction details. Please try again.");
+          expect(
+              pending.single.payload['analysisError'], displayedAnalysisError);
           // A new controller models restart; persisted failure still gates HTTP.
           container.invalidate(aiInputResumeControllerProvider);
           await tester.runAsync(() async {

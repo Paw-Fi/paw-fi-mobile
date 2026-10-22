@@ -2474,7 +2474,12 @@ Future<void> _processExpense(
         ask: (question) async {
           processingOverlay?.dismiss();
           processingOverlay = null;
-          return showAiCorrectionSheet(context, question);
+          final result = await showAiCorrectionSheet(context, question);
+          if (!ownsCapture()) return null;
+          if (result?.isCancelled == true && capture != null) {
+            await captureRepository!.cancel(capture!);
+          }
+          return result?.answer;
         },
         retry: confirmAnalysisRetry,
       );

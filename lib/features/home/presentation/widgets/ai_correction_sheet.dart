@@ -8,9 +8,19 @@ import 'package:moneko/features/home/presentation/services/interactive_ai_analys
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
-Future<String?> showAiCorrectionSheet(
+class AiCorrectionResult {
+  const AiCorrectionResult.answer(this.answer) : isCancelled = false;
+  const AiCorrectionResult.cancelled()
+      : answer = null,
+        isCancelled = true;
+
+  final String? answer;
+  final bool isCancelled;
+}
+
+Future<AiCorrectionResult?> showAiCorrectionSheet(
     BuildContext context, AiAnalysisQuestion question) {
-  return showModalBottomSheet<String>(
+  return showModalBottomSheet<AiCorrectionResult>(
     context: context,
     useSafeArea: true,
     isScrollControlled: true,
@@ -32,7 +42,7 @@ class AiCorrectionSheet extends HookWidget {
     final text = controller.text.trim();
     void submit(String answer) {
       HapticFeedback.selectionClick();
-      Navigator.of(context).pop(answer);
+      Navigator.of(context).pop(AiCorrectionResult.answer(answer));
     }
 
     return AnimatedPadding(
@@ -85,7 +95,8 @@ class AiCorrectionSheet extends HookWidget {
                 child: Text(context.l10n.continueAction)),
             const SizedBox(height: 8),
             TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context)
+                    .pop(const AiCorrectionResult.cancelled()),
                 child: Text(context.l10n.cancel)),
           ],
         ),
