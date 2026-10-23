@@ -274,8 +274,8 @@ class HouseholdInviteComposer extends ConsumerWidget {
                                   ClipboardData(text: link));
                               if (context.mounted &&
                                   ref.read(currentUserIdProvider) == userId) {
-                                AppToast.success(
-                                    context, context.l10n.inviteLinkCopiedToClipboard);
+                                AppToast.success(context,
+                                    context.l10n.inviteLinkCopiedToClipboard);
                               }
                             } catch (error) {
                               if (context.mounted &&

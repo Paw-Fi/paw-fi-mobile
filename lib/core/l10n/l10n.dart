@@ -49,6 +49,12 @@ extension HoldToRecordL10nX on AppLocalizations {
   String get openSettingsAction => 'Open Settings';
 }
 
+/// English fallback until these translation-catalog entries are exported.
+extension HouseholdInvitationReviewL10nX on AppLocalizations {
+  String get invitationReviewTitle => "You're invited";
+  String invitationJoinAsRole(String role) => "You'll join as $role";
+}
+
 extension RecurrencePickerL10nX on AppLocalizations {
   String recurrenceDaysUnit(int count) => count == 1 ? 'day' : 'days';
   String recurrenceWeeksUnit(int count) => count == 1 ? 'week' : 'weeks';

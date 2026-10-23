@@ -12,7 +12,6 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/repositories/household_repository.dart';
-import 'package:moneko/features/households/presentation/pages/household_invitation_handler_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/widgets/household_invitation_sheet.dart';
@@ -118,7 +117,10 @@ class _Harness {
   bool resolveSelection = true;
   bool includesJoinedHousehold = true;
 
-  Future<void> mount(WidgetTester tester, {required bool handler}) async {
+  Future<void> mount(
+    WidgetTester tester, {
+    bool confirmJoin = true,
+  }) async {
     SharedPreferences.setMockInitialValues({'moneko_view_mode': 'personal'});
     final prefs = await SharedPreferences.getInstance();
     container = ProviderContainer(overrides: [
@@ -152,9 +154,8 @@ class _Harness {
     router = GoRouter(initialLocation: '/invite', routes: [
       GoRoute(
         path: '/invite',
-        builder: (_, __) => handler
-            ? const HouseholdInvitationHandlerPage(token: 'token')
-            : const Scaffold(body: HouseholdInvitationSheet(token: 'token')),
+        builder: (_, __) =>
+            const Scaffold(body: HouseholdInvitationSheet(token: 'token')),
       ),
       GoRoute(
           path: '/dashboard',
@@ -171,14 +172,146 @@ class _Harness {
       ),
     ));
     await tester.pump();
+    if (confirmJoin) await confirmJoinFromPreview(tester);
+  }
+
+  /// The sheet only accepts after the user confirms from the preview.
+  Future<void> confirmJoinFromPreview(WidgetTester tester) async {
+    await tester.pump();
+    final join = find.text(_english.joinHouseholdName('家族'));
+    if (join.evaluate().isEmpty) return;
+    await tester.tap(join);
+    await tester.pump();
   }
 }
 
 void main() {
-  for (final handler in [false, true]) {
-    final surface = handler ? 'handler' : 'sheet';
+  group('sheet preview', () {
+    Map<String, dynamic> richValidation() => {
+          ..._validation(),
+          'household': {
+            'id': _joinedId,
+            'name': '家族',
+            'cover_image_url': null,
+          },
+          'inviter': {'id': 'owner', 'email': 'a@b.c', 'full_name': 'Aiko'},
+          'invite': {
+            'is_reusable': false,
+            'invited_role': 'admin',
+            'personal_message': 'Welcome to our shared budget!',
+          },
+          'expires_at':
+              DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        };
 
-    testWidgets('$surface reconciles before success and retains cached list',
+    testWidgets('shows the Space before joining and waits for Join',
+        (tester) async {
+      final repository = _Repository();
+      when(() => repository.validateInvite('token'))
+          .thenAnswer((_) async => richValidation());
+      when(() => repository.acceptInvite('token')).thenAnswer(
+          (_) async => {'success': true, 'household_id': _joinedId});
+      final harness = _Harness(repository);
+      await harness.mount(tester, confirmJoin: false);
+      await tester.pumpAndSettle();
+
+      expect(find.text('家族'), findsOneWidget);
+      expect(find.text(_english.invitedBy('Aiko')), findsOneWidget);
+      expect(
+          find.textContaining('Welcome to our shared budget!'), findsOneWidget);
+      expect(find.text("You'll join as ${_english.admin}"), findsOneWidget);
+      expect(find.text(_english.invitationValidUntilLabel), findsOneWidget);
+      verifyNever(() => repository.acceptInvite(any()));
+      expect(harness.events, isNot(contains('refresh')));
+
+      final join = find.text(_english.joinHouseholdName('家族'));
+      await tester.ensureVisible(join);
+      await tester.pumpAndSettle();
+      await tester.tap(join);
+      await tester.pumpAndSettle();
+      verify(() => repository.acceptInvite('token')).called(1);
+      expect(find.text(_english.viewHousehold), findsOneWidget);
+    });
+
+    testWidgets('Not now closes without joining', (tester) async {
+      final repository = _Repository();
+      when(() => repository.validateInvite('token'))
+          .thenAnswer((_) async => richValidation());
+      final harness = _Harness(repository);
+      await harness.mount(tester, confirmJoin: false);
+      harness.router.go('/dashboard');
+      await tester.pumpAndSettle();
+      final context = tester.element(find.text('Dashboard'));
+      unawaited(showHouseholdInvitationSheet(context, token: 'token'));
+      await tester.pumpAndSettle();
+      expect(find.text(_english.joinHouseholdName('家族')), findsOneWidget);
+
+      await tester.ensureVisible(find.text(_english.notNow));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_english.notNow));
+      await tester.pumpAndSettle();
+      expect(find.text(_english.joinHouseholdName('家族')), findsNothing);
+      verifyNever(() => repository.acceptInvite(any()));
+      expect(harness.events, isNot(contains('refresh')));
+    });
+
+    testWidgets('cannot be swiped away while the join is in flight',
+        (tester) async {
+      // A tall screen so the preview fits and the sheet itself owns the drag.
+      tester.view.physicalSize = const Size(800, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = _Repository();
+      final accepted = Completer<Map<String, dynamic>>();
+      when(() => repository.validateInvite('token'))
+          .thenAnswer((_) async => _validation());
+      when(() => repository.acceptInvite('token'))
+          .thenAnswer((_) => accepted.future);
+      final harness = _Harness(repository);
+      await harness.mount(tester, confirmJoin: false);
+      harness.router.go('/dashboard');
+      await tester.pumpAndSettle();
+      final context = tester.element(find.text('Dashboard'));
+      unawaited(showHouseholdInvitationSheet(context, token: 'token'));
+      await tester.pumpAndSettle();
+
+      final join = find.text(_english.joinHouseholdName('家族'));
+      await tester.ensureVisible(join);
+      await tester.pumpAndSettle();
+      await tester.tap(join);
+      await tester.pump();
+      await tester.fling(
+          find.byType(CircularProgressIndicator), const Offset(0, 500), 2000);
+      // The join spinner never settles; advance past the dismiss animation.
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text(_english.joiningHousehold), findsOneWidget);
+
+      accepted.complete({'success': true, 'household_id': _joinedId});
+      await tester.pumpAndSettle();
+      expect(find.text(_english.viewHousehold), findsOneWidget);
+      expect(harness.events, contains('refreshed'));
+    });
+
+    testWidgets('validation failure shows the error without a preview',
+        (tester) async {
+      final repository = _Repository();
+      when(() => repository.validateInvite('token')).thenAnswer((_) async => {
+            'valid': false,
+            'error_code': 'EXPIRED',
+            'error': 'This invitation has expired',
+            'household': {'id': _joinedId, 'name': '家族'},
+          });
+      final harness = _Harness(repository);
+      await harness.mount(tester, confirmJoin: false);
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.error_outline), findsOneWidget);
+      expect(find.text(_english.joinHouseholdName('家族')), findsNothing);
+      verifyNever(() => repository.acceptInvite(any()));
+    });
+  });
+
+  group('sheet', () {
+    testWidgets('reconciles before success and retains cached list',
         (tester) async {
       final repository = _Repository();
       final accepted = Completer<Map<String, dynamic>>();
@@ -188,7 +321,7 @@ void main() {
       when(() => repository.acceptInvite('token'))
           .thenAnswer((_) => accepted.future);
       final harness = _Harness(repository)..refresh = () => refreshed.future;
-      await harness.mount(tester, handler: handler);
+      await harness.mount(tester);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(harness.events, isNot(contains('refresh')));
       accepted.complete({'success': true, 'household_id': _joinedId});
@@ -214,32 +347,24 @@ void main() {
       expect(harness.events.where((e) => e == 'management').length, 2);
       expect(harness.events.where((e) => e == 'info:$_joinedId').length, 2);
       verify(() => repository.getHouseholdMembers(_joinedId)).called(2);
-      if (handler) {
-        expect(find.text('Dashboard'), findsOneWidget);
-        expect(harness.events.indexOf('refreshed'),
-            lessThan(harness.events.indexOf('select')));
-      } else {
-        expect(find.text(_english.viewHousehold), findsOneWidget);
-        expect(harness.events, isNot(contains('select')));
-      }
+      expect(find.text(_english.viewHousehold), findsOneWidget);
+      expect(harness.events, isNot(contains('select')));
     });
 
-    testWidgets('$surface reconciles ALREADY_MEMBER without accepting again',
+    testWidgets('reconciles ALREADY_MEMBER without accepting again',
         (tester) async {
       final repository = _Repository();
       when(() => repository.validateInvite('token'))
           .thenAnswer((_) async => _validation(alreadyMember: true));
       final harness = _Harness(repository);
-      await harness.mount(tester, handler: handler);
+      await harness.mount(tester);
       await tester.pumpAndSettle();
       verifyNever(() => repository.acceptInvite(any()));
       expect(harness.events, contains('refreshed'));
-      expect(find.text(handler ? 'Dashboard' : _english.viewHousehold),
-          findsOneWidget);
+      expect(find.text(_english.viewHousehold), findsOneWidget);
     });
 
-    testWidgets('$surface reconciles a pre-join in-flight list read',
-        (tester) async {
+    testWidgets('reconciles a pre-join in-flight list read', (tester) async {
       final repository = _Repository();
       when(() => repository.validateInvite('token'))
           .thenAnswer((_) async => _validation());
@@ -251,7 +376,7 @@ void main() {
         reads++;
         harness.includesJoinedHousehold = reads > 1;
       };
-      await harness.mount(tester, handler: handler);
+      await harness.mount(tester);
       await tester.pumpAndSettle();
       expect(reads, 2);
       expect(
@@ -260,8 +385,7 @@ void main() {
               .value!
               .map((household) => household.id),
           ['cached', _joinedId]);
-      expect(find.text(handler ? 'Dashboard' : _english.viewHousehold),
-          findsOneWidget);
+      expect(find.text(_english.viewHousehold), findsOneWidget);
     });
 
     for (final error in [
@@ -276,13 +400,13 @@ void main() {
       Exception('409 already consumed'),
       TimeoutException('offline'),
     ]) {
-      testWidgets('$surface rejects acceptance failure $error', (tester) async {
+      testWidgets('rejects acceptance failure $error', (tester) async {
         final repository = _Repository();
         when(() => repository.validateInvite('token'))
             .thenAnswer((_) async => _validation());
         when(() => repository.acceptInvite('token')).thenThrow(error);
         final harness = _Harness(repository);
-        await harness.mount(tester, handler: handler);
+        await harness.mount(tester);
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.error_outline), findsOneWidget);
         expect(find.text('Dashboard'), findsNothing);
@@ -296,15 +420,14 @@ void main() {
       {'household_id': _joinedId},
       {'success': true},
     ]) {
-      testWidgets('$surface rejects unconfirmed response $response',
-          (tester) async {
+      testWidgets('rejects unconfirmed response $response', (tester) async {
         final repository = _Repository();
         when(() => repository.validateInvite('token'))
             .thenAnswer((_) async => _validation());
         when(() => repository.acceptInvite('token'))
             .thenAnswer((_) async => response);
         final harness = _Harness(repository);
-        await harness.mount(tester, handler: handler);
+        await harness.mount(tester);
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.error_outline), findsOneWidget);
         expect(harness.events, isNot(contains('refresh')));
@@ -314,7 +437,7 @@ void main() {
     for (final stage in ['validate', 'accept', 'refresh']) {
       for (final dispose in [false, true]) {
         testWidgets(
-            '$surface ignores $stage after '
+            'ignores $stage after '
             '${dispose ? 'disposal' : 'actor change'}', (tester) async {
           final repository = _Repository();
           final validated = Completer<Map<String, dynamic>>();
@@ -331,7 +454,7 @@ void main() {
           final harness = _Harness(repository)
             ..refresh =
                 () => stage == 'refresh' ? refreshed.future : Future.value();
-          await harness.mount(tester, handler: handler);
+          await harness.mount(tester);
           await tester.pump();
           if (dispose) {
             await tester.pumpWidget(const SizedBox.shrink());
@@ -362,42 +485,38 @@ void main() {
         });
       }
     }
-  }
-
-  testWidgets('handler awaits selection once before navigating',
-      (tester) async {
-    final repository = _Repository();
-    final selected = Completer<void>();
-    when(() => repository.validateInvite('token'))
-        .thenAnswer((_) async => _validation(alreadyMember: true));
-    final harness = _Harness(repository)..select = () => selected.future;
-    await harness.mount(tester, handler: true);
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(harness.events.where((e) => e == 'select').length, 1);
-    expect(find.text('Dashboard'), findsNothing);
-    expect(harness.container.read(viewModeProvider).mode, ViewMode.personal);
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(harness.events.where((e) => e == 'select').length, 1);
-    selected.complete();
-    await tester.pumpAndSettle();
-    expect(find.text('Dashboard'), findsOneWidget);
-    expect(harness.container.read(viewModeProvider).mode, ViewMode.household);
   });
 
-  for (final handler in [false, true]) {
-    testWidgets(
-        '${handler ? 'handler' : 'sheet View'} rejects failed selection',
+  group('sheet View', () {
+    testWidgets('selects the joined Space after refresh and switches mode',
         (tester) async {
+      final repository = _Repository();
+      when(() => repository.validateInvite('token'))
+          .thenAnswer((_) async => _validation());
+      when(() => repository.acceptInvite('token')).thenAnswer(
+          (_) async => {'success': true, 'household_id': _joinedId});
+      final harness = _Harness(repository);
+      await harness.mount(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_english.viewHousehold));
+      await tester.pumpAndSettle();
+      expect(harness.events.where((e) => e == 'select').length, 1);
+      expect(harness.events.lastIndexOf('refreshed'),
+          lessThan(harness.events.indexOf('select')));
+      expect(harness.container.read(selectedHouseholdProvider).householdId,
+          _joinedId);
+      expect(harness.container.read(viewModeProvider).mode, ViewMode.household);
+    });
+
+    testWidgets('rejects failed selection', (tester) async {
       final repository = _Repository();
       when(() => repository.validateInvite('token'))
           .thenAnswer((_) async => _validation(alreadyMember: true));
       final harness = _Harness(repository)..resolveSelection = false;
-      await harness.mount(tester, handler: handler);
+      await harness.mount(tester);
       await tester.pumpAndSettle();
-      if (!handler) {
-        await tester.tap(find.text(_english.viewHousehold));
-        await tester.pumpAndSettle();
-      }
+      await tester.tap(find.text(_english.viewHousehold));
+      await tester.pumpAndSettle();
       expect(find.textContaining('Selection unavailable'), findsOneWidget);
       expect(find.text('Dashboard'), findsNothing);
       expect(harness.container.read(viewModeProvider).mode, ViewMode.personal);
@@ -405,19 +524,17 @@ void main() {
 
     for (final dispose in [false, true]) {
       testWidgets(
-          '${handler ? 'handler' : 'sheet View'} ignores selection after '
+          'ignores selection after '
           '${dispose ? 'disposal' : 'actor change'}', (tester) async {
         final repository = _Repository();
         final selected = Completer<void>();
         when(() => repository.validateInvite('token'))
             .thenAnswer((_) async => _validation(alreadyMember: true));
         final harness = _Harness(repository)..select = () => selected.future;
-        await harness.mount(tester, handler: handler);
-        if (!handler) {
-          await tester.pumpAndSettle();
-          await tester.tap(find.text(_english.viewHousehold));
-          await tester.pump();
-        }
+        await harness.mount(tester);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(_english.viewHousehold));
+        await tester.pump();
         expect(harness.events, contains('select'));
         expect(
             harness.container.read(viewModeProvider).mode, ViewMode.personal);
@@ -435,7 +552,7 @@ void main() {
             harness.container.read(viewModeProvider).mode, ViewMode.personal);
       });
     }
-  }
+  });
 
   for (final dispose in [false, true]) {
     testWidgets(
@@ -446,7 +563,7 @@ void main() {
       when(() => repository.validateInvite('token'))
           .thenAnswer((_) async => _validation(alreadyMember: true));
       final harness = _Harness(repository);
-      await harness.mount(tester, handler: false);
+      await harness.mount(tester);
       await tester.pumpAndSettle();
       harness.refresh = () => refreshed.future;
       await tester.tap(find.text(_english.viewHousehold));

@@ -262,8 +262,8 @@ class _InviteLinkCard extends ConsumerWidget {
                         await Clipboard.setData(ClipboardData(text: url));
                         if (context.mounted &&
                             ref.read(currentUserIdProvider) == userId) {
-                          AppToast.success(
-                              context, context.l10n.inviteLinkCopiedToClipboard);
+                          AppToast.success(context,
+                              context.l10n.inviteLinkCopiedToClipboard);
                         }
                       } catch (error) {
                         if (context.mounted &&

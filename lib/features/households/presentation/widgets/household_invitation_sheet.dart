@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
+import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/features/households/presentation/widgets/household_invite_preview.dart';
 
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
@@ -27,13 +32,15 @@ class HouseholdInvitationSheet extends ConsumerStatefulWidget {
       _HouseholdInvitationSheetState();
 }
 
+enum _InvitationPhase { loading, preview, joining, success, error }
+
 class _HouseholdInvitationSheetState
     extends ConsumerState<HouseholdInvitationSheet> {
+  _InvitationPhase _phase = _InvitationPhase.loading;
   String? _error;
-  bool _accepted = false;
   String? _householdId;
   String? _householdName;
-  bool _isProcessing = true;
+  HouseholdInvitePreviewData? _preview;
   bool _isSelecting = false;
   String? _actorUserId;
   bool _actorChanged = false;
@@ -47,15 +54,14 @@ class _HouseholdInvitationSheetState
       _actorChanged = true;
       if (!mounted) return;
       setState(() {
-        _accepted = false;
-        _isProcessing = false;
+        _phase = _InvitationPhase.error;
         _error = context.l10n.invitationError;
       });
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _acceptInvite();
+      _loadInvite();
     });
   }
 
@@ -65,6 +71,14 @@ class _HouseholdInvitationSheetState
       _actorUserId != null &&
       _actorUserId!.isNotEmpty &&
       ref.read(currentUserIdProvider) == _actorUserId;
+
+  void _fail(Object error) {
+    if (!_isActorActive) return;
+    setState(() {
+      _phase = _InvitationPhase.error;
+      _error = error.toString();
+    });
+  }
 
   Future<void> _refreshHouseholdList(String householdId) async {
     if (!_isActorActive) return;
@@ -84,12 +98,14 @@ class _HouseholdInvitationSheetState
     }
   }
 
-  Future<void> _acceptInvite() async {
+  /// Validates only. Joining waits for the user's explicit confirmation so
+  /// they can recognise the Space first.
+  Future<void> _loadInvite() async {
     if (!mounted) return;
     if (!_isActorActive) {
       setState(() {
         _error = context.l10n.invitationError;
-        _isProcessing = false;
+        _phase = _InvitationPhase.error;
       });
       return;
     }
@@ -99,8 +115,7 @@ class _HouseholdInvitationSheetState
       final validateResponse = await repo.validateInvite(widget.token);
       if (!mounted || !_isActorActive) return;
 
-      var householdId = validateResponse['household']?['id'] as String?;
-      final householdName = validateResponse['household']?['name'] as String?;
+      final householdId = validateResponse['household']?['id'] as String?;
       final errorCode =
           (validateResponse['error_code'] ?? '').toString().toUpperCase();
 
@@ -108,213 +123,389 @@ class _HouseholdInvitationSheetState
         throw Exception(validateResponse['error'] ??
             context.l10n.invalidInvitationMissingInfo);
       }
-      if (errorCode != 'ALREADY_MEMBER') {
-        if (validateResponse['valid'] != true) {
-          throw Exception(validateResponse['error'] ?? 'Invalid invitation');
-        }
-        final data = await repo.acceptInvite(widget.token);
-        if (!_isActorActive) return;
-        final acceptedId = data['household_id'] as String?;
-        if (data['success'] != true ||
-            acceptedId == null ||
-            acceptedId.trim().isEmpty) {
-          throw Exception(data['error'] ?? 'Invalid invitation');
-        }
-        householdId = acceptedId;
+      _householdName = validateResponse['household']?['name'] as String?;
+
+      // Already a member: nothing to decide, so reconcile straight to success.
+      if (errorCode == 'ALREADY_MEMBER') {
+        await _completeMembership(householdId);
+        return;
+      }
+      if (validateResponse['valid'] != true) {
+        throw Exception(validateResponse['error'] ?? 'Invalid invitation');
       }
 
-      ref.invalidate(householdMembersProvider(householdId));
-      ref.invalidate(householdProvider(householdId));
-      ref.invalidate(subscriptionNotifierProvider);
-      ref.invalidate(subscriptionManagementProvider);
-      await _refreshHouseholdList(householdId);
-      if (!_isActorActive) return;
       setState(() {
-        _accepted = true;
         _householdId = householdId;
-        _householdName = householdName;
-        _isProcessing = false;
+        _preview = HouseholdInvitePreviewData.fromValidation(
+          validateResponse,
+          fallbackHouseholdName: context.l10n.household,
+          fallbackInviterLabel: context.l10n.unknown,
+        );
+        _phase = _InvitationPhase.preview;
       });
     } catch (e) {
-      if (!_isActorActive) return;
-      setState(() {
-        _error = e.toString();
-        _isProcessing = false;
-      });
+      _fail(e);
     }
   }
+
+  Future<void> _join() async {
+    if (_phase != _InvitationPhase.preview || !_isActorActive) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _phase = _InvitationPhase.joining);
+
+    final repo = ref.read(householdRepositoryProvider);
+    try {
+      final data = await repo.acceptInvite(widget.token);
+      if (!_isActorActive) return;
+      final acceptedId = data['household_id'] as String?;
+      if (data['success'] != true ||
+          acceptedId == null ||
+          acceptedId.trim().isEmpty) {
+        throw Exception(data['error'] ?? 'Invalid invitation');
+      }
+      await _completeMembership(acceptedId);
+    } catch (e) {
+      _fail(e);
+    }
+  }
+
+  Future<void> _completeMembership(String householdId) async {
+    ref.invalidate(householdMembersProvider(householdId));
+    ref.invalidate(householdProvider(householdId));
+    ref.invalidate(subscriptionNotifierProvider);
+    ref.invalidate(subscriptionManagementProvider);
+    await _refreshHouseholdList(householdId);
+    if (!_isActorActive) return;
+    HapticFeedback.lightImpact();
+    setState(() {
+      _householdId = householdId;
+      _phase = _InvitationPhase.success;
+    });
+  }
+
+  Future<void> _viewHousehold() async {
+    final householdId = _householdId;
+    if (!_isActorActive || householdId == null || _isSelecting) {
+      return;
+    }
+    _isSelecting = true;
+    try {
+      await _refreshHouseholdList(householdId);
+      if (!_isActorActive) return;
+      await ref
+          .read(selectedHouseholdProvider.notifier)
+          .selectHousehold(householdId);
+      if (!mounted || !_isActorActive) return;
+      final selected = ref.read(selectedHouseholdProvider);
+      if (!selected.hasSelection ||
+          selected.householdId != householdId ||
+          selected.error != null) {
+        throw Exception(
+            selected.error ?? context.l10n.invalidInvitationMissingInfo);
+      }
+      ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+
+      final navCtx = rootNavigatorKey.currentContext;
+      if (navCtx != null && navCtx.mounted) {
+        Navigator.of(navCtx).pop();
+        navCtx.go('/dashboard');
+      }
+    } catch (e) {
+      _fail(e);
+    } finally {
+      _isSelecting = false;
+    }
+  }
+
+  String _title(BuildContext context) => switch (_phase) {
+        _InvitationPhase.loading ||
+        _InvitationPhase.preview =>
+          context.l10n.invitationReviewTitle,
+        _InvitationPhase.joining => context.l10n.joiningHousehold,
+        _InvitationPhase.success => context.l10n.youreIn,
+        _InvitationPhase.error => context.l10n.invitationError,
+      };
 
   @override
   Widget build(BuildContext context) {
     ref.watch(currentUserIdProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final errorBase = colorScheme.errorAccent;
-    final successBase = colorScheme.success;
-    final errorBackground = colorScheme.errorSurface;
-    final successBackground = colorScheme.successSurface;
+    final isJoining = _phase == _InvitationPhase.joining;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final transition =
+        reduceMotion ? Duration.zero : const Duration(milliseconds: 250);
 
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-        left: 24,
-        right: 24,
-        top: 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return PopScope(
+      // Keep the sheet up while the join request is in flight. PopScope covers
+      // back and barrier taps; the modal sheet's drag-to-dismiss pops directly,
+      // so a child drag recognizer claims vertical drags while joining.
+      canPop: !isJoining,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragStart: isJoining ? (_) {} : null,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            left: 24,
+            right: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                _accepted
-                    ? context.l10n.youreIn
-                    : _error != null
-                        ? context.l10n.invitationError
-                        : context.l10n.joiningHousehold,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.foreground,
+              Row(
+                children: [
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: transition,
+                      layoutBuilder: (current, previous) => Stack(
+                        alignment: AlignmentDirectional.centerStart,
+                        children: [...previous, if (current != null) current],
+                      ),
+                      child: Text(
+                        _title(context),
+                        key: ValueKey(_phase == _InvitationPhase.loading
+                            ? _InvitationPhase.preview
+                            : _phase),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                    ),
+                  ),
+                  AnimatedOpacity(
+                    duration: transition,
+                    opacity: isJoining ? 0 : 1,
+                    child: IconButton(
+                      icon:
+                          Icon(Icons.close, color: colorScheme.mutedForeground),
+                      onPressed:
+                          isJoining ? null : () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              AnimatedSize(
+                duration: transition,
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: AnimatedSwitcher(
+                  duration: transition,
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: KeyedSubtree(
+                    key: ValueKey(_phase == _InvitationPhase.joining
+                        ? _InvitationPhase.preview
+                        : _phase),
+                    child: _buildBody(context, colorScheme),
+                  ),
                 ),
               ),
-              if (!_isProcessing)
-                IconButton(
-                  icon: Icon(Icons.close, color: colorScheme.mutedForeground),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
             ],
           ),
-          const SizedBox(height: 8),
+        ),
+      ),
+    );
+  }
 
-          // Processing state
-          if (_isProcessing) ...[
-            const SizedBox(height: 24),
-            const Center(child: CircularProgressIndicator()),
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                context.l10n.processingInvitation,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colorScheme.mutedForeground,
+  Widget _buildBody(BuildContext context, ColorScheme colorScheme) {
+    return switch (_phase) {
+      _InvitationPhase.loading => const _InvitationPreviewSkeleton(),
+      _InvitationPhase.preview ||
+      _InvitationPhase.joining =>
+        _buildPreview(context, colorScheme),
+      _InvitationPhase.success => _buildSuccess(context, colorScheme),
+      _InvitationPhase.error => _buildError(context, colorScheme),
+    };
+  }
+
+  Widget _buildPreview(BuildContext context, ColorScheme colorScheme) {
+    final preview = _preview!;
+    final isJoining = _phase == _InvitationPhase.joining;
+    final message = preview.personalMessage;
+    final expiresAt = preview.expiresAt;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        HouseholdInvitePreviewCard(preview: preview),
+        if (message != null) ...[
+          const SizedBox(height: 12),
+          HouseholdInviteMessageCard(message: message),
+        ],
+        if (expiresAt != null) ...[
+          const SizedBox(height: 12),
+          HouseholdInviteExpiryCard(expiresAt: expiresAt),
+        ],
+        const SizedBox(height: 24),
+        Semantics(
+          label: context.l10n.joinHouseholdName(preview.householdName),
+          button: true,
+          child: SizedBox(
+            height: 52,
+            child: PrimaryAdaptiveButton(
+              onPressed: isJoining ? null : _join,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: isJoining
+                    ? SizedBox(
+                        key: const ValueKey('joining'),
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              colorScheme.onPrimary),
+                        ),
+                      )
+                    : Text(
+                        context.l10n.joinHouseholdName(preview.householdName),
+                        key: const ValueKey('join'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 180),
+          opacity: isJoining ? 0.4 : 1,
+          child: PlainAdaptiveButton(
+            onPressed: isJoining ? null : () => Navigator.of(context).pop(),
+            child: Text(context.l10n.notNow),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildError(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.errorSurface,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline,
+                  color: colorScheme.errorAccent, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _error ?? context.l10n.invitationError,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.foreground,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        PrimaryAdaptiveButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(context.l10n.close),
+        ),
+      ],
+    );
+  }
 
-          // Error state
-          if (_error != null && !_isProcessing) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: errorBackground,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.error_outline, color: errorBase, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _error!,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
+  Widget _buildSuccess(BuildContext context, ColorScheme colorScheme) {
+    final householdName = _householdName ?? _preview?.householdName;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.successSurface,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.check_circle, color: colorScheme.success, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  householdName != null
+                      ? context.l10n.joinedHouseholdWithName(householdName)
+                      : context.l10n.joinedHousehold,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.foreground,
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            PrimaryAdaptiveButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(context.l10n.close),
-            ),
-          ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        PrimaryAdaptiveButton(
+          onPressed: _viewHousehold,
+          child: Text(context.l10n.viewHousehold),
+        ),
+        const SizedBox(height: 12),
+        AdaptiveButton.child(
+          onPressed: () => Navigator.of(context).pop(),
+          style: AdaptiveButtonStyle.bordered,
+          child: Text(context.l10n.close),
+        ),
+      ],
+    );
+  }
+}
 
-          // Success state
-          if (_accepted && !_isProcessing) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: successBackground,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle, color: successBase, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _householdName != null
-                          ? context.l10n
-                              .joinedHouseholdWithName(_householdName!)
-                          : context.l10n.joinedHousehold,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            PrimaryAdaptiveButton(
-              onPressed: () async {
-                final householdId = _householdId;
-                if (!_isActorActive || householdId == null || _isSelecting) {
-                  return;
-                }
-                _isSelecting = true;
-                try {
-                  await _refreshHouseholdList(householdId);
-                  if (!_isActorActive) return;
-                  await ref
-                      .read(selectedHouseholdProvider.notifier)
-                      .selectHousehold(householdId);
-                  if (!context.mounted || !_isActorActive) return;
-                  final selected = ref.read(selectedHouseholdProvider);
-                  if (!selected.hasSelection ||
-                      selected.householdId != householdId ||
-                      selected.error != null) {
-                    throw Exception(selected.error ??
-                        context.l10n.invalidInvitationMissingInfo);
-                  }
-                  ref
-                      .read(viewModeProvider.notifier)
-                      .setMode(ViewMode.household);
+/// Reserves the preview geometry while the invitation is validated.
+class _InvitationPreviewSkeleton extends StatelessWidget {
+  const _InvitationPreviewSkeleton();
 
-                  final navCtx = rootNavigatorKey.currentContext;
-                  if (navCtx != null && navCtx.mounted) {
-                    Navigator.of(navCtx).pop();
-                    navCtx.go('/dashboard');
-                  }
-                } catch (e) {
-                  if (!_isActorActive) return;
-                  setState(() {
-                    _accepted = false;
-                    _error = e.toString();
-                  });
-                } finally {
-                  _isSelecting = false;
-                }
-              },
-              child: Text(context.l10n.viewHousehold),
-            ),
-            const SizedBox(height: 12),
-            AdaptiveButton.child(
-              onPressed: () => Navigator.of(context).pop(),
-              style: AdaptiveButtonStyle.bordered,
-              child: Text(context.l10n.close),
-            ),
-          ],
-        ],
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label: context.l10n.processingInvitation,
+      liveRegion: true,
+      child: Skeletonizer(
+        enabled: true,
+        effect: ShimmerEffect(
+          baseColor: colorScheme.skeletonBase,
+          highlightColor: colorScheme.skeletonHighlight,
+        ),
+        child: ExcludeSemantics(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const HouseholdInvitePreviewCard(
+                preview: HouseholdInvitePreviewData(
+                  householdName: 'Household name',
+                  inviterLabel: 'Inviter name',
+                ),
+              ),
+              const SizedBox(height: 24),
+              Bone(
+                height: 52,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              const SizedBox(height: 16),
+              const Center(child: Bone.text(words: 2)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -325,24 +516,12 @@ Future<void> showHouseholdInvitationSheet(
   BuildContext context, {
   required String token,
 }) {
-  return showModalBottomSheet<void>(
+  // The shared sheet supplies the drag handle and shell. Title and close stay
+  // inside the sheet because they change per phase (and hide while joining).
+  return MonekoBottomSheet.show<void>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
-    isDismissible: true,
-    enableDrag: true,
-    backgroundColor: Theme.of(context).colorScheme.surface.withValues(
-          alpha: 0.0,
-        ),
-    builder: (context) {
-      final colorScheme = Theme.of(context).colorScheme;
-      return Container(
-        decoration: BoxDecoration(
-          color: colorScheme.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: HouseholdInvitationSheet(token: token),
-      );
-    },
+    backgroundColor: Theme.of(context).colorScheme.card,
+    builder: (context) => HouseholdInvitationSheet(token: token),
   );
 }

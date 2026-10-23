@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -10,6 +9,7 @@ import '../../../../core/utils/error_handler.dart';
 import '../../core/household_constants.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
+import '../widgets/household_invite_preview.dart';
 import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -514,16 +514,14 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
   }
 
   Widget _buildPreview(ColorScheme colorScheme) {
-    final householdName =
-        _invitePreview?['household']?['name'] ?? context.l10n.household;
-    final inviterEmail = _invitePreview?['inviter']?['email'] ??
-        _invitePreview?['inviter']?['full_name'] ??
-        context.l10n.unknown;
-    final expiresAt = _invitePreview?['expires_at'];
-    final coverImageUrl =
-        _invitePreview?['household']?['cover_image_url'] as String?;
-    final personalMessage =
-        _invitePreview?['invite']?['personal_message'] as String?;
+    final preview = HouseholdInvitePreviewData.fromValidation(
+      _invitePreview ?? const <String, dynamic>{},
+      fallbackHouseholdName: context.l10n.household,
+      fallbackInviterLabel: context.l10n.unknown,
+    );
+    final householdName = preview.householdName;
+    final expiresAt = preview.expiresAt;
+    final personalMessage = preview.personalMessage;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -534,24 +532,19 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           const SizedBox(height: 8),
 
           // Household preview card
-          _buildHouseholdPreviewCard(
-            colorScheme,
-            householdName,
-            inviterEmail,
-            coverImageUrl,
-          ),
+          HouseholdInvitePreviewCard(preview: preview),
 
           const SizedBox(height: 24),
 
           // Expiration info
           if (expiresAt != null) ...[
-            _buildExpirationCard(colorScheme, expiresAt),
+            HouseholdInviteExpiryCard(expiresAt: expiresAt),
             const SizedBox(height: 16),
           ],
 
           // Personal message from inviter (if any)
-          if (personalMessage != null && personalMessage.trim().isNotEmpty) ...[
-            _buildPersonalMessageCard(colorScheme, personalMessage.trim()),
+          if (personalMessage != null) ...[
+            HouseholdInviteMessageCard(message: personalMessage),
             const SizedBox(height: 16),
           ],
 
@@ -626,207 +619,6 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildHouseholdPreviewCard(
-    ColorScheme colorScheme,
-    String householdName,
-    String inviterEmail,
-    String? coverImageUrl,
-  ) {
-    return Semantics(
-      label: context.l10n.householdPreview(householdName, inviterEmail),
-      readOnly: true,
-      child: Container(
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              colorScheme.primary.withValues(alpha: 0.08),
-              colorScheme.primary.withValues(alpha: 0.03),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: colorScheme.primary.withValues(alpha: 0.12),
-            width: 2,
-          ),
-        ),
-        child: Column(
-          children: [
-            // Household icon/image
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.shadow.withValues(alpha: 0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: coverImageUrl != null && coverImageUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: coverImageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) {
-                          return Container(
-                            color: colorScheme.primary.withValues(alpha: 0.2),
-                            child: const Center(
-                              child: SizedBox(
-                                width: 30,
-                                height: 30,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        errorWidget: (context, url, error) {
-                          return Container(
-                            color: colorScheme.primary.withValues(alpha: 0.2),
-                            child: Icon(
-                              Icons.home_rounded,
-                              size: 48,
-                              color: colorScheme.primary,
-                            ),
-                          );
-                        },
-                      )
-                    : Container(
-                        color: colorScheme.primary.withValues(alpha: 0.2),
-                        child: Center(
-                          child: Icon(
-                            Icons.home_rounded,
-                            size: 48,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              householdName,
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.foreground,
-                letterSpacing: -0.5,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: colorScheme.muted.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.person_outline_rounded,
-                    size: 16,
-                    color: colorScheme.foreground.withValues(alpha: 0.7),
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      context.l10n.invitedBy(inviterEmail),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.foreground.withValues(alpha: 0.7),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExpirationCard(ColorScheme colorScheme, String expiresAt) {
-    final expirationDate = DateTime.tryParse(expiresAt);
-    final daysUntilExpiry = expirationDate?.difference(DateTime.now()).inDays;
-    final isExpiringSoon = daysUntilExpiry != null && daysUntilExpiry <= 2;
-
-    return Semantics(
-      label: isExpiringSoon
-          ? context.l10n.invitationExpiresSoon(_formatDate(expiresAt))
-          : context.l10n.invitationValidUntil(_formatDate(expiresAt)),
-      readOnly: true,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isExpiringSoon
-              ? colorScheme.warning.withValues(alpha: 0.1)
-              : colorScheme.muted.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isExpiringSoon
-                ? colorScheme.warning.withValues(alpha: 0.3)
-                : colorScheme.border.withValues(alpha: 0.12),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isExpiringSoon
-                  ? Icons.warning_amber_rounded
-                  : Icons.schedule_rounded,
-              color: isExpiringSoon
-                  ? colorScheme.warning
-                  : colorScheme.foreground.withValues(alpha: 0.7),
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isExpiringSoon
-                        ? context.l10n.expiresSoon
-                        : context.l10n.invitationValidUntilLabel,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatDate(expiresAt),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.foreground.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -915,53 +707,6 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
                 ),
               );
             }).toList(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPersonalMessageCard(ColorScheme colorScheme, String message) {
-    return Semantics(
-      label: context.l10n.personalMessageFromInviter,
-      readOnly: true,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.border, width: 1),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.chat_bubble_outline_rounded,
-                color: colorScheme.mutedForeground, size: 18),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.messageFromInviter,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '"$message"',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.foreground.withValues(alpha: 0.8),
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -1441,39 +1186,5 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     }
 
     return null;
-  }
-
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      final now = DateTime.now();
-      final difference = date.difference(now);
-
-      if (difference.inDays == 0) {
-        return context.l10n.today;
-      } else if (difference.inDays == 1) {
-        return context.l10n.tomorrow;
-      } else if (difference.inDays < 7) {
-        return context.l10n.inDays(difference.inDays);
-      }
-
-      final months = [
-        context.l10n.january,
-        context.l10n.february,
-        context.l10n.march,
-        context.l10n.april,
-        context.l10n.may,
-        context.l10n.june,
-        context.l10n.july,
-        context.l10n.august,
-        context.l10n.september,
-        context.l10n.october,
-        context.l10n.november,
-        context.l10n.december
-      ];
-      return '${months[date.month - 1]} ${date.day}, ${date.year}';
-    } catch (e) {
-      return dateStr;
-    }
   }
 }
