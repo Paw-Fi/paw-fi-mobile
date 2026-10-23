@@ -38,6 +38,17 @@ extension AiProcessingConsentL10nX on AppLocalizations {
       'Could not confirm withdrawal of consent. Your previous choice is still shown. Please try again.';
 }
 
+/// English fallback until these translation-catalog entries are exported.
+extension HoldToRecordL10nX on AppLocalizations {
+  String get slideToCancel => 'Slide to cancel';
+  String get microphoneReadyHoldToRecord =>
+      'Microphone is ready. Press and hold to record.';
+  String get microphoneOffTitle => 'Microphone is off';
+  String get microphoneOffDescription =>
+      'Turn on microphone access for Moneko in Settings to log by voice. You can keep typing anytime.';
+  String get openSettingsAction => 'Open Settings';
+}
+
 extension RecurrencePickerL10nX on AppLocalizations {
   String recurrenceDaysUnit(int count) => count == 1 ? 'day' : 'days';
   String recurrenceWeeksUnit(int count) => count == 1 ? 'week' : 'weeks';

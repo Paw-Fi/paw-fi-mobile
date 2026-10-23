@@ -15,6 +15,7 @@ import 'package:record/record.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -30,10 +31,17 @@ import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
 import 'package:moneko/features/home/presentation/widgets/ai_space_label_utils.dart';
 import 'package:moneko/features/home/presentation/widgets/ai_input_target.dart';
+import 'package:moneko/features/home/presentation/widgets/microphone_access_sheet.dart';
 
 const int _minimumAudioRecordingMs = 1000;
 const double _silentRecordingPeakDb = -160.0;
 const double _minimumVoicePeakDb = -55.0;
+
+/// Lets the drawer's entrance settle so the OS prompt lands over the voice
+/// surface that explains why it is being asked.
+const Duration _micPromptDelay = Duration(milliseconds: 350);
+
+enum _MicAccess { unknown, granted, denied }
 
 typedef AiTextInputSubmit = Future<void> Function(
   String text,
@@ -87,9 +95,15 @@ class _TextInputContent extends ConsumerStatefulWidget {
 }
 
 class _TextInputContentState extends ConsumerState<_TextInputContent>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool _isProcessing = false;
   bool _isRecording = false;
+  bool _isStartingRecording = false;
+  bool _isMicPointerDown = false;
+  _MicAccess _micAccess = _MicAccess.unknown;
+  bool _isRequestingMicAccess = false;
+  bool _didOsPromptInterrupt = false;
+  Timer? _micPromptTimer;
   DateTime? _recordingStartTime;
   Timer? _mockTranscribingTimer;
   Timer? _recordingAmplitudeTimer;
@@ -121,10 +135,14 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     _micScaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
       CurvedAnimation(parent: _micScaleController, curve: Curves.easeInOut),
     );
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_prepareMicAccessOnOpen());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _micPromptTimer?.cancel();
     _textController.dispose();
     _micScaleController.dispose();
     _mockTranscribingTimer?.cancel();
@@ -413,21 +431,112 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
   }
 
-  Future<void> _onRecordStart() async {
-    if (_isProcessing) return;
-
-    HapticFeedback.heavyImpact();
-
-    final hasPermission = await _recorder.hasPermission();
-    if (!hasPermission) {
-      if (widget.parentContext.mounted) {
-        AppToast.error(
-          widget.parentContext,
-          widget.parentContext.l10n.failedToAnalyze,
-        );
+  /// Silent status read immediately (so an already-granted mic is usable on
+  /// the first press), then the OS request after the entrance settles.
+  Future<void> _prepareMicAccessOnOpen() async {
+    try {
+      final granted = await _recorder.hasPermission(request: false);
+      if (!mounted) return;
+      if (granted) {
+        _setMicAccess(_MicAccess.granted);
+        return;
       }
+    } catch (_) {}
+    _micPromptTimer = Timer(_micPromptDelay, () {
+      if (mounted) unawaited(_requestMicAccess());
+    });
+  }
+
+  /// Asks the OS on every attempt until granted. When the OS refuses without
+  /// showing its prompt (iOS after a denial, Android "don't ask again"), the
+  /// only remaining path is Settings, so that sheet is offered instead.
+  Future<void> _requestMicAccess() async {
+    if (!mounted || _isRequestingMicAccess || _isProcessing) return;
+    _micPromptTimer?.cancel();
+    _isRequestingMicAccess = true;
+    try {
+      if (await _recorder.hasPermission(request: false)) {
+        if (mounted) _setMicAccess(_MicAccess.granted);
+        return;
+      }
+      _didOsPromptInterrupt = false;
+      final granted = await _recorder.hasPermission();
+      if (!mounted) return;
+      _setMicAccess(granted ? _MicAccess.granted : _MicAccess.denied);
+      if (granted) {
+        HapticFeedback.lightImpact();
+      } else if (!_didOsPromptInterrupt) {
+        await _presentMicSettingsSheet();
+      }
+    } catch (_) {
+      if (mounted) _setMicAccess(_MicAccess.denied);
+    } finally {
+      _isRequestingMicAccess = false;
+    }
+  }
+
+  Future<void> _presentMicSettingsSheet() async {
+    final hadKeyboardFocus = _textFocusNode.hasFocus;
+    // The sheet would otherwise sit behind the keyboard.
+    _textFocusNode.unfocus();
+    await showMicrophoneAccessSheet(context);
+    if (mounted && hadKeyboardFocus) _textFocusNode.requestFocus();
+  }
+
+  void _setMicAccess(_MicAccess access) {
+    if (_micAccess == access) return;
+    setState(() => _micAccess = access);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The OS prompt backgrounds the app, which is how a shown-and-denied
+    // prompt is told apart from a silent permanent refusal.
+    if (_isRequestingMicAccess && state != AppLifecycleState.resumed) {
+      _didOsPromptInterrupt = true;
       return;
     }
+    if (state == AppLifecycleState.resumed &&
+        !_isRequestingMicAccess &&
+        _micAccess != _MicAccess.granted) {
+      unawaited(_refreshMicAccessAfterResume());
+    }
+  }
+
+  /// Picks up a grant made in system Settings without re-prompting.
+  Future<void> _refreshMicAccessAfterResume() async {
+    try {
+      final granted = await _recorder.hasPermission(request: false);
+      if (!mounted || !granted) return;
+      HapticFeedback.lightImpact();
+      _setMicAccess(_MicAccess.granted);
+    } catch (_) {}
+  }
+
+  void _onMicPointerDown() {
+    _isMicPointerDown = true;
+    if (_micAccess == _MicAccess.granted) unawaited(_onRecordStart());
+  }
+
+  void _onMicPointerUp() {
+    _isMicPointerDown = false;
+    if (_micAccess == _MicAccess.granted || _isRecording) {
+      _onRecordEnd();
+    } else {
+      unawaited(_requestMicAccess());
+    }
+  }
+
+  void _onMicPointerCancel() {
+    _isMicPointerDown = false;
+    _onRecordEnd();
+  }
+
+  Future<void> _onRecordStart() async {
+    if (_isProcessing || _isRecording || _isStartingRecording) return;
+
+    HapticFeedback.heavyImpact();
+    _isStartingRecording = true;
 
     setState(() {
       _isRecording = true;
@@ -438,15 +547,38 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     });
     _micScaleController.forward();
 
-    final tempDir = await getTemporaryDirectory();
-    final filePath =
-        '${tempDir.path}/moneko_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final filePath =
+          '${tempDir.path}/moneko_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-    await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
-      path: filePath,
-    );
-    _startRecordingAmplitudeProbe();
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: filePath,
+      );
+      _startRecordingAmplitudeProbe();
+    } catch (error) {
+      _isStartingRecording = false;
+      _recordingStartTime = null;
+      _micScaleController.reverse();
+      if (mounted) setState(() => _isRecording = false);
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+          widget.parentContext,
+          widget.parentContext.l10n.unableToStartRecording(
+            ErrorHandler.getUserFriendlyMessage(
+              error,
+              context: BackendErrorContext.recording,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    _isStartingRecording = false;
+    // The finger lifted while the recorder was starting; finish now so the
+    // too-short path runs instead of leaving a recording with nobody holding.
+    if (!_isMicPointerDown && mounted) _onRecordEnd();
   }
 
   void _startRecordingAmplitudeProbe() {
@@ -469,7 +601,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   }
 
   void _onRecordEnd() async {
-    if (_isProcessing) return;
+    if (_isProcessing || _isStartingRecording) return;
 
     _micScaleController.reverse();
     final startedAt = _recordingStartTime;
@@ -570,6 +702,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   @override
   Widget build(BuildContext context) {
     final scheme = widget.colorScheme;
+    final isMicMuted = _micAccess == _MicAccess.denied;
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final userId = ref.watch(authProvider).uid;
     if (userId.isNotEmpty) {
@@ -773,9 +906,9 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                 ),
                 const SizedBox(width: 12),
                 GestureDetector(
-                  onTapDown: (_) => _onRecordStart(),
-                  onTapUp: (_) => _onRecordEnd(),
-                  onTapCancel: () => _onRecordEnd(),
+                  onTapDown: (_) => _onMicPointerDown(),
+                  onTapUp: (_) => _onMicPointerUp(),
+                  onTapCancel: _onMicPointerCancel,
                   child: ScaleTransition(
                     scale: _micScaleAnimation,
                     child: Container(
@@ -802,10 +935,39 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                             )
                         ],
                       ),
-                      child: Icon(
-                        _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
-                        color: _isRecording ? scheme.onError : scheme.primary,
-                        size: 26,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(
+                          scale: animation,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        ),
+                        child: Icon(
+                          _isRecording
+                              ? Icons.stop_rounded
+                              : isMicMuted
+                                  ? Icons.mic_off_rounded
+                                  : Icons.mic_rounded,
+                          key: ValueKey<String>(
+                            _isRecording
+                                ? 'stop'
+                                : isMicMuted
+                                    ? 'muted'
+                                    : 'mic',
+                          ),
+                          color: _isRecording
+                              ? scheme.onError
+                              : isMicMuted
+                                  ? scheme.onSurfaceVariant
+                                  : scheme.primary,
+                          size: 26,
+                          semanticLabel: isMicMuted
+                              ? context.l10n.microphoneOffTitle
+                              : null,
+                        ),
                       ),
                     ),
                   ),

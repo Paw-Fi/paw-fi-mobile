@@ -52,6 +52,7 @@ import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
+import 'package:moneko/features/home/presentation/widgets/hold_recording_indicator.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
@@ -74,7 +75,9 @@ const String _holdQuickActionReminderExpenseCountKey =
 const int _holdQuickActionReminderFirstPromptAt = 2;
 const int _maxBatchSize = 400;
 const int _maxAiFileUploadBytes = 20 * 1024 * 1024;
-const double _recordCancelDragThreshold = 90;
+const double _recordCancelDragThreshold = 110;
+const Duration _holdAmplitudeSampleInterval = Duration(milliseconds: 60);
+const Duration _holdCancelFeedbackDuration = Duration(milliseconds: 900);
 const int _minimumHoldRecordingMs = 1000;
 const double _silentRecordingPeakDb = -160.0;
 const double _minimumVoicePeakDb = -55.0;
@@ -3080,12 +3083,17 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   int _holdGeneration = 0;
   AiProcessingConsentNotifier? _holdConsentOwner;
   bool _isHoldCancelled = false;
-  bool _didCrossCancelThreshold = false;
+  bool _isHoldCancelFeedbackVisible = false;
+  bool _isHoldPressing = false;
+  bool _hasHoldCancelDetent = false;
+  Timer? _holdCancelFeedbackTimer;
   double _holdDragDeltaX = 0;
   DateTime? _holdRecordingStartedAt;
   double? _holdStartGlobalX;
   Timer? _holdAmplitudeTimer;
+  bool _isSamplingHoldAmplitude = false;
   double _holdRecordingPeakDb = _silentRecordingPeakDb;
+  final HoldRecordingLevels _holdLevels = HoldRecordingLevels();
   bool _isFabOpen = false;
 
   @override
@@ -3098,8 +3106,23 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   void dispose() {
     _fabOpenController.state = false;
     _holdAmplitudeTimer?.cancel();
+    _holdCancelFeedbackTimer?.cancel();
+    _holdLevels.dispose();
     _holdRecorder.dispose();
     super.dispose();
+  }
+
+  /// Ends the current press so a system dialog interaction can never be
+  /// mistaken for a continuing hold.
+  void _abandonHoldGesture() {
+    _holdGeneration += 1;
+    _holdStartGlobalX = null;
+    _setHoldPressing(false);
+  }
+
+  void _setHoldPressing(bool value) {
+    if (_isHoldPressing == value || !mounted) return;
+    setState(() => _isHoldPressing = value);
   }
 
   Future<void> _playQuickActionDualNudge() async {
@@ -3176,17 +3199,22 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
           consentOwner.isCurrentActor &&
           ref.read(aiProcessingConsentProvider).mayProcess;
       if (!isHeld()) return;
-      final hasPermission = await _holdRecorder.hasPermission();
-      if (!isHeld()) return;
+      final hasPermission = await _holdRecorder.hasPermission(request: false);
       if (!hasPermission) {
-        if (mounted) {
-          AppToast.info(
-            context,
-            context.l10n.microphonePermissionRequiredForQuickAudioLogging,
-          );
-        }
+        // The OS prompt takes over the screen, so this press can never become
+        // a recording; the user starts a fresh hold once access is granted.
+        _abandonHoldGesture();
+        final granted = await _holdRecorder.hasPermission();
+        if (!mounted) return;
+        AppToast.info(
+          context,
+          granted
+              ? context.l10n.microphoneReadyHoldToRecord
+              : context.l10n.microphonePermissionRequiredForQuickAudioLogging,
+        );
         return;
       }
+      if (!isHeld()) return;
 
       final tempDir = await getTemporaryDirectory();
       if (!isHeld()) return;
@@ -3205,10 +3233,13 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
       }
       HapticFeedback.lightImpact();
       _holdConsentOwner = consentOwner;
+      _holdCancelFeedbackTimer?.cancel();
+      _holdLevels.clear();
       setState(() {
         _isHoldRecording = true;
         _isHoldCancelled = false;
-        _didCrossCancelThreshold = false;
+        _isHoldCancelFeedbackVisible = false;
+        _hasHoldCancelDetent = false;
         _holdDragDeltaX = 0;
         _holdRecordingStartedAt = DateTime.now();
       });
@@ -3219,7 +3250,6 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         setState(() {
           _isHoldRecording = false;
           _isHoldCancelled = false;
-          _didCrossCancelThreshold = false;
           _holdDragDeltaX = 0;
         });
         AppToast.error(
@@ -3240,47 +3270,83 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   void _startHoldAmplitudeProbe() {
     _holdRecordingPeakDb = _silentRecordingPeakDb;
     _holdAmplitudeTimer?.cancel();
-    _holdAmplitudeTimer =
-        Timer.periodic(const Duration(milliseconds: 100), (_) {
+    _holdAmplitudeTimer = Timer.periodic(_holdAmplitudeSampleInterval, (_) {
       unawaited(_captureHoldRecordingAmplitude());
     });
   }
 
   Future<void> _captureHoldRecordingAmplitude() async {
+    if (_isSamplingHoldAmplitude) return;
+    _isSamplingHoldAmplitude = true;
     try {
       final amp = await _holdRecorder.getAmplitude();
       final peak = max(amp.current, amp.max);
       if (peak > _holdRecordingPeakDb) {
         _holdRecordingPeakDb = peak;
       }
-    } catch (_) {}
+      if (_isHoldRecording && mounted) _holdLevels.addDecibels(amp.current);
+    } catch (_) {
+    } finally {
+      _isSamplingHoldAmplitude = false;
+    }
   }
 
   void _applyHoldDragDelta(double deltaX) {
-    if (!_isHoldRecording) return;
+    if (!_isHoldRecording || !mounted) return;
 
-    final shouldCancel = deltaX.abs() >= _recordCancelDragThreshold;
-    final crossedIntoCancelArea = shouldCancel && !_didCrossCancelThreshold;
-    final movedOutOfCancelArea = !shouldCancel && _didCrossCancelThreshold;
-
-    if (crossedIntoCancelArea) {
-      HapticFeedback.mediumImpact();
+    final progress = holdCancelProgress(deltaX, _recordCancelDragThreshold);
+    if (progress >= 1) {
+      unawaited(_cancelHoldRecording());
+      return;
     }
 
-    if (!mounted) return;
-    setState(() {
-      _holdDragDeltaX = deltaX;
-      _isHoldCancelled = shouldCancel;
-      if (crossedIntoCancelArea) {
-        _didCrossCancelThreshold = true;
-      } else if (movedOutOfCancelArea) {
-        _didCrossCancelThreshold = false;
-      }
-    });
+    // A single detent tick at the halfway point tells the user the gesture is
+    // registering before it commits; it re-arms once they back off.
+    if (!_hasHoldCancelDetent && progress >= 0.5) {
+      _hasHoldCancelDetent = true;
+      HapticFeedback.selectionClick();
+    } else if (_hasHoldCancelDetent && progress < 0.3) {
+      _hasHoldCancelDetent = false;
+    }
+
+    final visualDeltaX =
+        holdDragVisualOffset(deltaX, _recordCancelDragThreshold);
+    if (visualDeltaX == _holdDragDeltaX) return;
+    setState(() => _holdDragDeltaX = visualDeltaX);
   }
 
-  void _updateHoldRecordingDrag(LongPressMoveUpdateDetails details) {
-    _applyHoldDragDelta(details.offsetFromOrigin.dx);
+  /// Crossing the threshold discards immediately (no release needed), so the
+  /// remainder of the press is ignored until the finger lifts.
+  Future<void> _cancelHoldRecording() async {
+    if (!_isHoldRecording) return;
+    _holdConsentOwner = null;
+    _holdStartGlobalX = null;
+    _holdAmplitudeTimer?.cancel();
+    unawaited(_playHoldCancelHaptic());
+    _holdCancelFeedbackTimer?.cancel();
+    setState(() {
+      _isHoldRecording = false;
+      _isHoldCancelled = true;
+      _isHoldCancelFeedbackVisible = true;
+      _holdDragDeltaX = 0;
+    });
+    _holdCancelFeedbackTimer = Timer(_holdCancelFeedbackDuration, () {
+      if (mounted) setState(() => _isHoldCancelFeedbackVisible = false);
+    });
+
+    try {
+      final path = await _holdRecorder.stop();
+      if (path == null) return;
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
+  }
+
+  /// "Thud, settle" timed with the mic dropping into the bin.
+  Future<void> _playHoldCancelHaptic() async {
+    HapticFeedback.heavyImpact();
+    await Future<void>.delayed(const Duration(milliseconds: 360));
+    HapticFeedback.lightImpact();
   }
 
   void _onHoldPointerMove(PointerMoveEvent event) {
@@ -3296,17 +3362,13 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
 
     final consentOwner = _holdConsentOwner;
     _holdConsentOwner = null;
-    final wasCancelled = _isHoldCancelled;
     final startedAt = _holdRecordingStartedAt;
 
     if (mounted) {
       setState(() {
         _isHoldRecording = false;
-        _isHoldCancelled = false;
-        _didCrossCancelThreshold = false;
         _holdDragDeltaX = 0;
         _holdStartGlobalX = null;
-        _holdRecordingStartedAt = null;
       });
     }
 
@@ -3321,14 +3383,10 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
           consentOwner?.isCurrentActor != true ||
           !ref.read(aiProcessingConsentProvider).mayProcess) return;
 
-      if (wasCancelled) {
-        HapticFeedback.selectionClick();
-        return;
-      }
-
       if (startedAt != null &&
           DateTime.now().difference(startedAt).inMilliseconds <
               _minimumHoldRecordingMs) {
+        HapticFeedback.mediumImpact();
         if (mounted) {
           AppToast.error(context, context.l10n.recordingTooShort);
         }
@@ -3337,6 +3395,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
 
       final hasVoiceInput = _holdRecordingPeakDb > _minimumVoicePeakDb;
       if (!hasVoiceInput) {
+        HapticFeedback.mediumImpact();
         if (mounted) {
           AppToast.error(context, context.l10n.recordingIsEmpty);
         }
@@ -3391,115 +3450,18 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
     }
   }
 
-  Widget _buildHoldRecordingIndicator(ColorScheme colorScheme) {
-    final dragProgress = (_holdDragDeltaX.abs() / _recordCancelDragThreshold)
-        .clamp(0.0, 1.0)
-        .toDouble();
-    final indicatorBackground = _isHoldCancelled
-        ? colorScheme.errorContainer
-        : colorScheme.surfaceContainerHigh;
-
-    return IgnorePointer(
-      child: AnimatedSlide(
-        duration: const Duration(milliseconds: 120),
-        offset: _isHoldRecording ? Offset.zero : const Offset(0.25, 0),
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 120),
-          opacity: _isHoldRecording ? 1 : 0,
-          child: Container(
-            width: 240,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: indicatorBackground,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: _isHoldCancelled
-                    ? colorScheme.error
-                    : colorScheme.outlineVariant,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withValues(alpha: 0.15),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _isHoldRecording
-                      ? _FabAudioWave(colorScheme: colorScheme)
-                      : _FabAudioWavePlaceholder(colorScheme: colorScheme),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _isHoldCancelled
-                        ? context.l10n.releaseToCancel
-                        : context.l10n.slideRightToCancel,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _isHoldCancelled
-                          ? colorScheme.error
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                AnimatedScale(
-                  duration: const Duration(milliseconds: 110),
-                  scale: _isHoldCancelled ? 1.14 : 1.0,
-                  child: AnimatedRotation(
-                    duration: const Duration(milliseconds: 110),
-                    turns: _isHoldCancelled ? 0.03 : 0,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 110),
-                      transform: Matrix4.translationValues(
-                        (_holdDragDeltaX.sign * (dragProgress * 8)),
-                        0,
-                        0,
-                      ),
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.error.withValues(
-                          alpha: 0.08 + (dragProgress * 0.22),
-                        ),
-                        border: Border.all(
-                          color: colorScheme.error.withValues(
-                            alpha: 0.15 + (dragProgress * 0.55),
-                          ),
-                        ),
-                        boxShadow: _isHoldCancelled
-                            ? [
-                                BoxShadow(
-                                  color:
-                                      colorScheme.error.withValues(alpha: 0.35),
-                                  blurRadius: 10,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Icon(
-                        Icons.delete_outline_rounded,
-                        size: 17,
-                        color: colorScheme.error.withValues(
-                          alpha: 0.45 + (dragProgress * 0.55),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  Widget _buildHoldRecordingIndicator() {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final width = (screenWidth - 16 - 66 - 16).clamp(200.0, 320.0).toDouble();
+    return HoldRecordingIndicator(
+      isVisible: _isHoldRecording || _isHoldCancelFeedbackVisible,
+      isRecording: _isHoldRecording,
+      isCancelled: _isHoldCancelled,
+      cancelProgress:
+          holdCancelProgress(_holdDragDeltaX, _recordCancelDragThreshold),
+      levels: _holdLevels,
+      startedAt: _holdRecordingStartedAt,
+      width: width,
     );
   }
 
@@ -3510,8 +3472,6 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         _fabKey.currentState?.close();
       }
     });
-
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Stack(
       alignment: Alignment.bottomRight,
@@ -3535,6 +3495,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
               onPointerUp: (_) {
                 _holdGeneration += 1;
                 _holdStartGlobalX = null;
+                _setHoldPressing(false);
                 if (_isHoldRecording) {
                   unawaited(_finishHoldRecording());
                 }
@@ -3542,6 +3503,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
               onPointerCancel: (_) {
                 _holdGeneration += 1;
                 _holdStartGlobalX = null;
+                _setHoldPressing(false);
                 if (_isHoldRecording) {
                   unawaited(_finishHoldRecording());
                 }
@@ -3559,9 +3521,11 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
                         ..onLongPressStart = (details) async {
                           _holdGeneration += 1;
                           _holdStartGlobalX = details.globalPosition.dx;
+                          // Instant press acknowledgement while the recorder
+                          // spins up, so the hold never feels unresponsive.
+                          _setHoldPressing(true);
                           await _runHoldAction();
                         }
-                        ..onLongPressMoveUpdate = _updateHoldRecordingDrag
                         ..onLongPressEnd = (_) async {
                           await _finishHoldRecording();
                         }
@@ -3575,14 +3539,46 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
                   clipBehavior: Clip.none,
                   alignment: Alignment.centerRight,
                   children: [
-                    AnimatedScale(
-                      duration: const Duration(milliseconds: 150),
-                      scale: _isHoldRecording ? 1.08 : 1.0,
-                      child: defaultButton,
-                    ),
                     Positioned(
                       right: 66,
-                      child: _buildHoldRecordingIndicator(colorScheme),
+                      child: _buildHoldRecordingIndicator(),
+                    ),
+                    // The button tracks the finger 1:1 while dragging toward
+                    // cancel, then springs home on release or cancel.
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(end: _holdDragDeltaX),
+                      duration: _isHoldRecording
+                          ? Duration.zero
+                          : const Duration(milliseconds: 280),
+                      curve: Curves.easeOutBack,
+                      builder: (context, dx, child) => Transform.translate(
+                        offset: Offset(dx, 0),
+                        child: child,
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          HoldRecordingVoiceHalo(
+                            levels: _holdLevels,
+                            isActive: _isHoldRecording,
+                            cancelProgress: holdCancelProgress(
+                              _holdDragDeltaX,
+                              _recordCancelDragThreshold,
+                            ),
+                          ),
+                          AnimatedScale(
+                            duration: const Duration(milliseconds: 150),
+                            curve: Curves.easeOutBack,
+                            scale: _isHoldRecording
+                                ? 1.12
+                                : _isHoldPressing
+                                    ? 1.06
+                                    : 1.0,
+                            child: defaultButton,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -3621,94 +3617,6 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _FabAudioWave extends StatefulWidget {
-  const _FabAudioWave({required this.colorScheme});
-
-  final ColorScheme colorScheme;
-
-  @override
-  State<_FabAudioWave> createState() => _FabAudioWaveState();
-}
-
-class _FabAudioWaveState extends State<_FabAudioWave> {
-  late final List<double> _bars;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _bars = List<double>.filled(10, 0.25);
-    _timer = Timer.periodic(const Duration(milliseconds: 110), (_) {
-      if (!mounted) return;
-      setState(() {
-        for (var i = 0; i < _bars.length; i++) {
-          final phase = DateTime.now().millisecondsSinceEpoch / 150 + i;
-          final value = 0.15 + (sin(phase).abs() * 0.85);
-          _bars[i] = value.clamp(0.12, 1.0);
-        }
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 18,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List<Widget>.generate(_bars.length, (index) {
-          final barHeight = 4 + (_bars[index] * 13);
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
-            margin: const EdgeInsets.symmetric(horizontal: 1.2),
-            width: 2.4,
-            height: barHeight,
-            decoration: BoxDecoration(
-              color: widget.colorScheme.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _FabAudioWavePlaceholder extends StatelessWidget {
-  const _FabAudioWavePlaceholder({required this.colorScheme});
-
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 18,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List<Widget>.generate(10, (index) {
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 1.2),
-            width: 2.4,
-            height: 7,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          );
-        }),
-      ),
     );
   }
 }
