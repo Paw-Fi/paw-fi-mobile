@@ -985,7 +985,7 @@ class _UnifiedTransactionSheetV2State
     final accountTarget = _resolveAccountTarget();
     final transactionCurrency = currency.trim().toUpperCase();
     final scopedAccountsAsync =
-        ref.watch(walletsByCurrencyProvider(WalletsCurrencyQuery(
+        ref.watch(walletsByCurrencyStateProvider(WalletsCurrencyQuery(
       householdId: accountTarget.householdId,
       currency: transactionCurrency,
     )));

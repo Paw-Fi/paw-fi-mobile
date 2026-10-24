@@ -935,6 +935,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     _ref.invalidate(walletsByHouseholdIdProvider(targetHouseholdId));
     _ref.invalidate(
+        shortcutDestinationWalletsByHouseholdIdProvider(targetHouseholdId));
+    _ref.invalidate(
       walletsByCurrencyProvider(
         WalletsCurrencyQuery(
           householdId: targetHouseholdId,

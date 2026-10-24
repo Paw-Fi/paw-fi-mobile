@@ -169,48 +169,58 @@ class WalletsCurrencyQuery {
 
 final walletsByCurrencyProvider =
     FutureProvider.family<List<WalletEntity>, WalletsCurrencyQuery>(
-  (ref, query) async {
-    final authHeaders = ref.watch(walletAuthHeadersProvider);
-    if (authHeaders == null || query.normalizedCurrency.isEmpty) {
+  (ref, query) {
+    if (query.normalizedCurrency.isEmpty) {
       return const <WalletEntity>[];
     }
-
-    final scopeQuery = ref.watch(walletsScopeQueryProvider);
-    final response = await supabase.functions.invoke(
-      'list-wallets',
-      headers: authHeaders,
-      body: _listWalletsFunctionBody(
-        householdId: query.householdId,
-        selectedCurrency: query.normalizedCurrency,
-        selectedCurrencies: <String>[query.normalizedCurrency],
-        currentMonthStart: scopeQuery.currentMonthStart,
-      ),
-    );
-
-    final payload = response.data as Map<String, dynamic>?;
-    if (payload == null || payload['success'] != true) {
-      final message = payload?['error']?.toString() ?? 'Failed to load wallets';
-      throw Exception(message);
+    final catalogProvider =
+        shortcutDestinationWalletsByHouseholdIdProvider(query.householdId);
+    final catalog = ref.read(catalogProvider);
+    final hasTerminalCatalogError =
+        catalog.hasError && !ErrorHandler.isRetryable(catalog.error);
+    if (!catalog.isLoading && hasTerminalCatalogError) {
+      ref.watch(catalogProvider);
+      final error = catalog.error!;
+      final stackTrace = catalog.stackTrace ?? StackTrace.current;
+      Error.throwWithStackTrace(error, stackTrace);
     }
-
-    final data = payload['data'] as List<dynamic>? ?? const [];
-    final wallets = data
-        .whereType<Map<String, dynamic>>()
-        .map(WalletEntity.fromJson)
-        .toList(growable: false);
     final optimisticOverrides =
         ref.watch(optimisticScopedAccountsOverridesProvider);
     final scopedCurrencyOverrides = Map<String, WalletEntity>.fromEntries(
       optimisticOverrides.entries.where(
-        (entry) =>
-            entry.value.householdId == query.householdId &&
-            entry.value.currency.trim().toUpperCase() ==
-                query.normalizedCurrency,
+        (entry) => entry.value.householdId == query.householdId,
       ),
     );
-    return _activeWallets(
-      _mergeOptimisticAccounts(wallets, scopedCurrencyOverrides),
-    );
+
+    List<WalletEntity> project(List<WalletEntity> wallets) => _activeWallets(
+          _mergeOptimisticAccounts(wallets, scopedCurrencyOverrides),
+        )
+            .where((wallet) =>
+                wallet.householdId == query.householdId &&
+                wallet.currency.trim().toUpperCase() ==
+                    query.normalizedCurrency)
+            .toList(growable: false);
+
+    // The shell already preloads this all-currency catalog. Return warm options
+    // synchronously, without a second balance/ledger read for each editor.
+    if (catalog.hasValue && !catalog.isReloading && !hasTerminalCatalogError) {
+      return project(ref.watch(catalogProvider).requireValue);
+    }
+    return ref.watch(catalogProvider.future).then(project);
+  },
+);
+
+final walletsByCurrencyStateProvider =
+    Provider.family<AsyncValue<List<WalletEntity>>, WalletsCurrencyQuery>(
+  (ref, query) {
+    final options = ref.watch(walletsByCurrencyProvider(query));
+    // FutureProvider retains previous data even after a dependency change or
+    // rejection. Never expose those options after auth reload or terminal denial.
+    if (options.isReloading ||
+        (options.hasError && !ErrorHandler.isRetryable(options.error))) {
+      return options.unwrapPrevious();
+    }
+    return options;
   },
 );
 

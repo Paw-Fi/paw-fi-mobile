@@ -164,7 +164,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         ),
     };
     final currencyScopedAccounts = ref
-            .watch(walletsByCurrencyProvider(WalletsCurrencyQuery(
+            .watch(walletsByCurrencyStateProvider(WalletsCurrencyQuery(
               householdId: effectiveHouseholdId,
               currency: walletCurrencyCode,
             )))

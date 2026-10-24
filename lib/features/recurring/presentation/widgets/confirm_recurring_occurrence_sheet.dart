@@ -484,7 +484,7 @@ class _ConfirmRecurringOccurrenceFormState
       return;
     }
     if (!_isSettlementLocked) {
-      final walletsAsync = ref.read(walletsByCurrencyProvider(
+      final walletsAsync = ref.read(walletsByCurrencyStateProvider(
         WalletsCurrencyQuery(
           householdId: widget.recurringTransaction.householdId,
           currency: widget.recurringTransaction.currency,
@@ -676,7 +676,7 @@ class _ConfirmRecurringOccurrenceFormState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final transaction = widget.recurringTransaction;
-    final walletsAsync = ref.watch(walletsByCurrencyProvider(
+    final walletsAsync = ref.watch(walletsByCurrencyStateProvider(
       WalletsCurrencyQuery(
         householdId: transaction.householdId,
         currency: transaction.currency,

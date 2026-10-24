@@ -409,7 +409,7 @@ class PreviewStep extends ConsumerWidget {
       primaryCurrency: primaryCurrency,
     );
     final accountsAsync = ref.watch(
-      walletsByCurrencyProvider(
+      walletsByCurrencyStateProvider(
         WalletsCurrencyQuery(
           householdId: targetHouseholdId,
           currency: targetCurrency,

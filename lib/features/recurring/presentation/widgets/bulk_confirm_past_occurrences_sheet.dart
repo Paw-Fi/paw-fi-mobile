@@ -71,7 +71,7 @@ class _BulkConfirmPastOccurrencesFormState
       setState(() => _error = context.l10n.signInToConfirmPayments);
       return;
     }
-    final walletsAsync = ref.read(walletsByCurrencyProvider(
+    final walletsAsync = ref.read(walletsByCurrencyStateProvider(
       WalletsCurrencyQuery(
         householdId: widget.recurringTransaction.householdId,
         currency: widget.recurringTransaction.currency,
@@ -151,7 +151,7 @@ class _BulkConfirmPastOccurrencesFormState
     final transaction = widget.recurringTransaction;
     final occurrences = widget.occurrences;
 
-    final walletsAsync = ref.watch(walletsByCurrencyProvider(
+    final walletsAsync = ref.watch(walletsByCurrencyStateProvider(
       WalletsCurrencyQuery(
         householdId: transaction.householdId,
         currency: transaction.currency,
