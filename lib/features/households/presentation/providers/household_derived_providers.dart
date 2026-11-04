@@ -61,9 +61,12 @@ final _settlementOverviewRefreshCacheProvider =
   (ref) => _SettlementOverviewRefreshCache(),
 );
 
-/// Combined local projection for multi-currency and pending-payment
-/// settlement UI. The normal single-currency card and settle-up sheet use
-/// [householdPairwiseSettlementBalancesV2Provider] directly.
+/// Combined local projection of cached splits and settlement payments.
+///
+/// Not used for displayed settlement amounts: the Home settlement card and
+/// the settle-up sheet both read [householdPairwiseSettlementBalancesV2Provider]
+/// so they can never disagree. This projection is derived from the persisted
+/// split cache, which may lag the server after an expense mutation.
 ///
 /// - Loading: when either input is loading with no cached value.
 /// - Error: when either input errors with no cached value.

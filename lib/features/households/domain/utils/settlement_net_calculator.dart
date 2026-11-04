@@ -1,4 +1,5 @@
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 
 /// Result of computing the net settlement between the current user and
 /// one other household member.
@@ -194,6 +195,86 @@ Map<String, PairwiseNetResult> computeSettlementNets({
   }
 
   return results;
+}
+
+/// Pending payments that the authoritative ledger has not published yet.
+///
+/// A settlement acknowledgement can outlive its server event locally. Once
+/// the confirmed ledger carries the same event ID or actor/mutation identity,
+/// the pending copy must stop being overlaid or the payment counts twice.
+List<SettlementPaymentRecord> unconfirmedSettlementPayments({
+  required List<SettlementPaymentRecord> pending,
+  required List<SettlementPaymentRecord> confirmed,
+}) {
+  if (pending.isEmpty) return const <SettlementPaymentRecord>[];
+  final eventIds = confirmed.map((p) => p.eventId).whereType<String>().toSet();
+  final identities =
+      confirmed.map((p) => p.mutationIdentity).whereType<String>().toSet();
+  return pending
+      .where((p) =>
+          !(p.eventId != null && eventIds.contains(p.eventId)) &&
+          !(p.mutationIdentity != null &&
+              identities.contains(p.mutationIdentity)))
+      .toList(growable: false);
+}
+
+/// Overlays locally pending settlement payments on authoritative pairwise
+/// balances for one [currency], using the same formula as the server RPC:
+///
+///   net = (splitTo − splitFrom) − (paidTo − paidFrom)
+///
+/// Only the `paidTo`/`paidFrom` components change; split obligations remain
+/// exactly what the server reported. Payments in another currency or with no
+/// currency are ignored, matching [computeSettlementNets].
+List<SettlementPairwiseBalance> applyPendingPaymentsToPairwiseBalances({
+  required List<SettlementPairwiseBalance> balances,
+  required List<SettlementPaymentRecord> pendingPayments,
+  required String currentUserId,
+  required String currency,
+}) {
+  final normalizedCurrency = currency.trim().toUpperCase();
+  final paidTo = <String, int>{};
+  final paidFrom = <String, int>{};
+  for (final p in pendingPayments) {
+    final pc = p.currency?.trim().toUpperCase();
+    if (pc == null || pc.isEmpty || pc != normalizedCurrency) continue;
+    if (p.participantUserId == currentUserId) {
+      paidTo[p.payerUserId] =
+          (paidTo[p.payerUserId] ?? 0) + p.amountCents.abs();
+    } else if (p.payerUserId == currentUserId) {
+      paidFrom[p.participantUserId] =
+          (paidFrom[p.participantUserId] ?? 0) + p.amountCents.abs();
+    }
+  }
+  if (paidTo.isEmpty && paidFrom.isEmpty) return balances;
+
+  final byUser = <String, SettlementPairwiseBalance>{
+    for (final balance in balances) balance.otherUserId: balance,
+  };
+  final otherUsers = <String>{
+    ...byUser.keys,
+    ...paidTo.keys,
+    ...paidFrom.keys,
+  };
+  final result = <SettlementPairwiseBalance>[];
+  for (final otherUserId in otherUsers) {
+    if (otherUserId.isEmpty || otherUserId == currentUserId) continue;
+    final base = byUser[otherUserId];
+    final st = base?.splitToCents ?? 0;
+    final sf = base?.splitFromCents ?? 0;
+    final pt = (base?.paidToCents ?? 0) + (paidTo[otherUserId] ?? 0);
+    final pf = (base?.paidFromCents ?? 0) + (paidFrom[otherUserId] ?? 0);
+    result.add(SettlementPairwiseBalance(
+      otherUserId: otherUserId,
+      currency: base?.currency ?? normalizedCurrency,
+      splitToCents: st,
+      splitFromCents: sf,
+      paidToCents: pt,
+      paidFromCents: pf,
+      netCents: (st - sf) - (pt - pf),
+    ));
+  }
+  return result;
 }
 
 /// Convenience: compute the net for a single [otherUserId].

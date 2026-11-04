@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/utils/pending_settlement_payment.dart';
 
@@ -76,6 +77,105 @@ void _assertConservation(
 }
 
 void main() {
+  group('applyPendingPaymentsToPairwiseBalances', () {
+    const base = SettlementPairwiseBalance(
+        otherUserId: 'B',
+        currency: 'EUR',
+        splitToCents: 10000,
+        splitFromCents: 2000,
+        paidToCents: 500,
+        paidFromCents: 0,
+        netCents: 7500);
+
+    test('matches the split calculator for the same payments', () {
+      final splits = [
+        _expense('AB', 'B', {'A': 10000}),
+        _expense('BA', 'A', {'B': 2000}),
+      ];
+      final payments = [
+        _payment('A', 'B', 500, currency: 'EUR'),
+        _payment('A', 'B', 2500, currency: 'EUR'),
+      ];
+      final overlaid = applyPendingPaymentsToPairwiseBalances(
+        balances: const [base],
+        pendingPayments: [payments.last],
+        currentUserId: 'A',
+        currency: 'EUR',
+      );
+      expect(overlaid.single.netCents, _net(splits, payments, 'A', 'B'));
+      expect(overlaid.single.paidToCents, 3000);
+      expect(overlaid.single.splitToCents, 10000);
+      expect(overlaid.single.splitFromCents, 2000);
+    });
+
+    test('ignores payments in another or missing currency', () {
+      final overlaid = applyPendingPaymentsToPairwiseBalances(
+        balances: const [base],
+        pendingPayments: [
+          _payment('A', 'B', 2500, currency: 'USD'),
+          const SettlementPaymentRecord(
+              payerUserId: 'B', participantUserId: 'A', amountCents: 2500),
+        ],
+        currentUserId: 'A',
+        currency: 'EUR',
+      );
+      expect(overlaid.single.netCents, 7500);
+      expect(overlaid.single.paidToCents, 500);
+    });
+
+    test('creates a credit balance for a member without server rows', () {
+      final overlaid = applyPendingPaymentsToPairwiseBalances(
+        balances: const <SettlementPairwiseBalance>[],
+        pendingPayments: [
+          pendingSettlementPaymentRecord(
+            currentUserId: 'A',
+            memberUserId: 'C',
+            mode: 'from_member',
+            amountCents: 1200,
+            currency: 'EUR',
+          )!,
+        ],
+        currentUserId: 'A',
+        currency: 'EUR',
+      );
+      expect(overlaid.single.otherUserId, 'C');
+      expect(overlaid.single.paidFromCents, 1200);
+      expect(overlaid.single.netCents, 1200);
+    });
+  });
+
+  test('unconfirmedSettlementPayments drops server-visible identities', () {
+    const confirmed = SettlementPaymentRecord(
+        eventId: 'event-1',
+        actorUserId: 'A',
+        clientMutationId: 'm1',
+        payerUserId: 'B',
+        participantUserId: 'A',
+        amountCents: 100,
+        currency: 'EUR');
+    final pendingSame = pendingSettlementPaymentRecord(
+      currentUserId: 'A',
+      memberUserId: 'B',
+      mode: 'to_member',
+      amountCents: 100,
+      currency: 'EUR',
+      clientMutationId: 'm1',
+    )!;
+    final pendingOther = pendingSettlementPaymentRecord(
+      currentUserId: 'A',
+      memberUserId: 'B',
+      mode: 'to_member',
+      amountCents: 100,
+      currency: 'EUR',
+      clientMutationId: 'm2',
+    )!;
+    final remaining = unconfirmedSettlementPayments(
+      pending: [pendingSame, pendingOther],
+      confirmed: const [confirmed],
+    );
+    expect(remaining, [pendingOther]);
+  });
+
   test(
       'identical amounts remain distinct while repeated identities are applied once',
       () {

@@ -11,7 +11,6 @@ import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
-import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -48,8 +47,11 @@ class SettlementSuggestionsCard extends ConsumerStatefulWidget {
 class _SettlementSuggestionsCardState
     extends ConsumerState<SettlementSuggestionsCard> {
   List<SettlementPaymentRecord>? _retainedDurablePendingPayments;
-  List<SettlementPairwiseBalance>? _retainedPairwiseBalances;
-  SettlementOverviewData? _retainedSettlementOverview;
+
+  /// Last complete per-currency balances (authoritative pairwise RPC plus any
+  /// unconfirmed pending payments). Kept visible while an input refreshes so
+  /// a retiring pending payment can never flash the pre-payment debt.
+  final Map<String, List<SettlementPairwiseBalance>> _retainedBalances = {};
 
   @override
   void didUpdateWidget(covariant SettlementSuggestionsCard oldWidget) {
@@ -62,8 +64,7 @@ class _SettlementSuggestionsCardState
           widget.selectedCurrencies,
         )) {
       _retainedDurablePendingPayments = null;
-      _retainedPairwiseBalances = null;
-      _retainedSettlementOverview = null;
+      _retainedBalances.clear();
     }
   }
 
@@ -123,44 +124,38 @@ class _SettlementSuggestionsCardState
     }
     final durablePendingPayments =
         resolvedDurablePendingPayments ?? _retainedDurablePendingPayments;
-    final hasDurablePendingSettlement =
-        durablePendingPayments?.isNotEmpty ?? false;
-    final pairwiseBalancesAsync = hasMultiCurrencySelection
+
+    // Every amount on this card comes from the same authoritative pairwise
+    // provider the settle-up sheet reads (`_recomputeFromSplits`). One
+    // instance per visible currency keeps the two surfaces identical and
+    // avoids re-deriving nets from the persisted split cache, which can lag
+    // the server by a full refresh cycle after an expense mutation.
+    final currencies = hasMultiCurrencySelection
+        ? selectedCurrencyFilters
+        : <String>[selectedCurrency];
+    PairwiseSettlementBalancesParams paramsFor(String currency) =>
+        PairwiseSettlementBalancesParams(
+          householdId: widget.householdId,
+          currency: currency,
+        );
+    final pairwiseByCurrency =
+        <String, AsyncValue<List<SettlementPairwiseBalance>>>{
+      for (final currency in currencies)
+        currency: ref.watch(
+          householdPairwiseSettlementBalancesV2Provider(paramsFor(currency)),
+        ),
+    };
+
+    // Pending settlement payments are overlaid on the RPC result only until
+    // the confirmed ledger carries the same identity; otherwise a durable
+    // acknowledgement that outlives its server event would count twice.
+    final pendingPayments = mergeSettlementPayments(
+      confirmed: const <SettlementPaymentRecord>[],
+      pending: [...?durablePendingPayments, ...optimisticPayments],
+    );
+    final confirmedPaymentsAsync = pendingPayments.isEmpty
         ? null
-        : ref.watch(
-            householdPairwiseSettlementBalancesV2Provider(
-              PairwiseSettlementBalancesParams(
-                householdId: widget.householdId,
-                currency: selectedCurrency,
-              ),
-            ),
-          );
-    // The pairwise provider has a complete split-aware optimistic branch for
-    // transaction mutations. Keeping it as the single-currency source avoids
-    // switching this card to a second, cold overview provider after an expense
-    // is logged. The full overview remains necessary for multiple currencies
-    // and pending settlement-payment mutations.
-    final needsLegacyOverview = hasMultiCurrencySelection ||
-        optimisticPayments.isNotEmpty ||
-        hasDurablePendingSettlement ||
-        (_retainedSettlementOverview != null &&
-            ((pairwiseBalancesAsync?.isLoading ?? false) ||
-                (pairwiseBalancesAsync?.hasError ?? false)));
-    final useLegacyOverview = needsLegacyOverview;
-    final overviewAsync = useLegacyOverview
-        ? ref.watch(settlementOverviewProvider(widget.householdId))
-        : null;
-    final resolvedPairwiseBalances = pairwiseBalancesAsync?.valueOrNull;
-    if (resolvedPairwiseBalances != null) {
-      _retainedPairwiseBalances = resolvedPairwiseBalances;
-    }
-    final resolvedOverview = overviewAsync?.valueOrNull;
-    if (resolvedOverview != null) {
-      _retainedSettlementOverview = resolvedOverview;
-    }
-    final pairwiseBalances =
-        resolvedPairwiseBalances ?? _retainedPairwiseBalances;
-    final overview = resolvedOverview ?? _retainedSettlementOverview;
+        : ref.watch(householdSettlementPaymentsProvider(widget.householdId));
 
     if (durablePendingPayments == null) {
       if (durablePendingPaymentsAsync.hasError) {
@@ -172,48 +167,36 @@ class _SettlementSuggestionsCardState
       return _buildLoadingCard(context, colorScheme);
     }
 
-    // Never render a partial or client-reconstructed settlement amount. The
-    // common single-currency path uses the exact same pairwise provider as
-    // the settle-up sheet, whose optimistic branch waits for the complete
-    // canonical split/payment input.
-    // Only multi-currency and pending settlement payments need the full local
-    // overview. Cached authoritative values remain usable during refresh.
-    if (useLegacyOverview) {
-      if ((overviewAsync?.hasError ?? false) && overview == null) {
-        return _buildErrorCard(
-          context,
-          colorScheme,
-          onRetry: () =>
-              ref.invalidate(settlementOverviewProvider(widget.householdId)),
+    void invalidateBalances() {
+      for (final currency in currencies) {
+        ref.invalidate(
+          householdPairwiseSettlementBalancesV2Provider(paramsFor(currency)),
         );
       }
-      if (overview == null) {
-        return _buildLoadingCard(context, colorScheme);
-      }
-    } else {
-      if (pairwiseBalancesAsync!.hasError && pairwiseBalances == null) {
-        return _buildErrorCard(
-          context,
-          colorScheme,
-          onRetry: () => ref.invalidate(
-            householdPairwiseSettlementBalancesV2Provider(
-              PairwiseSettlementBalancesParams(
-                householdId: widget.householdId,
-                currency: selectedCurrency,
-              ),
-            ),
-          ),
-        );
-      }
-      if (pairwiseBalances == null) {
-        return _buildLoadingCard(context, colorScheme);
+      if (confirmedPaymentsAsync != null) {
+        ref.invalidate(householdSettlementPaymentsProvider(widget.householdId));
       }
     }
 
-    final balances = pairwiseBalances;
-
-    if (balances == null && overview == null) {
-      return _buildLoadingCard(context, colorScheme);
+    final balancesByCurrency = <String, List<SettlementPairwiseBalance>>{};
+    for (final currency in currencies) {
+      final resolved = _resolveBalances(
+        currency: currency,
+        pairwiseAsync: pairwiseByCurrency[currency]!,
+        pendingPayments: pendingPayments,
+        confirmedPaymentsAsync: confirmedPaymentsAsync,
+        currentUserId: currentUserId,
+      );
+      if (resolved == null) {
+        // Fail closed: never render a partial or stale amount. A cached value
+        // remains visible during refresh via the retained balances above.
+        final hasError = pairwiseByCurrency[currency]!.hasError ||
+            (confirmedPaymentsAsync?.hasError ?? false);
+        return hasError
+            ? _buildErrorCard(context, colorScheme, onRetry: invalidateBalances)
+            : _buildLoadingCard(context, colorScheme);
+      }
+      balancesByCurrency[currency] = resolved;
     }
 
     return Builder(
@@ -240,30 +223,13 @@ class _SettlementSuggestionsCardState
           return fromMembers?.userEmail ?? context.l10n.member;
         }
 
-        final overviewSplits = overview?.splits ?? widget.splits;
-        final mySuggestions = !useLegacyOverview &&
-                !hasMultiCurrencySelection &&
-                balances != null &&
-                optimisticPayments.isEmpty &&
-                !hasDurablePendingSettlement
-            ? _buildSuggestionsFromBalances(
-                balances,
-                currentUserId,
-                nameFor,
-                selectedCurrency,
-              )
-            : _buildLegacySuggestions(
-                overviewSplits,
-                hasMultiCurrencySelection
-                    ? selectedCurrencyFilters
-                    : <String>[selectedCurrency],
-                currentUserId,
-                nameFor,
-                settlementPayments:
-                    overview?.payments ?? const <SettlementPaymentRecord>[],
-                displayCurrency: selectedCurrency,
-                rates: rateTable,
-              );
+        final mySuggestions = _buildSuggestionsFromBalances(
+          balancesByCurrency,
+          currentUserId,
+          nameFor,
+          displayCurrency: selectedCurrency,
+          rates: rateTable,
+        );
 
         // 4. Calculate Stats for Current User
         int youOweTotal = 0;
@@ -624,94 +590,85 @@ class _SettlementSuggestionsCardState
     );
   }
 
-  List<_Suggestion> _buildSuggestionsFromBalances(
-    List<SettlementPairwiseBalance> balances,
-    String currentUserId,
-    String Function(String) nameFor,
-    String currency,
-  ) {
-    final out = <_Suggestion>[];
-    for (final balance in balances) {
-      if (balance.netCents > 0) {
-        out.add(_Suggestion(
-          fromUserId: currentUserId,
-          toUserId: balance.otherUserId,
-          fromName: nameFor(currentUserId),
-          toName: nameFor(balance.otherUserId),
-          amountCents: balance.netCents,
-          displayAmountCents: balance.netCents,
-          currency: currency,
-        ));
-      } else if (balance.netCents < 0) {
-        out.add(_Suggestion(
-          fromUserId: balance.otherUserId,
-          toUserId: currentUserId,
-          fromName: nameFor(balance.otherUserId),
-          toName: nameFor(currentUserId),
-          amountCents: balance.netCents.abs(),
-          displayAmountCents: balance.netCents.abs(),
-          currency: currency,
-        ));
-      }
-    }
+  /// Resolves the balances to render for one currency, or `null` when no
+  /// trustworthy value exists yet.
+  ///
+  /// While either the pairwise RPC or the confirmed ledger is refreshing, the
+  /// previously rendered balances are kept so that a pending payment retiring
+  /// at the same moment the RPC refreshes cannot expose an intermediate value.
+  List<SettlementPairwiseBalance>? _resolveBalances({
+    required String currency,
+    required AsyncValue<List<SettlementPairwiseBalance>> pairwiseAsync,
+    required List<SettlementPaymentRecord> pendingPayments,
+    required AsyncValue<List<SettlementPaymentRecord>>? confirmedPaymentsAsync,
+    required String currentUserId,
+  }) {
+    final retained = _retainedBalances[currency];
+    final authoritative = pairwiseAsync.valueOrNull;
+    if (authoritative == null) return retained;
+    final isRefreshing =
+        pairwiseAsync.isLoading || (confirmedPaymentsAsync?.isLoading ?? false);
+    if (isRefreshing && retained != null) return retained;
 
-    out.sort((a, b) => b.amountCents.compareTo(a.amountCents));
-    return out;
+    var overlay = const <SettlementPaymentRecord>[];
+    if (pendingPayments.isNotEmpty) {
+      final confirmed = confirmedPaymentsAsync?.valueOrNull;
+      if (confirmed == null) return retained;
+      overlay = unconfirmedSettlementPayments(
+        pending: pendingPayments,
+        confirmed: confirmed,
+      );
+    }
+    final balances = applyPendingPaymentsToPairwiseBalances(
+      balances: authoritative,
+      pendingPayments: overlay,
+      currentUserId: currentUserId,
+      currency: currency,
+    );
+    _retainedBalances[currency] = balances;
+    return balances;
   }
 
-  List<_Suggestion> _buildLegacySuggestions(
-    List<ExpenseSplitGroup>? splits,
-    List<String> currencies,
+  List<_Suggestion> _buildSuggestionsFromBalances(
+    Map<String, List<SettlementPairwiseBalance>> balancesByCurrency,
     String currentUserId,
     String Function(String) nameFor, {
-    List<SettlementPaymentRecord> settlementPayments =
-        const <SettlementPaymentRecord>[],
     required String displayCurrency,
     required CurrencyRateTable rates,
   }) {
-    if (splits == null) return const <_Suggestion>[];
+    int displayAmount(int amountCents, String currency) =>
+        currency == displayCurrency
+            ? amountCents
+            : convertAmountCentsToCurrency(
+                amountCents,
+                fromCurrency: currency,
+                targetCurrency: displayCurrency,
+                rates: rates,
+              );
 
     final out = <_Suggestion>[];
-    for (final currency in currencies) {
-      final nets = computeSettlementNets(
-        splits: splits,
-        currentUserId: currentUserId,
-        currencyFilter: currency,
-        settlementPayments: settlementPayments,
-      );
-
-      for (final entry in nets.entries) {
-        final otherUserId = entry.key;
-        final result = entry.value;
-        if (result.netCents > 0) {
+    for (final entry in balancesByCurrency.entries) {
+      final currency = entry.key;
+      for (final balance in entry.value) {
+        if (balance.netCents > 0) {
           out.add(_Suggestion(
             fromUserId: currentUserId,
-            toUserId: otherUserId,
+            toUserId: balance.otherUserId,
             fromName: nameFor(currentUserId),
-            toName: nameFor(otherUserId),
-            amountCents: result.netCents,
-            displayAmountCents: convertAmountCentsToCurrency(
-              result.netCents,
-              fromCurrency: currency,
-              targetCurrency: displayCurrency,
-              rates: rates,
-            ),
+            toName: nameFor(balance.otherUserId),
+            amountCents: balance.netCents,
+            displayAmountCents: displayAmount(balance.netCents, currency),
             currency: currency,
           ));
-        } else if (result.netCents < 0) {
-          final amountCents = result.netCents.abs();
+        } else if (balance.netCents < 0) {
+          final amountCents = balance.netCents.abs();
           out.add(_Suggestion(
-            fromUserId: otherUserId,
+            fromUserId: balance.otherUserId,
             toUserId: currentUserId,
-            fromName: nameFor(otherUserId),
+            fromName: nameFor(balance.otherUserId),
             toName: nameFor(currentUserId),
             amountCents: amountCents,
-            displayAmountCents: convertAmountCentsToCurrency(
-              amountCents,
-              fromCurrency: currency,
-              targetCurrency: displayCurrency,
-              rates: rates,
-            ),
+            displayAmountCents: displayAmount(amountCents, currency),
             currency: currency,
           ));
         }

@@ -13,6 +13,7 @@ import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/utils/pending_settlement_payment.dart';
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
@@ -121,16 +122,88 @@ void main() {
           'USD',
           'EUR'
         ],
-        payments: const [
-          SettlementPaymentRecord(
-              payerUserId: 'alex',
-              participantUserId: 'me',
-              amountCents: 4000,
-              currency: 'EUR',
-              eventId: 'paid-event')
-        ]);
+        balancesByCurrency: const {
+          'USD': <SettlementPairwiseBalance>[],
+          'EUR': [
+            SettlementPairwiseBalance(
+                otherUserId: 'alex',
+                currency: 'EUR',
+                splitToCents: 0,
+                splitFromCents: 0,
+                paidToCents: 4000,
+                paidFromCents: 0,
+                netCents: -4000)
+          ],
+        });
     await tester.pumpAndSettle();
     expect(find.text('Alex Owes you'), findsOneWidget);
+  });
+  testWidgets(
+      'card amount always follows the pairwise RPC, never the local split cache',
+      (tester) async {
+    var overviewReads = 0;
+    await _pumpSettlementCard(
+      tester,
+      selectedCurrencies: const ['USD'],
+      onOverviewRead: () => overviewReads += 1,
+      // A stale persisted split cache would still say $10.
+      splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+      balances: const [
+        SettlementPairwiseBalance(
+            otherUserId: 'alex',
+            currency: 'USD',
+            splitToCents: 700,
+            splitFromCents: 0,
+            paidToCents: 0,
+            paidFromCents: 0,
+            netCents: 700)
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(overviewReads, 0);
+    expect(find.text(r'$10'), findsNothing);
+    expect(find.text(r'$7'), findsWidgets);
+  });
+  testWidgets(
+      'durable pending payment already in the ledger is not counted twice',
+      (tester) async {
+    final pending = pendingSettlementPaymentRecord(
+      currentUserId: 'me',
+      memberUserId: 'alex',
+      mode: 'to_member',
+      amountCents: 400,
+      currency: 'USD',
+      clientMutationId: 'm1',
+    )!;
+    await _pumpSettlementCard(
+      tester,
+      selectedCurrencies: const ['USD'],
+      splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+      pendingLoader: () async => [pending],
+      payments: const [
+        SettlementPaymentRecord(
+            eventId: 'event-1',
+            actorUserId: 'me',
+            clientMutationId: 'm1',
+            payerUserId: 'alex',
+            participantUserId: 'me',
+            amountCents: 400,
+            currency: 'USD')
+      ],
+      balances: const [
+        SettlementPairwiseBalance(
+            otherUserId: 'alex',
+            currency: 'USD',
+            splitToCents: 1000,
+            splitFromCents: 0,
+            paidToCents: 400,
+            paidFromCents: 0,
+            netCents: 600)
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(r'$2'), findsNothing);
+    expect(find.text(r'$6'), findsWidgets);
   });
   testWidgets(
       'fresh hydration never exposes the stale pairwise settlement balance',
@@ -170,11 +243,8 @@ void main() {
       (tester) async {
     await _pumpSettlementCard(
       tester,
-      splits: [
-        _splitGroup(currency: 'USD', amountCents: 1000),
-        _splitGroup(currency: 'EUR', amountCents: 2000),
-        _splitGroup(currency: 'MYR', amountCents: 3000),
-      ],
+      splits: const [],
+      balancesByCurrency: _multiCurrencyBalances,
     );
 
     await tester.pumpAndSettle();
@@ -198,11 +268,8 @@ void main() {
     await _pumpSettlementCard(
       tester,
       rates: const {'USD': 1, 'EUR': 2, 'MYR': 5},
-      splits: [
-        _splitGroup(currency: 'USD', amountCents: 1000),
-        _splitGroup(currency: 'EUR', amountCents: 2000),
-        _splitGroup(currency: 'MYR', amountCents: 3000),
-      ],
+      splits: const [],
+      balancesByCurrency: _multiCurrencyBalances,
     );
 
     await tester.pumpAndSettle();
@@ -285,14 +352,27 @@ void main() {
   });
 
   testWidgets(
-      'multi-currency payment read failure never shows a partial balance',
+      'multi-currency failure in one currency never shows a partial balance',
       (tester) async {
     await _pumpSettlementCard(
       tester,
       selectedCurrencies: const ['USD', 'EUR'],
-      overviewError: StateError('payments unavailable'),
-      splits: [_splitGroup(currency: 'USD', amountCents: 1000)],
+      splits: const [],
+      pairwiseLoader: () async => throw StateError('EUR unavailable'),
+      balancesByCurrency: const {
+        'USD': [
+          SettlementPairwiseBalance(
+              otherUserId: 'alex',
+              currency: 'USD',
+              splitToCents: 1000,
+              splitFromCents: 0,
+              paidToCents: 0,
+              paidFromCents: 0,
+              netCents: 1000)
+        ],
+      },
     );
+    await tester.pump();
 
     expect(find.text('\$10'), findsNothing);
     expect(find.textContaining('Error loading dashboard'), findsOneWidget);
@@ -330,22 +410,22 @@ void main() {
     expect(find.byType(SettlementSuggestionsCard), findsOneWidget);
   });
 
-  testWidgets('multi-currency path does not issue the unused pairwise RPC',
+  testWidgets(
+      'multi-currency path reads one pairwise RPC per currency and no overview',
       (tester) async {
     var pairwiseReads = 0;
     var overviewReads = 0;
     await _pumpSettlementCard(
       tester,
+      selectedCurrencies: const ['USD', 'EUR'],
       onPairwiseRead: () => pairwiseReads += 1,
       onOverviewRead: () => overviewReads += 1,
-      splits: [
-        _splitGroup(currency: 'USD', amountCents: 1000),
-        _splitGroup(currency: 'EUR', amountCents: 1000),
-      ],
+      splits: const [],
+      balancesByCurrency: _multiCurrencyBalances,
     );
 
-    expect(pairwiseReads, 0);
-    expect(overviewReads, 1);
+    expect(pairwiseReads, 2);
+    expect(overviewReads, 0);
   });
 
   testWidgets('multi-currency settlement rows avoid narrow layout overflow',
@@ -364,9 +444,19 @@ void main() {
           userName: 'Alexandria With A Very Long Household Name',
         ),
       ],
-      splits: [
-        _splitGroup(currency: 'MYR', amountCents: 1234567890),
-      ],
+      splits: const [],
+      balancesByCurrency: const {
+        'MYR': [
+          SettlementPairwiseBalance(
+              otherUserId: 'alex',
+              currency: 'MYR',
+              splitToCents: 1234567890,
+              splitFromCents: 0,
+              paidToCents: 0,
+              paidFromCents: 0,
+              netCents: 1234567890)
+        ],
+      },
     );
 
     await tester.pump();
@@ -374,6 +464,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+const _multiCurrencyBalances = <String, List<SettlementPairwiseBalance>>{
+  'USD': [
+    SettlementPairwiseBalance(
+        otherUserId: 'alex',
+        currency: 'USD',
+        splitToCents: 1000,
+        splitFromCents: 0,
+        paidToCents: 0,
+        paidFromCents: 0,
+        netCents: 1000)
+  ],
+  'EUR': [
+    SettlementPairwiseBalance(
+        otherUserId: 'alex',
+        currency: 'EUR',
+        splitToCents: 2000,
+        splitFromCents: 0,
+        paidToCents: 0,
+        paidFromCents: 0,
+        netCents: 2000)
+  ],
+  'MYR': [
+    SettlementPairwiseBalance(
+        otherUserId: 'alex',
+        currency: 'MYR',
+        splitToCents: 3000,
+        splitFromCents: 0,
+        paidToCents: 0,
+        paidFromCents: 0,
+        netCents: 3000)
+  ],
+};
 
 Finder _flagImageFinder(String assetName) {
   return find.byWidgetPredicate((widget) {
@@ -391,6 +514,7 @@ Future<void> _pumpSettlementCard(
   List<String> selectedCurrencies = const ['USD', 'EUR', 'MYR'],
   List<SettlementPairwiseBalance> balances =
       const <SettlementPairwiseBalance>[],
+  Map<String, List<SettlementPairwiseBalance>>? balancesByCurrency,
   Map<String, double> rates = const {'USD': 1, 'EUR': 1, 'MYR': 1},
   VoidCallback? onPairwiseRead,
   VoidCallback? onOverviewRead,
@@ -415,12 +539,17 @@ Future<void> _pumpSettlementCard(
         householdPairwiseSettlementBalancesV2Provider.overrideWith(
           (ref, params) async {
             onPairwiseRead?.call();
+            final perCurrency = balancesByCurrency?[params.currency];
+            if (perCurrency != null) return perCurrency;
             if (pairwiseLoader != null) return pairwiseLoader();
             if (pairwiseError != null) {
               throw pairwiseError;
             }
             return balances;
           },
+        ),
+        householdSettlementPaymentsProvider.overrideWith(
+          (ref, householdId) async => payments,
         ),
         settlementOverviewProvider.overrideWith(
           (ref, householdId) {
