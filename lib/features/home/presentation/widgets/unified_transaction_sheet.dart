@@ -904,11 +904,12 @@ class _UnifiedTransactionSheetV2State
 
     try {
       final source = await _chooseReceiptPhotoSource(pickerContext);
-      if (source == null) return null;
+      if (source == null || !mounted || !pickerContext.mounted) return null;
 
       final XFile? photo = await pickImageWithGuard(
         picker: _imagePicker,
         source: source,
+        touchShieldContext: pickerContext,
         imageQuality: 85,
       );
 
