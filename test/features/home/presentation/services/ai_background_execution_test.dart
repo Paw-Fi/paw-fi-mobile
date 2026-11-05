@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/home/presentation/services/ai_background_execution.dart';
 
-class _Bridge implements AiExecutionBridge {
+class _Bridge extends AiExecutionBridge {
   final events = StreamController<String>.broadcast(sync: true);
+  final stops = StreamController<String>.broadcast(sync: true);
+  @override
+  Stream<String> get stopped => stops.stream;
   final calls = <Map<String, dynamic>>[];
   bool granted = true;
   Completer<bool>? startGate;
@@ -23,7 +26,10 @@ class _Bridge implements AiExecutionBridge {
   Future<void> finish(Map<String, dynamic> payload) async =>
       calls.add({'method': 'finish', ...payload});
   @override
-  Future<void> dispose() async => events.close();
+  Future<void> dispose() async {
+    await events.close();
+    await stops.close();
+  }
 }
 
 const _messages = {
@@ -36,6 +42,65 @@ const _messages = {
 };
 
 void main() {
+  for (final outcome in [
+    AiExecutionOutcome.error,
+    AiExecutionOutcome.needsInput
+  ]) {
+    test(
+        'restored $outcome is attention UI without a background execution grant',
+        () async {
+      final bridge = _Bridge();
+      final owner = AiBackgroundExecution(bridge);
+      final lease = await owner.start('capture',
+          messages: _messages, initialOutcome: outcome);
+      expect(bridge.calls.single['outcome'], outcome.name);
+      expect(lease.canRunInBackground, isFalse);
+      await owner.finish(lease, outcome);
+      await owner.setPresentationAllowed(false);
+      expect(bridge.calls.last['method'], 'update');
+      expect(bridge.calls.last['background'], isTrue);
+      await owner.dispose();
+    });
+  }
+  test('Stop is terminal, discards deferred UI and ignores stale attempts',
+      () async {
+    final bridge = _Bridge();
+    var reconciled = 0;
+    final owner = AiBackgroundExecution(bridge, onStopped: () async {
+      reconciled++;
+    });
+    final first = await owner.start('capture', messages: _messages);
+    final next = await owner.start('capture', messages: _messages);
+    bridge.stops.add(first.id);
+    expect(next.isCancelled, isFalse);
+    await owner.setPresentationAllowed(false);
+    var presented = false;
+    owner.presentWhenAllowed(() => presented = true);
+    bridge.stops.add(next.id);
+    expect(next.isCancelled, isTrue);
+    expect(next.canRunInBackground, isFalse);
+    await owner.finish(next, AiExecutionOutcome.queued);
+    expect(bridge.calls.last['outcome'], 'cancelled');
+    await owner.setPresentationAllowed(true);
+    expect(presented, isFalse);
+    expect(reconciled, 2);
+    await owner.dispose();
+  });
+
+  test('capture attempt is persisted before native start is visible', () async {
+    final bridge = _Bridge();
+    final owner = AiBackgroundExecution(bridge);
+    String? persisted;
+    final lease = await owner.start('capture',
+        userId: 'owner', messages: _messages, beforeStart: (id) async {
+      expect(bridge.calls, isEmpty);
+      persisted = id;
+    });
+    expect(lease.id, persisted);
+    expect(bridge.calls.single['userId'], 'owner');
+    expect(bridge.calls.single['captureId'], 'capture');
+    await owner.dispose();
+  });
   test(
       'native expiration releases a waiting HTTP analysis without waiting for its response',
       () async {

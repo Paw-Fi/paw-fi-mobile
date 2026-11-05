@@ -578,13 +578,17 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final owner = _ref.read(aiBackgroundExecutionProvider);
     final locale = resolveSupportedAppLocale(_ref.read(localeProvider));
     final messages = aiExecutionMessages(lookupAppLocalizations(locale));
-    final lease = await owner.start('import-pdf:$actor', messages: messages);
+    final lease = await owner.start('import-pdf:$actor',
+        userId: actor, messages: messages);
     var outcome = AiExecutionOutcome.paused;
     try {
       if (!mounted || _ref.read(authProvider).uid != actor) {
         throw StateError(messages['paused']!);
       }
-      final table = await _readPdfAnalysis(bytes: bytes, filename: filename);
+      final table = await lease.untilInterrupted(_readPdfAnalysis(
+          bytes: bytes,
+          filename: filename,
+          isActive: () => !lease.isInterrupted));
       if (!mounted || _ref.read(authProvider).uid != actor) {
         throw StateError(messages['paused']!);
       }
@@ -592,16 +596,19 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       outcome = AiExecutionOutcome.review;
       return table;
     } finally {
+      if (lease.isCancelled) outcome = AiExecutionOutcome.cancelled;
       await owner.finish(lease, outcome);
       keepAlive.close();
     }
   }
 
   Future<ImportTable> _readPdfAnalysis(
-      {required Uint8List bytes, required String filename}) async {
+      {required Uint8List bytes,
+      required String filename,
+      required bool Function() isActive}) async {
     final authUser = _ref.read(authProvider);
     bool ownsAnalysis() =>
-        mounted && _ref.read(authProvider).uid == authUser.uid;
+        mounted && isActive() && _ref.read(authProvider).uid == authUser.uid;
     if (authUser.isEmpty || authUser.uid.isEmpty) {
       throw Exception('User not authenticated');
     }

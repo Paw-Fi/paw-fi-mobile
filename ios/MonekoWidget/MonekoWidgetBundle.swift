@@ -14,6 +14,7 @@ struct MonekoWidgetBundle: WidgetBundle {
         if #available(iOS 17.0, *) {
             MonekoWidget()
             MonekoTopCategoriesWidget()
+            AiAnalysisLiveActivity()
         }
     }
 }

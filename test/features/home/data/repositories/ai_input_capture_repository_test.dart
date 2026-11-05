@@ -239,6 +239,145 @@ void main() {
         localMutationStatusCancelled);
   });
 
+  test('native Stop survives checkpoints and reopen, fences late handoff',
+      () async {
+    var saved = await repository.checkpoint(await capture(), {
+      'executionId': 'attempt-1',
+    });
+    saved = await repository.checkpoint(saved, {
+      'answers': ['家族の財布']
+    });
+    expect(
+        await database.stopAiInput(
+            userId: 'other', captureId: saved.id, executionId: 'attempt-1'),
+        isEmpty);
+    expect(await repository.pending('owner'), hasLength(1));
+    await database.stopAiInput(
+        userId: 'owner', captureId: saved.id, executionId: 'attempt-1');
+    await reopen();
+    expect(await repository.pending('owner'), isEmpty);
+    await expectLater(
+        repository.checkpoint(saved, {'answers': []}), throwsStateError);
+    expect(await database.holdAiInputForForeground(saved.mutation), isFalse);
+  });
+
+  test('stale native Stop cannot cancel a newer execution attempt', () async {
+    var saved =
+        await repository.checkpoint(await capture(), {'executionId': 'old'});
+    saved = await repository.checkpoint(saved, {'executionId': 'new'});
+    await database.stopAiInput(
+        userId: 'owner', captureId: saved.id, executionId: 'old');
+    expect((await repository.pending('owner')).single.payload['executionId'],
+        'new');
+  });
+
+  test('recovered Stop is committed before the outbox selects a child',
+      () async {
+    final saved = await repository
+        .checkpoint(await capture(), {'executionId': 'attempt'});
+    final entry = ExpenseEntry(
+        id: saved.transactionId(0),
+        userId: 'owner',
+        date: capturedAt,
+        amountCents: 100,
+        currency: 'JPY',
+        category: 'food',
+        createdAt: capturedAt);
+    await database.writeOptimisticTransaction(
+        entry: entry,
+        clientMutationId: 'child',
+        operation: 'create',
+        payload: {'aiCaptureId': saved.id, 'userId': 'owner'});
+    var dispatches = 0;
+    await SyncCoordinator(
+        database: database,
+        beforeNextMutation: () async {
+          await database.stopAiInput(
+              userId: 'owner', captureId: saved.id, executionId: 'attempt');
+        },
+        dispatchMutation: (_) async {
+          dispatches++;
+        }).drainOutbox();
+    expect(dispatches, 0);
+    await reopen();
+    expect(await database.nextRetryableMutation(DateTime.now()), isNull);
+    expect(await database.getTransactionByIdOrClientRecordId(entry.id), isNull);
+  });
+
+  test(
+      'Stop removes unsent children, preserves confirmed and accepts in-flight success without retry',
+      () async {
+    final saved = await repository.checkpoint(await capture(), {
+      'executionId': 'attempt',
+      'readyResponse': {'success': true},
+      'destinationKeys': ['only'],
+    });
+    ExpenseEntry entry(int i) => ExpenseEntry(
+        id: saved.transactionId(i),
+        userId: 'owner',
+        date: capturedAt,
+        amountCents: 100,
+        currency: 'JPY',
+        category: 'food',
+        createdAt: capturedAt);
+    await database.materializeAiInputDestination(
+      clientMutationId: saved.mutation.clientMutationId,
+      userId: 'owner',
+      expectedReadyResponseJson: jsonEncode({'success': true}),
+      destinationKey: 'only',
+      mutations: [
+        for (var i = 0; i < 3; i++)
+          (
+            entry: entry(i),
+            clientMutationId: 'child-$i',
+            operation: 'create',
+            payload: <String, dynamic>{
+              'aiCaptureId': saved.id,
+              'userId': 'owner'
+            },
+          )
+      ],
+    );
+    await database.markMutationSynced('child-0');
+    final inFlight = (await database.getOutboxMutations())
+        .singleWhere((m) => m.clientMutationId == 'child-1');
+    await database.markMutationSyncing('child-1');
+    expect(await database.beginAiTransactionDispatch(inFlight), isTrue);
+    final removed = await database.stopAiInput(
+        userId: 'owner', captureId: saved.id, executionId: 'attempt');
+    expect(removed.map((m) => m.clientMutationId), ['child-2']);
+    expect(
+        await database.getTransactionByIdOrClientRecordId(entry(2).id), isNull);
+    expect(await database.getTransactionByIdOrClientRecordId(entry(0).id),
+        isNotNull);
+    expect(await database.beginAiTransactionDispatch(inFlight), isFalse);
+    expect(
+        await database.markMutationFailedIfPayloadMatches(
+            clientMutationId: 'child-1',
+            expectedPayloadJson: inFlight.payloadJson,
+            error: 'offline',
+            retryAfter: capturedAt),
+        isFalse);
+    await database.replaceOptimisticTransaction(
+        optimisticId: entry(1).id,
+        savedEntry: entry(1).copyWith(id: 'confirmed'),
+        clientMutationId: 'child-1');
+    await reopen();
+    expect(await database.getTransactionByIdOrClientRecordId('confirmed'),
+        isNotNull);
+    expect(await repository.pending('owner'), isEmpty);
+    expect(
+        await database.nextRetryableMutation(DateTime.now().toUtc()), isNull);
+    expect(
+        await database.materializeAiInputDestination(
+            clientMutationId: saved.mutation.clientMutationId,
+            userId: 'owner',
+            expectedReadyResponseJson: jsonEncode({'success': true}),
+            destinationKey: 'only',
+            mutations: []),
+        isFalse);
+  });
+
   test(
       'ready groups atomically hand off, skip replayed groups and finish after disk reopen',
       () async {

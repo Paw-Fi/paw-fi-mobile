@@ -28,6 +28,8 @@
 		A9F3B0202F72000100ABC001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F3B0062F72000100ABC001 /* ShareViewController.swift */; };
 		A9F3B0212F72000100ABC001 /* ShareInputLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F3B0222F72000100ABC001 /* ShareInputLoaderTests.swift */; };
 		A9F3B0302F72000100ABC001 /* AiAnalysisBackgroundBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F3B0312F72000100ABC001 /* AiAnalysisBackgroundBridge.swift */; };
+		A9F3B0402F72000100ABC001 /* AiAnalysisActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F3B0412F72000100ABC001 /* AiAnalysisActivityAttributes.swift */; };
+		A9F3B0422F72000100ABC001 /* AiAnalysisStopJournalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F3B0432F72000100ABC001 /* AiAnalysisStopJournalTests.swift */; };
 		B39585E1CB34561AB97A1D81 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = AA2B6F679C3105DB9184BBA9 /* GoogleService-Info.plist */; };
 		BE42436A5D22DFE53430F7BD /* Pods_MonekoShareExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D846B29523873E1FC389A003 /* Pods_MonekoShareExtension.framework */; };
 /* End PBXBuildFile section */
@@ -117,6 +119,8 @@
 		A9F3B0092F72000100ABC001 /* MonekoShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MonekoShareExtension.entitlements; sourceTree = "<group>"; };
 		A9F3B0222F72000100ABC001 /* ShareInputLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests/ShareInputLoaderTests.swift; sourceTree = SOURCE_ROOT; };
 		A9F3B0312F72000100ABC001 /* AiAnalysisBackgroundBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner/AiAnalysisBackgroundBridge.swift; sourceTree = SOURCE_ROOT; };
+		A9F3B0412F72000100ABC001 /* AiAnalysisActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonekoWidget/AiAnalysisActivityAttributes.swift; sourceTree = SOURCE_ROOT; };
+		A9F3B0432F72000100ABC001 /* AiAnalysisStopJournalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests/AiAnalysisStopJournalTests.swift; sourceTree = SOURCE_ROOT; };
 		AA2B6F679C3105DB9184BBA9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		B638DF91C46C838E0BD07FBA /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		BB278CD69BE445F907A50C23 /* Pods-MonekoShareExtension.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MonekoShareExtension.debug.xcconfig"; path = "Target Support Files/Pods-MonekoShareExtension/Pods-MonekoShareExtension.debug.xcconfig"; sourceTree = "<group>"; };
@@ -637,6 +641,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
+				A9F3B0422F72000100ABC001 /* AiAnalysisStopJournalTests.swift in Sources */,
 				A9F3B0202F72000100ABC001 /* ShareViewController.swift in Sources */,
 				A9F3B0212F72000100ABC001 /* ShareInputLoaderTests.swift in Sources */,
 			);
@@ -655,6 +660,7 @@
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				A9F3B0302F72000100ABC001 /* AiAnalysisBackgroundBridge.swift in Sources */,
+				A9F3B0402F72000100ABC001 /* AiAnalysisActivityAttributes.swift in Sources */,
 				27A000012F71000100A00001 /* SceneDelegate.swift in Sources */,
 				27A000032F71000100A00001 /* RoundedSystemFont.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,

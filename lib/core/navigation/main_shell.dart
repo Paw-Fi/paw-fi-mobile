@@ -488,6 +488,12 @@ class MainShell extends HookConsumerWidget {
         ? null
         : ref.watch(pendingAiInputsProvider(auth.uid)).valueOrNull;
     final aiResumeSignal = ref.watch(aiInputResumeSignalProvider);
+    final aiOpenRequest = ref.watch(aiInputOpenRequestProvider);
+    final hasAiAttention = pendingAiInputs?.any((capture) =>
+            capture.payload['requiresAnalysisRetry'] == true ||
+            capture.payload['analysisError'] is String ||
+            capture.payload['question'] != null) ==
+        true;
     // A fresh session or connectivity recovery makes retained submissions eligible again.
     useEffect(() {
       if (!previewState.isActive && auth.uid.isNotEmpty && hasNetworkAccess) {
@@ -498,7 +504,7 @@ class MainShell extends HookConsumerWidget {
     useEffect(() {
       if (previewState.isActive ||
           auth.uid.isEmpty ||
-          !hasNetworkAccess ||
+          (!hasNetworkAccess && aiOpenRequest == null && !hasAiAttention) ||
           isUserDataCleanupInProgress ||
           isAppLockPromptActive ||
           pendingAiInputs?.isNotEmpty != true) {
@@ -527,7 +533,8 @@ class MainShell extends HookConsumerWidget {
       isUserDataCleanupInProgress,
       isAppLockPromptActive,
       pendingAiInputs,
-      aiResumeSignal
+      aiResumeSignal,
+      aiOpenRequest
     ]);
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
     final subscription = subscriptionAsync.valueOrNull;

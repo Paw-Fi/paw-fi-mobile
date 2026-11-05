@@ -45,6 +45,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/services/interactive_ai_analysis.dart';
 import 'package:moneko/features/home/presentation/services/ai_background_execution.dart';
+import 'package:moneko/features/home/presentation/providers/ai_input_cancellation_provider.dart';
 import 'package:moneko/features/home/data/repositories/ai_input_capture_repository.dart';
 import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -993,6 +994,7 @@ Future<void> _persistAiTransactions(
       );
     }).toList(growable: false);
     if (capturedInput != null) {
+      await container.read(aiInputCancellationProvider).reconcile();
       if (isCaptureActive?.call() != true) {
         throw StateError('AI capture owner is no longer active');
       }
@@ -2048,15 +2050,33 @@ Future<void> resumePendingAiInputs(BuildContext context, WidgetRef ref) async {
     return;
   }
   final container = ProviderScope.containerOf(context, listen: false);
+  await container.read(aiInputCancellationProvider).reconcile();
+  await reconcileAiInputFailures(container);
   final repository =
       await container.read(aiInputCaptureRepositoryProvider.future);
   if (!context.mounted || container.read(authProvider).uid != userId) return;
-  for (final capture in await repository.pending(userId)) {
+  final openRequest = container.read(aiInputOpenRequestProvider);
+  if (openRequest != null && openRequest.userId != userId) {
+    container.read(aiInputOpenRequestProvider.notifier).state = null;
+    return;
+  }
+  final pending = await repository.pending(userId);
+  final captures = openRequest == null
+      ? pending
+      : pending.where(openRequest.matches).toList();
+  if (openRequest != null && captures.isEmpty) {
+    container.read(aiInputOpenRequestProvider.notifier).state = null;
+    return;
+  }
+  for (final capture in captures) {
     if (!context.mounted ||
         !consentOwner.isCurrentActor ||
         !container.read(aiProcessingConsentProvider).mayProcess ||
         container.read(authProvider).uid != userId ||
-        container.read(networkReachabilityProvider).valueOrNull == false ||
+        (container.read(networkReachabilityProvider).valueOrNull == false &&
+            capture.payload['requiresAnalysisRetry'] != true &&
+            capture.payload['analysisError'] is! String &&
+            capture.payload['question'] == null) ||
         container.read(appLockControllerProvider).shouldBlockApp ||
         (WidgetsBinding.instance.lifecycleState != null &&
             WidgetsBinding.instance.lifecycleState !=
@@ -2082,6 +2102,10 @@ Future<void> resumePendingAiInputs(BuildContext context, WidgetRef ref) async {
       pendingCapture: capture,
       isOnboarding: capture.payload['isOnboarding'] == true,
     );
+    if (openRequest != null &&
+        container.read(aiInputOpenRequestProvider) == openRequest) {
+      container.read(aiInputOpenRequestProvider.notifier).state = null;
+    }
   }
 }
 
@@ -2141,7 +2165,7 @@ Future<void> _processExpense(
       preview.isActive ? null : ref.read(aiBackgroundExecutionProvider);
   final executionMessages = aiExecutionMessages(context.l10n);
   AiExecutionLease? executionLease;
-  var executionOutcome = AiExecutionOutcome.paused;
+  var executionOutcome = AiExecutionOutcome.error;
 
   var capture = pendingCapture;
   AiInputCaptureRepository? captureRepository;
@@ -2166,18 +2190,35 @@ Future<void> _processExpense(
                   .mayProcess)) &&
       executionLease?.isInterrupted != true &&
       (canPresent() || executionLease?.canRunInBackground == true);
-  Future<void> pauseForInput() async {
-    executionOutcome = AiExecutionOutcome.needsInput;
+  Future<void> pauseForInput(
+      [AiExecutionOutcome outcome = AiExecutionOutcome.needsInput]) async {
+    executionOutcome = outcome;
     final lease = executionLease;
     if (lease != null) await executionOwner!.finish(lease, executionOutcome);
     executionLease = null;
   }
 
-  Future<void> acquireExecution() async {
+  Future<void> acquireExecution({bool resumeProcessing = false}) async {
     if (capture == null || executionOwner == null || !ownsCapture()) return;
-    executionOutcome = AiExecutionOutcome.paused;
-    executionLease =
-        await executionOwner.start(capture!.id, messages: executionMessages);
+    executionOutcome = AiExecutionOutcome.error;
+    final hasQuestion = capture!.payload['question'] != null;
+    final hasError = capture!.payload['requiresAnalysisRetry'] == true ||
+        (capture!.readyResponse == null &&
+            capture!.payload['analysisError'] is String);
+    executionLease = await executionOwner.start(capture!.id,
+        userId: user.uid,
+        messages: executionMessages,
+        initialOutcome: resumeProcessing
+            ? null
+            : hasQuestion
+                ? AiExecutionOutcome.needsInput
+                : hasError
+                    ? AiExecutionOutcome.error
+                    : null, beforeStart: (id) async {
+      await providerContainer.read(aiInputCancellationProvider).reconcile();
+      capture =
+          await captureRepository!.checkpoint(capture!, {'executionId': id});
+    });
   }
 
   final capturedBody = pendingCapture?.body;
@@ -2257,6 +2298,7 @@ Future<void> _processExpense(
     if (capture!.payload['analysisError'] == message) return;
     capture = await captureRepository!.checkpoint(capture!, {
       'analysisError': message,
+      'requiresAnalysisRetry': true,
     });
   }
 
@@ -2264,7 +2306,7 @@ Future<void> _processExpense(
     await rememberAnalysisError(error);
     processingOverlay?.dismiss();
     processingOverlay = null;
-    await pauseForInput();
+    await pauseForInput(AiExecutionOutcome.error);
     if (!isActive() || !canPresent()) return false;
     final result = await MonekoAlertDialog.show(
       context: context,
@@ -2281,9 +2323,14 @@ Future<void> _processExpense(
       return false;
     }
     if (result?.confirmed != true || !isActive()) return false;
+    if (providerContainer.read(networkReachabilityProvider).valueOrNull ==
+        false) {
+      return false;
+    }
     if (capture != null) {
       capture = await captureRepository!.checkpoint(capture!, {
         'analysisError': null,
+        'requiresAnalysisRetry': false,
       });
     }
     await acquireExecution();
@@ -2293,6 +2340,10 @@ Future<void> _processExpense(
   Future<Map<String, dynamic>> requestAnalysis(
       Future<Map<String, dynamic>?> Function() request) async {
     try {
+      if (providerContainer.read(networkReachabilityProvider).valueOrNull ==
+          false) {
+        throw StateError(context.l10n.aiInputSavedForLater);
+      }
       final operation = request();
       final response = executionLease == null
           ? await operation
@@ -2477,7 +2528,10 @@ Future<void> _processExpense(
       if (!context.mounted || !isActive()) return;
       // Receipts must also use the durable source after the temporary picker closes.
       imagePath = capture!.payload['localImagePath'] as String?;
-      if (ref.read(networkReachabilityProvider).valueOrNull == false) {
+      if (ref.read(networkReachabilityProvider).valueOrNull == false &&
+          capture!.payload['question'] == null &&
+          capture!.payload['analysisError'] is! String &&
+          capture!.payload['requiresAnalysisRetry'] != true) {
         processingOverlay?.complete(
             message: context.l10n.aiInputSavedForLater,
             outcome: ProcessingOverlayOutcome.info);
@@ -2504,8 +2558,13 @@ Future<void> _processExpense(
       return;
     }
 
-    final previousAnalysisError = capture?.payload['analysisError'];
-    if (responseData == null && previousAnalysisError is String) {
+    final previousAnalysisError = capture?.payload['analysisError'] ??
+        (capture?.payload['requiresAnalysisRetry'] == true
+            ? context.l10n.aiBackgroundError
+            : null);
+    if (previousAnalysisError is String &&
+        (responseData == null ||
+            capture?.payload['requiresAnalysisRetry'] == true)) {
       if (!await confirmAnalysisRetry(previousAnalysisError)) return;
     }
 
@@ -2565,7 +2624,9 @@ Future<void> _processExpense(
             await executionOwner?.revoke();
             executionOutcome = AiExecutionOutcome.cancelled;
           }
-          if (result?.answer != null && canPresent()) await acquireExecution();
+          if (result?.answer != null && canPresent()) {
+            await acquireExecution(resumeProcessing: true);
+          }
           return result?.answer;
         },
         retry: confirmAnalysisRetry,
@@ -2680,6 +2741,8 @@ Future<void> _processExpense(
                 : <String>['default'];
             capture = await captureRepository!.checkpoint(capture!, {
               'readyResponse': responseData,
+              'analysisError': null,
+              'requiresAnalysisRetry': false,
               'destinationKeys': destinations,
               'completedDestinations': <String>[],
               'question': null,
@@ -3107,6 +3170,11 @@ Future<void> _processExpense(
       }
     }
   } catch (e) {
+    if (executionLease?.isCancelled == true) {
+      executionOutcome = AiExecutionOutcome.cancelled;
+      await providerContainer.read(aiInputCancellationProvider).reconcile();
+      return;
+    }
     if (!preview.isActive && shouldQueueAiInputForRetry(e)) {
       try {
         final queued = await queueCurrentAiInputForRetry();
@@ -3139,6 +3207,22 @@ Future<void> _processExpense(
     }
   } finally {
     final lease = executionLease;
+    if (lease?.isCancelled == true) {
+      await providerContainer.read(aiInputCancellationProvider).reconcile();
+    }
+    if (capture != null &&
+        captureRepository != null &&
+        ownsCapture() &&
+        lease?.isCancelled != true &&
+        executionOutcome == AiExecutionOutcome.error) {
+      final pending = await captureRepository.pending(user.uid);
+      for (final current in pending.where((item) => item.id == capture!.id)) {
+        if (current.payload['requiresAnalysisRetry'] != true) {
+          capture = await captureRepository
+              .checkpoint(current, {'requiresAnalysisRetry': true});
+        }
+      }
+    }
     if (lease != null) await executionOwner!.finish(lease, executionOutcome);
     if (claimedCapture) {
       resumeController!.finish(capture!.id);

@@ -6,6 +6,8 @@ import NaturalLanguage
 import Security
 import CryptoKit
 import StoreKit
+import app_links
+import UserNotifications
 
 private enum AppStoreCommitmentChannel {
   static let name = "moneko/app_store_commitment"
@@ -2981,6 +2983,19 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
   private(set) var flutterEngine: FlutterEngine?
   private var aiAnalysisBackgroundBridge: AiAnalysisBackgroundBridge?
   private var pendingCommitmentTransactions: [UInt64: StoreKit.Transaction] = [:]
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    if let raw = response.notification.request.content.userInfo["monekoAiAnalysisURL"] as? String,
+      let url = URL(string: raw), url.scheme == "moneko", url.host == "ai-analysis" {
+      AppLinks.shared.handleLink(url: url)
+      completionHandler()
+      return
+    }
+    super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
+  }
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?

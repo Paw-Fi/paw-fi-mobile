@@ -49,6 +49,7 @@ class SyncCoordinator {
     this.onMutationCancelled,
     this.onMutationNeedsReview,
     this.onMutationSynced,
+    this.beforeNextMutation,
     DateTime Function()? now,
     this.maxAttempts = 8,
   }) : _now = now;
@@ -58,6 +59,7 @@ class SyncCoordinator {
   final LocalMutationCancelledHandler? onMutationCancelled;
   final LocalMutationNeedsReviewHandler? onMutationNeedsReview;
   final Future<void> Function(LocalMutationOutboxData)? onMutationSynced;
+  final Future<void> Function()? beforeNextMutation;
   final DateTime Function()? _now;
   final int maxAttempts;
 
@@ -69,6 +71,11 @@ class SyncCoordinator {
     for (var index = 0; index < maxMutations; index++) {
       final mutation = await database.nextRetryableMutation(_currentTime);
       if (mutation == null) break;
+      if (beforeNextMutation != null &&
+          (mutation.entityType == 'ai_input' ||
+              _isDurableAiCaptureTransaction(mutation))) {
+        await beforeNextMutation!();
+      }
 
       final didMarkSyncing = await database.markMutationSyncingIfPayloadMatches(
         clientMutationId: mutation.clientMutationId,

@@ -54,7 +54,7 @@ class _PdfPicker extends FilePicker {
       ]);
 }
 
-class _PdfExecutionBridge implements AiExecutionBridge {
+class _PdfExecutionBridge extends AiExecutionBridge {
   final outcomes = <String>[];
   @override
   Stream<String> get expired => const Stream.empty();

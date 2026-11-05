@@ -129,11 +129,8 @@
 	<key>UIBackgroundModes</key>
     <array>
         <string>remote-notification</string>
-        <string>processing</string>
     </array>
-    <key>BGTaskSchedulerPermittedIdentifiers</key>
-    <array>
-        <string>com.moneko.mobile.ai-analysis</string>
-    </array>
+    <key>NSSupportsLiveActivities</key>
+    <true/>
 </dict>
 </plist>

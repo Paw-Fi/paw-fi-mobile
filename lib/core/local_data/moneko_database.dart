@@ -594,6 +594,96 @@ class MonekoDatabase {
     return changed;
   }
 
+  /// Native Stop names an attempt, not a payload revision: checkpoints made
+  /// during that attempt must not defeat cancellation. Stale attempts cannot
+  /// stop a newer run. The source tombstone and child rollback commit together.
+  Future<List<LocalMutationOutboxData>> stopAiInput({
+    required String userId,
+    required String captureId,
+    required String executionId,
+  }) async {
+    final removed = <LocalMutationOutboxData>[];
+    var changed = false;
+    _runInTransaction(() {
+      final sources = _db.select('''
+        SELECT * FROM local_mutation_outbox
+        WHERE entity_type = 'ai_input' AND entity_id = ?
+          AND json_extract(payload_json, '\$.userId') = ?
+          AND json_extract(payload_json, '\$.executionId') = ?
+      ''', [captureId, userId, executionId]);
+      if (sources.isEmpty) return;
+      _db.execute('''
+        UPDATE local_mutation_outbox SET status = ?, retry_after = NULL,
+          last_error = NULL, updated_at = ? WHERE id = ?
+      ''', [
+        localMutationStatusCancelled,
+        _instant(DateTime.now()),
+        sources.single['id']
+      ]);
+      final children = _db.select('''
+        SELECT * FROM local_mutation_outbox
+        WHERE entity_type = 'transaction' AND operation = 'create'
+          AND status != ? AND json_valid(payload_json)
+          AND json_extract(payload_json, '\$.aiCaptureId') = ?
+      ''', [localMutationStatusSynced, captureId]);
+      final touched = <_SummaryKey>{};
+      for (final row in children) {
+        final child = _mutationFromRow(row);
+        // A sent request can still confirm, but a failed/unknown request is
+        // never automatically retried after Stop, including after restart.
+        _markMutationCancelledRow(
+            clientMutationId: child.clientMutationId,
+            error: 'AI input stopped');
+        _db.execute('''
+          UPDATE local_mutation_outbox SET status = ?, retry_after = NULL
+          WHERE entity_type = 'transaction' AND entity_id = ? AND status != ?
+        ''', [
+          localMutationStatusCancelled,
+          child.entityId,
+          localMutationStatusSynced
+        ]);
+        if (row['ai_dispatch_started'] == 1) continue;
+        final key = _summaryKeyForTransactionId(child.entityId);
+        if (key != null) touched.add(key);
+        _db.execute(
+            'DELETE FROM local_transactions WHERE id = ? AND sync_status = ?',
+            [child.entityId, localSyncStatusLocal]);
+        _deleteTransactionTombstone(child.entityId);
+        removed.add(child);
+      }
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+      changed = true;
+    });
+    if (changed) {
+      _notifyChanged();
+      _aiInputChanges.add(null);
+    }
+    return removed;
+  }
+
+  /// Last synchronous admission boundary after receipt preparation, immediately
+  /// before HTTP dispatch. Stop can retire a selected/syncing but unsent row.
+  Future<bool> beginAiTransactionDispatch(
+      LocalMutationOutboxData mutation) async {
+    _db.execute('''
+      UPDATE local_mutation_outbox SET ai_dispatch_started = 1
+      WHERE client_mutation_id = ? AND payload_json = ? AND status = ?
+        AND NOT EXISTS (
+          SELECT 1 FROM local_mutation_outbox source
+          WHERE source.entity_type = 'ai_input' AND source.status = ?
+            AND source.entity_id = json_extract(local_mutation_outbox.payload_json, '\$.aiCaptureId')
+        )
+    ''', [
+      mutation.clientMutationId,
+      mutation.payloadJson,
+      localMutationStatusSyncing,
+      localMutationStatusCancelled
+    ]);
+    return _lastStatementChangedRow();
+  }
+
   Future<bool> hasOtherPendingReceiptReference({
     required String path,
     required String clientMutationId,
@@ -601,7 +691,7 @@ class MonekoDatabase {
   }) async =>
       _db.select('''
     SELECT 1 FROM local_mutation_outbox
-    WHERE status NOT IN (?, ?) AND json_valid(payload_json)
+    WHERE (status NOT IN (?, ?) OR (status = 'cancelled' AND ai_dispatch_started = 1)) AND json_valid(payload_json)
       AND json_extract(payload_json, '\$.localReceiptImagePath') = ?
       AND (client_mutation_id != ? OR payload_json != ?)
     LIMIT 1
@@ -5028,6 +5118,8 @@ class MonekoDatabase {
           'local_mutation_outbox', 'status', "TEXT NOT NULL DEFAULT 'queued'");
       _ensureColumn('local_mutation_outbox', 'last_error', 'TEXT');
       _ensureColumn('local_mutation_outbox', 'retry_after', 'TEXT');
+      _ensureColumn('local_mutation_outbox', 'ai_dispatch_started',
+          'INTEGER NOT NULL DEFAULT 0');
       _ensureColumn('local_transaction_tombstones', 'transaction_id', 'TEXT');
       _ensureColumn('local_transaction_tombstones', 'user_id',
           "TEXT NOT NULL DEFAULT ''");

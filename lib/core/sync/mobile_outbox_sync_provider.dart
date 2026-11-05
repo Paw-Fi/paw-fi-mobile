@@ -14,6 +14,7 @@ import 'package:moneko/core/ui/notifications/app_mutation_error_provider.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/providers/ai_input_cancellation_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
@@ -49,6 +50,7 @@ final mobileOutboxSyncCoordinatorProvider =
   final settlementResults = <String, SettlementWriteStatusV2>{};
   return SyncCoordinator(
     database: database,
+    beforeNextMutation: () => ref.read(aiInputCancellationProvider).reconcile(),
     dispatchMutation: (mutation) => _dispatchMobileMutation(
         ref, database, mutation,
         onSettlementResult: (status) =>
@@ -292,6 +294,10 @@ Future<void> _dispatchMobileMutation(
         _mapValue(payload['requestBody']),
         payload,
       );
+      if (payload['aiCaptureId'] is String) {
+        await ref.read(aiInputCancellationProvider).reconcile();
+        if (!await database.beginAiTransactionDispatch(mutation)) return;
+      }
       final responseBody = await _invokeMutationFunction(
         payload['functionName']?.toString(),
         requestBody,

@@ -25,7 +25,37 @@ class AiAnalysisForegroundServiceTest {
     private val messages = mapOf("title" to "Moneko", "channel" to "Analysis", "analyzing" to "Analyzing",
         "saving" to "Preparing", "paused" to "Open to continue", "needsInput" to "Open to answer", "queued" to "Queued to sync")
 
-    @After fun clear() { AiAnalysisBackgroundBridge.notice = null }
+    @After fun clear() {
+        AiAnalysisBackgroundBridge.notice = null
+        context.getSharedPreferences("ai_analysis_stops", 0).edit().clear().commit()
+        context.getSharedPreferences("ai_analysis_errors", 0).edit().clear().commit()
+    }
+
+    @Test fun stopActionPersistsBeforeEngineDeliveryAndSurvivesBridgeDetach() {
+        val state = AiAnalysisNotice("attempt", messages + ("stop" to "Stop"), true,
+            userId = "owner", captureId = "capture")
+        AiAnalysisBackgroundBridge.notice = state
+        val action = AiAnalysisBackgroundBridge.notification(context, state).actions.single()
+        assertEquals("Stop", action.title)
+        action.actionIntent.send()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("cancelled", state.outcome)
+        AiAnalysisBackgroundBridge.detach(context)
+        assertEquals(listOf(mapOf("id" to "attempt", "userId" to "owner", "captureId" to "capture")),
+            AiAnalysisBackgroundBridge.pendingStops(context))
+        AiAnalysisBackgroundBridge.acknowledgeStop(context, "attempt")
+        assertTrue(AiAnalysisBackgroundBridge.pendingStops(context).isEmpty())
+    }
+
+    @Test fun staleStopCannotEndNewerNativeAttemptOrEraseAnotherJournalRecord() {
+        val state = AiAnalysisNotice("new", messages, true, userId = "owner", captureId = "capture")
+        AiAnalysisBackgroundBridge.notice = state
+        AiAnalysisBackgroundBridge.stop(context, "old", "capture", "owner")
+        assertNull(state.outcome)
+        AiAnalysisBackgroundBridge.stop(context, "another", "other-capture", "owner")
+        AiAnalysisBackgroundBridge.acknowledgeStop(context, "old")
+        assertEquals("another", AiAnalysisBackgroundBridge.pendingStops(context).single()["id"])
+    }
 
     @Test fun activeNotificationIsOngoingIndeterminateAndContainsNoFinancialSource() {
         val state = AiAnalysisNotice("capture:attempt", messages, true)
@@ -46,7 +76,37 @@ class AiAnalysisForegroundServiceTest {
         AiAnalysisBackgroundBridge.expire(context, "old")
         assertNull(next.outcome)
         AiAnalysisBackgroundBridge.expire(context, "new")
-        assertEquals("paused", next.outcome)
+        assertEquals("error", next.outcome)
+    }
+
+    @Test fun successHasFiveSecondTimeoutWhileErrorsAndConfirmationRemainActionable() {
+        for (outcome in listOf("queued", "review", "error", "paused", "needsInput")) {
+            val state = AiAnalysisNotice("capture:attempt", messages + mapOf(
+                "error" to "Open Moneko to retry or cancel", "confirmationTitle" to "Confirmation required",
+                "errorTitle" to "Analysis failed", "successTitle" to "Analysis complete"), true,
+                outcome = outcome, userId = "owner", captureId = "capture")
+            val notification = AiAnalysisBackgroundBridge.notification(context, state)
+            val success = outcome == "queued" || outcome == "review"
+            assertEquals(if (success) 5000L else 0L, notification.timeoutAfter)
+            assertFalse(notification.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE))
+            assertEquals(success, notification.flags and Notification.FLAG_AUTO_CANCEL != 0)
+            val launch = shadowOf(notification.contentIntent).savedIntent
+            assertEquals("moneko", launch.data?.scheme)
+            assertEquals("ai-analysis", launch.data?.host)
+            assertEquals("capture", launch.data?.getQueryParameter("captureId"))
+            if (outcome == "needsInput") assertEquals("Confirmation required", notification.extras.getString(Notification.EXTRA_TITLE))
+            if (outcome == "error" || outcome == "paused") assertEquals("Analysis failed", notification.extras.getString(Notification.EXTRA_TITLE))
+        }
+    }
+
+    @Test fun expiryJournalsAnErrorBeforeTheEngineCanResumeAndStopClearsIt() {
+        val state = AiAnalysisNotice("attempt", messages, true, userId = "owner", captureId = "capture")
+        AiAnalysisBackgroundBridge.notice = state
+        AiAnalysisBackgroundBridge.expire(context, state.id)
+        assertEquals(listOf(mapOf("id" to "attempt", "userId" to "owner", "captureId" to "capture")),
+            AiAnalysisBackgroundBridge.pendingFailures(context))
+        AiAnalysisBackgroundBridge.stop(context, state.id, state.captureId, state.userId)
+        assertTrue(AiAnalysisBackgroundBridge.pendingFailures(context).isEmpty())
     }
 
     @Test fun staleStartIntentCannotStopANewerRunningAttempt() {
@@ -69,7 +129,7 @@ class AiAnalysisForegroundServiceTest {
         service.onStartCommand(Intent().putExtra("id", state.id), 0, 1)
         assertNotNull(shadowOf(service).lastForegroundNotification)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMinutes(6))
-        assertEquals("paused", state.outcome)
+        assertEquals("error", state.outcome)
         controller.destroy()
     }
 

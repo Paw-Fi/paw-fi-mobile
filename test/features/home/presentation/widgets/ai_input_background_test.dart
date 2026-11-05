@@ -14,6 +14,7 @@ import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/network/network_reachability_provider.dart';
 import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
+import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:moneko/features/app_lock/data/app_lock_repository.dart';
 import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -60,8 +61,24 @@ class _Drainer extends MobileOutboxDrainer {
   Future<int> drain({int maxMutations = 20}) async => 0;
 }
 
-class _Bridge implements AiExecutionBridge {
+class _Bridge extends AiExecutionBridge {
   final events = StreamController<String>.broadcast(sync: true);
+  final stops = StreamController<String>.broadcast(sync: true);
+  final journal = <Map<String, dynamic>>[];
+  final failures = <Map<String, dynamic>>[];
+  @override
+  Future<List<Map<String, dynamic>>> pendingFailures() async =>
+      List.of(failures);
+  @override
+  Future<void> acknowledgeFailure(String id) async =>
+      failures.removeWhere((s) => s['id'] == id);
+  @override
+  Stream<String> get stopped => stops.stream;
+  @override
+  Future<List<Map<String, dynamic>>> pendingStops() async => List.of(journal);
+  @override
+  Future<void> acknowledgeStop(String id) async =>
+      journal.removeWhere((s) => s['id'] == id);
   final calls = <Map<String, dynamic>>[];
   bool granted = true;
   @override
@@ -79,7 +96,10 @@ class _Bridge implements AiExecutionBridge {
   Future<void> finish(Map<String, dynamic> payload) async =>
       calls.add({'method': 'finish', ...payload});
   @override
-  Future<void> dispose() async => events.close();
+  Future<void> dispose() async {
+    await events.close();
+    await stops.close();
+  }
 }
 
 Map<String, dynamic> _ready() => {
@@ -138,6 +158,13 @@ void main() {
     'clarification',
     'locked-clarification',
     'expired',
+    'stopped',
+    'missed-stop',
+    'tap-confirmation',
+    'tap-confirmation-submit',
+    'tap-error',
+    'tap-error-offline',
+    'missed-failure',
     'denied',
     'actor',
     'consent',
@@ -157,10 +184,50 @@ void main() {
           AiInputCaptureRepository(database, directory: () async => root);
       final bridge = _Bridge()..granted = scenario != 'denied';
       final lock = _Lock();
-      final capture = (await tester.runAsync(() => repository.capture(
+      final opensAttention =
+          scenario.startsWith('tap-') || scenario == 'missed-failure';
+      if (opensAttention) {
+        final older = (await tester.runAsync(() => repository.capture(
+            userId: 'owner',
+            body: {'userId': 'owner', 'text': 'older input'},
+            target: {'accountType': 'personal'})))!;
+        await repository.checkpoint(older, {
+          'question': {
+            'question': 'Older question',
+            'choices': ['A', 'B'],
+            'allowCustomResponse': true,
+          }
+        });
+      }
+      var capture = (await tester.runAsync(() => repository.capture(
           userId: 'owner',
           body: {'userId': 'owner', 'text': '昼食に１２，５０ユーロ'},
           target: {'accountType': 'personal'})))!;
+      if (scenario == 'missed-stop') {
+        capture =
+            await repository.checkpoint(capture, {'executionId': 'last-run'});
+        bridge.journal.add(
+            {'id': 'last-run', 'userId': 'owner', 'captureId': capture.id});
+      }
+      if (opensAttention) {
+        capture = await repository.checkpoint(capture, {
+          'executionId': '${capture.id}:1:1',
+          if (scenario.startsWith('tap-confirmation'))
+            'question': {
+              'question': 'どの通貨ですか？',
+              'choices': ['EUR', 'JPY'],
+              'allowCustomResponse': true,
+            },
+          if (scenario.startsWith('tap-error')) 'requiresAnalysisRetry': true,
+        });
+        if (scenario == 'missed-failure') {
+          bridge.failures.add({
+            'id': '${capture.id}:1:1',
+            'captureId': capture.id,
+            'userId': 'owner',
+          });
+        }
+      }
       late Completer<http.Response> response;
       late Completer<void> requested;
       await tester.runAsync(() async {
@@ -180,7 +247,8 @@ void main() {
         localDatabaseProvider.overrideWith((ref) async => database),
         aiInputCaptureRepositoryProvider
             .overrideWith((ref) async => repository),
-        networkReachabilityProvider.overrideWith((ref) => Stream.value(true)),
+        networkReachabilityProvider.overrideWith(
+            (ref) => Stream.value(scenario != 'tap-error-offline')),
         mobileOutboxDrainerProvider.overrideWith((ref) => _Drainer()),
         appLockControllerProvider.overrideWith((ref) => lock),
         aiExecutionBridgeProvider.overrideWithValue(bridge),
@@ -208,12 +276,94 @@ void main() {
       ));
       await tester.pump();
       late Future<void> running;
+      if (opensAttention) {
+        final links = DeepLinkService();
+        links.handleDeepLinkUri(
+            Uri(scheme: 'moneko', host: 'ai-analysis', queryParameters: {
+              'captureId': capture.id,
+              'userId': 'owner',
+              'executionId': '${capture.id}:1:1',
+            }),
+            inputRef);
+        lock.state = const AppLockState(status: AppLockStatus.locked);
+        await tester
+            .runAsync(() => resumePendingAiInputs(inputContext, inputRef));
+        await tester.pumpAndSettle();
+        expect(find.byType(AiCorrectionSheet), findsNothing);
+        expect(find.text('Retry'), findsNothing);
+        lock.state = const AppLockState.disabled();
+        await tester.runAsync(() async {
+          running = resumePendingAiInputs(inputContext, inputRef);
+          await Future<void>.delayed(const Duration(milliseconds: 30));
+        });
+        await tester.pumpAndSettle();
+        expect(requested.isCompleted, isFalse);
+        expect(find.text('Older question'), findsNothing);
+        if (scenario.startsWith('tap-confirmation')) {
+          expect(find.byType(AiCorrectionSheet), findsOneWidget);
+          expect(find.text('どの通貨ですか？'), findsOneWidget);
+          expect(
+              bridge.calls.firstWhere((c) => c['method'] == 'start')['outcome'],
+              'needsInput');
+        } else {
+          expect(find.text('Retry'), findsOneWidget);
+          expect(find.text('Cancel'), findsOneWidget);
+          expect(
+              bridge.calls.firstWhere((c) => c['method'] == 'start')['outcome'],
+              'error');
+        }
+        if (scenario == 'tap-confirmation-submit') {
+          await tester.ensureVisible(find.text('EUR'));
+          await tester.tap(find.text('EUR'));
+          await tester.pump();
+          await tester.runAsync(() async {
+            await requested.future.timeout(const Duration(seconds: 5));
+            expect(
+                bridge.calls
+                    .lastWhere((c) => c['method'] == 'start')['outcome'],
+                isNull);
+            response.complete(http.Response(jsonEncode(_ready()), 200,
+                headers: {'content-type': 'application/json'}));
+            await running;
+          });
+          expect(
+              await database.getRecentTransactions(
+                  userId: 'owner', householdId: null),
+              hasLength(1));
+          expect(
+              (await repository.pending('owner')).single.payload['question']
+                  ['question'],
+              'Older question');
+          expect(bridge.calls.last['outcome'], 'queued');
+          links.dispose();
+          await tester.pump(const Duration(seconds: 8));
+          await tester.pumpWidget(const SizedBox());
+          return;
+        }
+        rootNavigatorKey.currentState!.pop();
+        await tester.runAsync(() => running);
+        expect(requested.isCompleted, isFalse);
+        expect(await repository.pending('owner'), hasLength(2));
+        expect(bridge.failures, isEmpty);
+        expect(container.read(aiInputOpenRequestProvider), isNull);
+        expect(tester.takeException(), isNull);
+        links.dispose();
+        await tester.pump(const Duration(seconds: 8));
+        await tester.pumpWidget(const SizedBox());
+        return;
+      }
       await tester.runAsync(() async {
         running = resumePendingAiInputs(inputContext, inputRef);
-        await requested.future;
+        if (scenario == 'missed-stop') {
+          await running;
+        } else {
+          await requested.future;
+        }
       });
-      final attemptId = bridge.calls
-          .firstWhere((call) => call['method'] == 'start')['id'] as String;
+      final attemptId = scenario == 'missed-stop'
+          ? 'last-run'
+          : bridge.calls.firstWhere((call) => call['method'] == 'start')['id']
+              as String;
       if (scenario == 'disposed-page') {
         unawaited(rootNavigatorKey.currentState!.pushReplacement(
             MaterialPageRoute<void>(
@@ -233,6 +383,11 @@ void main() {
       }
       if (scenario == 'locked-clarification') _foreground(tester);
       if (scenario == 'expired') bridge.events.add(attemptId);
+      if (scenario == 'stopped') {
+        bridge.journal
+            .add({'id': attemptId, 'userId': 'owner', 'captureId': capture.id});
+        bridge.stops.add(attemptId);
+      }
       if (scenario == 'actor') {
         container.read(authProvider.notifier).state =
             const AppUser(uid: 'other', email: 'other@example.com');
@@ -270,7 +425,25 @@ void main() {
               userId: 'owner', householdId: null),
           hasLength(shouldSave ? 1 : 0));
       final pending = await repository.pending('owner');
-      expect(pending, hasLength(shouldSave ? 0 : 1));
+      if (scenario == 'expired') {
+        expect(pending.single.payload['requiresAnalysisRetry'], isTrue);
+        expect(bridge.calls.last['outcome'], 'error');
+      }
+      expect(
+          pending,
+          hasLength(shouldSave || ['stopped', 'missed-stop'].contains(scenario)
+              ? 0
+              : 1));
+      if (['stopped', 'missed-stop'].contains(scenario)) {
+        expect(bridge.journal, isEmpty);
+        expect((await database.getOutboxMutations()).single.status,
+            localMutationStatusCancelled);
+      }
+      if (scenario == 'missed-stop') {
+        expect(requested.isCompleted, isFalse);
+        expect(
+            bridge.calls.where((call) => call['method'] == 'start'), isEmpty);
+      }
       if (scenario.endsWith('clarification')) {
         expect(pending.single.payload['question']['question'], 'どの通貨ですか？');
         expect(find.byType(AiCorrectionSheet), findsNothing);

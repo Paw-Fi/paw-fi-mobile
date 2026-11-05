@@ -8,32 +8,75 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
+import 'package:moneko/features/home/presentation/providers/ai_input_cancellation_provider.dart';
 import 'package:moneko/features/privacy/presentation/ai_processing_consent_provider.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
-enum AiExecutionOutcome { needsInput, queued, review, paused, cancelled }
+enum AiExecutionOutcome { needsInput, queued, review, error, paused, cancelled }
 
-abstract interface class AiExecutionBridge {
+abstract class AiExecutionBridge {
   Stream<String> get expired;
+  Stream<String> get stopped => const Stream.empty();
+  Future<List<Map<String, dynamic>>> pendingStops() async => [];
+  Future<void> acknowledgeStop(String id) async {}
+  Future<List<Map<String, dynamic>>> pendingFailures() async => [];
+  Future<void> acknowledgeFailure(String id) async {}
   Future<bool> start(Map<String, dynamic> payload);
   Future<void> update(Map<String, dynamic> payload);
   Future<void> finish(Map<String, dynamic> payload);
   Future<void> dispose();
 }
 
-class MethodChannelAiExecutionBridge implements AiExecutionBridge {
+class MethodChannelAiExecutionBridge extends AiExecutionBridge {
   MethodChannelAiExecutionBridge() {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'expired' && call.arguments is String) {
         _expired.add(call.arguments as String);
+      } else if (call.method == 'stopped' && call.arguments is String) {
+        _stopped.add(call.arguments as String);
       }
     });
   }
 
   static const _channel = MethodChannel('moneko/ai_background_execution');
   final _expired = StreamController<String>.broadcast(sync: true);
+  final _stopped = StreamController<String>.broadcast(sync: true);
   @override
   Stream<String> get expired => _expired.stream;
+  @override
+  Stream<String> get stopped => _stopped.stream;
+
+  @override
+  Future<List<Map<String, dynamic>>> pendingStops() async {
+    return _pendingRecords('pendingStops');
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> pendingFailures() =>
+      _pendingRecords('pendingFailures');
+
+  Future<List<Map<String, dynamic>>> _pendingRecords(String method) async {
+    if (kIsWeb ||
+        ![TargetPlatform.android, TargetPlatform.iOS]
+            .contains(defaultTargetPlatform)) {
+      return [];
+    }
+    try {
+      final rows = await _channel.invokeListMethod<dynamic>(method);
+      return [
+        for (final row in rows ?? []) Map<String, dynamic>.from(row as Map)
+      ];
+    } on MissingPluginException {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> acknowledgeStop(String id) =>
+      _channel.invokeMethod<void>('acknowledgeStop', {'id': id});
+  @override
+  Future<void> acknowledgeFailure(String id) =>
+      _channel.invokeMethod<void>('acknowledgeFailure', {'id': id});
 
   @override
   Future<bool> start(Map<String, dynamic> payload) async {
@@ -61,18 +104,24 @@ class MethodChannelAiExecutionBridge implements AiExecutionBridge {
   Future<void> dispose() async {
     _channel.setMethodCallHandler(null);
     await _expired.close();
+    await _stopped.close();
   }
 }
 
 class AiExecutionLease {
-  AiExecutionLease(this.id, this.messages);
+  AiExecutionLease(this.id, this.messages,
+      {required this.captureId, required this.userId});
   final String id;
+  final String captureId;
+  final String userId;
   final Map<String, String> messages;
   bool _granted = false;
   bool _ended = false;
   bool _interrupted = false;
+  bool _cancelled = false;
   final _interruption = Completer<void>();
   bool get isInterrupted => _interrupted;
+  bool get isCancelled => _cancelled;
   bool get canRunInBackground => _granted && !_ended;
 
   void _interrupt() {
@@ -95,16 +144,22 @@ class AiExecutionInterrupted implements Exception {
 /// Execution lifetime belongs to the application, not the submitting widget.
 /// Financial data and retry ownership remain in the existing capture/outbox.
 class AiBackgroundExecution {
-  AiBackgroundExecution(this._bridge) {
+  AiBackgroundExecution(this._bridge, {Future<void> Function()? onStopped}) {
     _expirationSubscription = _bridge.expired.listen((id) {
       if (_active?.id == id) {
         _active!._interrupt();
       }
     });
+    _stopSubscription = _bridge.stopped.listen((id) {
+      stopAttempt(id);
+      // The durable journal is acknowledged only after SQLite commits Stop.
+      if (onStopped != null) unawaited(onStopped().catchError((Object _) {}));
+    });
   }
 
   final AiExecutionBridge _bridge;
   late final StreamSubscription<String> _expirationSubscription;
+  late final StreamSubscription<String> _stopSubscription;
   AiExecutionLease? _active;
   AiExecutionLease? _attention;
   AiExecutionLease? _notice;
@@ -113,11 +168,24 @@ class AiBackgroundExecution {
   int _attempt = 0;
   final _deferredPresentation = <void Function()>[];
 
+  void stopAttempt(String id) {
+    final lease = _active ?? _attention ?? _notice;
+    if (lease?.id != id) return;
+    lease!._cancelled = true;
+    lease._interrupt();
+    _deferredPresentation.clear();
+  }
+
   Future<AiExecutionLease> start(String captureId,
-      {required Map<String, String> messages}) async {
+      {required Map<String, String> messages,
+      String userId = '',
+      AiExecutionOutcome? initialOutcome,
+      Future<void> Function(String id)? beforeStart}) async {
     final lease = AiExecutionLease(
         '$captureId:${DateTime.now().microsecondsSinceEpoch}:${++_attempt}',
-        Map.unmodifiable(messages));
+        Map.unmodifiable(messages),
+        captureId: captureId,
+        userId: userId);
     if (_disposed) {
       lease._ended = true;
       return lease;
@@ -135,8 +203,21 @@ class AiBackgroundExecution {
       lease._ended = true;
       return lease;
     }
+    // Capture attempt identity must be durable before native Stop is exposed.
     try {
-      lease._granted = await _bridge.start(_payload(lease));
+      if (beforeStart != null) await beforeStart(lease.id);
+    } catch (_) {
+      lease._interrupt();
+      if (_active == lease) _active = null;
+      rethrow;
+    }
+    if (_disposed || _active != lease || lease.isInterrupted) return lease;
+    try {
+      final granted = await _bridge.start({
+        ..._payload(lease),
+        if (initialOutcome != null) 'outcome': initialOutcome.name
+      });
+      lease._granted = initialOutcome == null && granted;
     } catch (_) {
       // Foreground processing and durable resume still work without a lease.
     }
@@ -150,6 +231,8 @@ class AiBackgroundExecution {
 
   Map<String, dynamic> _payload(AiExecutionLease lease) => {
         'id': lease.id,
+        'captureId': lease.captureId,
+        'userId': lease.userId,
         'messages': lease.messages,
         'background': !_presentationAllowed,
       };
@@ -185,10 +268,12 @@ class AiBackgroundExecution {
   Future<void> finish(
       AiExecutionLease lease, AiExecutionOutcome outcome) async {
     if (_disposed || _active != lease) return;
+    if (lease.isCancelled) outcome = AiExecutionOutcome.cancelled;
     lease._ended = true;
     _active = null;
     _notice = outcome == AiExecutionOutcome.cancelled ? null : lease;
     _attention = outcome == AiExecutionOutcome.needsInput ||
+            outcome == AiExecutionOutcome.error ||
             outcome == AiExecutionOutcome.paused
         ? lease
         : null;
@@ -220,6 +305,7 @@ class AiBackgroundExecution {
     _disposed = true;
     await revoke();
     await _expirationSubscription.cancel();
+    await _stopSubscription.cancel();
     await _bridge.dispose();
   }
 }
@@ -227,8 +313,30 @@ class AiBackgroundExecution {
 final aiExecutionBridgeProvider =
     Provider<AiExecutionBridge>((ref) => MethodChannelAiExecutionBridge());
 
+/// Native expiration may run just before suspension. Recover its durable marker
+/// before foreground resume can reinterpret that interruption as an auto-retry.
+Future<void> reconcileAiInputFailures(ProviderContainer container) async {
+  final bridge = container.read(aiExecutionBridgeProvider);
+  for (final failure in await bridge.pendingFailures()) {
+    final repository =
+        await container.read(aiInputCaptureRepositoryProvider.future);
+    final captures = await repository.pending(failure['userId'] as String);
+    for (final capture in captures) {
+      if (capture.id != failure['captureId'] ||
+          capture.payload['executionId'] != failure['id']) {
+        continue;
+      }
+      if (capture.payload['requiresAnalysisRetry'] != true) {
+        await repository.checkpoint(capture, {'requiresAnalysisRetry': true});
+      }
+    }
+    await bridge.acknowledgeFailure(failure['id'] as String);
+  }
+}
+
 final aiBackgroundExecutionProvider = Provider<AiBackgroundExecution>((ref) {
-  final owner = AiBackgroundExecution(ref.read(aiExecutionBridgeProvider));
+  final owner = AiBackgroundExecution(ref.read(aiExecutionBridgeProvider),
+      onStopped: () => ref.read(aiInputCancellationProvider).reconcile());
   void publishVisibility() {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     unawaited(owner.setPresentationAllowed(
@@ -269,11 +377,25 @@ Map<String, String> aiExecutionMessages(AppLocalizations l10n) => {
       'paused': l10n.aiBackgroundPaused,
       'review': l10n.aiBackgroundReview,
       'channel': l10n.aiBackgroundChannel,
+      'stop': l10n.aiBackgroundStop,
+      'loadingTitle': l10n.aiBackgroundLoadingTitle,
+      'successTitle': l10n.aiBackgroundSuccessTitle,
+      'errorTitle': l10n.aiBackgroundErrorTitle,
+      'confirmationTitle': l10n.aiBackgroundConfirmationTitle,
+      'error': l10n.aiBackgroundError,
     };
 
 // English catalog fallbacks until the normal translation export generates members.
 extension AiBackgroundLocalizations on AppLocalizations {
-  String get aiBackgroundNeedsInput => 'Open Moneko to answer a question.';
+  String get aiBackgroundLoadingTitle => 'Analyzing';
+  String get aiBackgroundSuccessTitle => 'Analysis complete';
+  String get aiBackgroundErrorTitle => 'Analysis failed';
+  String get aiBackgroundConfirmationTitle => 'Confirmation required';
+  String get aiBackgroundError =>
+      'Analysis could not finish. Open Moneko to retry or cancel.';
+  String get aiBackgroundStop => 'Stop';
+  String get aiBackgroundNeedsInput =>
+      'Additional confirmation required. Open Moneko to continue.';
   String get aiBackgroundQueued =>
       'Analysis complete. Transactions queued to sync.';
   String get aiBackgroundPaused => 'Analysis paused. Open Moneko to continue.';

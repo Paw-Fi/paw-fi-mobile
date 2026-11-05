@@ -15,6 +15,7 @@ import 'package:moneko/features/profile/data/providers/telegram_binding_provider
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
+import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -74,6 +75,14 @@ class DeepLinkService {
   /// Handle deep link navigation
   Future<void> _handleDeepLink(Uri uri, WidgetRef ref) async {
     // Only log deep link type, not sensitive parameters
+
+    final aiInput = AiInputOpenRequest.fromUri(uri);
+    if (aiInput != null) {
+      ref.read(aiInputOpenRequestProvider.notifier).state = aiInput;
+      ref.read(aiInputResumeControllerProvider).wake();
+      ref.read(aiInputResumeSignalProvider.notifier).state++;
+      return;
+    }
 
     final senderEmail = DeepLinks.emailSenderToAdd(uri);
     if (senderEmail != null && !_isDisposed) {
