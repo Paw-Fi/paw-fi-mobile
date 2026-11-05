@@ -21,6 +21,9 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/privacy/data/ai_processing_consent_repository.dart';
 import 'package:moneko/features/privacy/presentation/ai_processing_consent_dialog.dart';
 import 'package:moneko/features/privacy/presentation/ai_processing_consent_provider.dart';
@@ -102,6 +105,122 @@ void main() {
             localStorage: EmptyLocalStorage(), detectSessionInUri: false),
         httpClient: MockClient((request) => requestHandler(request)));
   });
+
+  for (final source in ['png', 'pdf', 'csv', 'xls', 'xlsx', 'onboarding']) {
+    final ext = source == 'onboarding' ? 'csv' : source;
+    testWidgets(
+        '$source enters the real Home durable capture path while offline',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      await SharedPreferencesAiProcessingConsentRepository(() => preferences)
+          .setConsent('owner', true);
+      final root = Directory.systemTemp.createTempSync('moneko-shared-input-');
+      final database = MonekoDatabase.inMemory();
+      final repository =
+          AiInputCaptureRepository(database, directory: () async => root);
+      final sourceFile = File('${root.path}/旅行.$ext')
+        ..writeAsBytesSync([1, 2, 3, 4]);
+      var requests = 0;
+      requestHandler = (_) async {
+        requests++;
+        return http.Response('{}', 500);
+      };
+      final container = ProviderContainer(overrides: [
+        authProvider.overrideWith(_Auth.new),
+        sharedPreferencesProvider.overrideWithValue(preferences),
+        appUserContactProvider.overrideWithValue(null),
+        householdScopeProvider.overrideWithValue(const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: {},
+        )),
+        userHouseholdsProvider('owner')
+            .overrideWith((ref) => UserHouseholdsNotifier(
+                  ref.read(householdRepositoryProvider),
+                  'owner',
+                  ref,
+                  initialHouseholds: [],
+                )),
+        walletsByHouseholdIdProvider(null).overrideWith((ref) async => []),
+        localDatabaseProvider.overrideWith((ref) async => database),
+        aiInputCaptureRepositoryProvider
+            .overrideWith((ref) async => repository),
+        networkReachabilityProvider.overrideWith((ref) => Stream.value(false)),
+        mobileOutboxDrainerProvider.overrideWith((ref) => _PausedDrainer()),
+        appLockControllerProvider.overrideWith((ref) => AppLockController(
+              userId: 'owner',
+              repository: AppLockRepository(store: _Store()),
+              hasher: AppLockPasscodeHasher(),
+              biometricService: _Biometrics(),
+              isEnabledFlagSet: false,
+              setEnabledFlag: (_) async {},
+            )),
+      ]);
+      addTearDown(() async {
+        container.dispose();
+        await database.close();
+        root.deleteSync(recursive: true);
+      });
+      late BuildContext mountedContext;
+      late WidgetRef mountedRef;
+      await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Consumer(builder: (context, ref, _) {
+              mountedContext = context;
+              mountedRef = ref;
+              ref.watch(networkReachabilityProvider);
+              return const Scaffold(body: SizedBox());
+            }),
+          )));
+      await tester.pump();
+      if (source == 'onboarding') {
+        await tester.runAsync(() => handleAiDocumentInput(
+            mountedContext, mountedRef,
+            bytes: sourceFile.readAsBytesSync(), filename: '旅行.csv'));
+      } else {
+        await tester.runAsync(() => handleSharedAiInputFiles(
+            mountedContext, mountedRef,
+            files: [AiSharedInputFile(path: sourceFile.path)]));
+      }
+      await tester.pump();
+      final captures = await repository.pending('owner');
+      expect(captures, hasLength(1));
+      expect(captures.single.payload['isOnboarding'], source == 'onboarding');
+      final body =
+          await tester.runAsync(() => repository.requestBody(captures.single));
+      if (ext == 'png') {
+        expect(body!['image'], {
+          'data': base64Encode([1, 2, 3, 4]),
+          'contentType': 'image/png'
+        });
+      } else {
+        final attachment = (body!['attachments'] as List).single as Map;
+        expect(attachment['data'], base64Encode([1, 2, 3, 4]));
+        expect(attachment['filename'], '旅行.$ext');
+        expect(
+            attachment['contentType'],
+            {
+              'pdf': 'application/pdf',
+              'csv': 'text/csv',
+              'xls': 'application/vnd.ms-excel',
+              'xlsx':
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            }[ext]);
+      }
+      expect(requests, 0);
+      expect(
+          await database.getRecentTransactions(
+              userId: 'owner', householdId: null),
+          isEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 8));
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   for (final scenario in [
     'cancel',

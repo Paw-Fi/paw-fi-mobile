@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import app_links
+import receive_sharing_intent
 
 @objc class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   var window: UIWindow?
@@ -25,22 +26,22 @@ import app_links
     appDelegate.window = window
 
     // A custom UISceneDelegate bypasses UIApplicationDelegate URL callbacks.
-    // Forward cold-start links to app_links after plugin registration so its
-    // initial-link cache and uriLinkStream both receive the OAuth callback.
+    // Seed the sharing plugin's initial media before Dart subscribes; other
+    // links still enter app_links' initial-link cache and uriLinkStream.
     for context in connectionOptions.urlContexts {
-      forward(url: context.url)
+      forward(url: context.url, isInitial: true)
     }
     for userActivity in connectionOptions.userActivities {
       if let url = userActivity.webpageURL {
-        forward(url: url)
+        forward(url: url, isInitial: true)
       }
     }
 
     window.makeKeyAndVisible()
   }
 
-  // Forward custom URL schemes, including Supabase OAuth callbacks, to the
-  // app_links plugin when the app is already running or suspended.
+  // Deliver shares to the media stream and other custom schemes to app_links
+  // when the app is already running or suspended.
   func scene(
     _ scene: UIScene,
     openURLContexts URLContexts: Set<UIOpenURLContext>
@@ -57,7 +58,19 @@ import app_links
     }
   }
 
-  private func forward(url: URL) {
+  func forward(url: URL, isInitial: Bool = false) {
+    let sharing = SwiftReceiveSharingIntentPlugin.instance
+    if sharing.hasMatchingSchemePrefix(url: url) {
+      if isInitial {
+        _ = sharing.application(
+          UIApplication.shared,
+          didFinishLaunchingWithOptions: [UIApplication.LaunchOptionsKey.url: url]
+        )
+      } else {
+        _ = sharing.application(UIApplication.shared, open: url, options: [:])
+      }
+      return
+    }
     AppLinks.shared.handleLink(url: url)
   }
 }

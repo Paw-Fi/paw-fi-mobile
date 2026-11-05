@@ -126,9 +126,14 @@
 	<key>FlutterDeepLinkingEnabled</key>
 	<false/>
     <!-- Enable background remote notifications -->
-    <key>UIBackgroundModes</key>
+	<key>UIBackgroundModes</key>
     <array>
         <string>remote-notification</string>
+        <string>processing</string>
+    </array>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.moneko.mobile.ai-analysis</string>
     </array>
 </dict>
 </plist>

@@ -24,13 +24,20 @@ class MainActivity : FlutterFragmentActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ShareIntentPreparer.prepare(this, intent)
         super.onCreate(savedInstanceState)
         NotificationCaptureConfig(applicationContext).pruneExpiredPendingCaptures()
         WindowCompat.setDecorFitsSystemWindows(window, false)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        ShareIntentPreparer.prepare(this, intent)
+        super.onNewIntent(intent)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        AiAnalysisBackgroundBridge.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "moneko/widgets")
             .setMethodCallHandler { call, result ->
@@ -233,6 +240,7 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        AiAnalysisBackgroundBridge.detach(applicationContext)
         if (NotificationCaptureDispatcher.onCaptured === captureCallback) {
             NotificationCaptureDispatcher.onCaptured = null
         }

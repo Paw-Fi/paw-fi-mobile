@@ -18,6 +18,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/app/router.dart' show rootNavigatorKey;
 import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
@@ -43,6 +44,7 @@ import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/services/interactive_ai_analysis.dart';
+import 'package:moneko/features/home/presentation/services/ai_background_execution.dart';
 import 'package:moneko/features/home/data/repositories/ai_input_capture_repository.dart';
 import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
@@ -257,12 +259,12 @@ double? _parseAmountValue(Object? value) {
   return null;
 }
 
-String? _resolveHouseholdIdForAi(WidgetRef ref) {
+String? _resolveHouseholdIdForAi(ProviderContainer ref) {
   final scope = ref.read(householdScopeProvider);
   return scope.activeAccountHouseholdId;
 }
 
-String _resolveLogTargetLabel(BuildContext context, WidgetRef ref) {
+String _resolveLogTargetLabel(BuildContext context, ProviderContainer ref) {
   final householdId = _resolveHouseholdIdForAi(ref);
   if (householdId == null) return context.l10n.personalScope;
 
@@ -272,7 +274,7 @@ String _resolveLogTargetLabel(BuildContext context, WidgetRef ref) {
 
 String _resolveLogTargetLabelFromInputTarget(
   BuildContext context,
-  WidgetRef ref, {
+  ProviderContainer ref, {
   required AiInputTarget? inputTarget,
 }) {
   if (inputTarget == null) {
@@ -355,7 +357,7 @@ String _formatAiLoggedToastMessage(
 }
 
 List<Map<String, dynamic>> _buildHouseholdMemberContext(
-  WidgetRef ref,
+  ProviderContainer ref,
   String householdId,
 ) {
   final membersAsync = ref.read(householdMembersProvider(householdId));
@@ -1673,67 +1675,107 @@ Future<void> handleSharedAiInputFiles(
   }
   final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
   final inputTarget = resolveDefaultAiInputTarget(ref);
-  var handledAnyFile = false;
 
   for (final sharedFile in files) {
-    if (!context.mounted || !consentOwner.isCurrentActor) return;
-    final path = sharedFile.path.trim();
-    if (path.isEmpty) continue;
-
-    final file = File(path);
-    if (!await file.exists()) {
-      if (context.mounted) {
-        AppToast.error(context, context.l10n.failedToAnalyze);
-      }
-      continue;
-    }
-
-    if (_isAiImageInput(sharedFile)) {
+    try {
       if (!context.mounted || !consentOwner.isCurrentActor) return;
-      handledAnyFile = true;
+      final path = sharedFile.path.trim();
+      if (path.isEmpty) continue;
+
+      final file = File(path);
+      if (!await file.exists()) {
+        if (context.mounted) {
+          AppToast.error(context, context.l10n.failedToAnalyze);
+        }
+        continue;
+      }
+
+      if (_isAiImageInput(sharedFile)) {
+        if (!context.mounted || !consentOwner.isCurrentActor) return;
+        await _processExpense(
+          context,
+          ref,
+          imagePath: path,
+          inputTarget: inputTarget,
+          onSuccess: onSuccess,
+        );
+        continue;
+      }
+
+      final fileSize = await file.length();
+      if (fileSize > _maxAiFileUploadBytes) {
+        if (context.mounted) {
+          AppToast.error(
+            context,
+            context.l10n.aiFileTooLargeToAnalyze,
+          );
+        }
+        continue;
+      }
+
+      final attachment = await _buildSharedAiAttachment(sharedFile);
+      if (attachment == null) {
+        if (context.mounted) {
+          AppToast.error(context, context.l10n.unsupportedFileFormat);
+        }
+        continue;
+      }
+
+      if (!context.mounted || !consentOwner.isCurrentActor) return;
       await _processExpense(
         context,
         ref,
-        imagePath: path,
+        attachments: [attachment],
         inputTarget: inputTarget,
         onSuccess: onSuccess,
       );
-      continue;
-    }
-
-    final fileSize = await file.length();
-    if (fileSize > _maxAiFileUploadBytes) {
-      if (context.mounted) {
+    } catch (error) {
+      if (context.mounted && consentOwner.isCurrentActor) {
         AppToast.error(
           context,
-          context.l10n.aiFileTooLargeToAnalyze,
+          ErrorHandler.getUserFriendlyMessage(
+            error,
+            context: BackendErrorContext.analyzeExpense,
+          ),
         );
       }
-      continue;
     }
-
-    final attachment = await _buildSharedAiAttachment(sharedFile);
-    if (attachment == null) {
-      if (context.mounted) {
-        AppToast.error(context, context.l10n.unsupportedFileFormat);
-      }
-      continue;
-    }
-
-    handledAnyFile = true;
-    if (!context.mounted || !consentOwner.isCurrentActor) return;
-    await _processExpense(
-      context,
-      ref,
-      attachments: [attachment],
-      inputTarget: inputTarget,
-      onSuccess: onSuccess,
-    );
   }
+}
 
-  if (!handledAnyFile && context.mounted) {
-    AppToast.error(context, context.l10n.failedToAnalyze);
+Future<int?> handleAiDocumentInput(
+  BuildContext context,
+  WidgetRef ref, {
+  required Uint8List bytes,
+  required String filename,
+  AiInputTarget? inputTarget,
+}) async {
+  if (!await ensureAiProcessingConsent(context, ref) || !context.mounted) {
+    return null;
   }
+  final contentType = _attachmentContentTypeForPath(filename);
+  if (contentType == null || bytes.length > _maxAiFileUploadBytes) {
+    AppToast.error(
+        context,
+        contentType == null
+            ? context.l10n.unsupportedFileFormat
+            : context.l10n.aiFileTooLargeToAnalyze);
+    return null;
+  }
+  final data = await foundation.compute<List<int>, String>(base64Encode, bytes);
+  if (!context.mounted) return null;
+  int? count;
+  await _processExpense(
+    context,
+    ref,
+    attachments: [
+      {'filename': filename, 'contentType': contentType, 'data': data}
+    ],
+    inputTarget: inputTarget ?? resolveDefaultAiInputTarget(ref),
+    isOnboarding: true,
+    onPersisted: (success) => count = success.count,
+  );
+  return count;
 }
 
 Future<void> handleAiFreeFormText(
@@ -1957,7 +1999,7 @@ Future<Map<String, dynamic>?> _processWithSSE({
 
 Future<void> _maybeShowUnsetHoldQuickActionReminder(
   BuildContext context,
-  WidgetRef ref, {
+  ProviderContainer ref, {
   required int additionalExpenseCount,
 }) async {
   if (!context.mounted) return;
@@ -2044,8 +2086,8 @@ Future<void> resumePendingAiInputs(BuildContext context, WidgetRef ref) async {
 }
 
 Future<void> _processExpense(
-  BuildContext context,
-  WidgetRef ref, {
+  BuildContext initiatingContext,
+  WidgetRef initiatingRef, {
   String? text,
   String? imagePath,
   List<Map<String, dynamic>>? attachments,
@@ -2055,8 +2097,13 @@ Future<void> _processExpense(
   void Function(AiLogSuccess success)? onSuccess,
   bool isOnboarding = false,
   AiInputCapture? pendingCapture,
+  void Function(AiLogSuccess success)? onPersisted,
 }) async {
+  final initiatingUserId = initiatingRef.read(authProvider).uid;
+  final context = rootNavigatorKey.currentContext ?? initiatingContext;
+  final ref = ProviderScope.containerOf(context, listen: false);
   final user = ref.read(authProvider);
+  if (user.uid != initiatingUserId) return;
   final preview = ref.read(previewModeProvider);
   final consentOwner = ref.read(aiProcessingConsentProvider.notifier);
   if (!preview.isActive &&
@@ -2089,7 +2136,12 @@ Future<void> _processExpense(
       (selectedCurrency != null && selectedCurrency.isNotEmpty)
           ? selectedCurrency.toUpperCase()
           : contact?.preferredCurrency?.toUpperCase();
-  final providerContainer = ProviderScope.containerOf(context, listen: false);
+  final providerContainer = ref;
+  final executionOwner =
+      preview.isActive ? null : ref.read(aiBackgroundExecutionProvider);
+  final executionMessages = aiExecutionMessages(context.l10n);
+  AiExecutionLease? executionLease;
+  var executionOutcome = AiExecutionOutcome.paused;
 
   var capture = pendingCapture;
   AiInputCaptureRepository? captureRepository;
@@ -2099,6 +2151,11 @@ Future<void> _processExpense(
       (!claimedCapture || resumeController?.isDisposed == false) &&
       (preview.isActive ||
           providerContainer.read(authProvider).uid == user.uid);
+  bool canPresent() =>
+      context.mounted &&
+      !providerContainer.read(appLockControllerProvider).shouldBlockApp &&
+      (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
   bool isActive() =>
       context.mounted &&
       ownsCapture() &&
@@ -2107,9 +2164,22 @@ Future<void> _processExpense(
               providerContainer
                   .read(aiProcessingConsentProvider)
                   .mayProcess)) &&
-      !providerContainer.read(appLockControllerProvider).shouldBlockApp &&
-      (WidgetsBinding.instance.lifecycleState == null ||
-          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
+      executionLease?.isInterrupted != true &&
+      (canPresent() || executionLease?.canRunInBackground == true);
+  Future<void> pauseForInput() async {
+    executionOutcome = AiExecutionOutcome.needsInput;
+    final lease = executionLease;
+    if (lease != null) await executionOwner!.finish(lease, executionOutcome);
+    executionLease = null;
+  }
+
+  Future<void> acquireExecution() async {
+    if (capture == null || executionOwner == null || !ownsCapture()) return;
+    executionOutcome = AiExecutionOutcome.paused;
+    executionLease =
+        await executionOwner.start(capture!.id, messages: executionMessages);
+  }
+
   final capturedBody = pendingCapture?.body;
   if (pendingCapture != null) {
     text = capturedBody?['text'] as String?;
@@ -2156,6 +2226,7 @@ Future<void> _processExpense(
   // The controller and request flow below remain unchanged.
   NonBlockingProcessingOverlay? processingOverlay;
   void showDeferredAnalysisError(Object error) {
+    if (!canPresent()) return;
     final isOffline =
         ref.read(networkReachabilityProvider).valueOrNull == false;
     final message = isOffline
@@ -2193,7 +2264,8 @@ Future<void> _processExpense(
     await rememberAnalysisError(error);
     processingOverlay?.dismiss();
     processingOverlay = null;
-    if (!isActive()) return false;
+    await pauseForInput();
+    if (!isActive() || !canPresent()) return false;
     final result = await MonekoAlertDialog.show(
       context: context,
       title: context.l10n.failedToAnalyze,
@@ -2205,6 +2277,7 @@ Future<void> _processExpense(
     if (!ownsCapture()) return false;
     if (result?.action == MonekoAlertDialogAction.cancel && capture != null) {
       await captureRepository!.cancel(capture!);
+      await executionOwner?.revoke();
       return false;
     }
     if (result?.confirmed != true || !isActive()) return false;
@@ -2213,13 +2286,17 @@ Future<void> _processExpense(
         'analysisError': null,
       });
     }
+    await acquireExecution();
     return isActive();
   }
 
   Future<Map<String, dynamic>> requestAnalysis(
       Future<Map<String, dynamic>?> Function() request) async {
     try {
-      final response = await request();
+      final operation = request();
+      final response = executionLease == null
+          ? await operation
+          : await executionLease!.untilInterrupted(operation);
       if (response == null || response['success'] != true) {
         throw response ??
             {
@@ -2231,6 +2308,7 @@ Future<void> _processExpense(
       return response;
     } catch (error) {
       // Persist before the modal, even when the app left the foreground.
+      if (error is AiExecutionInterrupted) rethrow;
       await rememberAnalysisError(error);
       rethrow;
     }
@@ -2395,6 +2473,7 @@ Future<void> _processExpense(
         return;
       }
       capture = await captureRepository!.hold(capture!);
+      await acquireExecution();
       if (!context.mounted || !isActive()) return;
       // Receipts must also use the durable source after the temporary picker closes.
       imagePath = capture!.payload['localImagePath'] as String?;
@@ -2477,11 +2556,16 @@ Future<void> _processExpense(
         ask: (question) async {
           processingOverlay?.dismiss();
           processingOverlay = null;
+          await pauseForInput();
+          if (!context.mounted || !isActive() || !canPresent()) return null;
           final result = await showAiCorrectionSheet(context, question);
           if (!ownsCapture()) return null;
           if (result?.isCancelled == true && capture != null) {
             await captureRepository!.cancel(capture!);
+            await executionOwner?.revoke();
+            executionOutcome = AiExecutionOutcome.cancelled;
           }
+          if (result?.answer != null && canPresent()) await acquireExecution();
           return result?.answer;
         },
         retry: confirmAnalysisRetry,
@@ -2557,6 +2641,7 @@ Future<void> _processExpense(
           return _asStringDynamicMap(response.data);
         });
       } catch (error) {
+        if (!isActive()) return;
         if (!await confirmAnalysisRetry(error)) return;
       }
     }
@@ -2813,8 +2898,8 @@ Future<void> _processExpense(
                   createdAt: createdAt,
                 );
                 optimisticUpdates.add(() {
-                  addOptimisticTransaction(
-                    ref: ref,
+                  addOptimisticTransactionWithContainer(
+                    container: ref,
                     entry: entry,
                     householdId: householdId,
                   );
@@ -2869,6 +2954,8 @@ Future<void> _processExpense(
                 );
 
           if (!preview.isActive) {
+            final lease = executionLease;
+            if (lease != null) await executionOwner!.update(lease, 'saving');
             final groups = <AiAnalysisDestination?, List<_AiParsedItem>>{};
             for (final item in parsed) {
               groups.putIfAbsent(item.destination, () => []).add(item);
@@ -2890,7 +2977,7 @@ Future<void> _processExpense(
                     ? inputTarget.accountCurrency
                     : destination.accountCurrency,
                 localImagePath: imagePath,
-                candidateReviewContext: context.mounted ? context : null,
+                candidateReviewContext: canPresent() ? context : null,
                 capturedInput: capture,
                 captureDestinationKey: destination?.key ?? 'default',
                 isCaptureActive: isActive,
@@ -2917,8 +3004,17 @@ Future<void> _processExpense(
           if (capture != null) {
             await captureRepository!.removeMaterializedMedia(capture!);
           }
+          executionOutcome = AiExecutionOutcome.queued;
+          final logged = AiLogSuccess(
+            count: parsed.length,
+            targetLabel: optimisticTargetLabel,
+            items: parsed
+                .map((entry) => entry.transaction)
+                .toList(growable: false),
+          );
+          if (ownsCapture()) onPersisted?.call(logged);
           if (!context.mounted || !isActive()) return;
-          if (context.mounted) {
+          if (canPresent()) {
             processingOverlay?.complete(
               message: _formatAiLoggedToastMessage(
                 context,
@@ -2929,21 +3025,26 @@ Future<void> _processExpense(
             );
           }
 
-          if (context.mounted && onSuccess != null) {
-            onSuccess(
-              AiLogSuccess(
-                count: parsed.length,
-                targetLabel: optimisticTargetLabel,
-                items: parsed
-                    .map((entry) => entry.transaction)
-                    .toList(growable: false),
-              ),
-            );
+          if (onSuccess != null) {
+            void presentSuccess() {
+              if (!initiatingContext.mounted ||
+                  !ownsCapture() ||
+                  !canPresent()) {
+                return;
+              }
+              onSuccess(logged);
+            }
+
+            if (executionOwner != null) {
+              executionOwner.presentWhenAllowed(presentSuccess);
+            } else {
+              presentSuccess();
+            }
           }
 
           final expenseCount =
               parsed.where((entry) => !entry.transaction.isIncome).length;
-          if (!isOnboarding && context.mounted && expenseCount > 0) {
+          if (!isOnboarding && canPresent() && expenseCount > 0) {
             unawaited(_maybeShowUnsetHoldQuickActionReminder(
               context,
               ref,
@@ -3037,13 +3138,15 @@ Future<void> _processExpense(
       );
     }
   } finally {
+    final lease = executionLease;
+    if (lease != null) await executionOwner!.finish(lease, executionOutcome);
     if (claimedCapture) {
       resumeController!.finish(capture!.id);
       if (!resumeController.isDisposed) {
         providerContainer.read(aiInputResumeSignalProvider.notifier).state += 1;
       }
     }
-    if (!context.mounted || !isActive()) processingOverlay?.dismiss();
+    if (!canPresent() || !isActive()) processingOverlay?.dismiss();
   }
 }
 

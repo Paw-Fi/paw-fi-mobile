@@ -4,9 +4,81 @@ import CoreText
 import XCTest
 import FirebaseCore
 import firebase_messaging
+import app_links
+import receive_sharing_intent
 @testable import Runner
 
 class RunnerTests: XCTestCase {
+
+  private func withSharedPhoto(_ test: (SwiftReceiveSharingIntentPlugin, URL) throws -> Void) throws {
+    let groupId = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "AppGroupId") as? String)
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: groupId))
+    let previousMedia = defaults.object(forKey: "ShareKey")
+    let previousMessage = defaults.object(forKey: "ShareMessageKey")
+    let plugin = SwiftReceiveSharingIntentPlugin.instance
+    let photo = FileManager.default.temporaryDirectory.appendingPathComponent("receipt-旅行.jpg")
+    try Data([0xff, 0xd8, 0xff, 0xd9]).write(to: photo)
+    defer {
+      defaults.set(previousMedia, forKey: "ShareKey")
+      defaults.set(previousMessage, forKey: "ShareMessageKey")
+      plugin.handle(FlutterMethodCall(methodName: "reset", arguments: nil)) { _ in }
+      _ = plugin.onCancel(withArguments: nil)
+      try? FileManager.default.removeItem(at: photo)
+    }
+    defaults.set(try JSONSerialization.data(withJSONObject: [[
+      "path": photo.absoluteString.removingPercentEncoding!,
+      "mimeType": "image/jpeg", "type": "image",
+    ]]), forKey: "ShareKey")
+    defaults.removeObject(forKey: "ShareMessageKey")
+    plugin.handle(FlutterMethodCall(methodName: "reset", arguments: nil)) { _ in }
+    try test(plugin, photo)
+  }
+
+  func testColdSceneShareRemainsAvailableBeforeDartSubscribes() throws {
+    try withSharedPhoto { plugin, photo in
+      let bundleId = try XCTUnwrap(Bundle.main.bundleIdentifier)
+      let url = try XCTUnwrap(URL(string: "ShareMedia-\(bundleId):share"))
+      SceneDelegate().forward(url: url, isInitial: true)
+
+      var initial: String?
+      plugin.handle(FlutterMethodCall(methodName: "getInitialMedia", arguments: nil)) {
+        initial = $0 as? String
+      }
+      let data = try XCTUnwrap(initial?.data(using: .utf8))
+      let media = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+      XCTAssertEqual(media.count, 1)
+      XCTAssertEqual(media.first?["path"] as? String, photo.path)
+      XCTAssertEqual(media.first?["type"] as? String, "image")
+    }
+  }
+
+  func testWarmSceneShareEmitsMediaToTheExistingDartStream() throws {
+    try withSharedPhoto { plugin, photo in
+      var events: [String] = []
+      _ = plugin.onListen(withArguments: nil) {
+        if let json = $0 as? String { events.append(json) }
+      }
+      let bundleId = try XCTUnwrap(Bundle.main.bundleIdentifier)
+      let url = try XCTUnwrap(URL(string: "ShareMedia-\(bundleId):share"))
+      SceneDelegate().forward(url: url)
+
+      XCTAssertEqual(events.count, 1)
+      let data = try XCTUnwrap(events.first?.data(using: .utf8))
+      let media = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+      XCTAssertEqual(media.first?["path"] as? String, photo.path)
+      plugin.handle(FlutterMethodCall(methodName: "getInitialMedia", arguments: nil)) {
+        XCTAssertNil($0, "Warm shares must not be replayed as initial media")
+      }
+    }
+  }
+
+  func testSceneStillForwardsNonShareLinksToAppLinks() throws {
+    let url = try XCTUnwrap(URL(string: "moneko://auth/callback?code=scene-regression"))
+    SceneDelegate().forward(url: url)
+    AppLinks.shared.handle(FlutterMethodCall(methodName: "getLatestLink", arguments: nil)) {
+      XCTAssertEqual($0 as? String, url.absoluteString)
+    }
+  }
 
   func testRoundedSystemFontDataPreservesTheActualSystemTypeface() throws {
     for weight in [UIFont.Weight.regular, .semibold, .bold, .heavy] {

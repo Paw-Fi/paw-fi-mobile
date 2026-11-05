@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -11,6 +12,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/services/ai_background_execution.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
@@ -50,6 +52,23 @@ class _PdfPicker extends FilePicker {
             size: 4,
             bytes: Uint8List.fromList([37, 80, 68, 70]))
       ]);
+}
+
+class _PdfExecutionBridge implements AiExecutionBridge {
+  final outcomes = <String>[];
+  @override
+  Stream<String> get expired => const Stream.empty();
+  @override
+  Future<bool> start(Map<String, dynamic> payload) async => false;
+  @override
+  Future<void> update(Map<String, dynamic> payload) async {}
+  @override
+  Future<void> finish(Map<String, dynamic> payload) async {
+    outcomes.add(payload['outcome'] as String);
+  }
+
+  @override
+  Future<void> dispose() async {}
 }
 
 void main() {
@@ -95,10 +114,16 @@ void main() {
           () async {
         SharedPreferences.setMockInitialValues({});
         final preferences = await SharedPreferences.getInstance();
+        final executionBridge = _PdfExecutionBridge();
         final container = ProviderContainer(overrides: [
           authProvider.overrideWith(_Auth.new),
           sharedPreferencesProvider.overrideWithValue(preferences),
           analyticsProvider.overrideWith(_Analytics.new),
+          aiBackgroundExecutionProvider.overrideWith((ref) {
+            final owner = AiBackgroundExecution(executionBridge);
+            ref.onDispose(() => unawaited(owner.dispose()));
+            return owner;
+          }),
         ]);
         addTearDown(container.dispose);
         final keepAlive = container.listen(importWizardProvider, (_, __) {});
@@ -152,6 +177,9 @@ void main() {
         };
         final notifier = container.read(importWizardProvider.notifier);
         await notifier.pickFile(allowedExtensions: ['pdf']);
+        expect(executionBridge.outcomes, ['review']);
+        expect(savedBodies, isEmpty,
+            reason: 'PDF analysis still requires explicit import review');
         expect(notifier.state.errorMessage, isNull);
         expect(notifier.state.table!.headers, [
           'date',

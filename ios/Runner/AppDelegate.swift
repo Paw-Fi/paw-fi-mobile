@@ -2979,6 +2979,7 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private(set) var flutterEngine: FlutterEngine?
+  private var aiAnalysisBackgroundBridge: AiAnalysisBackgroundBridge?
   private var pendingCommitmentTransactions: [UInt64: StoreKit.Transaction] = [:]
   override func application(
     _ application: UIApplication,
@@ -2996,6 +2997,7 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
   }
 
   func setupFlutterChannels(binaryMessenger: FlutterBinaryMessenger) {
+    aiAnalysisBackgroundBridge = AiAnalysisBackgroundBridge(messenger: binaryMessenger)
     let roundedFontChannel = FlutterMethodChannel(
       name: "moneko/rounded_font", binaryMessenger: binaryMessenger
     )

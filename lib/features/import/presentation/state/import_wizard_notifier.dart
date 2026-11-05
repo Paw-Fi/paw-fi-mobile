@@ -16,6 +16,8 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/services/ai_background_execution.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/features/import/data/import_batch_results.dart';
 import 'package:moneko/features/import/data/import_dedupe.dart';
 import 'package:moneko/features/import/data/import_excel_parser.dart';
@@ -66,6 +68,9 @@ String resolveImportTargetWalletCurrency({
 final importWizardProvider =
     StateNotifierProvider.autoDispose<ImportWizardNotifier, ImportWizardState>(
         (ref) {
+  ref.listen(authProvider.select((user) => user.uid), (previous, next) {
+    if (previous != next) ref.invalidateSelf();
+  });
   return ImportWizardNotifier(ref);
 });
 
@@ -210,6 +215,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final autoSkip = mappingResult.confidence == MappingConfidence.high &&
           sampleValid >= 0.7;
       final nextStep = autoSkip ? ImportStep.preview : ImportStep.mapColumns;
+      if (!mounted) return;
 
       state = state.copyWith(
         isParsing: false,
@@ -227,6 +233,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         clearNonRecurringRowIndices: true,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isParsing: false,
         clearParsingStatusMessage: true,
@@ -565,7 +572,36 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     required Uint8List bytes,
     required String filename,
   }) async {
+    final actor = _ref.read(authProvider).uid;
+    if (actor.isEmpty) throw Exception('User not authenticated');
+    final keepAlive = _ref.keepAlive();
+    final owner = _ref.read(aiBackgroundExecutionProvider);
+    final locale = resolveSupportedAppLocale(_ref.read(localeProvider));
+    final messages = aiExecutionMessages(lookupAppLocalizations(locale));
+    final lease = await owner.start('import-pdf:$actor', messages: messages);
+    var outcome = AiExecutionOutcome.paused;
+    try {
+      if (!mounted || _ref.read(authProvider).uid != actor) {
+        throw StateError(messages['paused']!);
+      }
+      final table = await _readPdfAnalysis(bytes: bytes, filename: filename);
+      if (!mounted || _ref.read(authProvider).uid != actor) {
+        throw StateError(messages['paused']!);
+      }
+      // Import remains a preview workflow; analysis never auto-confirms rows.
+      outcome = AiExecutionOutcome.review;
+      return table;
+    } finally {
+      await owner.finish(lease, outcome);
+      keepAlive.close();
+    }
+  }
+
+  Future<ImportTable> _readPdfAnalysis(
+      {required Uint8List bytes, required String filename}) async {
     final authUser = _ref.read(authProvider);
+    bool ownsAnalysis() =>
+        mounted && _ref.read(authProvider).uid == authUser.uid;
     if (authUser.isEmpty || authUser.uid.isEmpty) {
       throw Exception('User not authenticated');
     }
@@ -617,6 +653,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
           },
           timeout: const Duration(minutes: 4),
         )) {
+          if (!ownsAnalysis()) throw const AiExecutionInterrupted();
           if (event.event == 'progress' && event.data is Map<String, dynamic>) {
             final progress = AnalysisProgressEvent.fromJson(
               event.data as Map<String, dynamic>,
@@ -641,7 +678,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
             throw _ImportBackendException(event.data.toString());
           }
         }
-      } catch (_) {
+      } catch (error) {
+        if (error is AiExecutionInterrupted || !ownsAnalysis()) rethrow;
         if (streamReportedBackendError) {
           rethrow;
         }
@@ -650,6 +688,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     }
 
     if (responseData == null) {
+      if (!ownsAnalysis()) throw const AiExecutionInterrupted();
       state = state.copyWith(
         parsingStatusMessage: 'Finalizing PDF analysis...',
       );
@@ -667,6 +706,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       responseData = data;
     }
 
+    if (!ownsAnalysis()) throw const AiExecutionInterrupted();
     if (responseData['success'] != true) {
       throw _ImportBackendException(
         responseData['error']?.toString() ?? 'Failed to analyze PDF',
