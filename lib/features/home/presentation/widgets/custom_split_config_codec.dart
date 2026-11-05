@@ -156,11 +156,15 @@ List<MemberSplit> deserializeStoredSplitConfig({
     final storedPercentage = _asDouble(stored['percentage']);
     final storedShares = _asPositiveInt(stored['shares']);
 
+    // A stored `null` is an explicit value (e.g. shares: null means the
+    // member is excluded); only fall back to defaults when the key is absent.
     return MemberSplit(
       member: member,
-      amount: storedAmount ?? fallback.amount,
-      percentage: storedPercentage ?? fallback.percentage,
-      shares: storedShares ?? fallback.shares,
+      amount: stored.containsKey('amount') ? storedAmount : fallback.amount,
+      percentage: stored.containsKey('percentage')
+          ? storedPercentage
+          : fallback.percentage,
+      shares: stored.containsKey('shares') ? storedShares : fallback.shares,
       includedInAmount:
           _asBool(stored['includedInAmount']) ?? (storedAmount != 0),
       includedInPercentage:

@@ -5,7 +5,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -364,18 +363,16 @@ class _UnifiedTransactionSheetV2State
 
       // Defer provider state modification to after widget tree is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         // Seed the pending expense so edits/saves are consistent.
         ref.read(pendingExpenseProvider.notifier).state = newExpense;
 
-        if (selected != null &&
-            _selectedAccountHouseholdId == null &&
-            _selectedAccountType == ActiveWalletType.household) {
+        final householdId = _selectedAccountHouseholdId ?? selected;
+        if (householdId != null && _isSharedWithHousehold) {
           ref.read(selectedHouseholdForSharingProvider.notifier).state =
-              selected;
-          if (_isSharedWithHousehold) {
-            _loadMembers(selected);
-          }
-        } else {}
+              householdId;
+          _loadMembers(householdId);
+        }
       });
     }
   }
@@ -800,13 +797,16 @@ class _UnifiedTransactionSheetV2State
       if (option.householdId != null) {
         ref.read(selectedHouseholdForSharingProvider.notifier).state =
             option.householdId;
+
+        if (!isExistingExpense ||
+            widget.existingExpense?.householdId != option.householdId) {
+          _clearSharingData();
+        }
         _loadMembers(option.householdId!);
 
         if (isExistingExpense &&
             widget.existingExpense?.householdId == option.householdId) {
           _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
-        } else {
-          _clearSharingData();
         }
       }
     } else {
@@ -1821,156 +1821,15 @@ class _UnifiedTransactionSheetV2State
             ),
           ),
 
-          // Show household dropdown only when toggle is ON
+          // The Space row above owns selection; this section only edits splits.
           if (_selectedAccountType == ActiveWalletType.household &&
               householdList.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: colorScheme.muted.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: hasValidSelection
-                      ? selectedHousehold
-                      : (_resolveDefaultHouseholdId(
-                            householdList,
-                            selectedHouseholdState,
-                          ) ??
-                          householdList.first.id),
-                  isExpanded: true,
-                  icon: Icon(Icons.arrow_drop_down,
-                      color: colorScheme.foreground),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: colorScheme.foreground,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  items: householdList.map((h) {
-                    return DropdownMenuItem<String>(
-                      value: h.id,
-                      child: Row(
-                        children: [
-                          // Cover photo
-                          if (h.coverImageUrl != null)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: CachedNetworkImage(
-                                imageUrl: h.coverImageUrl!,
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.cover,
-                                errorWidget: (context, url, error) => Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.muted,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Icon(Icons.home_rounded,
-                                      size: 16,
-                                      color: colorScheme.mutedForeground),
-                                ),
-                              ),
-                            )
-                          else
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: colorScheme.muted,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              h.name,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: colorScheme.foreground,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedAccountHouseholdId = value;
-                        _selectedFinancialAccountId = null;
-                        _hasManuallySelectedFinancialAccount = false;
-                      });
-                      ref
-                          .read(selectedHouseholdForSharingProvider.notifier)
-                          .state = value;
-                      // Reset custom splits when changing household
-
-                      setState(() {
-                        _customSplitType = null;
-                        _customSplits = null;
-                        _initialSplitSignature = null;
-                        _loadedSplitGroupType = null;
-                        _resolvedSplitGroupId = null;
-                        _hasCheckedSplitGroup = false;
-                        _hasManuallyChangedPayer = false;
-                        _householdMembers = null;
-                        _membersError = null;
-                        _isLoadingMembers = false;
-                      });
-                      final isPortfolioSelection =
-                          _isPortfolioHousehold(households, value);
-                      if (!isPortfolioSelection) {
-                        _loadMembers(value);
-                      }
-
-                      // If user navigated back to the original household while
-                      // editing an existing shared expense, restore the split config.
-                      if (isExistingExpense &&
-                          widget.existingExpense?.householdId == value) {
-                        _resolveSplitGroupIdForExistingExpense(
-                            loadSplitConfig: true);
-                      }
-                    }
-                  },
-                ),
-              ),
-            ),
             const SizedBox(height: 12),
             // Inline Split Editor (replaces previous button/secondary sheet)
             Builder(
               builder: (context) {
                 if (_isLoadingMembers) {
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation(colorScheme.primary),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(context.l10n.loadingHouseholdMembers,
-                            style:
-                                TextStyle(color: colorScheme.mutedForeground)),
-                      ],
-                    ),
-                  );
+                  return _buildSplitLoadingSkeleton(colorScheme);
                 }
                 if (_membersError != null) {
                   return Container(
@@ -3059,15 +2918,10 @@ class _UnifiedTransactionSheetV2State
       config: config,
       totalAmount: totalAmount,
     );
-    final amountEditorSplits = _toAmountEditorSplits(
-      sourceType: splitType,
-      splits: resolvedSplits,
-      totalAmount: totalAmount,
-    );
     if (!mounted) return;
     setState(() {
-      _customSplitType = SplitType.amount;
-      _customSplits = amountEditorSplits;
+      _customSplitType = splitType;
+      _customSplits = resolvedSplits;
     });
   }
 
@@ -3236,99 +3090,6 @@ class _UnifiedTransactionSheetV2State
     // The editor UI currently exposes Amount / Percent / Share. Represent Equal
     // splits as Amount so users see a selected chip and can edit amounts.
     return type == SplitType.equal ? SplitType.amount : type;
-  }
-
-  List<int> _allocateCentsByWeights({
-    required int totalCents,
-    required List<double> weights,
-  }) {
-    if (weights.isEmpty || totalCents <= 0) {
-      return List<int>.filled(weights.length, 0, growable: false);
-    }
-
-    final normalized = weights
-        .map((weight) => weight.isFinite && weight > 0 ? weight : 0.0)
-        .toList(growable: false);
-    final totalWeight = normalized.fold<double>(0, (sum, w) => sum + w);
-    if (totalWeight <= 0) {
-      return List<int>.filled(weights.length, 0, growable: false);
-    }
-
-    final raw = normalized
-        .map((weight) => (totalCents * weight) / totalWeight)
-        .toList(growable: false);
-    final floorValues =
-        raw.map((value) => value.floor()).toList(growable: false);
-    var remainder =
-        totalCents - floorValues.fold<int>(0, (sum, value) => sum + value);
-
-    final order = List<int>.generate(raw.length, (index) => index)
-      ..sort((a, b) {
-        final fracA = raw[a] - floorValues[a];
-        final fracB = raw[b] - floorValues[b];
-        return fracB.compareTo(fracA);
-      });
-
-    for (var i = 0; remainder > 0 && order.isNotEmpty; i++, remainder--) {
-      floorValues[order[i % order.length]] += 1;
-    }
-
-    return floorValues;
-  }
-
-  List<MemberSplit> _toAmountEditorSplits({
-    required SplitType sourceType,
-    required List<MemberSplit> splits,
-    required double totalAmount,
-  }) {
-    if (splits.isEmpty) return splits;
-
-    if (sourceType == SplitType.amount) {
-      final previousTotal = splits.fold<double>(
-        0,
-        (sum, split) =>
-            sum + (split.includedInAmount ? (split.amount ?? 0) : 0),
-      );
-      return rescaleAmountSplits(
-        splits: splits,
-        previousTotal: previousTotal,
-        newTotal: totalAmount,
-      );
-    }
-
-    final totalCents = (totalAmount * 100).round();
-    final weights = sourceType == SplitType.percentage
-        ? splits
-            .map((split) => split.includedInPercentage
-                ? ((split.percentage ?? 0).toDouble())
-                : 0.0)
-            .toList(growable: false)
-        : sourceType == SplitType.shares
-            ? splits
-                .map((split) =>
-                    ((split.shares ?? 0) > 0 ? split.shares! : 0).toDouble())
-                .toList(growable: false)
-            : List<double>.filled(splits.length, 1.0, growable: false);
-
-    var effectiveWeights = weights;
-    if (effectiveWeights.every((value) => value <= 0)) {
-      effectiveWeights =
-          List<double>.filled(splits.length, 1.0, growable: false);
-    }
-
-    final centsByMember = _allocateCentsByWeights(
-      totalCents: totalCents,
-      weights: effectiveWeights,
-    );
-
-    return List<MemberSplit>.generate(splits.length, (index) {
-      final split = splits[index];
-      final cents = centsByMember[index];
-      return split.copyWith(
-        amount: cents / 100.0,
-        includedInAmount: cents > 0,
-      );
-    }, growable: false);
   }
 
   String _buildSplitSignature(SplitType type, List<MemberSplit> splits) {

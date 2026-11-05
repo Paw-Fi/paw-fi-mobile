@@ -109,6 +109,42 @@ void main() {
       }
     });
 
+    test('stored shares template keeps explicitly excluded members out', () {
+      final members = ['user-a', 'user-b', 'user-c', 'user-d', 'user-e']
+          .map(_member)
+          .toList();
+      final group = buildOptimisticHouseholdSplitGroup(
+        householdId: 'household-1',
+        expenseId: 'dinner',
+        payerUserId: 'user-a',
+        totalAmount: 30,
+        currency: 'EUR',
+        members: members,
+        autoSplitEnabled: true,
+        autoSplitConfig: {
+          'splitType': 'shares',
+          'templateTotalAmount': 3,
+          'memberSplits': [
+            for (final id in ['user-a', 'user-b', 'user-c', 'user-d', 'user-e'])
+              {
+                'userId': id,
+                'amount': null,
+                'percentage': null,
+                'shares': (id == 'user-b' || id == 'user-c') ? null : 1,
+                'includedInAmount': true,
+                'includedInPercentage': true,
+              },
+          ],
+        },
+      )!;
+
+      expect(group.splitType, SplitType.shares);
+      expect(group.splitLines!.map((line) => line.userId).toSet(),
+          {'user-a', 'user-d', 'user-e'});
+      expect(group.splitLines!.map((line) => line.amountCents),
+          [1000, 1000, 1000]);
+    });
+
     for (final splitType in ['shares', 'percentage']) {
       test('$splitType allocates a two-cent expense without inventing cents',
           () {

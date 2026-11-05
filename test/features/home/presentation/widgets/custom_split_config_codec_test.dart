@@ -89,6 +89,73 @@ void main() {
       expect(decoded[2].shares, isNull);
     });
 
+    test('keeps explicitly excluded share members excluded after round-trip',
+        () {
+      final stored = serializeStoredSplitConfig(
+        splitType: SplitType.shares,
+        splits: [
+          MemberSplit(member: members[0], shares: 1),
+          MemberSplit(member: members[1], shares: null),
+          MemberSplit(member: members[2], shares: null),
+        ],
+      );
+
+      final decoded = deserializeStoredSplitConfig(
+        members: members,
+        totalAmount: 3,
+        config: stored,
+      );
+
+      expect(isStoredSplitConfigEffectivelyEqual(stored), isFalse);
+      expect(decoded[0].shares, 1);
+      expect(decoded[1].shares, isNull);
+      expect(decoded[2].shares, isNull);
+
+      final reserialized = serializeStoredSplitConfig(
+        splitType: SplitType.shares,
+        splits: decoded,
+      );
+      expect(reserialized, stored);
+    });
+
+    test(
+        'keeps explicitly excluded percentage members excluded after round-trip',
+        () {
+      final stored = serializeStoredSplitConfig(
+        splitType: SplitType.percentage,
+        splits: [
+          MemberSplit(member: members[0], percentage: 100.0),
+          MemberSplit(
+            member: members[1],
+            percentage: 0,
+            includedInPercentage: false,
+          ),
+          MemberSplit(
+            member: members[2],
+            percentage: 0,
+            includedInPercentage: false,
+          ),
+        ],
+      );
+
+      final decoded = deserializeStoredSplitConfig(
+        members: members,
+        totalAmount: 3,
+        config: stored,
+      );
+
+      expect(decoded[0].percentage, 100.0);
+      expect(decoded[1].includedInPercentage, isFalse);
+      expect(decoded[2].includedInPercentage, isFalse);
+      expect(
+        serializeStoredSplitConfig(
+          splitType: SplitType.percentage,
+          splits: decoded,
+        ),
+        stored,
+      );
+    });
+
     test('builds backend payload from percentage split config', () {
       final payload = buildCustomSplitsPayload(
         splitType: SplitType.percentage,
