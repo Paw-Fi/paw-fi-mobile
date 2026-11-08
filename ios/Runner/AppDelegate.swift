@@ -470,7 +470,8 @@ enum SiriTransactionCapture {
         "clientCreatedAt": ISO8601DateFormatter().string(from: capturedAt)
       ]
       if let householdId { body["householdId"] = householdId; body["isPortfolio"] = isPortfolio }
-      if let accountId { body["accountId"] = accountId }
+      // The verified destination is authoritative, including an unassigned wallet.
+      body["accountId"] = destination["accountId"]
       for field in ["description", "merchant", "breakdown", "receiptImageUrl", "payerUserId", "customSplits", "ownerType", "privacyScope", "isRecurring", "recurrence_rule"] {
         if let value = item[field], !(value is NSNull) { body[field] = value }
       }

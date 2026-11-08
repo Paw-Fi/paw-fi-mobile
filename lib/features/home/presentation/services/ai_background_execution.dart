@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
@@ -24,6 +25,10 @@ abstract class AiExecutionBridge {
   Future<bool> start(Map<String, dynamic> payload);
   Future<void> update(Map<String, dynamic> payload);
   Future<void> finish(Map<String, dynamic> payload);
+
+  /// Removes native presentation that no in-memory attempt owns, such as an
+  /// attention state left behind by a previous process.
+  Future<void> clear() async {}
   Future<void> dispose();
 }
 
@@ -87,11 +92,25 @@ class MethodChannelAiExecutionBridge extends AiExecutionBridge {
     }
     try {
       // A denied notification permission must not discard a captured input.
-      await Permission.notification.request();
+      await _requestNotificationPermissionOnce();
     } catch (_) {
       // Native execution may still be available when permission UI is absent.
     }
     return await _channel.invokeMethod<bool>('start', payload) ?? false;
+  }
+
+  static const _permissionRequestedKey =
+      'ai_background_notification_permission_requested';
+
+  /// Asks at most once, in context of the first background-capable analysis.
+  /// Later denials are respected; Settings remains the place to change them.
+  /// Completes before `start` so iOS is active when the Live Activity starts.
+  Future<void> _requestNotificationPermissionOnce() async {
+    if (!(await Permission.notification.status).isDenied) return;
+    final preferences = await SharedPreferences.getInstance();
+    if (preferences.getBool(_permissionRequestedKey) == true) return;
+    await preferences.setBool(_permissionRequestedKey, true);
+    await Permission.notification.request();
   }
 
   @override
@@ -100,6 +119,20 @@ class MethodChannelAiExecutionBridge extends AiExecutionBridge {
   @override
   Future<void> finish(Map<String, dynamic> payload) =>
       _channel.invokeMethod<void>('finish', payload);
+  @override
+  Future<void> clear() async {
+    if (kIsWeb ||
+        ![TargetPlatform.android, TargetPlatform.iOS]
+            .contains(defaultTargetPlatform)) {
+      return;
+    }
+    try {
+      await _channel.invokeMethod<void>('clear');
+    } on MissingPluginException {
+      // No native presentation exists on this host.
+    }
+  }
+
   @override
   Future<void> dispose() async {
     _channel.setMethodCallHandler(null);
@@ -281,13 +314,18 @@ class AiBackgroundExecution {
         () => _bridge.finish({..._payload(lease), 'outcome': outcome.name}));
   }
 
-  Future<void> revoke() async {
+  /// [clearOrphans] also removes native presentation that this process does
+  /// not own, so a previous actor's attention state cannot remain visible.
+  Future<void> revoke({bool clearOrphans = false}) async {
     _deferredPresentation.clear();
     final lease = _active ?? _attention ?? _notice;
     _active = null;
     _attention = null;
     _notice = null;
-    if (lease == null) return;
+    if (lease == null) {
+      if (clearOrphans && !_disposed) await _send(_bridge.clear);
+      return;
+    }
     lease._interrupt();
     await _send(
         () => _bridge.finish({..._payload(lease), 'outcome': 'cancelled'}));
@@ -355,10 +393,15 @@ final aiBackgroundExecutionProvider = Provider<AiBackgroundExecution>((ref) {
     }
   });
   ref.listen(authProvider, (previous, next) {
-    if (previous?.uid != next.uid) unawaited(owner.revoke());
+    // Session restoration (empty -> actor) keeps a previous process's attention
+    // presentation for the same user; a real actor change removes it.
+    if (previous?.uid != next.uid) {
+      unawaited(owner.revoke(
+          clearOrphans: previous?.uid.isNotEmpty == true));
+    }
   });
   ref.listen(aiProcessingConsentProvider, (_, next) {
-    if (!next.mayProcess) unawaited(owner.revoke());
+    if (!next.mayProcess) unawaited(owner.revoke(clearOrphans: true));
   });
   publishVisibility();
   ref.onDispose(() {
@@ -377,7 +420,9 @@ Map<String, String> aiExecutionMessages(AppLocalizations l10n) => {
       'paused': l10n.aiBackgroundPaused,
       'review': l10n.aiBackgroundReview,
       'channel': l10n.aiBackgroundChannel,
+      'attentionChannel': l10n.aiBackgroundAttentionChannel,
       'stop': l10n.aiBackgroundStop,
+      'cancel': l10n.cancel,
       'loadingTitle': l10n.aiBackgroundLoadingTitle,
       'successTitle': l10n.aiBackgroundSuccessTitle,
       'errorTitle': l10n.aiBackgroundErrorTitle,
@@ -400,5 +445,6 @@ extension AiBackgroundLocalizations on AppLocalizations {
       'Analysis complete. Transactions queued to sync.';
   String get aiBackgroundPaused => 'Analysis paused. Open Moneko to continue.';
   String get aiBackgroundChannel => 'Expense analysis';
+  String get aiBackgroundAttentionChannel => 'Expense analysis alerts';
   String get aiBackgroundReview => 'Analysis complete. Open Moneko to review.';
 }

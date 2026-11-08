@@ -64,7 +64,7 @@ class _PausedDrainer extends MobileOutboxDrainer {
   Future<int> drain({int maxMutations = 20}) async => 0;
 }
 
-Map<String, dynamic> _item(String currency, String wallet,
+Map<String, dynamic> _item(String currency, String? wallet,
         {bool income = false}) =>
     {
       'type': income ? 'income' : 'expense',
@@ -89,7 +89,7 @@ Map<String, dynamic> _item(String currency, String wallet,
         'householdId': null,
         'isPortfolio': false,
         'accountId': wallet,
-        'accountCurrency': currency,
+        'accountCurrency': wallet == null ? null : currency,
         'spaceLabel': 'Personal'
       },
     };
@@ -192,13 +192,15 @@ void main() {
       expect(captures.single.payload['isOnboarding'], source == 'onboarding');
       final body =
           await tester.runAsync(() => repository.requestBody(captures.single));
+      expect(body!.containsKey('accountId'), isTrue);
+      expect(body['accountId'], isNull);
       if (ext == 'png') {
-        expect(body!['image'], {
+        expect(body['image'], {
           'data': base64Encode([1, 2, 3, 4]),
           'contentType': 'image/png'
         });
       } else {
-        final attachment = (body!['attachments'] as List).single as Map;
+        final attachment = (body['attachments'] as List).single as Map;
         expect(attachment['data'], base64Encode([1, 2, 3, 4]));
         expect(attachment['filename'], '旅行.$ext');
         expect(
@@ -560,10 +562,13 @@ void main() {
     });
   }
 
-  for (final interactive in [true, false]) {
+  for (final mode in ['interactive', 'unassigned', 'legacy']) {
+    final interactive = mode != 'legacy';
+    final expenseWallet = mode == 'unassigned' ? null : 'jpy-wallet';
+    final incomeWallet = mode == 'unassigned' ? null : 'usd-wallet';
     for (final marker in [true, false, null]) {
       testWidgets(
-          'resumed ready result interactive=$interactive blocker=$marker uses the Home save contract and cannot materialize twice',
+          'resumed ready result mode=$mode blocker=$marker uses the Home save contract and cannot materialize twice',
           (tester) async {
         SharedPreferences.setMockInitialValues({});
         final preferences = await SharedPreferences.getInstance();
@@ -588,8 +593,8 @@ void main() {
             capturedAt: capturedAt,
             isOnboarding: true)))!;
         final items = [
-          _item('JPY', 'jpy-wallet'),
-          _item('USD', 'usd-wallet', income: true)
+          _item('JPY', expenseWallet),
+          _item('USD', incomeWallet, income: true)
         ];
         for (final item in items) {
           if (marker != null) item['merchant_auto_resolution_blocked'] = marker;
@@ -615,6 +620,7 @@ void main() {
                         (item['destination'] as Map)['accountId'],
                         (item['destination'] as Map)['accountCurrency']
                       ]))
+                  .toSet()
                   .toList(),
           'completedDestinations': <String>[],
         });
@@ -669,7 +675,7 @@ void main() {
             userId: 'owner', householdId: null);
         expect(rows, hasLength(2));
         final expense = rows.singleWhere((row) => row.type == 'expense');
-        expect(expense.walletId, interactive ? 'jpy-wallet' : null);
+        expect(expense.walletId, interactive ? expenseWallet : null);
         expect(expense.currency, 'JPY');
         expect(expense.merchant, '小商店');
         expect(
@@ -686,6 +692,8 @@ void main() {
         final expenseRequest = requests.singleWhere(
                 (row) => row['functionName'] == 'save-expense')['requestBody']
             as Map;
+        expect(expenseRequest.containsKey('accountId'), interactive);
+        expect(expenseRequest['accountId'], interactive ? expenseWallet : null);
         expect(expenseRequest['merchant'], '小商店');
         expect(expenseRequest['merchantId'], 'merchant-id');
         expect(expenseRequest['merchantStructuredName'], '小商店');
@@ -698,8 +706,9 @@ void main() {
         final incomeRequest = requests.singleWhere(
                 (row) => row['functionName'] == 'save-income')['requestBody']
             as Map;
+        expect(incomeRequest.containsKey('accountId'), interactive);
         expect(incomeRequest['currency'], 'USD');
-        expect(incomeRequest['accountId'], interactive ? 'usd-wallet' : null);
+        expect(incomeRequest['accountId'], interactive ? incomeWallet : null);
         expect(incomeRequest.containsKey('merchantAutoResolutionBlocked'),
             marker == true);
         if (marker == true) {

@@ -908,8 +908,11 @@ Future<void> _persistAiTransactions(
       'categoryAlreadyResolved': true,
       'currency': tx.currency,
       'date': formatDateOnlyYmd(tx.date),
-      if (resolvedAccountIdForTransaction != null &&
-          resolvedAccountIdForTransaction.isNotEmpty)
+      // Interactive destinations are already resolved. An explicit null must
+      // survive the outbox so saving cannot silently bind a primary wallet.
+      if (item.destination != null ||
+          (resolvedAccountIdForTransaction != null &&
+              resolvedAccountIdForTransaction.isNotEmpty))
         'accountId': resolvedAccountIdForTransaction,
       'clientCreatedAt':
           item.optimisticEntry.createdAt.toUtc().toIso8601String(),
@@ -2421,7 +2424,7 @@ Future<void> _processExpense(
         'date': defaultDateYmd,
         'language': languageTag,
         'typeHint': 'mixed',
-        if (inputTarget.accountId != null) 'accountId': inputTarget.accountId,
+        'accountId': inputTarget.accountId,
         if (!preview.isActive)
           'captureContext': {
             'version': 1,

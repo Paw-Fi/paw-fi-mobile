@@ -16,14 +16,26 @@ enum AiAnalysisPhase: String, Codable, Hashable {
   }
 
   var visibleDuration: TimeInterval? { self == .success ? 5 : nil }
+  /// Upper bound for a loading update, matching Android's execution bound. A
+  /// terminated process cannot end its activity, so WidgetKit shows the
+  /// stale copy instead of an indefinite "Analyzing" state.
+  var staleInterval: TimeInterval? { self == .loading ? 6 * 60 : nil }
+  var isAttention: Bool { self == .error || self == .confirmation }
   var symbol: String {
     switch self {
-    case .loading: return "sparkles"
+    // Loading renders a progress ring rather than a symbol.
+    case .loading: return "circle"
     case .success: return "checkmark.circle.fill"
-    case .error: return "exclamationmark.triangle.fill"
+    case .error: return "exclamationmark.circle.fill"
     case .confirmation: return "questionmark.circle.fill"
     }
   }
+}
+
+/// Live Activities cannot run continuous (indeterminate) animations, so the
+/// loading ring reflects real pipeline stages and animates between them.
+func aiAnalysisStageProgress(_ stage: String) -> Double {
+  stage == "saving" ? 0.8 : 0.35
 }
 
 func aiAnalysisOpenURL(executionId: String, captureId: String, userId: String) -> URL? {
@@ -42,6 +54,12 @@ struct AiAnalysisActivityAttributes: ActivityAttributes {
     var message: String
     var phase: AiAnalysisPhase?
     var title: String?
+    // Optional so activities encoded by earlier builds still decode.
+    var actionLabel: String?
+    var staleTitle: String?
+    var staleMessage: String?
+    /// Stage-based fraction for the loading ring (see `aiAnalysisStageProgress`).
+    var progress: Double?
   }
   let executionId: String
   let captureId: String

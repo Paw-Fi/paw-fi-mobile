@@ -23,9 +23,13 @@ final class AiAnalysisBackgroundBridge {
   private var liveActivity: Any?
   private var activityUpdates: Task<Void, Never>?
   private var successDismissal: Task<Void, Never>?
+  // Content of the delivered fallback notification, used to avoid reposting
+  // identical copy on every lifecycle change and to clean it up.
+  private var noticeSignature: String?
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: "moneko/ai_background_execution", binaryMessenger: messenger)
+    endOrphanedActivities()
     stopObserver = NotificationCenter.default.addObserver(forName: .aiAnalysisStopped,
       object: nil, queue: .main) { [weak self] note in
         guard let token = note.object as? String else { return }
@@ -36,6 +40,7 @@ final class AiAnalysisBackgroundBridge {
       do {
         if call.method == "pendingStops" { result(try self.journal.pending()); return }
         if call.method == "pendingFailures" { result(try self.failures.pending()); return }
+        if call.method == "clear" { self.clearAll(); result(nil); return }
         guard let args = call.arguments as? [String: Any], let incomingId = args["id"] as? String else {
           result(FlutterError(code: "INVALID_AI_EXECUTION", message: "Missing execution identity", details: nil)); return
         }
@@ -82,8 +87,11 @@ final class AiAnalysisBackgroundBridge {
           } else {
             // Flutter has already checkpointed its error. If native metadata
             // storage fails, still release execution and show the error state.
-            if AiAnalysisPhase(outcome: self.outcome) == .error { try? self.recordFailure() }
-            self.updateActivity()
+            let phase = AiAnalysisPhase(outcome: self.outcome)
+            if phase == .error { try? self.recordFailure() }
+            // Alert once on the transition into a state that needs the user,
+            // only while in-app UI cannot present it.
+            self.updateActivity(alert: phase.isAttention && self.background)
             self.publishIfNeeded()
             if AiAnalysisPhase(outcome: self.outcome) == .success {
               self.dismissSuccess(incomingId)
@@ -123,22 +131,70 @@ final class AiAnalysisBackgroundBridge {
     }
   }
 
-  private func updateActivity() {
+  private func updateActivity(alert: Bool = false) {
     guard #available(iOS 17.0, *), outcome != "cancelled",
       let activity = liveActivity as? Activity<AiAnalysisActivityAttributes> else { return }
     let previous = activityUpdates
     let content = activityContent()
-    activityUpdates = Task { await previous?.value; await activity.update(content) }
+    // ActivityKit expands the Dynamic Island, or shows the Lock Screen
+    // presentation as a banner, instead of a separate notification.
+    let alertConfiguration = alert ? AlertConfiguration(
+      title: LocalizedStringResource(stringLiteral: currentTitle()),
+      body: LocalizedStringResource(stringLiteral: currentMessage()), sound: .default) : nil
+    activityUpdates = Task {
+      await previous?.value
+      await activity.update(content, alertConfiguration: alertConfiguration)
+    }
+  }
+
+  private func currentTitle() -> String {
+    let phase = AiAnalysisPhase(outcome: outcome)
+    let titleKey = phase == .loading ? "loadingTitle" : phase == .success ? "successTitle" : phase == .confirmation ? "confirmationTitle" : "errorTitle"
+    return messages[titleKey] ?? messages["title"] ?? "Moneko"
+  }
+
+  private func currentMessage() -> String {
+    let messageKey = AiAnalysisPhase(outcome: outcome) == .error ? "error" : outcome ?? stage
+    return messages[messageKey] ?? messages["paused"] ?? ""
   }
 
   @available(iOS 17.0, *)
   private func activityContent() -> ActivityContent<AiAnalysisActivityAttributes.ContentState> {
     let phase = AiAnalysisPhase(outcome: outcome)
-    let titleKey = phase == .loading ? "loadingTitle" : phase == .success ? "successTitle" : phase == .confirmation ? "confirmationTitle" : "errorTitle"
-    let messageKey = phase == .error ? "error" : outcome ?? stage
+    let stop = messages["stop"] ?? "Stop"
     return ActivityContent(state: AiAnalysisActivityAttributes.ContentState(
-      message: messages[messageKey] ?? messages["paused"] ?? "", phase: phase,
-      title: messages[titleKey] ?? messages["title"] ?? "Moneko"), staleDate: nil)
+      message: currentMessage(), phase: phase, title: currentTitle(),
+      actionLabel: phase == .loading ? stop : messages["cancel"] ?? stop,
+      staleTitle: messages["title"] ?? "Moneko", staleMessage: messages["paused"],
+      progress: phase == .loading ? aiAnalysisStageProgress(stage) : 1),
+      staleDate: phase.staleInterval.map { Date().addingTimeInterval($0) })
+  }
+
+  /// A new process owns no execution, so loading/success activities left by a
+  /// terminated process are stale. Attention states remain actionable: their
+  /// taps reopen the exact capture and the failure journal restores retry.
+  private func endOrphanedActivities() {
+    guard #available(iOS 17.0, *) else { return }
+    // Snapshot synchronously so an activity started after launch is untouched.
+    let orphans = Activity<AiAnalysisActivityAttributes>.activities.filter {
+      !($0.content.state.phase ?? .loading).isAttention
+    }
+    guard !orphans.isEmpty else { return }
+    Task { for activity in orphans { await activity.end(nil, dismissalPolicy: .immediate) } }
+  }
+
+  /// Removes presentation that no in-memory attempt owns, such as attention
+  /// left by a previous process when the actor or AI consent changes.
+  private func clearAll() {
+    successDismissal?.cancel()
+    endExecution()
+    endActivity()
+    clearNotice()
+    id = nil
+    outcome = nil
+    guard #available(iOS 17.0, *) else { return }
+    let remaining = Activity<AiAnalysisActivityAttributes>.activities
+    Task { for activity in remaining { await activity.end(nil, dismissalPolicy: .immediate) } }
   }
 
   private func dismissSuccess(_ token: String) {
@@ -197,27 +253,37 @@ final class AiAnalysisBackgroundBridge {
     outcome = "error"
     try? recordFailure()
     endExecution()
-    updateActivity()
+    updateActivity(alert: background)
     channel.invokeMethod("expired", arguments: expectedId)
     publishIfNeeded()
   }
 
   private func clearNotice() {
+    noticeSignature = nil
     UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [Self.taskIdentifier])
     UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.taskIdentifier])
   }
 
   private func publishIfNeeded() {
-    guard background, id != nil, outcome != "cancelled" else { return }
-    if liveActivity != nil { return }
-    let content = UNMutableNotificationContent()
+    guard id != nil, outcome != "cancelled", liveActivity == nil else { return }
+    guard background else {
+      // Visible in-app UI owns presentation; never leave an outdated
+      // background notice (for example "Analyzing") in Notification Center.
+      if noticeSignature != nil { clearNotice() }
+      return
+    }
     let phase = AiAnalysisPhase(outcome: outcome)
-    let titleKey = phase == .loading ? "loadingTitle" : phase == .success ? "successTitle" : phase == .confirmation ? "confirmationTitle" : "errorTitle"
-    content.title = messages[titleKey] ?? messages["title"] ?? "Moneko"
-    content.body = messages[phase == .error ? "error" : outcome ?? stage] ?? messages["paused"] ?? ""
+    let content = UNMutableNotificationContent()
+    content.title = currentTitle()
+    content.body = currentMessage()
+    let signature = "\(phase.rawValue)\n\(content.title)\n\(content.body)"
+    guard signature != noticeSignature else { return }
+    noticeSignature = signature
     content.userInfo = ["monekoAiAnalysisURL": aiAnalysisOpenURL(
       executionId: id ?? "", captureId: captureId, userId: userId)?.absoluteString ?? ""]
-    content.interruptionLevel = .passive
+    content.threadIdentifier = Self.taskIdentifier
+    // Attention states show a silent banner once; progress and success stay passive.
+    content.interruptionLevel = phase.isAttention ? .active : .passive
     let request = UNNotificationRequest(identifier: Self.taskIdentifier, content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request)
   }
