@@ -682,7 +682,6 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       return;
     }
 
-    HapticFeedback.heavyImpact();
     _isStartingRecording = true;
     _cancelFeedbackTimer?.cancel();
     _recordingLevels.clear();
@@ -710,6 +709,9 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: filePath,
       );
+      // The "you're live" nudge lands once the mic is actually capturing, so
+      // the first words after feeling it are never clipped.
+      if (_isMicPointerDown) HapticFeedback.heavyImpact();
       _startRecordingAmplitudeProbe();
     } catch (error) {
       _isStartingRecording = false;

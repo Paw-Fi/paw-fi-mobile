@@ -1,5 +1,6 @@
 import UIKit
 import Flutter
+import AVFoundation
 import AppIntents
 import Foundation
 import NaturalLanguage
@@ -3009,6 +3010,9 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     flutterEngine = engine
     GeneratedPluginRegistrant.register(with: engine)
     setupFlutterChannels(binaryMessenger: engine.binaryMessenger)
+    // iOS mutes haptics while the mic session records unless opted in; the
+    // hold-to-record start/cancel nudges depend on them.
+    try? AVAudioSession.sharedInstance().setAllowHapticsAndSystemSoundsDuringRecording(true)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
