@@ -10802,4 +10802,105 @@ class AppLocalizationsTh extends AppLocalizations {
   String dashboardBudgetSpentAmount(Object amount) {
     return 'ใช้ไปแล้ว $amount';
   }
+
+  @override
+  String get aiBackgroundLoadingTitle => 'กำลังวิเคราะห์';
+
+  @override
+  String get aiBackgroundSuccessTitle => 'วิเคราะห์เสร็จแล้ว';
+
+  @override
+  String get aiBackgroundErrorTitle => 'วิเคราะห์ไม่สำเร็จ';
+
+  @override
+  String get aiBackgroundConfirmationTitle => 'ต้องยืนยันเพิ่มเติม';
+
+  @override
+  String get aiBackgroundError => 'วิเคราะห์ไม่สำเร็จ เปิด Moneko เพื่อลองอีกครั้งหรือยกเลิก';
+
+  @override
+  String get aiBackgroundStop => 'หยุด';
+
+  @override
+  String get aiBackgroundReview => 'วิเคราะห์เสร็จแล้ว เปิด Moneko เพื่อตรวจสอบผลลัพธ์';
+
+  @override
+  String get aiBackgroundNeedsInput => 'ต้องยืนยันเพิ่มเติม เปิด Moneko เพื่อดำเนินการต่อ';
+
+  @override
+  String get aiBackgroundQueued => 'วิเคราะห์เสร็จแล้ว รายการธุรกรรมกำลังรอซิงค์';
+
+  @override
+  String get aiBackgroundPaused => 'หยุดการวิเคราะห์ชั่วคราว เปิด Moneko เพื่อดำเนินการต่อ';
+
+  @override
+  String get aiBackgroundChannel => 'การวิเคราะห์รายจ่าย';
+
+  @override
+  String get aiBackgroundAttentionChannel => 'แจ้งเตือนการวิเคราะห์รายจ่าย';
+
+  @override
+  String get createNewInviteLink => 'สร้างลิงก์ใหม่';
+
+  @override
+  String get inviteByEmail => 'เชิญทางอีเมล';
+
+  @override
+  String get inviteMembersDescription => 'แชร์ลิงก์หรือส่งคำเชิญทางอีเมล';
+
+  @override
+  String get savedInviteLinks => 'ลิงก์ที่ใช้ได้';
+
+  @override
+  String get noAvailableInviteLinks => 'ยังไม่มีลิงก์ที่ใช้งานได้';
+
+  @override
+  String get shareGroupLink => 'แชร์ลิงก์กลุ่ม';
+
+  @override
+  String get createGroupLink => 'สร้างลิงก์กลุ่ม';
+
+  @override
+  String get groupInviteLink => 'ลิงก์เชิญเข้ากลุ่ม';
+
+  @override
+  String get groupInviteLinkDescription => 'ทุกคนที่มีลิงก์นี้สามารถเข้าร่วมพื้นที่นี้ได้';
+
+  @override
+  String get inviteIndividual => 'เชิญทีละคน';
+
+  @override
+  String get invitedUserRole => 'เข้าร่วมในฐานะ';
+
+  @override
+  String get invitationRoleHelp => 'ผู้ดูแลสามารถเพิ่มรายจ่าย ดูยอดคงเหลือ และจัดการการตั้งค่าและสมาชิกของพื้นที่ได้\n\nสมาชิกสามารถเพิ่มรายจ่ายและดูยอดคงเหลือได้เท่านั้น';
+
+  @override
+  String get inviteNeverExpires => 'ไม่มีวันหมดอายุ';
+
+  @override
+  String get shareInviteLink => 'แชร์ลิงก์';
+
+  @override
+  String get slideToCancel => 'เลื่อนเพื่อยกเลิก';
+
+  @override
+  String get invitationReviewTitle => 'คุณได้รับคำเชิญ!';
+
+  @override
+  String invitationJoinAsRole(Object role) {
+    return 'คุณจะเข้าร่วมในบทบาท $role';
+  }
+
+  @override
+  String get microphoneOffTitle => 'ปิดไมโครโฟนอยู่';
+
+  @override
+  String get microphoneOffDescription => 'เปิดสิทธิ์ใช้ไมโครโฟนให้ Moneko ในการตั้งค่า เพื่อบันทึกรายจ่ายด้วยเสียง หรือจะพิมพ์เองเมื่อไรก็ได้';
+
+  @override
+  String get openSettingsAction => 'เปิดการตั้งค่า';
+
+  @override
+  String get microphoneReadyHoldToRecord => 'ไมโครโฟนพร้อมแล้ว กดค้างไว้เพื่อบันทึกเสียง';
 }

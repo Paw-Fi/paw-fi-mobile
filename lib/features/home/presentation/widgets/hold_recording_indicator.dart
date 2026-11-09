@@ -69,12 +69,17 @@ class HoldRecordingIndicator extends StatelessWidget {
     required this.levels,
     required this.startedAt,
     required this.width,
+    this.isCancelArmed = false,
   });
 
   final bool isVisible;
   final bool isRecording;
   final bool isCancelled;
   final double cancelProgress;
+
+  /// The drag reached the cancel zone and releasing will discard; the user
+  /// can still slide back to keep recording.
+  final bool isCancelArmed;
   final HoldRecordingLevels levels;
   final DateTime? startedAt;
   final double width;
@@ -93,7 +98,9 @@ class HoldRecordingIndicator extends StatelessWidget {
             ? null
             : isCancelled
                 ? context.l10n.canceled
-                : context.l10n.slideToCancel,
+                : isCancelArmed
+                    ? context.l10n.releaseToCancel
+                    : context.l10n.slideToCancel,
         child: AnimatedSlide(
           duration: duration,
           curve: isVisible ? Curves.easeOutCubic : Curves.easeInCubic,
@@ -146,6 +153,7 @@ class HoldRecordingIndicator extends StatelessWidget {
                           key: const ValueKey('recording'),
                           isRecording: isRecording,
                           cancelProgress: progress,
+                          isCancelArmed: isCancelArmed,
                           levels: levels,
                           startedAt: startedAt,
                           maxHintWidth: width * 0.42,
@@ -170,10 +178,12 @@ class _RecordingContent extends StatelessWidget {
     required this.startedAt,
     required this.maxHintWidth,
     required this.reduceMotion,
+    this.isCancelArmed = false,
   });
 
   final bool isRecording;
   final double cancelProgress;
+  final bool isCancelArmed;
   final HoldRecordingLevels levels;
   final DateTime? startedAt;
   final double maxHintWidth;
@@ -214,13 +224,23 @@ class _RecordingContent extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Transform.translate(
-          offset: Offset(-cancelProgress * 48, 0),
+          offset: Offset(isCancelArmed ? 0 : -cancelProgress * 48, 0),
           child: Opacity(
-            opacity: hintOpacity,
+            opacity: isCancelArmed ? 1 : hintOpacity,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxHintWidth),
-              child: _SlideToCancelHint(
-                isAnimating: isRecording && !reduceMotion,
+              child: AnimatedSwitcher(
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 160),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: isCancelArmed
+                    ? const _ReleaseToCancelLabel(key: ValueKey('release'))
+                    : _SlideToCancelHint(
+                        key: const ValueKey('slide'),
+                        isAnimating: isRecording && !reduceMotion,
+                      ),
               ),
             ),
           ),
@@ -361,8 +381,25 @@ class _PulsingDotState extends State<_PulsingDot>
 
 /// "‹ Slide to cancel" with a leftward chevron nudge and a light sweep across
 /// the label (the classic slide-to-unlock cue) pointing toward the gesture.
+class _ReleaseToCancelLabel extends StatelessWidget {
+  const _ReleaseToCancelLabel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      context.l10n.releaseToCancel,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.error,
+          ),
+    );
+  }
+}
+
 class _SlideToCancelHint extends StatefulWidget {
-  const _SlideToCancelHint({required this.isAnimating});
+  const _SlideToCancelHint({super.key, required this.isAnimating});
 
   final bool isAnimating;
 

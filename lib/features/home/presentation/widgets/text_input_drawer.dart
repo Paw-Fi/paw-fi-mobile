@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
@@ -31,11 +32,26 @@ import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
 import 'package:moneko/features/home/presentation/widgets/ai_space_label_utils.dart';
 import 'package:moneko/features/home/presentation/widgets/ai_input_target.dart';
+import 'package:moneko/features/home/presentation/widgets/hold_recording_indicator.dart';
 import 'package:moneko/features/home/presentation/widgets/microphone_access_sheet.dart';
 
 const int _minimumAudioRecordingMs = 1000;
 const double _silentRecordingPeakDb = -160.0;
 const double _minimumVoicePeakDb = -55.0;
+const double _recordCancelDragThreshold = 110;
+const Duration _cancelFeedbackDuration = Duration(milliseconds: 900);
+
+/// Leaving the cancel zone needs ~20px of back-travel, so a finger resting
+/// on the edge cannot flicker it on and off.
+const double _cancelDisarmProgress = 0.82;
+
+/// While armed, the mic is pulled a little past the finger into the bin.
+const double _cancelSnapOvershoot = 12;
+const Duration _cancelSnapDuration = Duration(milliseconds: 160);
+
+/// A fast leftward flick past this share of the threshold discards on release.
+const double _cancelFlickVelocity = -800;
+const double _cancelFlickMinimumProgress = 0.35;
 
 /// Lets the drawer's entrance settle so the OS prompt lands over the voice
 /// surface that explains why it is being asked.
@@ -112,6 +128,18 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   late final TextEditingController _textController;
   double? _keyboardInsetOnRecordStart;
   double _recordingPeakDb = _silentRecordingPeakDb;
+  final HoldRecordingLevels _recordingLevels = HoldRecordingLevels();
+  double? _recordStartGlobalX;
+  double _recordDragDeltaX = 0;
+  bool _hasCancelDetent = false;
+  bool _isCancelArmed = false;
+  double _rawDragDeltaX = 0;
+  VelocityTracker? _dragVelocityTracker;
+  DateTime? _snapCatchUpUntil;
+  bool _isDiscardingRecording = false;
+  bool _isRecordCancelled = false;
+  bool _isCancelFeedbackVisible = false;
+  Timer? _cancelFeedbackTimer;
   ActiveWalletType _selectedAccountType = ActiveWalletType.personal;
   String? _selectedHouseholdId;
   String? _selectedWalletId;
@@ -147,6 +175,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     _micScaleController.dispose();
     _mockTranscribingTimer?.cancel();
     _recordingAmplitudeTimer?.cancel();
+    _cancelFeedbackTimer?.cancel();
+    _recordingLevels.dispose();
     _recorder.dispose();
     _textFocusNode.dispose();
     super.dispose();
@@ -513,33 +543,157 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     } catch (_) {}
   }
 
-  void _onMicPointerDown() {
+  void _onMicPointerDown(PointerDownEvent event) {
     _isMicPointerDown = true;
+    _recordStartGlobalX = event.position.dx;
+    _rawDragDeltaX = 0;
+    _dragVelocityTracker = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.position);
     if (_micAccess == _MicAccess.granted) unawaited(_onRecordStart());
   }
 
-  void _onMicPointerUp() {
+  void _onMicPointerMove(PointerMoveEvent event) {
+    final startX = _recordStartGlobalX;
+    if (startX == null) return;
+    _dragVelocityTracker?.addPosition(event.timeStamp, event.position);
+    _rawDragDeltaX = event.position.dx - startX;
+    _applyRecordDragDelta(_rawDragDeltaX);
+  }
+
+  /// A quick leftward flick that is already partway to the zone counts as a
+  /// discard, so users don't need to drag the full distance.
+  bool _isCancelFlick() {
+    final tracker = _dragVelocityTracker;
+    if (tracker == null || _recordStartGlobalX == null) return false;
+    final velocityX = tracker.getVelocity().pixelsPerSecond.dx;
+    final progress =
+        holdCancelProgress(_rawDragDeltaX, _recordCancelDragThreshold);
+    return velocityX <= _cancelFlickVelocity &&
+        progress >= _cancelFlickMinimumProgress;
+  }
+
+  void _onMicPointerUp(PointerUpEvent event) {
     _isMicPointerDown = false;
-    if (_micAccess == _MicAccess.granted || _isRecording) {
+    final isFlick = _isCancelFlick();
+    _recordStartGlobalX = null;
+    _dragVelocityTracker = null;
+    if ((_isCancelArmed || isFlick) && _isRecording) {
+      unawaited(_cancelRecording());
+    } else if (_micAccess == _MicAccess.granted || _isRecording) {
       _onRecordEnd();
     } else {
       unawaited(_requestMicAccess());
     }
   }
 
-  void _onMicPointerCancel() {
+  void _onMicPointerCancel(PointerCancelEvent event) {
     _isMicPointerDown = false;
-    _onRecordEnd();
+    _recordStartGlobalX = null;
+    _dragVelocityTracker = null;
+    if (_isCancelArmed && _isRecording) {
+      unawaited(_cancelRecording());
+    } else {
+      _onRecordEnd();
+    }
+  }
+
+  void _applyRecordDragDelta(double deltaX) {
+    if (!_isRecording || _isStartingRecording || !mounted) return;
+
+    final progress = holdCancelProgress(deltaX, _recordCancelDragThreshold);
+
+    // A single detent tick at the halfway point tells the user the gesture is
+    // registering before it commits; it re-arms once they back off.
+    if (!_hasCancelDetent && progress >= 0.5) {
+      _hasCancelDetent = true;
+      HapticFeedback.selectionClick();
+    } else if (_hasCancelDetent && progress < 0.3) {
+      _hasCancelDetent = false;
+    }
+
+    // Reaching the zone only arms the discard; releasing commits it, and
+    // sliding back out disarms so a change of heart keeps the recording.
+    final isArmed =
+        _isCancelArmed ? progress >= _cancelDisarmProgress : progress >= 1;
+    if (isArmed != _isCancelArmed) {
+      isArmed ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick();
+      // Lets the mic ease back to the finger instead of jumping off the bin.
+      if (!isArmed) {
+        _snapCatchUpUntil = DateTime.now().add(_cancelSnapDuration);
+      }
+    }
+
+    final visualDeltaX = isArmed
+        ? -(_recordCancelDragThreshold + _cancelSnapOvershoot)
+        : holdDragVisualOffset(deltaX, _recordCancelDragThreshold);
+    if (visualDeltaX == _recordDragDeltaX && isArmed == _isCancelArmed) return;
+    setState(() {
+      _recordDragDeltaX = visualDeltaX;
+      _isCancelArmed = isArmed;
+    });
+  }
+
+  /// Runs on release inside the cancel zone: stops and deletes the recording
+  /// without sending it.
+  Future<void> _cancelRecording() async {
+    if (!_isRecording || _isStartingRecording) return;
+    _isCancelArmed = false;
+    _recordStartGlobalX = null;
+    _recordingStartTime = null;
+    _isDiscardingRecording = true;
+    _recordingAmplitudeTimer?.cancel();
+    _micScaleController.reverse();
+    unawaited(_playCancelHaptic());
+    _cancelFeedbackTimer?.cancel();
+    setState(() {
+      _isRecording = false;
+      _isRecordCancelled = true;
+      _isCancelFeedbackVisible = true;
+      _recordDragDeltaX = 0;
+    });
+    _cancelFeedbackTimer = Timer(_cancelFeedbackDuration, () {
+      if (mounted) setState(() => _isCancelFeedbackVisible = false);
+    });
+
+    try {
+      final path = await _recorder.stop();
+      if (path != null) {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      }
+    } catch (_) {
+    } finally {
+      _isDiscardingRecording = false;
+    }
+  }
+
+  /// "Thud, settle" timed with the mic dropping into the bin.
+  Future<void> _playCancelHaptic() async {
+    HapticFeedback.heavyImpact();
+    await Future<void>.delayed(const Duration(milliseconds: 360));
+    HapticFeedback.lightImpact();
   }
 
   Future<void> _onRecordStart() async {
-    if (_isProcessing || _isRecording || _isStartingRecording) return;
+    if (_isProcessing ||
+        _isRecording ||
+        _isStartingRecording ||
+        _isDiscardingRecording) {
+      return;
+    }
 
     HapticFeedback.heavyImpact();
     _isStartingRecording = true;
+    _cancelFeedbackTimer?.cancel();
+    _recordingLevels.clear();
 
     setState(() {
       _isRecording = true;
+      _isRecordCancelled = false;
+      _isCancelFeedbackVisible = false;
+      _hasCancelDetent = false;
+      _isCancelArmed = false;
+      _recordDragDeltaX = 0;
       _recordingStartTime = DateTime.now();
       final currentInset = MediaQuery.of(context).viewInsets.bottom;
       _keyboardInsetOnRecordStart =
@@ -597,6 +751,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       if (peak > _recordingPeakDb) {
         _recordingPeakDb = peak;
       }
+      if (_isRecording && mounted) _recordingLevels.addDecibels(amp.current);
     } catch (_) {}
   }
 
@@ -614,21 +769,27 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
     final isTooShort = duration.inMilliseconds < _minimumAudioRecordingMs;
     if (isTooShort) {
-      HapticFeedback.vibrate();
+      HapticFeedback.mediumImpact();
     } else {
       HapticFeedback.lightImpact();
     }
     setState(() {
       _isRecording = false;
+      _isCancelArmed = false;
+      _recordDragDeltaX = 0;
     });
 
     await _captureRecordingAmplitude();
     _recordingAmplitudeTimer?.cancel();
     final path = await _recorder.stop();
     if (isTooShort) {
+      // A quick tap is usually a user discovering the mic, so teach the
+      // gesture instead of reporting an error.
       if (widget.parentContext.mounted) {
-        AppToast.error(
-            widget.parentContext, widget.parentContext.l10n.recordingTooShort);
+        AppToast.info(
+          widget.parentContext,
+          widget.parentContext.l10n.holdToRecordReleaseToSend,
+        );
       }
       if (path != null) {
         final file = File(path);
@@ -703,6 +864,13 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   Widget build(BuildContext context) {
     final scheme = widget.colorScheme;
     final isMicMuted = _micAccess == _MicAccess.denied;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final isRecordIndicatorVisible = _isRecording || _isCancelFeedbackVisible;
+    final cancelProgress =
+        holdCancelProgress(_recordDragDeltaX, _recordCancelDragThreshold);
+    final snapCatchUpUntil = _snapCatchUpUntil;
+    final isSnapAnimating = _isCancelArmed ||
+        (snapCatchUpUntil != null && DateTime.now().isBefore(snapCatchUpUntil));
     final isLargeText = MonekoTextScale.isAtLeast(context, 1.5);
     final userId = ref.watch(authProvider).uid;
     if (userId.isNotEmpty) {
@@ -868,12 +1036,14 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
             const SizedBox(height: 16),
 
-            // Action Row
+            // Action Row: the mic stays on the physical right so
+            // slide-to-cancel always travels leftward, matching Home's FAB.
             Row(
+              textDirection: TextDirection.ltr,
               children: [
                 Expanded(
-                  child: Builder(
-                    builder: (context) {
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
                       final button = PrimaryAdaptiveButton(
                         onPressed: _isProcessing ? null : _processExpense,
                         child: _isProcessing
@@ -895,79 +1065,96 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                                 ),
                               ),
                       );
-                      return isLargeText
+                      final sizedButton = isLargeText
                           ? ConstrainedBox(
                               constraints: const BoxConstraints(minHeight: 50),
                               child: button,
                             )
                           : SizedBox(height: 50, child: button);
+                      return Stack(
+                        alignment: Alignment.centerRight,
+                        clipBehavior: Clip.none,
+                        children: [
+                          IgnorePointer(
+                            ignoring: isRecordIndicatorVisible,
+                            child: AnimatedOpacity(
+                              duration: reduceMotion
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 180),
+                              curve: Curves.easeOut,
+                              opacity: isRecordIndicatorVisible ? 0 : 1,
+                              child: sizedButton,
+                            ),
+                          ),
+                          HoldRecordingIndicator(
+                            isVisible: isRecordIndicatorVisible,
+                            isRecording: _isRecording,
+                            isCancelled: _isRecordCancelled,
+                            cancelProgress: cancelProgress,
+                            isCancelArmed: _isCancelArmed,
+                            levels: _recordingLevels,
+                            startedAt: _recordingStartTime,
+                            width: constraints.maxWidth,
+                          ),
+                        ],
+                      );
                     },
                   ),
                 ),
                 const SizedBox(width: 12),
-                GestureDetector(
-                  onTapDown: (_) => _onMicPointerDown(),
-                  onTapUp: (_) => _onMicPointerUp(),
-                  onTapCancel: _onMicPointerCancel,
-                  child: ScaleTransition(
-                    scale: _micScaleAnimation,
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _isRecording
-                            ? scheme.error
-                            : scheme.sheetElementBackground
-                                .withValues(alpha: 0.8),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _isRecording
-                              ? scheme.error
-                              : scheme.outlineVariant.withValues(alpha: 0.5),
-                          width: 0.5,
-                        ),
-                        boxShadow: [
-                          if (_isRecording)
-                            BoxShadow(
-                              color: scheme.error.withValues(alpha: 0.4),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                            )
-                        ],
+                // Claims the pointer on contact so the sheet's own drag can
+                // never steal a slide-to-cancel gesture.
+                RawGestureDetector(
+                  gestures: {
+                    EagerGestureRecognizer:
+                        GestureRecognizerFactoryWithHandlers<
+                            EagerGestureRecognizer>(
+                      EagerGestureRecognizer.new,
+                      (_) {},
+                    ),
+                  },
+                  child: Listener(
+                    onPointerDown: _onMicPointerDown,
+                    onPointerMove: _onMicPointerMove,
+                    onPointerUp: _onMicPointerUp,
+                    onPointerCancel: _onMicPointerCancel,
+                    // Tracks the finger 1:1 toward cancel, snaps magnetically
+                    // into the bin while armed, then springs home on release.
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(end: _recordDragDeltaX),
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : !_isRecording
+                              ? const Duration(milliseconds: 280)
+                              : isSnapAnimating
+                                  ? _cancelSnapDuration
+                                  : Duration.zero,
+                      curve: _isRecording
+                          ? Curves.easeOutCubic
+                          : Curves.easeOutBack,
+                      builder: (context, dx, child) => Transform.translate(
+                        offset: Offset(dx, 0),
+                        child: child,
                       ),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (child, animation) =>
-                            ScaleTransition(
-                          scale: animation,
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          HoldRecordingVoiceHalo(
+                            levels: _recordingLevels,
+                            isActive: _isRecording,
+                            cancelProgress: cancelProgress,
+                            diameter: 50,
                           ),
-                        ),
-                        child: Icon(
-                          _isRecording
-                              ? Icons.stop_rounded
-                              : isMicMuted
-                                  ? Icons.mic_off_rounded
-                                  : Icons.mic_rounded,
-                          key: ValueKey<String>(
-                            _isRecording
-                                ? 'stop'
-                                : isMicMuted
-                                    ? 'muted'
-                                    : 'mic',
+                          AnimatedScale(
+                            duration: reduceMotion
+                                ? Duration.zero
+                                : _cancelSnapDuration,
+                            curve: Curves.easeOutBack,
+                            scale: _isCancelArmed ? 0.86 : 1,
+                            child: _buildMicButton(scheme, isMicMuted),
                           ),
-                          color: _isRecording
-                              ? scheme.onError
-                              : isMicMuted
-                                  ? scheme.onSurfaceVariant
-                                  : scheme.primary,
-                          size: 26,
-                          semanticLabel: isMicMuted
-                              ? context.l10n.microphoneOffTitle
-                              : null,
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -977,6 +1164,71 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMicButton(ColorScheme scheme, bool isMicMuted) {
+    return ScaleTransition(
+      scale: _micScaleAnimation,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: _isRecording
+              ? scheme.error
+              : scheme.sheetElementBackground.withValues(alpha: 0.8),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: _isRecording
+                ? scheme.error
+                : scheme.outlineVariant.withValues(alpha: 0.5),
+            width: 0.5,
+          ),
+          boxShadow: [
+            if (_isRecording)
+              BoxShadow(
+                color: scheme.error.withValues(alpha: 0.4),
+                blurRadius: 12,
+                spreadRadius: 2,
+              )
+          ],
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, animation) => ScaleTransition(
+            scale: animation,
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          ),
+          child: Icon(
+            _isRecording
+                ? _isCancelArmed
+                    ? Icons.delete_rounded
+                    : Icons.stop_rounded
+                : isMicMuted
+                    ? Icons.mic_off_rounded
+                    : Icons.mic_rounded,
+            key: ValueKey<String>(
+              _isRecording
+                  ? _isCancelArmed
+                      ? 'delete'
+                      : 'stop'
+                  : isMicMuted
+                      ? 'muted'
+                      : 'mic',
+            ),
+            color: _isRecording
+                ? scheme.onError
+                : isMicMuted
+                    ? scheme.onSurfaceVariant
+                    : scheme.primary,
+            size: 26,
+            semanticLabel: isMicMuted ? context.l10n.microphoneOffTitle : null,
+          ),
         ),
       ),
     );

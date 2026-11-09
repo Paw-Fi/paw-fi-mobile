@@ -43,6 +43,7 @@ extension HoldToRecordL10nX on AppLocalizations {
   String get slideToCancel => 'Slide to cancel';
   String get microphoneReadyHoldToRecord =>
       'Microphone is ready. Press and hold to record.';
+  String get holdToRecordReleaseToSend => 'Hold to record, release to send';
   String get microphoneOffTitle => 'Microphone is off';
   String get microphoneOffDescription =>
       'Turn on microphone access for Moneko in Settings to log by voice. You can keep typing anytime.';
