@@ -209,7 +209,8 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
       final subscription =
           ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
-      if (subscription?.isSubscribed ?? false) {
+      if ((subscription?.isSubscribed ?? false) &&
+          subscription?.status?.toLowerCase() == 'active') {
         await showFinishPage();
       }
     }

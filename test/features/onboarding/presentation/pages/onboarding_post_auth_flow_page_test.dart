@@ -5,7 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mocktail/mocktail.dart';
 
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
+import 'package:moneko/core/app/router.dart';
+import 'package:moneko/features/app_lock/data/app_lock_repository.dart';
+import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
+import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/auth/domain/app_user.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -36,6 +42,13 @@ final _trialSubscription = Subscription(
 
 class _TestSubscriptionManagementNotifier
     extends SubscriptionManagementNotifier {
+  void activate() {
+    state = AsyncData(SubscriptionDetails(
+      subscription: _activeSubscription,
+      invoices: const [],
+    ));
+  }
+
   @override
   Future<SubscriptionDetails?> build() async => SubscriptionDetails(
         subscription: _trialSubscription,
@@ -97,13 +110,63 @@ class _TestAuth extends Auth {
   AppUser build() => _user;
 }
 
-GoRouter _createRouter() {
+class _TestInitialization extends AppInitializationV2 {
+  @override
+  AppInitializationState build() =>
+      const AppInitializationState(state: AppInitState.uninitialized);
+}
+
+class _TestLockRepository extends Mock implements AppLockRepository {}
+
+class _TestLockHasher extends Mock implements AppLockPasscodeHasher {}
+
+class _TestBiometrics extends Mock implements AppLockBiometricService {}
+
+GoRouter _createRouter({bool useProductionRedirect = false}) {
   return GoRouter(
-    initialLocation: '/onboarding-post',
+    initialLocation: '/onboarding?stage=post',
+    redirect: useProductionRedirect
+        ? (context, state) => ProviderScope.containerOf(context, listen: false)
+            .read(routerProvider)
+            .configuration
+            .topRedirect(context, state)
+        : null,
     routes: [
       GoRoute(
-        path: '/onboarding-post',
-        builder: (context, state) => const OnboardingPostAuthFlowPage(),
+        path: '/onboarding',
+        builder: (context, state) =>
+            state.uri.queryParameters['stage'] == 'prepare'
+                ? const Scaffold(body: Text('Account preparation'))
+                : const OnboardingPostAuthFlowPage(),
+      ),
+      GoRoute(
+        path: '/plus-locked',
+        builder: (context, state) => Scaffold(
+          body: Column(
+            children: [
+              TextButton(
+                onPressed: () => context.push(
+                    '/plan-selection?mode=resubscribe&plan=plus&interval=yearly'),
+                child: const Text('See all plans'),
+              ),
+              TextButton(
+                onPressed: () {
+                  (ProviderScope.containerOf(context, listen: false)
+                              .read(subscriptionManagementProvider.notifier)
+                          as _TestSubscriptionManagementNotifier)
+                      .activate();
+                  context.pop();
+                },
+                child: const Text('Confirm purchase'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/plan-selection',
+        builder: (context, state) =>
+            const Scaffold(body: Text('Plan selection')),
       ),
       GoRoute(
         path: '/dashboard',
@@ -119,8 +182,10 @@ Future<void> _pumpPage(
   WidgetTester tester, {
   required SharedPreferences prefs,
   List<Override> overrides = const [],
+  bool useProductionRedirect = false,
 }) async {
-  final router = _createRouter();
+  final router = _createRouter(useProductionRedirect: useProductionRedirect);
+  addTearDown(router.dispose);
 
   await tester.pumpWidget(
     ProviderScope(
@@ -135,6 +200,17 @@ Future<void> _pumpPage(
         subscriptionNotifierProvider.overrideWith(
           _TestSubscriptionNotifier.new,
         ),
+        if (useProductionRedirect) ...[
+          appInitializationV2Provider.overrideWith(_TestInitialization.new),
+          appLockControllerProvider.overrideWith((ref) => AppLockController(
+                userId: 'u1',
+                repository: _TestLockRepository(),
+                hasher: _TestLockHasher(),
+                biometricService: _TestBiometrics(),
+                isEnabledFlagSet: false,
+                setEnabledFlag: (_) async {},
+              )),
+        ],
         ...overrides,
       ],
       child: MaterialApp.router(
@@ -150,6 +226,119 @@ Future<void> _pumpPage(
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets(
+      'view plans preserves the final step through production redirects',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_preauth_completed', true);
+    await prefs.setBool('onboarding_preauth_synced:u1', true);
+    await _pumpPage(tester, prefs: prefs, useProductionRedirect: true);
+
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text("I'll do this later"));
+      await tester.pumpAndSettle();
+    }
+
+    final onboardingElement =
+        tester.element(find.byType(OnboardingPostAuthFlowPage));
+    final router = GoRouter.of(onboardingElement);
+    await tester.tap(find.text('View plans'));
+    await tester.pumpAndSettle();
+    expect(find.text('See all plans'), findsOneWidget);
+    final introUri =
+        GoRouterState.of(tester.element(find.text('See all plans'))).uri;
+    expect(introUri.path, '/plus-locked');
+    expect(introUri.queryParameters['feature'], 'messagingAppCapture');
+    expect(prefs.getBool('onboarding_completed:u1'), isNull);
+
+    await tester.tap(find.text('See all plans'));
+    await tester.pumpAndSettle();
+    expect(find.text('Plan selection'), findsOneWidget);
+    expect(
+        GoRouterState.of(tester.element(find.text('Plan selection'))).uri.path,
+        '/plan-selection');
+
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('See all plans'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('View plans'), findsOneWidget);
+    expect(tester.element(find.byType(OnboardingPostAuthFlowPage)),
+        same(onboardingElement));
+    expect(prefs.getBool('onboarding_completed:u1'), isNull);
+
+    router.go('/dashboard');
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.toString(),
+        '/onboarding?stage=post');
+    expect(find.text('Dashboard'), findsNothing);
+  });
+
+  for (final path in ['/plus-locked', '/plan-selection']) {
+    testWidgets('$path remains unavailable without authentication',
+        (tester) async {
+      final prefs = await SharedPreferences.getInstance();
+      await _pumpPage(
+        tester,
+        prefs: prefs,
+        useProductionRedirect: true,
+        overrides: [
+          authProvider
+              .overrideWith(() => _TestAuth(const AppUser(uid: '', email: ''))),
+        ],
+      );
+      final router =
+          GoRouter.of(tester.element(find.byType(OnboardingPostAuthFlowPage)));
+
+      router.go(path);
+      await tester.pumpAndSettle();
+
+      expect(
+          router.routeInformationProvider.value.uri.toString(), '/onboarding');
+      expect(find.text('See all plans'), findsNothing);
+      expect(find.text('Plan selection'), findsNothing);
+    });
+
+    testWidgets('$path does not bypass unfinished account preparation',
+        (tester) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_preauth_completed', true);
+      await prefs.setBool('onboarding_preauth_synced:u1', true);
+      await _pumpPage(tester, prefs: prefs, useProductionRedirect: true);
+      final router =
+          GoRouter.of(tester.element(find.byType(OnboardingPostAuthFlowPage)));
+
+      await prefs.remove('onboarding_preauth_synced:u1');
+      router.go(path);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Account preparation'), findsOneWidget);
+      expect(router.routeInformationProvider.value.uri.toString(),
+          '/onboarding?stage=prepare');
+    });
+  }
+
+  testWidgets('confirmed active subscription completes onboarding after plans',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_preauth_completed', true);
+    await prefs.setBool('onboarding_preauth_synced:u1', true);
+    await _pumpPage(tester, prefs: prefs, useProductionRedirect: true);
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text("I'll do this later"));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('View plans'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm purchase'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(prefs.getBool('onboarding_completed:u1'), true);
   });
 
   testWidgets('skip completes post-auth onboarding and redirects to dashboard',

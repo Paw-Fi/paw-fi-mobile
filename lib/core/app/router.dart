@@ -434,6 +434,9 @@ GoRouter router(RouterRef ref) {
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
+        final isOnPostOnboardingPlansPage =
+            state.matchedLocation == '/plus-locked' ||
+                state.matchedLocation == '/plan-selection';
         final isOnErrorPage = state.matchedLocation == '/error';
         final isPublicImportReview =
             state.matchedLocation.startsWith('/import-review/');
@@ -556,6 +559,7 @@ GoRouter router(RouterRef ref) {
             !hasOnboarded &&
             !isOnPrepareOnboardingPage &&
             !isOnPostOnboardingPage &&
+            !isOnPostOnboardingPlansPage &&
             !isOnAuthPage &&
             !isOnSplashPage) {
           return '/onboarding?stage=post';
