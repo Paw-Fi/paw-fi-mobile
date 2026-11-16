@@ -616,7 +616,9 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     final isArmed =
         _isCancelArmed ? progress >= _cancelDisarmProgress : progress >= 1;
     if (isArmed != _isCancelArmed) {
-      isArmed ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick();
+      // The decisive nudge lands on entering the zone; release then discards
+      // silently, since the user already felt the commitment point.
+      isArmed ? HapticFeedback.heavyImpact() : HapticFeedback.selectionClick();
       // Lets the mic ease back to the finger instead of jumping off the bin.
       if (!isArmed) {
         _snapCatchUpUntil = DateTime.now().add(_cancelSnapDuration);
@@ -637,13 +639,15 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   /// without sending it.
   Future<void> _cancelRecording() async {
     if (!_isRecording || _isStartingRecording) return;
+    // A flick discards without ever entering the zone, so it still needs its
+    // one confirming nudge.
+    if (!_isCancelArmed) HapticFeedback.heavyImpact();
     _isCancelArmed = false;
     _recordStartGlobalX = null;
     _recordingStartTime = null;
     _isDiscardingRecording = true;
     _recordingAmplitudeTimer?.cancel();
     _micScaleController.reverse();
-    unawaited(_playCancelHaptic());
     _cancelFeedbackTimer?.cancel();
     setState(() {
       _isRecording = false;
@@ -665,13 +669,6 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     } finally {
       _isDiscardingRecording = false;
     }
-  }
-
-  /// "Thud, settle" timed with the mic dropping into the bin.
-  Future<void> _playCancelHaptic() async {
-    HapticFeedback.heavyImpact();
-    await Future<void>.delayed(const Duration(milliseconds: 360));
-    HapticFeedback.lightImpact();
   }
 
   Future<void> _onRecordStart() async {
