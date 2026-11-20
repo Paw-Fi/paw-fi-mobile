@@ -24,7 +24,11 @@ data class RecentNotificationApp(
     val enabled: Boolean
 )
 
-class NotificationCaptureConfig(context: Context) {
+class NotificationCaptureConfig internal constructor(
+    context: Context,
+    private val authPrefs: SharedPreferences?,
+) {
+    constructor(context: Context) : this(context, createEncryptedPreferences(context))
 
     companion object {
         // Listener, activity and cleanup workers create separate config instances.
@@ -47,6 +51,7 @@ class NotificationCaptureConfig(context: Context) {
         private const val KEY_USER_ID = "user_id"
         private const val KEY_EXPIRES_AT = "expires_at"
         private const val KEY_AUTH_CONTEXT_VERSION = "auth_context_version"
+        private const val KEY_AUTH_GENERATION = "auth_generation"
         private const val KEY_PENDING_CAPTURES = "pending_captures"
         private const val KEY_CAPTURE_REVISION = "capture_revision"
         private const val CLEANUP_WORK_PREFIX = "notification_capture_cleanup_"
@@ -55,12 +60,24 @@ class NotificationCaptureConfig(context: Context) {
 
         internal fun isPendingCaptureExpired(queuedAt: Long, now: Long): Boolean =
             queuedAt <= 0 || now - queuedAt >= PENDING_CAPTURE_TTL_MS
+
+        private fun createEncryptedPreferences(context: Context): SharedPreferences? = try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context, AUTH_PREFS_NAME, masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val authPrefs: SharedPreferences? = createEncryptedPreferences(context)
-    private val appContext = context.applicationContext
+    internal val appContext = context.applicationContext
 
     init {
         scheduleExistingPendingCaptureCleanup()
@@ -114,6 +131,23 @@ class NotificationCaptureConfig(context: Context) {
 
     val expiresAt: Long
         get() = authPrefs?.getLong(KEY_EXPIRES_AT, 0L) ?: 0L
+
+    internal val authGeneration: Long
+        get() = authPrefs?.getLong(KEY_AUTH_GENERATION, 0L) ?: 0L
+
+    internal fun updateAccessTokenForUser(
+        expectedUserId: String,
+        expectedGeneration: Long,
+        token: String,
+        tokenExpiresAt: Long,
+    ): Boolean = synchronized(pendingCaptureLock) {
+        val storage = authPrefs ?: return false
+        if (expectedUserId.isBlank() || userId != expectedUserId ||
+            authGeneration != expectedGeneration || token.isBlank() ||
+            tokenExpiresAt <= System.currentTimeMillis() / 1000 + 30) return false
+        storage.edit().putString(KEY_ACCESS_TOKEN, token)
+            .putLong(KEY_EXPIRES_AT, tokenExpiresAt).commit()
+    }
 
     val isAccessTokenExpired: Boolean
         get() {
@@ -266,6 +300,9 @@ class NotificationCaptureConfig(context: Context) {
                 putString(KEY_USER_ID, userId)
                 putLong(KEY_EXPIRES_AT, expiresAt)
                 putInt(KEY_AUTH_CONTEXT_VERSION, 2)
+                if (previousUserId != userId) {
+                    putLong(KEY_AUTH_GENERATION, authGeneration + 1)
+                }
                 if (previousUserId.isNotBlank() && previousUserId != userId) {
                     remove(KEY_PENDING_CAPTURES)
                     remove(KEY_CAPTURE_REVISION)
@@ -275,9 +312,22 @@ class NotificationCaptureConfig(context: Context) {
         }
     }
 
+    /** Invalidate in-flight credentials without discarding a failed transition's queue. */
+    fun suspendAuthContext() {
+        synchronized(pendingCaptureLock) {
+            val storage = requireAuthPrefs()
+            check(storage.edit()
+                .putLong(KEY_AUTH_GENERATION, authGeneration + 1)
+                .remove(KEY_ACCESS_TOKEN)
+                .remove(KEY_EXPIRES_AT)
+                .commit()) { "Capture credentials could not be suspended" }
+        }
+    }
+
     fun clearLegacyNativeSession() {
         synchronized(pendingCaptureLock) {
             authPrefs?.edit()?.apply {
+                putLong(KEY_AUTH_GENERATION, authGeneration + 1)
                 remove(KEY_ACCESS_TOKEN)
                 remove(KEY_REFRESH_TOKEN)
                 remove(KEY_EXPIRES_AT)
@@ -470,6 +520,7 @@ class NotificationCaptureConfig(context: Context) {
     fun clearSessionTokens() {
         synchronized(pendingCaptureLock) {
             authPrefs?.edit()?.apply {
+                putLong(KEY_AUTH_GENERATION, authGeneration + 1)
                 remove(KEY_ACCESS_TOKEN)
                 remove(KEY_REFRESH_TOKEN)
                 remove(KEY_EXPIRES_AT)
@@ -485,6 +536,7 @@ class NotificationCaptureConfig(context: Context) {
         synchronized(pendingCaptureLock) {
             val prefs = authPrefs ?: return false
             prefs.edit().apply {
+                putLong(KEY_AUTH_GENERATION, authGeneration + 1)
                 remove(KEY_SUPABASE_URL)
                 remove(KEY_SUPABASE_ANON_KEY)
                 remove(KEY_ACCESS_TOKEN)
@@ -504,21 +556,4 @@ class NotificationCaptureConfig(context: Context) {
         return authPrefs ?: throw IllegalStateException("AUTH_STORAGE_UNAVAILABLE")
     }
 
-    private fun createEncryptedPreferences(context: Context): SharedPreferences? {
-        return try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-
-            EncryptedSharedPreferences.create(
-                context,
-                AUTH_PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (_: Exception) {
-            null
-        }
-    }
 }

@@ -20,21 +20,28 @@ internal object NotificationCaptureDispatcher {
         config: NotificationCaptureConfig,
         userId: String,
         recordId: String? = null,
+        recoverAccessToken: (NotificationCaptureConfig, String, Boolean) -> String? =
+            NotificationCaptureSessionBridge::recoverAccessToken,
+        sendRequest: (String, String, String, JSONObject) -> Pair<Int, String> = ::send,
+        isStopped: () -> Boolean = { Thread.currentThread().isInterrupted },
     ): Map<String, Any> = synchronized(drainLock) {
         var synced = 0
         var requiresSessionRefresh = false
         val startedAt = System.currentTimeMillis()
+        val generation = config.authGeneration
+        fun ownsSession() = !isStopped() && config.userId == userId && config.authGeneration == generation
         if (userId.isNotBlank() && config.userId == userId) {
             for (record in config.getPendingCaptures()) {
                 if (recordId != null && record["id"] != recordId) continue
-                if (config.userId != userId || record["userId"] != userId) break
+                if (!ownsSession() || record["userId"] != userId) break
                 if (System.currentTimeMillis() - startedAt >= 90_000) break
                 val id = record["id"] as? String ?: continue
                 // The record can have been removed while this drain waited for the lock.
                 val body = runCatching { JSONObject(record["body"] as String) }.getOrNull()
                     ?: continue
                 if (body.optString("userId") != userId) continue
-                val token = config.accessTokenForUser(userId)
+                var token = config.accessTokenForUser(userId)
+                    ?: recoverAccessToken(config, userId, false)
                 if (token == null || config.supabaseUrl.isBlank() || config.supabaseAnonKey.isBlank()) {
                     requiresSessionRefresh = true
                     trace(id, "waiting_for_auth", record)
@@ -44,12 +51,21 @@ internal object NotificationCaptureDispatcher {
                 trace(id, "processing", record)
                 val response = try {
                     // Freeze the actor's token. Never retry an old body with a new actor.
-                    if (config.userId != userId) break
-                    send(config.supabaseUrl, config.supabaseAnonKey, token, body)
+                    if (!ownsSession()) break
+                    val initial = sendRequest(config.supabaseUrl, config.supabaseAnonKey, token, body)
+                    if (initial.first == 401 && ownsSession()) {
+                        token = recoverAccessToken(config, userId, true)
+                        if (token == null || !ownsSession()) {
+                            requiresSessionRefresh = true
+                            break
+                        }
+                        sendRequest(config.supabaseUrl, config.supabaseAnonKey, token, body)
+                    } else initial
                 } catch (_: Exception) {
                     trace(id, "retryable_network_failure", record, requestStartedAt)
                     break
                 }
+                if (!ownsSession()) break
                 val payload = runCatching { JSONObject(response.second) }.getOrNull()
                 val savedId = payload?.optJSONObject("data")?.opt("id") as? String
                 val confirmed = response.first in 200..201 && payload?.opt("success") == true &&

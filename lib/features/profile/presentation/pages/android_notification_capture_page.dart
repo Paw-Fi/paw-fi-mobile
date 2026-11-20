@@ -44,6 +44,26 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     final recentApps = useState<List<RecentNotificationApp>>([]);
     // The PK of the user's user_contacts row — used for targeted updates.
     final contactId = useState<String?>(null);
+    final pendingPermissionEnable = useRef<Object?>(null);
+    final setupGeneration = useRef(0);
+    final recheckingAccess = useRef(false);
+    final recheckRequested = useRef(false);
+    final latestAccessRecheck = useRef<Future<void> Function()?>(null);
+
+    // A permission return may only continue this mounted account's own action.
+    useEffect(() {
+      return () {
+        setupGeneration.value++;
+        pendingPermissionEnable.value = null;
+        recheckRequested.value = false;
+      };
+    }, [authState.uid]);
+
+    bool canContinueSetup(String userId, int generation) =>
+        context.mounted &&
+        setupGeneration.value == generation &&
+        ref.read(authProvider).uid == userId &&
+        Supabase.instance.client.auth.currentUser?.id == userId;
 
     // Load households
     final householdsAsync = authState.uid.isNotEmpty
@@ -92,6 +112,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     }
 
     Future<bool> syncCredentials({bool showError = false}) async {
+      final generation = setupGeneration.value;
       final session = Supabase.instance.client.auth.currentSession;
       final accessToken = session?.accessToken ?? '';
       final userId = session?.user.id ?? '';
@@ -116,10 +137,12 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           userId: userId,
           expiresAt: expiresAt,
         );
+        if (!canContinueSetup(userId, generation)) return false;
         await NotificationCaptureService.instance.syncPendingCaptures();
 
         final refreshedConfig =
             await NotificationCaptureService.instance.getConfig();
+        if (!canContinueSetup(userId, generation)) return false;
         config.value = config.value.copyWith(
           hasAuthStorage: refreshedConfig.hasAuthStorage,
           hasCredentials: refreshedConfig.hasCredentials,
@@ -141,7 +164,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         }
         return false;
       } finally {
-        isSyncing.value = false;
+        if (context.mounted) isSyncing.value = false;
       }
     }
 
@@ -199,39 +222,6 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       loadAll();
       return null;
     }, []);
-
-    // Re-check notification access when app resumes
-    useOnAppLifecycleStateChange((previous, current) {
-      if (current == AppLifecycleState.resumed) {
-        Future<void> recheck() async {
-          try {
-            final status = await Permission.notification.status;
-            hasNotificationPermission.value = status.isGranted;
-
-            final svc = NotificationCaptureService.instance;
-            final access = await svc.checkNotificationAccess();
-            hasAccess.value = access;
-            if (access) {
-              final apps = await svc.getRecentApps();
-              recentApps.value = apps;
-            }
-
-            final refreshedConfig = await svc.getConfig();
-            config.value = config.value.copyWith(
-              hasAuthStorage: refreshedConfig.hasAuthStorage,
-              hasCredentials: refreshedConfig.hasCredentials,
-              isReady: refreshedConfig.isReady,
-            );
-
-            if (refreshedConfig.hasAuthStorage && !refreshedConfig.isReady) {
-              await syncCredentials();
-            }
-          } catch (_) {}
-        }
-
-        recheck();
-      }
-    });
 
     useEffect(() {
       if (!config.value.enabled) return null;
@@ -300,13 +290,15 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     /// Persists the enabled flag to both Android native (SharedPreferences)
     /// and Supabase (user_contacts.wallet_capture_enabled).
     Future<void> toggleEnabled(bool enabled) async {
+      final userId = authState.uid;
+      final generation = setupGeneration.value;
       if (enabled) {
         final hasAccess = await PlusLockedSheet.ensureAccess(
           context,
           ref,
           feature: PlusFeature.messagingAppCapture,
         );
-        if (!hasAccess || !context.mounted) return;
+        if (!hasAccess || !canContinueSetup(userId, generation)) return;
       }
 
       final previous = config.value;
@@ -319,6 +311,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           final didSync = config.value.isReady
               ? true
               : await syncCredentials(showError: true);
+          if (!canContinueSetup(userId, generation)) return;
           if (!didSync) {
             config.value = previous;
             return;
@@ -335,7 +328,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         }
 
         // Write to Android native layer.
-
+        final saveSession = Supabase.instance.client.auth.currentSession;
+        if (saveSession == null || !canContinueSetup(userId, generation)) {
+          return;
+        }
         await NotificationCaptureService.instance.setConfig(
           enabled: enabled,
           accountId: walletToPersist?.id,
@@ -346,9 +342,12 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
         // Write to Supabase via the update-wallet-capture-setting edge function
         // (service role bypasses RLS — same pattern as iOS wallet capture).
+        // Finish an already-started write for its original actor even if the
+        // page closes. Never substitute a newer actor's session after the await.
 
         final fnResponse = await Supabase.instance.client.functions.invoke(
           'update-wallet-capture-setting',
+          headers: {'Authorization': 'Bearer ${saveSession.accessToken}'},
           body: {'enabled': enabled},
         );
         if (fnResponse.status != 200) {
@@ -356,16 +355,19 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
               'Edge function returned ${fnResponse.status}: ${fnResponse.data}');
         }
         final newContactId = fnResponse.data?['contactId'] as String?;
-        if (newContactId != null) {
+        if (newContactId != null && canContinueSetup(userId, generation)) {
           contactId.value = newContactId;
         }
       } catch (e) {
+        if (Supabase.instance.client.auth.currentUser?.id != userId) return;
         try {
           await NotificationCaptureService.instance
               .setConfig(enabled: previousEnabled);
         } catch (_) {}
+        if (!canContinueSetup(userId, generation)) return;
         final refreshedConfig =
             await NotificationCaptureService.instance.getConfig();
+        if (!canContinueSetup(userId, generation)) return;
         // Roll back optimistic update on failure.
         config.value = refreshedConfig.copyWith(enabled: previousEnabled);
         if (context.mounted) {
@@ -373,6 +375,64 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         }
       }
     }
+
+    // Consume the enable intent once, including denied returns. A later unrelated
+    // resume must not enable capture, and overlapping resumes must not save twice.
+    Future<void> recheckAccess() async {
+      final userId = authState.uid;
+      final generation = setupGeneration.value;
+      if (!canContinueSetup(userId, generation)) return;
+      final enableIntent = pendingPermissionEnable.value;
+      pendingPermissionEnable.value = null;
+      try {
+        final status = await Permission.notification.status;
+        if (!canContinueSetup(userId, generation)) return;
+        hasNotificationPermission.value = status.isGranted;
+
+        final svc = NotificationCaptureService.instance;
+        final access = await svc.checkNotificationAccess();
+        if (!canContinueSetup(userId, generation)) return;
+        hasAccess.value = access;
+        if (access) {
+          final apps = await svc.getRecentApps();
+          if (!canContinueSetup(userId, generation)) return;
+          recentApps.value = apps;
+        }
+
+        final refreshedConfig = await svc.getConfig();
+        if (!canContinueSetup(userId, generation)) return;
+        config.value = config.value.copyWith(
+          hasAuthStorage: refreshedConfig.hasAuthStorage,
+          hasCredentials: refreshedConfig.hasCredentials,
+          isReady: refreshedConfig.isReady,
+        );
+
+        if (enableIntent != null && access && !config.value.enabled) {
+          await toggleEnabled(true);
+        } else if (refreshedConfig.hasAuthStorage && !refreshedConfig.isReady) {
+          await syncCredentials();
+        }
+      } catch (_) {
+        // A failed permission check cannot authorize an automatic enable.
+      }
+    }
+
+    latestAccessRecheck.value = recheckAccess;
+
+    useOnAppLifecycleStateChange((previous, current) async {
+      if (current != AppLifecycleState.resumed) return;
+      recheckRequested.value = true;
+      if (recheckingAccess.value) return;
+      recheckingAccess.value = true;
+      try {
+        do {
+          recheckRequested.value = false;
+          await latestAccessRecheck.value?.call();
+        } while (context.mounted && recheckRequested.value);
+      } finally {
+        recheckingAccess.value = false;
+      }
+    });
 
     Future<void> pickDestinationSpace() async {
       final households = householdsAsync.valueOrNull ?? [];
@@ -493,10 +553,16 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       }
     }
 
-    Future<void> grantNotificationAccess() async {
+    Future<void> grantNotificationAccess(
+        {bool continueEnabling = false}) async {
+      final intent = continueEnabling ? Object() : null;
+      pendingPermissionEnable.value = intent;
       try {
         await NotificationCaptureService.instance.openNotificationSettings();
       } catch (e) {
+        if (identical(pendingPermissionEnable.value, intent)) {
+          pendingPermissionEnable.value = null;
+        }
         if (context.mounted) {
           AppToast.error(
               context, context.l10n.couldNotOpenNotificationSettings);
@@ -602,7 +668,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                   }
 
                                   if (!hasAccess.value) {
-                                    grantNotificationAccess();
+                                    grantNotificationAccess(
+                                        continueEnabling: true);
                                     return;
                                   }
 

@@ -17,7 +17,8 @@ class NotificationCaptureRetryWorker(
                 ?: return Result.success()
             val userId = record["userId"] as? String ?: return Result.success()
             if (isStopped || config.userId != userId) return Result.success()
-            val result = NotificationCaptureDispatcher.drain(config, userId, recordId)
+            val result = NotificationCaptureDispatcher.drain(config, userId, recordId,
+                isStopped = { isStopped || Thread.currentThread().isInterrupted })
             if (result["remaining"] == 0) Result.success() else Result.retry()
         } catch (_: Exception) {
             Result.retry()

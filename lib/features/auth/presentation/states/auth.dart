@@ -431,9 +431,12 @@ class Auth extends _$Auth {
     _isLoading = true;
 
     try {
-      final response = await supabase.auth.signInWithPassword(
-        email: email,
-        password: password,
+      final response =
+          await NotificationCaptureService.instance.runAuthTransition(
+        () => supabase.auth.signInWithPassword(
+          email: email,
+          password: password,
+        ),
       );
       return response;
     } on AuthException catch (error, stackTrace) {
@@ -459,13 +462,16 @@ class Auth extends _$Auth {
     _isLoading = true;
 
     try {
-      final response = await supabase.auth.signUp(
-        email: email,
-        password: password,
-        data: {
-          'full_name': fullName,
-        },
-        emailRedirectTo: redirectUrl,
+      final response =
+          await NotificationCaptureService.instance.runAuthTransition(
+        () => supabase.auth.signUp(
+          email: email,
+          password: password,
+          data: {
+            'full_name': fullName,
+          },
+          emailRedirectTo: redirectUrl,
+        ),
       );
       return response;
     } on AuthException catch (error, stackTrace) {
@@ -489,10 +495,13 @@ class Auth extends _$Auth {
     _isLoading = true;
 
     try {
-      final response = await supabase.auth.verifyOTP(
-        email: email,
-        token: token,
-        type: OtpType.email,
+      final response =
+          await NotificationCaptureService.instance.runAuthTransition(
+        () => supabase.auth.verifyOTP(
+          email: email,
+          token: token,
+          type: OtpType.email,
+        ),
       );
       return response;
     } on AuthException catch (error, stackTrace) {
@@ -545,7 +554,10 @@ class Auth extends _$Auth {
   }
 
   /// Sign out
-  Future<void> signOut() async {
+  Future<void> signOut() =>
+      NotificationCaptureService.instance.runAuthTransition(_signOut);
+
+  Future<void> _signOut() async {
     _isLoading = true;
     state = const AppUser(
       uid: '',
@@ -555,7 +567,8 @@ class Auth extends _$Auth {
     );
 
     try {
-      // Ensure device is unregistered on backend before auth session is cleared
+      // Ensure device is unregistered on backend before auth session is cleared.
+      // The enclosing transition already blocks capture-triggered refresh.
       try {
         await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
       } catch (_) {}

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
+import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -33,6 +34,11 @@ initApp() async {
     ),
   );
   SiriShortcutAuthService.instance.initializeSessionBridge(authReady: () async {
+    await initialization;
+    return Supabase.instance.client.auth;
+  });
+  NotificationCaptureService.instance.initializeSessionBridge(
+      authReady: () async {
     await initialization;
     return Supabase.instance.client.auth;
   });

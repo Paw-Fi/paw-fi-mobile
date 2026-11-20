@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -65,10 +66,12 @@ class GoogleLoginButton extends HookConsumerWidget {
             throw const AuthException('Google did not return an ID token.');
           }
 
-          await supabase.auth.signInWithIdToken(
-            provider: OAuthProvider.google,
-            idToken: idToken,
-            accessToken: googleAuthorization?.accessToken,
+          await NotificationCaptureService.instance.runAuthTransition(
+            () => supabase.auth.signInWithIdToken(
+              provider: OAuthProvider.google,
+              idToken: idToken,
+              accessToken: googleAuthorization?.accessToken,
+            ),
           );
         }
 

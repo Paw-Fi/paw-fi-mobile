@@ -22,6 +22,7 @@ import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/core/app/startup_guard.dart';
 import 'package:moneko/core/app/flutter_error_reporter.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/services/notification_capture_service.dart';
 
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
@@ -225,6 +226,8 @@ void main() {
       }
       // Continue; router/splash will still render and can show error UI later
     }
+
+    await NotificationCaptureService.instance.waitForForegroundHost();
 
     // Preserve compatible regional formatting, with a supported UI fallback.
     final deviceLocale = ui.PlatformDispatcher.instance.locale;

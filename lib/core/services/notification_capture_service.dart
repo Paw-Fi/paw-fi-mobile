@@ -243,13 +243,8 @@ class NotificationCaptureConfig {
 /// Android-only — returns disabled/no-op on other platforms.
 class NotificationCaptureService {
   NotificationCaptureService._() {
-    if (_isAndroid) {
-      _channel.setMethodCallHandler((call) async {
-        if (call.method == 'capturesChanged' && call.arguments is Map) {
-          _publishRevision(Map<dynamic, dynamic>.from(call.arguments as Map));
-        }
-      });
-    }
+    initializeSessionBridge(
+        authReady: () async => Supabase.instance.client.auth);
   }
 
   static final NotificationCaptureService instance =
@@ -265,12 +260,172 @@ class NotificationCaptureService {
   Future<void>? _pendingCaptureSync;
   String? _pendingCaptureUserId;
   String? _syncedAuthUserId;
+  int _authGeneration = 0;
+  int _authClears = 0;
+  int _authTransitions = 0;
+  Future<void>? _authTransitionTail;
+  bool get _authBlocked => _authClears != 0 || _authTransitions != 0;
+  Future<GoTrueClient> Function() _authReady =
+      () async => Supabase.instance.client.auth;
+  Future<AuthResponse>? _sessionRefresh;
+  GoTrueClient? _sessionRefreshOwner;
 
-  void _publishRevision(Map<dynamic, dynamic> status) {
+  /// Native workers can request credentials before any Activity or shell exists.
+  /// This handler must never await native replay: its dispatcher is awaiting us.
+  void initializeSessionBridge({
+    required Future<GoTrueClient> Function() authReady,
+  }) {
+    if (!_isAndroid) return;
+    _authReady = authReady;
+    _channel.setMethodCallHandler((call) async {
+      final arguments = call.arguments;
+      if (call.method == 'capturesChanged' && arguments is Map) {
+        await _publishRevision(arguments);
+        return null;
+      }
+      if (call.method != 'getCurrentSessionForNotificationCapture') {
+        throw MissingPluginException();
+      }
+      final userId = arguments is Map ? arguments['userId'] as String? : null;
+      final generation = _authGeneration;
+      final auth = await _authReady();
+      void checkOwner() {
+        if (_authBlocked ||
+            generation != _authGeneration ||
+            userId == null ||
+            userId.isEmpty ||
+            auth.currentSession?.user.id != userId ||
+            auth.currentUser?.id != userId) {
+          throw PlatformException(code: 'capture_session_unavailable');
+        }
+      }
+
+      checkOwner();
+      if (arguments['forceRefresh'] == true ||
+          !_hasUsableAccessToken(auth.currentSession)) {
+        final response = await _refreshSession(auth);
+        checkOwner();
+        if (!_hasUsableAccessToken(response.session) ||
+            response.session?.user.id != userId) {
+          throw PlatformException(code: 'capture_session_unavailable');
+        }
+      }
+      checkOwner();
+      final session = auth.currentSession;
+      if (!_hasUsableAccessToken(session)) {
+        throw PlatformException(code: 'capture_session_unavailable');
+      }
+      return <String, Object?>{
+        'accessToken': session!.accessToken,
+        'userId': session.user.id,
+        'expiresAt': session.expiresAt,
+      };
+    });
+  }
+
+  bool _hasUsableAccessToken(Session? session) =>
+      session != null &&
+      session.accessToken.isNotEmpty &&
+      !session.isExpired &&
+      (session.expiresAt ?? 0) >
+          DateTime.now().millisecondsSinceEpoch ~/ 1000 + 30;
+
+  Future<AuthResponse> _refreshSession(GoTrueClient auth) {
+    if (_authBlocked ||
+        (_sessionRefresh != null && !identical(_sessionRefreshOwner, auth))) {
+      throw PlatformException(code: 'capture_session_unavailable');
+    }
+    if (_sessionRefresh != null) return _sessionRefresh!;
+    final refresh = auth.refreshSession();
+    _sessionRefresh = refresh;
+    _sessionRefreshOwner = auth;
+    void clear() {
+      if (identical(_sessionRefresh, refresh)) {
+        _sessionRefresh = null;
+        _sessionRefreshOwner = null;
+      }
+    }
+
+    refresh.then<void>((_) => clear(), onError: (Object _) => clear());
+    return refresh;
+  }
+
+  /// Serializes explicit Android session changes with capture-owned refresh.
+  /// GoTrue saves refresh responses before returning, so a reply fence alone
+  /// cannot protect logout or a new actor. Do not nest transitions.
+  Future<T> runAuthTransition<T>(Future<T> Function() action) {
+    if (!_isAndroid) return action();
+    // Close admission synchronously, including while another transition waits.
+    _authTransitions++;
+    _authGeneration++;
+    final previous = _authTransitionTail;
+    final done = Completer<void>();
+    _authTransitionTail = done.future;
+    return () async {
+      try {
+        await previous;
+        final refresh = _sessionRefresh;
+        try {
+          // Invalidate native credentials now, retaining the original actor's
+          // queue if authentication fails without actually changing the session.
+          await _channel.invokeMethod<void>('suspendAuthContext');
+        } finally {
+          // Even a failed native clear must not reopen admission before the SDK
+          // finishes mutating its session. Refresh failure must not prevent logout.
+          try {
+            await refresh;
+          } catch (_) {}
+        }
+        return await action();
+      } finally {
+        _authGeneration++;
+        _authTransitions--;
+        if (_authTransitions == 0) {
+          // Auth events during the transition were intentionally not exported.
+          // Publish only the final SDK session; never sign out a newer actor.
+          try {
+            final generation = _authGeneration;
+            final auth = await _authReady();
+            final session = auth.currentSession;
+            if (!_authBlocked && generation == _authGeneration) {
+              if (session == null) {
+                await clearAuthContext();
+              } else {
+                await syncAuthContext(
+                  supabaseUrl: Constants.supabaseUrl,
+                  supabaseAnonKey: Constants.supabaseAnon,
+                  accessToken: session.accessToken,
+                  userId: session.user.id,
+                  expiresAt: session.expiresAt ?? 0,
+                );
+              }
+            }
+          } catch (_) {
+            // Normal foreground auth synchronization can retry native transport.
+          }
+        }
+        done.complete();
+        if (identical(_authTransitionTail, done.future)) {
+          _authTransitionTail = null;
+        }
+      }
+    }();
+  }
+
+  /// Background startup initializes auth only; UI waits for a real Android host.
+  Future<void> waitForForegroundHost() async {
+    if (_isAndroid) await _channel.invokeMethod<void>('awaitForegroundHost');
+  }
+
+  Future<void> _publishRevision(Map<dynamic, dynamic> status) async {
+    final generation = _authGeneration;
+    final auth = await _authReady();
     final userId = status['userId'] as String?;
     final revision = (status['revision'] as num?)?.toInt() ?? 0;
-    if (userId == null ||
-        userId != Supabase.instance.client.auth.currentUser?.id ||
+    if (_authBlocked ||
+        generation != _authGeneration ||
+        userId == null ||
+        userId != auth.currentUser?.id ||
         revision <= (_revisions[userId] ?? 0)) {
       return;
     }
@@ -284,7 +439,7 @@ class NotificationCaptureService {
           'getPendingCaptureStatus',
         ) ??
         const {};
-    _publishRevision(status);
+    await _publishRevision(status);
     return status;
   }
 
@@ -297,7 +452,15 @@ class NotificationCaptureService {
     required String userId,
     required int expiresAt,
   }) async {
-    if (!_isAndroid) return;
+    if (!_isAndroid || _authBlocked) return;
+    final generation = _authGeneration;
+    final auth = await _authReady();
+    if (_authBlocked ||
+        generation != _authGeneration ||
+        auth.currentSession?.user.id != userId ||
+        auth.currentSession?.accessToken != accessToken) {
+      return;
+    }
     if (_syncedAuthUserId != userId) {
       _revisions.remove(userId);
       _syncedAuthUserId = userId;
@@ -313,13 +476,19 @@ class NotificationCaptureService {
 
   Future<void> clearAuthContext() async {
     if (!_isAndroid) return;
-    await _channel.invokeMethod<void>('clearAuthContext');
+    _authGeneration++;
+    _authClears++;
     _revisions.clear();
     _syncedAuthUserId = null;
+    try {
+      await _channel.invokeMethod<void>('clearAuthContext');
+    } finally {
+      _authClears--;
+    }
   }
 
   Future<void> syncPendingCaptures() {
-    if (!_isAndroid) return Future.value();
+    if (!_isAndroid || _authBlocked) return Future.value();
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return Future.value();
     final inFlight = _pendingCaptureSync;
@@ -343,17 +512,25 @@ class NotificationCaptureService {
 
   Future<void> _syncPendingCaptures(String userId) async {
     final client = Supabase.instance.client;
+    final generation = _authGeneration;
     var forceRefresh = false;
     for (var attempt = 0; attempt < 2; attempt++) {
       var session = client.auth.currentSession;
-      if (session == null || session.user.id != userId) return;
+      if (_authBlocked ||
+          generation != _authGeneration ||
+          session == null ||
+          session.user.id != userId) {
+        return;
+      }
       final expiresSoon = session.expiresAt != null &&
           session.expiresAt! <=
               DateTime.now().millisecondsSinceEpoch ~/ 1000 + 30;
       if (forceRefresh || session.isExpired || expiresSoon) {
-        session = (await client.auth.refreshSession()).session;
+        session = (await _refreshSession(client.auth)).session;
       }
-      if (session == null ||
+      if (_authBlocked ||
+          generation != _authGeneration ||
+          session == null ||
           session.user.id != userId ||
           client.auth.currentUser?.id != userId) {
         return;
@@ -371,7 +548,7 @@ class NotificationCaptureService {
         {'userId': userId},
       );
       if (status == null || client.auth.currentUser?.id != userId) return;
-      _publishRevision(status);
+      await _publishRevision(status);
       if (status['requiresSessionRefresh'] != true) return;
       forceRefresh = true;
     }
