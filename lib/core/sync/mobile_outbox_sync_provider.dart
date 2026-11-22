@@ -137,6 +137,7 @@ class MobileOutboxDrainer {
     );
     if (_disposed) return result;
     final coordinator = await _readCoordinator();
+    if (coordinator.database.activeResetOwner != null) return result;
     final mutations = await coordinator.database.getOutboxMutations();
     if (_disposed) return result;
     _retryTimer?.cancel();

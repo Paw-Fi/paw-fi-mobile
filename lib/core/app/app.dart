@@ -1,4 +1,5 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/features/profile/presentation/widgets/financial_reset_gate.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -282,11 +283,13 @@ class _AppState extends ConsumerState<App> {
                   child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  AiShareIntentListener(
-                    child: VersionCheckWrapper(
-                      child: child ?? const SplashScreen(),
-                    ),
-                  ),
+                  FinancialResetGate(
+                      userId: auth.uid,
+                      child: AiShareIntentListener(
+                        child: VersionCheckWrapper(
+                          child: child ?? const SplashScreen(),
+                        ),
+                      )),
                   if (shouldShowLifecyclePrivacyCover)
                     const _AppLifecyclePrivacyCover(),
                   Positioned.fill(

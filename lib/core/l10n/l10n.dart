@@ -13,6 +13,17 @@ extension L10nX on BuildContext {
   }
 }
 
+/// English fallback until the reset strings are exported.
+extension FinancialResetL10n on AppLocalizations {
+  String get resetWaiting =>
+      'Reset in progress. Entries are paused until it finishes. You can close the app and return later.';
+  String get resetOtherAccount =>
+      'Sign back into the account that started the reset to finish it on this device.';
+  String get resetResumeCleanup => 'Finish reset on this device';
+  String get resetCheckRetry =>
+      'Could not finish checking or cleaning up the reset. Tap Retry to continue.';
+}
+
 /// English fallback until the consent translation catalog is exported.
 extension AiProcessingConsentL10nX on AppLocalizations {
   String get aiConsentPrivacySettings => 'Privacy Settings';

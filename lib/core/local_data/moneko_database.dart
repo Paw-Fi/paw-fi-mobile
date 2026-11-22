@@ -458,6 +458,54 @@ class LocalRecurringMutationOverlay {
 class MonekoDatabase {
   MonekoDatabase._(this._db) {
     _createSchema();
+    // Deliberately outside clearAllLocalData: the fence must outlive purge.
+    _db.execute('''CREATE TABLE IF NOT EXISTS financial_reset_jobs (
+      owner TEXT PRIMARY KEY, job TEXT NOT NULL)''');
+    _db.execute('''CREATE TRIGGER IF NOT EXISTS fence_reset_outbox
+      BEFORE INSERT ON local_mutation_outbox WHEN EXISTS (
+        SELECT 1 FROM financial_reset_jobs WHERE json_extract(job, '\$.status') IS NOT 'failed')
+      BEGIN SELECT RAISE(ABORT, 'Financial reset in progress'); END''');
+  }
+
+  String? get activeResetOwner =>
+      _db.select('''SELECT owner FROM financial_reset_jobs
+      WHERE json_extract(job, '\$.status') IS NOT 'failed' LIMIT 1''').firstOrNull?[
+          'owner'] as String?;
+
+  Map<String, dynamic>? resetJob(String owner) {
+    final raw = _db.select(
+        'SELECT job FROM financial_reset_jobs WHERE owner = ?',
+        [owner]).firstOrNull?['job'];
+    return raw == null
+        ? null
+        : jsonDecode(raw as String) as Map<String, dynamic>;
+  }
+
+  void saveResetJob(String owner, Map<String, dynamic> job) {
+    _db.execute(
+        'INSERT OR REPLACE INTO financial_reset_jobs (owner, job) VALUES (?, ?)',
+        [owner, jsonEncode(job)]);
+  }
+
+  void removeResetJob(String owner) =>
+      _db.execute('DELETE FROM financial_reset_jobs WHERE owner = ?', [owner]);
+
+  // Admission and registration are synchronous with journal writes. A reset
+  // waits for the whole admitted drain, including local reconciliation.
+  final _drains = <Future<int>>{};
+  Future<int> runOutboxDrain(Future<int> Function() drain) async {
+    if (activeResetOwner != null) return 0;
+    final future = drain();
+    _drains.add(future);
+    try {
+      return await future;
+    } finally {
+      _drains.remove(future);
+    }
+  }
+
+  Future<void> waitForOutboxIdle() async {
+    await Future.wait(_drains.toList());
   }
 
   factory MonekoDatabase.inMemory() => MonekoDatabase._(sqlite3.openInMemory());

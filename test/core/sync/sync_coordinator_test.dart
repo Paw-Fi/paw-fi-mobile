@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +19,64 @@ void main() {
 
   tearDown(() async {
     await database.close();
+  });
+
+  test('reset waits for admitted dispatch and fences queued writes on reopen',
+      () async {
+    final directory = await Directory.systemTemp.createTemp('reset-outbox-');
+    final path = '${directory.path}/queue.sqlite';
+    MonekoDatabase open() =>
+        MonekoDatabase.fromExistingDatabaseForTesting(sqlite3.open(path));
+    var disk = open();
+    Future<void> queue(String id) => disk.enqueueMutation(
+        clientMutationId: id,
+        entityId: id,
+        entityType: 'transaction',
+        operation: 'create',
+        payload: {'userId': 'A'});
+    final started = Completer<void>();
+    final finish = Completer<void>();
+    final sent = <String>[];
+    try {
+      await queue('in-flight');
+      await queue('old-offline-write');
+      final drain = SyncCoordinator(
+          database: disk,
+          dispatchMutation: (m) async {
+            sent.add(m.entityId);
+            started.complete();
+            await finish.future;
+          }).drainOutbox();
+      await started.future;
+      disk.saveResetJob('A', {'id': 'request', 'status': 'prepared'});
+      var idle = false;
+      final waiting = disk.waitForOutboxIdle().then((_) => idle = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(idle, false);
+      finish.complete();
+      await waiting;
+      await drain;
+      await disk.close();
+      disk = open();
+      expect(
+          await SyncCoordinator(
+                  database: disk,
+                  dispatchMutation: (m) async => sent.add(m.entityId))
+              .drainOutbox(),
+          0);
+      expect(sent, ['in-flight']);
+      await expectLater(queue('new-write'), throwsA(anything));
+      await disk.clearAllLocalData();
+      expect(disk.activeResetOwner, 'A');
+      await expectLater(queue('during-cleanup'), throwsA(anything));
+      disk.removeResetJob('A');
+      await queue('after-cleanup');
+      expect(
+          (await disk.getOutboxMutations()).single.entityId, 'after-cleanup');
+    } finally {
+      await disk.close();
+      await directory.delete(recursive: true);
+    }
   });
 
   test(

@@ -863,8 +863,9 @@ class AppInitializationV2 extends _$AppInitializationV2 {
   }
 
   /// Clear cache on logout
-  Future<void> onLogout() async {
+  Future<void> onLogout({void Function()? guard}) async {
     await _cacheManager?.clear();
+    guard?.call();
     _operationId++;
     state = const AppInitializationState(state: AppInitState.uninitialized);
   }
