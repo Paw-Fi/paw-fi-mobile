@@ -1,4 +1,4 @@
-import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/utils/calendar_date.dart';
 
 const double recurringAmountRelativeTolerance = 0.01;
 const double recurringDescriptionEditTolerance = 0.10;

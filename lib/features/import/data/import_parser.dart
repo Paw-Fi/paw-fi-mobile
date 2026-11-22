@@ -5,10 +5,11 @@ import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/utils/text_sanitizer.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/constants/category_names.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
-import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/features/utils/currency_codes.dart';
+import 'package:moneko/features/import/data/worker_localizations.dart'
+    if (dart.library.ui) 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 
 final RegExp _opaqueImportIdPattern = RegExp(

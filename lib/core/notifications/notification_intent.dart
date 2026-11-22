@@ -8,6 +8,7 @@ enum NotificationIntentAction {
   openRecurringOccurrenceConfirmation,
   openRecurringPage,
   openLogExpenseQuickEntry,
+  openFileImport,
   openPocketsPage,
   openInsightsPage,
   openExternalPricingPage,

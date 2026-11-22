@@ -48,6 +48,10 @@ ImportTable _sheetToTable(Sheet sheet) {
     }
   }
 
+  return importExcelRowsToTable(rawRows);
+}
+
+ImportTable importExcelRowsToTable(List<List<String>> rawRows) {
   if (rawRows.isEmpty) return const ImportTable(headers: [], rows: []);
 
   // Detect the header row — skip leading metadata/title rows that don't look

@@ -1,0 +1,224 @@
+const Map<String, String> currencyOptions = {
+  'AED': 'د.إ',
+  'AMD': '֏',
+  'ARS': 'ARS\$',
+  'AUD': 'A\$',
+  'BDT': '৳',
+  'BZD': 'BZ\$',
+  'BRL': 'R\$',
+  'CAD': 'C\$',
+  'CHF': 'CHF',
+  'CLP': 'CLP\$',
+  'CNY': '¥',
+  'COP': 'COP\$',
+  'CZK': 'Kč',
+  'DKK': 'kr',
+  'DOP': 'RD\$',
+  'DZD': 'د.ج',
+  'EGP': 'E£',
+  'ETB': 'Br',
+  'EUR': '€',
+  'GBP': '£',
+  'GHS': '₵',
+  'GTQ': 'Q',
+  'HKD': 'HK\$',
+  'HNL': 'L',
+  'HUF': 'Ft',
+  'IDR': 'Rp',
+  'ILS': '₪',
+  'INR': '₹',
+  'JPY': '¥',
+  'JMD': 'J\$',
+  'KES': 'KSh',
+  'KRW': '₩',
+  'LKR': 'Rs',
+  'MDL': 'L',
+  'MOP': 'MOP\$',
+  'MUR': 'Rs',
+  'MXN': 'MX\$',
+  'MYR': 'RM',
+  'MWK': 'MK',
+  'NGN': '₦',
+  'NOK': 'kr',
+  'NPR': 'रू',
+  'NZD': 'NZ\$',
+  'PHP': '₱',
+  'PEN': 'S/',
+  'PLN': 'zł',
+  'PKR': '₨',
+  'PYG': '₲',
+  'RSD': 'Дин.',
+  'RON': 'RON',
+  'RUB': '₽',
+  'SAR': 'ر.س',
+  'SEK': 'kr',
+  'SGD': 'S\$',
+  'THB': '฿',
+  'TWD': 'NT\$',
+  'TRY': '₺',
+  'UAH': '₴',
+  'USD': '\$',
+  'VND': '₫',
+  'ZAR': 'R',
+  'MMK': 'Ks',
+  'JOD': 'د.أ',
+  'SYP': '£S',
+  'ZMW': 'ZK',
+  'XOF': 'CFA',
+  'CRC': '₡',
+  'XAF': 'FCFA',
+  'MAD': 'د.م.',
+};
+
+const String _defaultCurrencySymbol = r'$';
+
+String _normalizeCurrencyToken(String value) => value.trim().toUpperCase();
+
+final Map<String, String> _currencyAliases = _buildCurrencyAliases();
+final List<String> _searchableCurrencyAliases = _currencyAliases.keys
+    .where(
+      (token) =>
+          token.length > 1 ||
+          RegExp(r'[^A-Z0-9]', unicode: true).hasMatch(token),
+    )
+    .toList()
+  ..sort((a, b) => b.length.compareTo(a.length));
+
+Map<String, String> _buildCurrencyAliases() {
+  final aliases = <String, String>{};
+
+  for (final code in currencyOptions.keys) {
+    aliases[_normalizeCurrencyToken(code)] = code;
+  }
+
+  final symbolCounts = <String, int>{};
+  for (final symbol in currencyOptions.values) {
+    final normalized = _normalizeCurrencyToken(symbol);
+    symbolCounts[normalized] = (symbolCounts[normalized] ?? 0) + 1;
+  }
+
+  for (final entry in currencyOptions.entries) {
+    final normalizedSymbol = _normalizeCurrencyToken(entry.value);
+    if (symbolCounts[normalizedSymbol] == 1) {
+      aliases[normalizedSymbol] = entry.key;
+    }
+  }
+
+  aliases.addAll(const {
+    'US\$': 'USD',
+    'A\$': 'AUD',
+    'C\$': 'CAD',
+    'S\$': 'SGD',
+    'HK\$': 'HKD',
+    'MOP\$': 'MOP',
+    'NZ\$': 'NZD',
+    'MX\$': 'MXN',
+    'ARS\$': 'ARS',
+    'CLP\$': 'CLP',
+    'BZ\$': 'BZD',
+    'RD\$': 'DOP',
+    'NT\$': 'TWD',
+    'R\$': 'BRL',
+    'RM': 'MYR',
+    'RP': 'IDR',
+    'KS': 'MMK',
+    '₪': 'ILS',
+    'R': 'ZAR',
+    'RS': 'LKR',
+    'RUR': 'RUB',
+    'РУБ': 'RUB',
+    'РУБ.': 'RUB',
+    'KSH': 'KES',
+    'J\$': 'JMD',
+    'MK': 'MWK',
+    'HONDURAN LEMPIRA': 'HNL',
+    'MOLDOVAN LEU': 'MDL',
+    'MAURITIAN RUPEE': 'MUR',
+    '£S': 'SYP',
+    'ZK': 'ZMW',
+    'DH': 'MAD',
+    'DHS': 'MAD',
+    'MOROCCAN DIRHAM': 'MAD',
+    'ARMENIAN DRAM': 'AMD',
+  });
+
+  return aliases;
+}
+
+/// Canonicalize various currency notations/symbols to 3-letter ISO codes
+/// Returns uppercased 3-letter code if recognized, otherwise returns the
+/// original uppercased trimmed input (which may or may not be valid).
+String? canonicalizeCurrencyCode(String? code) {
+  if (code == null) return null;
+  final raw = _normalizeCurrencyToken(code);
+  if (raw.isEmpty) return null;
+
+  final aliased = _currencyAliases[raw];
+  if (aliased != null) {
+    return aliased;
+  }
+
+  // Preserve previous behavior for unknown 3-letter inputs.
+  if (raw.length == 3) {
+    return raw;
+  }
+
+  // Fallback: unknown non-ISO string → null (will resolve to default symbol)
+  return null;
+}
+
+String? extractCanonicalCurrencyCode(String? text) {
+  if (text == null) return null;
+  final raw = _normalizeCurrencyToken(text);
+  if (raw.isEmpty) return null;
+
+  final exact = canonicalizeCurrencyCode(raw);
+  if (exact != null && isSupportedCurrencyCode(exact)) {
+    return exact;
+  }
+
+  final isoMatch = RegExp(r'(?<![A-Z])([A-Z]{3})(?![A-Z])').allMatches(raw);
+  for (final match in isoMatch) {
+    final candidate = canonicalizeCurrencyCode(match.group(1));
+    if (candidate != null && isSupportedCurrencyCode(candidate)) {
+      return candidate;
+    }
+  }
+
+  for (final token in _searchableCurrencyAliases) {
+    if (!raw.contains(token)) continue;
+    final candidate = _currencyAliases[token];
+    if (candidate != null && isSupportedCurrencyCode(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+String resolveCurrencySymbol(String? currencyCode) {
+  final code = canonicalizeCurrencyCode(currencyCode);
+  if (code == null || code.isEmpty) {
+    return _defaultCurrencySymbol;
+  }
+
+  // Validate currency code before use
+  if (!isSupportedCurrencyCode(code)) {
+    return _defaultCurrencySymbol;
+  }
+
+  return currencyOptions[code]!; // Safe to use ! now after validation
+}
+
+bool isSupportedCurrencyCode(String? code) {
+  if (code == null || code.isEmpty) return false;
+  final upper = code.toUpperCase().trim();
+
+  // Only allow 3-letter ISO codes
+  if (upper.length != 3) return false;
+
+  // Only allow A-Z characters (security: prevents SQL injection and special characters)
+  if (!RegExp(r'^[A-Z]{3}$').hasMatch(upper)) return false;
+
+  return currencyOptions.containsKey(upper);
+}
