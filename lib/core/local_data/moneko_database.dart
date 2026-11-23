@@ -2394,6 +2394,7 @@ class MonekoDatabase {
     required LocalTransactionsFeedQuery query,
     required List<ExpenseEntry> authoritativeItems,
     required bool remoteHasMore,
+    required DateTime requestStartedAt,
   }) async {
     final authoritativeIds = authoritativeItems
         .map((entry) => entry.id.trim())
@@ -2410,6 +2411,9 @@ class MonekoDatabase {
     final candidateConditions = <String>[
       filter.whereSql,
       'sync_status = ?',
+      // A refresh cannot establish the absence of rows written after it began.
+      // Strip the UTC suffix so millisecond and microsecond strings sort alike.
+      "rtrim(local_updated_at, 'Z') < rtrim(?, 'Z')",
       // Exclude wallet transfer feed entries from reconciliation because:
       // 1. Transfers are stored in a separate `wallet_transfers` table on the server
       // 2. The transactions RPC doesn't return them as part of the authoritative feed
@@ -2420,6 +2424,7 @@ class MonekoDatabase {
     final candidateArgs = <Object?>[
       ...filter.args,
       localSyncStatusSynced,
+      _instant(requestStartedAt),
       'transfer:%',
     ];
 

@@ -16,6 +16,7 @@ import 'package:moneko/features/app_lock/domain/app_lock_passcode_hasher.dart';
 import 'package:moneko/features/app_lock/presentation/app_lock_controller.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/data/repositories/ai_input_capture_repository.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/providers/ai_input_capture_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -230,6 +231,7 @@ void main() {
     'owner-change',
     'retryable',
     'retryable-retry',
+    'retryable-success',
     'retryable-cancel',
     'file-stream-failure',
     'offline',
@@ -248,6 +250,7 @@ void main() {
         scenario == 'retryable-cancel' ||
         scenario == 'file-stream-failure';
     final isAnalysisFailure = scenario.startsWith('retryable');
+    final retrySucceeds = scenario == 'retryable-success';
     final isReceipt = scenario.startsWith('receipt-');
     final isClarification = isReceipt || scenario == 'clarification-cancel';
     final consentBlocked =
@@ -272,7 +275,7 @@ void main() {
       final root = Directory.systemTemp.createTempSync('moneko-ai-cancel-');
       final reopenAfterCancel =
           scenario == 'receipt-cancel' || scenario == 'clarification-cancel';
-      var database = reopenAfterCancel
+      var database = reopenAfterCancel || retrySucceeds
           ? MonekoDatabase.fromExistingDatabaseForTesting(
               sqlite.sqlite3.open('${root.path}/capture.sqlite'))
           : MonekoDatabase.inMemory();
@@ -299,10 +302,36 @@ void main() {
                 if (isReceipt) 'accountId': 'selected-wallet',
                 if (isReceipt) 'accountCurrency': 'JPY'
               })))!;
+      if (retrySucceeds) {
+        await database.upsertTransactions([
+          ExpenseEntry(
+              id: 'previous',
+              userId: 'owner',
+              date: DateTime(2026, 10, 1),
+              createdAt: DateTime.utc(2026, 10, 1),
+              amountCents: 1200,
+              currency: 'JPY',
+              type: 'expense',
+              category: 'food'),
+        ]);
+      }
       var requests = 0;
       requestHandler = (request) async {
         expect(request.url.path, '/functions/v1/analyze-expense');
         requests++;
+        if (retrySucceeds && requests == 2) {
+          return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {
+                  'interactiveVersion': 1,
+                  'requireCorrection': false,
+                  'items': [_item('JPY', null)]
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'});
+        }
         if (isClarification) {
           final body = jsonDecode(request.body) as Map;
           if (isReceipt) {
@@ -414,6 +443,40 @@ void main() {
           );
           await tester.pump(const Duration(seconds: 5));
           expect(requests, 1);
+          if (retrySucceeds) {
+            await tester.ensureVisible(find.text(l10n.retry));
+            await tester.tap(find.text(l10n.retry));
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.runAsync(() => processing);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 200));
+            expect(requests, 2);
+            expect(find.text(l10n.aiBackgroundQueued), findsOneWidget);
+            await tester.pumpWidget(const SizedBox());
+            await database.close();
+            database = MonekoDatabase.fromExistingDatabaseForTesting(
+                sqlite.sqlite3.open('${root.path}/capture.sqlite'));
+            expect(await database.getPendingAiInputs('owner'), isEmpty);
+            final rows = await database.getRecentTransactions(
+                userId: 'owner', householdId: null);
+            expect(rows.map((entry) => entry.id),
+                [capture.transactionId(0), 'previous']);
+            final summary = await database.getTransactionsFeedSummary(
+                const LocalTransactionsFeedQuery(
+                    userId: 'owner',
+                    householdId: null,
+                    currency: 'JPY',
+                    pageSize: 60));
+            expect(summary.expenseTotalCents, 6200);
+            final outbox = await database.getOutboxMutations();
+            expect(
+                outbox
+                    .where((row) => row.entityType == 'transaction')
+                    .single
+                    .status,
+                localMutationStatusQueued);
+            return;
+          }
           if (scenario == 'retryable-retry') {
             await tester.ensureVisible(find.text(l10n.retry));
             await tester.tap(find.text(l10n.retry));
@@ -562,11 +625,12 @@ void main() {
     });
   }
 
-  for (final mode in ['interactive', 'unassigned', 'legacy']) {
+  for (final mode in ['interactive', 'unassigned', 'legacy', 'offline']) {
     final interactive = mode != 'legacy';
+    final householdId = mode == 'offline' ? 'shared-space' : null;
     final expenseWallet = mode == 'unassigned' ? null : 'jpy-wallet';
     final incomeWallet = mode == 'unassigned' ? null : 'usd-wallet';
-    for (final marker in [true, false, null]) {
+    for (final marker in mode == 'offline' ? [null] : [true, false, null]) {
       testWidgets(
           'resumed ready result mode=$mode blocker=$marker uses the Home save contract and cannot materialize twice',
           (tester) async {
@@ -580,6 +644,13 @@ void main() {
         var repository =
             AiInputCaptureRepository(database, directory: () async => root);
         final capturedAt = DateTime.utc(2026, 10, 2, 23, 30);
+        AiInputCapture? waitingForNetwork;
+        if (mode == 'offline') {
+          waitingForNetwork = await tester.runAsync(() => repository.capture(
+              userId: 'owner',
+              body: {'userId': 'owner', 'text': 'Lunch'},
+              target: {'accountType': 'personal'}));
+        }
         var capture = (await tester.runAsync(() => repository.capture(
             userId: 'owner',
             body: {
@@ -598,10 +669,14 @@ void main() {
         ];
         for (final item in items) {
           if (marker != null) item['merchant_auto_resolution_blocked'] = marker;
+          if (householdId != null) {
+            (item['destination'] as Map)['householdId'] = householdId;
+          }
         }
         capture = await repository.checkpoint(capture, {
-          'analysisError':
-              'A prior analysis failed; the ready result is authoritative.',
+          if (mode != 'offline')
+            'analysisError':
+                'A prior analysis failed; the ready result is authoritative.',
           'readyResponse': {
             'success': true,
             'data': {
@@ -615,7 +690,7 @@ void main() {
               ? ['default']
               : items
                   .map((item) => jsonEncode([
-                        null,
+                        householdId,
                         false,
                         (item['destination'] as Map)['accountId'],
                         (item['destination'] as Map)['accountCurrency']
@@ -629,7 +704,7 @@ void main() {
             sqlite.sqlite3.open('${root.path}/capture.sqlite'));
         repository =
             AiInputCaptureRepository(database, directory: () async => root);
-        expect((await repository.pending('owner')).single.readyResponse,
+        expect((await repository.pending('owner')).last.readyResponse,
             capture.readyResponse);
         final container = ProviderContainer(overrides: [
           authProvider.overrideWith(_Auth.new),
@@ -638,7 +713,8 @@ void main() {
           localDatabaseProvider.overrideWith((ref) async => database),
           aiInputCaptureRepositoryProvider
               .overrideWith((ref) async => repository),
-          networkReachabilityProvider.overrideWith((ref) => Stream.value(true)),
+          networkReachabilityProvider
+              .overrideWith((ref) => Stream.value(mode != 'offline')),
           mobileOutboxDrainerProvider.overrideWith((ref) => _PausedDrainer()),
           appLockControllerProvider.overrideWith((ref) => AppLockController(
               userId: 'owner',
@@ -666,13 +742,15 @@ void main() {
                   return const Scaffold(body: SizedBox());
                 }))));
         await tester.pump();
+        await container.read(networkReachabilityProvider.future);
         await tester
             .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
         await tester.pump(const Duration(seconds: 2));
         expect(tester.takeException(), isNull);
-        expect(await repository.pending('owner'), isEmpty);
+        expect((await repository.pending('owner')).map((item) => item.id),
+            [if (waitingForNetwork != null) waitingForNetwork.id]);
         final rows = await database.getRecentTransactions(
-            userId: 'owner', householdId: null);
+            userId: 'owner', householdId: householdId);
         expect(rows, hasLength(2));
         final expense = rows.singleWhere((row) => row.type == 'expense');
         expect(expense.walletId, interactive ? expenseWallet : null);
@@ -692,6 +770,7 @@ void main() {
         final expenseRequest = requests.singleWhere(
                 (row) => row['functionName'] == 'save-expense')['requestBody']
             as Map;
+        expect(expenseRequest['householdId'], householdId);
         expect(expenseRequest.containsKey('accountId'), interactive);
         expect(expenseRequest['accountId'], interactive ? expenseWallet : null);
         expect(expenseRequest['merchant'], '小商店');
@@ -731,7 +810,7 @@ void main() {
             .runAsync(() => resumePendingAiInputs(mountedContext, mountedRef));
         expect(
             await database.getRecentTransactions(
-                userId: 'owner', householdId: null),
+                userId: 'owner', householdId: householdId),
             hasLength(2));
         (container.read(authProvider.notifier) as _Auth).changeUser();
         await tester

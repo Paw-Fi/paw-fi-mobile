@@ -952,6 +952,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     }
 
     try {
+      final requestStartedAt = DateTime.now().toUtc();
       final remoteItems = postedTransactionFeedEntries(
         await _remote.fetchAllPages(query),
       );
@@ -960,6 +961,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
         query: _localQuery(query),
         authoritativeItems: remoteItems,
         remoteHasMore: false,
+        requestStartedAt: requestStartedAt,
       );
       await _database.markTransactionsFeedCacheComplete(
         _localQuery(query),
@@ -1010,6 +1012,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final localQuery = _localQuery(query);
     final cacheWasComplete =
         await _database.isTransactionsFeedCacheComplete(localQuery);
+    final requestStartedAt = DateTime.now().toUtc();
     final results = await Future.wait<dynamic>([
       _remote.fetchSummary(query),
       _remote.fetchPage(query),
@@ -1026,6 +1029,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       query: localQuery,
       authoritativeItems: page.items,
       remoteHasMore: page.hasMore,
+      requestStartedAt: requestStartedAt,
     );
     await _database.markTransactionsFeedCacheComplete(
       localQuery,
@@ -1041,6 +1045,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       localQuery,
     );
     if (!cacheIsComplete || syncedLocalCount != summary.transactionCount) {
+      final historyRequestStartedAt = DateTime.now().toUtc();
       final authoritativeItems = postedTransactionFeedEntries(
         await _remote.fetchAllPages(query),
       );
@@ -1049,6 +1054,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
         query: localQuery,
         authoritativeItems: authoritativeItems,
         remoteHasMore: false,
+        requestStartedAt: historyRequestStartedAt,
       );
       await _database.markTransactionsFeedCacheComplete(
         localQuery,

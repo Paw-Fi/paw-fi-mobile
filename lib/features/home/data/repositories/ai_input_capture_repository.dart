@@ -20,6 +20,11 @@ class AiInputCapture {
   Map<String, dynamic>? get readyResponse => payload['readyResponse'] is Map
       ? Map<String, dynamic>.from(payload['readyResponse'] as Map)
       : null;
+  bool get canResumeOffline =>
+      payload['readyResponse'] is Map ||
+      payload['requiresAnalysisRetry'] == true ||
+      payload['analysisError'] is String ||
+      payload['question'] != null;
   String transactionId(int index) =>
       payload['captureVersion'] == 1 ? 'optimistic_${id}_$index' : '$id-$index';
   List<String> get completedDestinations =>

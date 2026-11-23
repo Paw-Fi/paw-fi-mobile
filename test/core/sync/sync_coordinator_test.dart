@@ -654,6 +654,81 @@ void main() {
     );
   });
 
+  test(
+      'a manual expense survives repeated transport failures and syncs after restart',
+      () async {
+    final dir = await Directory.systemTemp.createTemp('expense-send-retry-');
+    MonekoDatabase open() => MonekoDatabase.fromExistingDatabaseForTesting(
+        sqlite3.open('${dir.path}/outbox.sqlite'));
+    var disk = open();
+    addTearDown(() async {
+      await disk.close();
+      await dir.delete(recursive: true);
+    });
+    var now = DateTime.utc(2026, 4, 8, 12);
+    const key = 'mobile:optimistic_manual';
+    final entry = ExpenseEntry(
+        id: 'optimistic_manual',
+        userId: 'owner',
+        date: now,
+        createdAt: now,
+        amountCents: 1250,
+        currency: 'USD',
+        category: 'food',
+        type: 'expense');
+    await disk.writeOptimisticTransaction(
+        entry: entry,
+        clientMutationId: key,
+        operation: 'create',
+        payload: {
+          'functionName': 'save-expense',
+          'transaction': entry.toJson(),
+          'requestBody': {
+            'userId': 'owner',
+            'amount': 12.5,
+            'idempotencyKey': key
+          },
+        });
+    final original = (await disk.getOutboxMutations()).single;
+    final offline = SyncCoordinator(
+        database: disk,
+        now: () => now,
+        dispatchMutation: (_) async =>
+            throw const SocketException('Network is unreachable'),
+        onMutationCancelled: (mutation, _) =>
+            disk.markTransactionMutationExhausted(mutation: mutation));
+    for (var attempt = 0; attempt < 9; attempt++) {
+      await offline.drainOutbox();
+      now = now.add(const Duration(minutes: 6));
+    }
+    await disk.close();
+    disk = open();
+    final pending = (await disk.getOutboxMutations()).single;
+    expect(pending.status, localMutationStatusFailed);
+    expect(pending.attemptCount, 9);
+    expect(pending.payloadJson, original.payloadJson);
+    const query =
+        LocalTransactionsFeedQuery(userId: 'owner', householdId: null);
+    expect(
+        (await disk.getTransactionsFeedSummary(query)).expenseTotalCents, 1250);
+    await SyncCoordinator(
+        database: disk,
+        now: () => now,
+        dispatchMutation: (mutation) async {
+          expect(mutation.clientMutationId, key);
+          await disk.replaceOptimisticTransaction(
+              optimisticId: mutation.entityId,
+              savedEntry: entry.copyWith(id: 'confirmed'),
+              clientMutationId: key);
+        }).drainOutbox();
+    expect((await disk.getTransactionsFeedItems(query)).map((row) => row.id),
+        ['confirmed']);
+    expect(
+        (await disk.getTransactionsFeedSummary(query)).expenseTotalCents, 1250);
+    expect((await disk.getOutboxMutations()).single.status,
+        localMutationStatusSynced);
+  });
+
   test('exhausted create mutations are excluded from feed and summaries',
       () async {
     final now = DateTime.utc(2026, 4, 8, 12);

@@ -444,6 +444,15 @@ Future<_AutoSplitContext?> _loadAutoSplitContext(
   final selectedHousehold =
       _resolveHouseholdForAutoSplit(container, householdId);
 
+  if (container.read(networkReachabilityProvider).valueOrNull == false) {
+    final members =
+        container.read(householdMembersProvider(householdId)).valueOrNull;
+    return Future.value(
+        selectedHousehold != null && members != null && members.isNotEmpty
+            ? _AutoSplitContext(household: selectedHousehold, members: members)
+            : null);
+  }
+
   Future<Household?> resolveHousehold() async {
     try {
       final fresh =
@@ -490,6 +499,7 @@ Future<void> _persistAiTransactions(
   required List<_AiParsedItem> transactions,
   required String? accountId,
   String? accountCurrency,
+  _AutoSplitContext? autoSplitContext,
   String? localImagePath,
   BuildContext? candidateReviewContext,
   AiInputCapture? capturedInput,
@@ -549,7 +559,6 @@ Future<void> _persistAiTransactions(
     ));
   }
 
-  _AutoSplitContext? autoSplitContext;
   final fallbackAccountId = accountId?.trim();
   String? resolveAccountIdForCurrency(String currency) {
     final normalizedCurrency = currency.trim().toUpperCase();
@@ -858,14 +867,6 @@ Future<void> _persistAiTransactions(
       shouldDeferForReceiptUpload = false;
     }
   }
-
-  autoSplitContext =
-      householdId != null && householdId.isNotEmpty && !isPortfolio
-          ? await _loadAutoSplitContext(
-              container,
-              householdId: householdId,
-            )
-          : null;
 
   // Build both the batch payload and individual outbox payloads. The outbox
   // makes AI saves survive weak/offline network and app restarts.
@@ -2076,15 +2077,15 @@ Future<void> resumePendingAiInputs(BuildContext context, WidgetRef ref) async {
         !consentOwner.isCurrentActor ||
         !container.read(aiProcessingConsentProvider).mayProcess ||
         container.read(authProvider).uid != userId ||
-        (container.read(networkReachabilityProvider).valueOrNull == false &&
-            capture.payload['requiresAnalysisRetry'] != true &&
-            capture.payload['analysisError'] is! String &&
-            capture.payload['question'] == null) ||
         container.read(appLockControllerProvider).shouldBlockApp ||
         (WidgetsBinding.instance.lifecycleState != null &&
             WidgetsBinding.instance.lifecycleState !=
                 AppLifecycleState.resumed)) {
       return;
+    }
+    if (container.read(networkReachabilityProvider).valueOrNull == false &&
+        !capture.canResumeOffline) {
+      continue;
     }
     final target = capture.payload['target'] is Map
         ? Map<String, dynamic>.from(capture.payload['target'] as Map)
@@ -2326,8 +2327,9 @@ Future<void> _processExpense(
       return false;
     }
     if (result?.confirmed != true || !isActive()) return false;
-    if (providerContainer.read(networkReachabilityProvider).valueOrNull ==
-        false) {
+    if (capture?.readyResponse == null &&
+        providerContainer.read(networkReachabilityProvider).valueOrNull ==
+            false) {
       return false;
     }
     if (capture != null) {
@@ -2489,8 +2491,9 @@ Future<void> _processExpense(
     } else {
       captureRepository =
           await providerContainer.read(aiInputCaptureRepositoryProvider.future);
-      analysisRequestBody =
-          await captureRepository!.requestBody(pendingCapture);
+      analysisRequestBody = pendingCapture.readyResponse == null
+          ? await captureRepository!.requestBody(pendingCapture)
+          : pendingCapture.body;
     }
     if (!preview.isActive) {
       captureRepository ??=
@@ -2532,9 +2535,7 @@ Future<void> _processExpense(
       // Receipts must also use the durable source after the temporary picker closes.
       imagePath = capture!.payload['localImagePath'] as String?;
       if (ref.read(networkReachabilityProvider).valueOrNull == false &&
-          capture!.payload['question'] == null &&
-          capture!.payload['analysisError'] is! String &&
-          capture!.payload['requiresAnalysisRetry'] != true) {
+          !capture!.canResumeOffline) {
         processingOverlay?.complete(
             message: context.l10n.aiInputSavedForLater,
             outcome: ProcessingOverlayOutcome.info);
@@ -3042,6 +3043,9 @@ Future<void> _processExpense(
                 accountCurrency: destination == null
                     ? inputTarget.accountCurrency
                     : destination.accountCurrency,
+                autoSplitContext: destination == null
+                    ? defaultAutoSplitContext
+                    : resolvedSplitContexts[destination.householdId],
                 localImagePath: imagePath,
                 candidateReviewContext: canPresent() ? context : null,
                 capturedInput: capture,
@@ -3087,6 +3091,8 @@ Future<void> _processExpense(
                 items: parsed,
                 targetLabel: optimisticTargetLabel,
               ),
+              subMessage:
+                  capture == null ? null : context.l10n.aiBackgroundQueued,
               outcome: ProcessingOverlayOutcome.success,
             );
           }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 
 typedef LocalMutationDispatcher = Future<void> Function(
   LocalMutationOutboxData mutation,
@@ -114,10 +115,14 @@ class SyncCoordinator {
           continue;
         }
         final nextAttempt = mutation.attemptCount + 1;
+        final retryableCreate = mutation.entityType == 'transaction' &&
+            mutation.operation == 'create' &&
+            ErrorHandler.isRetryable(error);
         if (error is NonRetryableLocalMutationException ||
             (!isDurableHouseholdSettlementMutation(mutation) &&
                 !_isDurableRecurringOccurrenceMutation(mutation) &&
                 !_isDurableAiCaptureTransaction(mutation) &&
+                !retryableCreate &&
                 mutation.operation != 'save_pockets_month' &&
                 mutation.operation != 'assign_pocket_category' &&
                 nextAttempt >= maxAttempts)) {
