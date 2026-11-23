@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
@@ -52,7 +56,11 @@ class _FakeTransactionsFeedService extends TransactionsFeedService {
   final List<TransactionsFeedPageResult> pages;
   final Object? allPagesError;
 
-  _FakeTransactionsFeedService(this.pages, {this.allPagesError});
+  final Future<void> Function()? beforePage;
+  final Future<void> Function()? beforeAllPages;
+
+  _FakeTransactionsFeedService(this.pages,
+      {this.allPagesError, this.beforePage, this.beforeAllPages});
 
   @override
   Future<TransactionsFeedPageResult> fetchPage(
@@ -62,12 +70,14 @@ class _FakeTransactionsFeedService extends TransactionsFeedService {
     fetchedQueries.add(query);
     final pageIndex = pageCallCount;
     pageCallCount += 1;
+    await beforePage?.call();
     return pages[pageIndex];
   }
 
   @override
   Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
     allPagesCallCount += 1;
+    await beforeAllPages?.call();
     if (allPagesError != null) throw allPagesError!;
     final items = <ExpenseEntry>[];
     for (final page in pages) {
@@ -592,6 +602,79 @@ void main() {
       ),
     );
   });
+
+  for (final read in ['page refresh', 'history', 'refresh history']) {
+    test('expenses confirmed during $read survive SQLite reopen', () async {
+      final root = await Directory.systemTemp.createTemp('moneko-feed-retry-');
+      MonekoDatabase open() => MonekoDatabase.fromExistingDatabaseForTesting(
+          sqlite.sqlite3.open('${root.path}/transactions.sqlite'));
+      var database = open();
+      addTearDown(() async {
+        await database.close();
+        await root.delete(recursive: true);
+      });
+
+      final baseline = _entry('server-existing', DateTime(2026, 4, 3));
+      final older = _entry('optimistic_ai_input_older_0', DateTime(2026, 4, 4));
+      final retried =
+          _entry('optimistic_ai_input_retry_0', DateTime(2026, 4, 6));
+      await database.upsertTransactions([baseline]);
+      for (final entry in [older, retried]) {
+        await database.writeOptimisticTransaction(
+          entry: entry,
+          clientMutationId: 'mobile:${entry.id}',
+          operation: 'create',
+          payload: {'aiCaptureId': entry.id},
+        );
+      }
+
+      final reading = Completer<void>();
+      final release = Completer<void>();
+      Future<void> delayResponse() {
+        reading.complete();
+        return release.future;
+      }
+
+      final remote = _FakeTransactionsFeedService([
+        TransactionsFeedPageResult(
+            items: [baseline],
+            hasMore: read == 'refresh history',
+            nextCursor: null),
+      ],
+          beforePage: read == 'page refresh' ? delayResponse : null,
+          beforeAllPages: read == 'page refresh' ? null : delayResponse);
+      final service =
+          LocalFirstTransactionsFeedService(database: database, remote: remote);
+      final query = buildQuery();
+      final pendingRead = read == 'history'
+          ? service.fetchAllPages(query)
+          : service.refreshFromRemote(query);
+      await reading.future;
+      for (final entry in [older, retried]) {
+        await database.replaceOptimisticTransaction(
+          optimisticId: entry.id,
+          savedEntry: entry.copyWith(id: 'saved-${entry.id}'),
+          clientMutationId: 'mobile:${entry.id}',
+        );
+      }
+      release.complete();
+      await pendingRead;
+
+      await database.close();
+      database = open();
+      final rows = await database.getRecentTransactions(
+          userId: 'user-1', householdId: null);
+      expect(rows.map((row) => row.id),
+          ['saved-${retried.id}', 'saved-${older.id}', baseline.id]);
+      final totals = await database.getTransactionsFeedSummary(
+          const LocalTransactionsFeedQuery(
+              userId: 'user-1',
+              householdId: null,
+              currency: 'USD',
+              pageSize: 60));
+      expect(totals.expenseTotalCents, 3000);
+    });
+  }
 
   test('local-first service removes synced local rows missing from remote page',
       () async {

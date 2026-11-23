@@ -2198,6 +2198,7 @@ void main() {
       );
 
       await database.reconcileTransactionsFeedPage(
+        requestStartedAt: DateTime.now().toUtc(),
         query: const LocalTransactionsFeedQuery(
           userId: 'user_1',
           householdId: null,
