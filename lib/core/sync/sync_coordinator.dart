@@ -66,10 +66,14 @@ class SyncCoordinator {
 
   DateTime get _currentTime => (_now ?? DateTime.now)().toUtc();
 
-  Future<int> drainOutbox({int maxMutations = 20}) async {
+  Future<int> drainOutbox({int maxMutations = 20}) =>
+      database.runOutboxDrain(() => _drain(maxMutations));
+
+  Future<int> _drain(int maxMutations) async {
     var syncedCount = 0;
 
     for (var index = 0; index < maxMutations; index++) {
+      if (database.activeResetOwner != null) break;
       final mutation = await database.nextRetryableMutation(_currentTime);
       if (mutation == null) break;
       if (beforeNextMutation != null &&
@@ -83,6 +87,13 @@ class SyncCoordinator {
         expectedPayloadJson: mutation.payloadJson,
       );
       if (!didMarkSyncing) continue;
+
+      if (database.activeResetOwner != null) {
+        await database.deferMutationIfPayloadMatches(
+            clientMutationId: mutation.clientMutationId,
+            expectedPayloadJson: mutation.payloadJson);
+        break;
+      }
 
       try {
         await dispatchMutation(mutation);

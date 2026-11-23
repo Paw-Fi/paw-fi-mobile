@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'background_file_import.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -60,7 +62,7 @@ class SelectFileStep extends ConsumerWidget {
           children: [
             StandardTile(
               leadingIcon: Icons.description_rounded,
-              title: state.fileName ?? context.l10n.noFileSelected,
+              title: state.fileName ?? 'Review before importing',
               subtitle: sourceSpec == null
                   ? context.l10n.csvTxtSupported
                   : importSourceFileRequest(sourceSpec.app),
@@ -82,6 +84,12 @@ class SelectFileStep extends ConsumerWidget {
             ),
           ],
         ),
+        const SizedBox(height: 20),
+        BackgroundFileImport(
+            key: ValueKey(ref.watch(authProvider.select((user) => user.uid))),
+            state: state,
+            source: sourceApp,
+            personalOnly: lockPersonalTarget),
         if (state.errorMessage != null) ...[
           const SizedBox(height: 16),
           ErrorBanner(message: state.errorMessage!),

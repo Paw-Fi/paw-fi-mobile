@@ -210,6 +210,11 @@ class NotificationDispatcher {
       case NotificationIntentAction.openLogExpenseQuickEntry:
         await _openLogExpenseDrawer(intent);
         return;
+      case NotificationIntentAction.openFileImport:
+        await _ensureDashboard();
+        final context = rootNavigatorKey.currentContext;
+        if (context != null && context.mounted) context.push('/import');
+        return;
       case NotificationIntentAction.openPocketsPage:
         await _openPocketsPage(intent);
         return;

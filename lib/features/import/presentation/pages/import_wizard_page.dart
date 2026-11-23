@@ -130,6 +130,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: SelectFileStep(
+            sourceApp: widget.sourceApp,
             state: state,
             lockPersonalTarget: widget.lockPersonalTarget,
           ),

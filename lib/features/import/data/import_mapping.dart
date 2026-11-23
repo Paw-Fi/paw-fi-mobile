@@ -1,7 +1,8 @@
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
-import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/features/utils/currency_codes.dart';
+import 'package:moneko/features/import/data/worker_localizations.dart'
+    if (dart.library.ui) 'package:moneko/l10n/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
 // Auto-mapping: header → ImportField (with confidence scoring)

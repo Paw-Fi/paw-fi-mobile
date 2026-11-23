@@ -44,6 +44,7 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/notification_repair_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/notification_repair_dialogs.dart';
+import 'package:moneko/features/profile/presentation/widgets/financial_reset_tile.dart';
 // import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart'; // Removed unused import
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
@@ -196,7 +197,6 @@ class SettingsPage extends HookConsumerWidget {
     final holdQuickAction =
         useState<AiHoldQuickAction?>(readAiHoldQuickActionPreference(prefs));
     final isAccountDeletionInProgress = useState(false);
-    final isDataResetInProgress = useState(false);
     final isAppLockSetupInProgress = useState(false);
     final isNotificationRepairInProgress =
         ref.watch(notificationRepairProvider);
@@ -706,153 +706,6 @@ class SettingsPage extends HookConsumerWidget {
         }
         if (context.mounted) {
           isAccountDeletionInProgress.value = false;
-        }
-      }
-    }
-
-    Future<void> handleResetFinancialData() async {
-      final l10n = context.l10n;
-
-      if (ref.read(previewModeProvider).isActive) {
-        if (context.mounted) {
-          AppToast.info(
-            context,
-            context.l10n.previewResetFinancialDataDisabledInDemoMode,
-          );
-        }
-        return;
-      }
-
-      if (isDataResetInProgress.value) {
-        return;
-      }
-
-      final confirmation = await MonekoAlertDialog.show(
-        context: context,
-        title: context.l10n.resetDataCannotBeUndone,
-        description: context.l10n.resetDataConfirmationMessage,
-        confirmLabel: context.l10n.resetData,
-        cancelLabel: context.l10n.cancel,
-        isDestructive: true,
-        inputConfig: MonekoAlertDialogInputConfig(
-          placeholder: context.l10n.reset,
-          isRequired: true,
-          validationPattern: RegExp(r'^RESET$'),
-          validationMessage: context.l10n.typeResetToConfirm,
-        ),
-      );
-
-      if (confirmation == null || !confirmation.confirmed || !context.mounted) {
-        return;
-      }
-
-      if ((confirmation.text ?? '').trim() != "RESET") {
-        if (context.mounted) {
-          AppToast.info(context, context.l10n.typeResetToConfirm);
-        }
-        return;
-      }
-
-      isDataResetInProgress.value = true;
-
-      NavigatorState? rootNavigator;
-      var dialogShown = false;
-      try {
-        rootNavigator = Navigator.of(context, rootNavigator: true);
-      } catch (_) {}
-
-      try {
-        if (context.mounted) {
-          await Future<void>.delayed(Duration.zero);
-          if (!context.mounted) {
-            return;
-          }
-          showBlockingProcessingDialog(
-            context: context,
-            message: context.l10n.resettingFinancialData,
-          );
-          dialogShown = true;
-        }
-
-        final result = await Supabase.instance.client.rpc(
-          'reset_user_financial_data',
-        );
-
-        final wasReset = switch (result) {
-          Map _ => result['success'] == true,
-          bool _ => result,
-          _ => false,
-        };
-
-        if (!wasReset) {
-          final errorMessage = result is Map
-              ? (result['message']?.toString() ??
-                  result['error']?.toString() ??
-                  l10n.failedToResetFinancialData)
-              : l10n.failedToResetFinancialData;
-          if (context.mounted) {
-            AppToast.error(context, errorMessage);
-          }
-          return;
-        }
-
-        await ref.read(appLockControllerProvider.notifier).clearForRecovery();
-        final initialization = ref.read(appInitializationV2Provider.notifier);
-        await initialization.onLogout();
-        await ref
-            .read(userFinancialCacheCleanupProvider)
-            .clearForFinancialDataReset(userId: authState.uid);
-        initialization.reset();
-        ref.invalidate(incomeSummaryProvider);
-        ref.invalidate(incomeListProvider);
-        ref.invalidate(goalsListProvider);
-        ref.invalidate(goalSummaryProvider);
-        ref.invalidate(subscriptionManagementProvider);
-
-        // Intentionally do not clear SharedPreferences here.
-        // Router onboarding/auth gates rely on persisted flags, and clearing
-        // them would route authenticated users back into onboarding.
-
-        if (dialogShown &&
-            rootNavigator != null &&
-            rootNavigator.mounted &&
-            rootNavigator.canPop()) {
-          try {
-            rootNavigator.pop();
-            dialogShown = false;
-          } catch (_) {}
-        }
-
-        if (context.mounted) {
-          await MonekoAlertDialog.show(
-            context: context,
-            title: context.l10n.resetSuccessful,
-            description: context.l10n.yourDataHasBeenClearedPleaseRestart,
-            confirmLabel: context.l10n.restartNow,
-            showCancelButton: false,
-          );
-          if (context.mounted) {
-            await SystemNavigator.pop();
-            await Future<void>.delayed(const Duration(milliseconds: 120));
-            exit(0);
-          }
-        }
-      } catch (e) {
-        if (context.mounted) {
-          AppToast.error(
-              context, context.l10n.failedToResetFinancialDataWithError(e));
-        }
-      } finally {
-        if (dialogShown &&
-            rootNavigator != null &&
-            rootNavigator.mounted &&
-            rootNavigator.canPop()) {
-          try {
-            rootNavigator.pop();
-          } catch (_) {}
-        }
-        if (context.mounted) {
-          isDataResetInProgress.value = false;
         }
       }
     }
@@ -1819,17 +1672,14 @@ class SettingsPage extends HookConsumerWidget {
                   _SettingsGroup(
                     title: context.l10n.dangerZone,
                     children: [
-                      _SettingsTile(
-                        icon: Icons.restart_alt_rounded,
-                        iconColor: colorScheme.destructive,
-                        label: context.l10n.resetData,
-                        labelColor: colorScheme.destructive,
-                        value: isDataResetInProgress.value
-                            ? context.l10n.resetting
-                            : null,
-                        onTap: isDataResetInProgress.value
-                            ? null
-                            : () => handleResetFinancialData(),
+                      FinancialResetTile(
+                        key: ValueKey(authState.uid),
+                        userId: authState.uid,
+                        isPreview: () => ref.read(previewModeProvider).isActive,
+                        ownsActor: () =>
+                            ref.read(authProvider).uid == authState.uid &&
+                            Supabase.instance.client.auth.currentUser?.id ==
+                                authState.uid,
                       ),
                       _SettingsTile(
                         icon: Icons.delete_forever_rounded,

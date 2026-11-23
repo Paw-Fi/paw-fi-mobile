@@ -7,6 +7,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
+import 'package:moneko/features/import/data/file_import_jobs.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
 import 'package:moneko/features/import/presentation/widgets/import_preview_step.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
@@ -47,6 +48,12 @@ void main() {
   Widget createWidgetUnderTest(MockImportWizardNotifier mockNotifier) {
     return ProviderScope(
       overrides: [
+        authProvider.overrideWith(_FakeAuthNotifier.new),
+        fileImportHistoryProvider('u1').overrideWith((ref) => Stream.value([])),
+        householdScopeProvider.overrideWith((ref) => const HouseholdScope(
+            viewMode: ViewMode.personal,
+            selected: SelectedHouseholdState(),
+            portfolioHouseholdIds: {})),
         importWizardProvider.overrideWith((ref) => mockNotifier),
       ],
       child: const MaterialApp(
@@ -105,7 +112,8 @@ void main() {
     // Verify Initial Step Content (Select File)
     expect(find.text('Select File'), findsOneWidget); // Instruction Card Title
     expect(find.text('FILE'), findsOneWidget); // Section Title
-    expect(find.text('No file selected'), findsOneWidget);
+    expect(find.text('Import in background'), findsOneWidget);
+    expect(find.text('Review before importing'), findsOneWidget);
   });
 
   testWidgets('ImportWizardPage disposes cleanly', (WidgetTester tester) async {

@@ -26,13 +26,17 @@ class UserFinancialCacheCleanup {
 
   final Ref ref;
 
-  Future<void> clearForFinancialDataReset({required String userId}) async {
+  Future<void> clearForFinancialDataReset(
+      {required String userId, void Function()? guard}) async {
     await _withMainShellSuspended(
       () async {
-        await _purge(userId);
+        await _purge(userId, guard: guard);
+        guard?.call();
         _refreshMainShellProviders();
       },
-      releaseOnError: false,
+      // App-level recovery now owns the durable fence. Never leave a different
+      // session's tabs suspended if ownership changes during a guarded purge.
+      releaseOnError: guard != null,
     );
   }
 
@@ -64,7 +68,7 @@ class UserFinancialCacheCleanup {
     }
   }
 
-  Future<void> _purge(String userId) async {
+  Future<void> _purge(String userId, {void Function()? guard}) async {
     if (userId.trim().isEmpty) return;
 
     final dashboardBypass =
@@ -92,6 +96,7 @@ class UserFinancialCacheCleanup {
     StackTrace? firstStackTrace;
 
     Future<void> runCleanup(Future<void> Function() cleanup) async {
+      guard?.call();
       try {
         await cleanup();
       } catch (error, stackTrace) {
@@ -106,6 +111,7 @@ class UserFinancialCacheCleanup {
       );
       await runCleanup(() async {
         final database = await ref.read(localDatabaseProvider.future);
+        guard?.call();
         await database.clearAllLocalData();
       });
       await runCleanup(

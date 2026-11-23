@@ -2,6 +2,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -120,6 +121,7 @@ void main() {
   late SharedPreferences preferences;
 
   setUp(() async {
+    FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
   });

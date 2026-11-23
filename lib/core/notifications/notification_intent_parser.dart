@@ -6,6 +6,12 @@ import 'package:moneko/core/notifications/notification_intent.dart';
 
 class NotificationIntentParser {
   NotificationIntent? fromUri(Uri uri, {Map<String, dynamic>? raw}) {
+    if (uri.scheme == 'moneko' && uri.host == 'import') {
+      return NotificationIntent(
+          action: NotificationIntentAction.openFileImport,
+          raw: raw ?? const {});
+    }
+
     if (DeepLinks.isPricingPage(uri)) {
       return NotificationIntent(
         action: NotificationIntentAction.openExternalPricingPage,
