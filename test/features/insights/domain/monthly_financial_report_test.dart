@@ -44,7 +44,7 @@ void main() {
           previousMonthTransactions: const [],
           budgetItems: const [
             MonthlyReportBudgetInput(
-                name: 'Food', budgetAmount: 700, spent: 350),
+                name: 'Food', budgetAmount: 3500, spent: 350),
             MonthlyReportBudgetInput(
                 name: 'Transport', budgetAmount: 200, spent: 50),
           ],
@@ -63,13 +63,46 @@ void main() {
       expect(report.overview.savings, 1750);
       expect(report.overview.forecastedBalance, 1900);
       expect(report.safeToSpend.daysRemaining, 22);
-      expect(report.safeToSpend.dailyAmount, closeTo(22.73, 0.01));
+      expect(report.safeToSpend.budgetRemaining, 2450);
+      expect(report.safeToSpend.dailyAmount, 86.36);
       expect(report.cashFlowForecast.map((point) => point.label), [
         'Today',
         'Utilities',
         'Payday',
         'Month-end buffer',
       ]);
+    });
+
+    test('safe to spend uses the Budget page remaining amount for eight days',
+        () {
+      final report = buildMonthlyFinancialReport(MonthlyReportInput(
+        monthStart: DateTime(2026, 11),
+        now: DateTime(2026, 11, 23),
+        currencyCode: 'ETB',
+        currentBalance: 50000,
+        currentMonthTransactions: [
+          _tx('groceries', DateTime(2026, 11, 1), 38081.37,
+              category: 'Groceries', currencyCode: 'ETB'),
+          _tx('other', DateTime(2026, 11, 2), 5130.67, currencyCode: 'ETB'),
+        ],
+        previousMonthTransactions: const [],
+        budgetItems: const [
+          MonthlyReportBudgetInput(
+              name: 'Groceries', budgetAmount: 74838.22, spent: 38081.37),
+        ],
+        futureTransactions: [
+          _tx('bill', DateTime(2026, 11, 25), 7929.47, currencyCode: 'ETB'),
+        ],
+        recurringItems: const [],
+      ));
+
+      expect(report.budgetPlan.totalSpent, 43212.04);
+      expect(report.budgetPlan.totalRemaining, 31626.18);
+      expect(
+          report.safeToSpend.budgetRemaining, report.budgetPlan.totalRemaining);
+      expect(report.safeToSpend.futureObligations, 7929.47);
+      expect(report.safeToSpend.daysRemaining, 8);
+      expect(report.safeToSpend.dailyAmount, 3953.27);
     });
 
     test('marks budget health and spending pace from elapsed month progress',
@@ -294,6 +327,8 @@ void main() {
       expect(report.budgetPlan.totalBudgeted, 600);
       expect(report.budgetPlan.totalSpent, 670);
       expect(report.budgetPlan.totalRemaining, -70);
+      expect(report.safeToSpend.budgetRemaining, -70);
+      expect(report.safeToSpend.dailyAmount, 0);
       expect(report.budgetPlan.overBudgetCount, 1);
       expect(report.budgetPlan.atRiskCount, 1);
       expect(report.budgetPlan.unbudgetedSpent, 120);
@@ -636,6 +671,7 @@ MonthlyReportTransactionInput _tx(
   double amount, {
   String type = 'expense',
   String category = 'General',
+  String currencyCode = 'EUR',
   String? merchant,
   String? recurringId,
   double? nativeAmount,
@@ -651,7 +687,7 @@ MonthlyReportTransactionInput _tx(
     recurringId: recurringId,
     nativeAmount: nativeAmount,
     nativeCurrencyCode: nativeCurrencyCode,
-    currencyCode: 'EUR',
+    currencyCode: currencyCode,
   );
 }
 

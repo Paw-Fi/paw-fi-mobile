@@ -726,7 +726,7 @@ String _monthlyReportCacheKey({
   final month = formatFinancialPeriodDate(monthStart);
   final start = formatFinancialPeriodDate(periodStart);
   final end = formatFinancialPeriodDate(periodEnd);
-  return 'monthly-report:v8:$userId:$scope:${householdId ?? 'personal'}:$month:fmsd$financialMonthStartDay:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
+  return 'monthly-report:v9:$userId:$scope:${householdId ?? 'personal'}:$month:fmsd$financialMonthStartDay:${range.key}:$start:$end:${currencyCode.toUpperCase()}:${_currencySelectionCacheSegment(selectedCurrencies)}:$localeTag';
 }
 
 String _currencySelectionCacheSegment(List<String>? currencies) {

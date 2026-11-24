@@ -545,14 +545,11 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
       _buildMerchantConcentration(currentTransactions);
   final double budgetRemaining = input.budgetItems.isEmpty
       ? math.max(income - spending - futureObligations, 0)
-      : input.budgetItems.fold<double>(
-          0,
-          (sum, item) => sum + math.max(item.budgetAmount - item.spent, 0),
-        );
-  final cashSafePool = math.max(forecastedBalance, 0);
-  final constrainedPool = input.budgetItems.isEmpty
-      ? cashSafePool
-      : math.min(cashSafePool, budgetRemaining);
+      : budgetPlan.totalRemaining;
+  final cappedBalance = input.budgetItems.isEmpty
+      ? forecastedBalance
+      : math.min(forecastedBalance, budgetRemaining);
+  final spendableAmount = math.max(0.0, cappedBalance);
   final daysRemaining = today.isAfter(periodEnd)
       ? 0
       : periodEnd
@@ -563,7 +560,7 @@ MonthlyFinancialReport buildMonthlyFinancialReport(
           1;
   final safeToSpend = MonthlySafeToSpend(
     dailyAmount:
-        daysRemaining == 0 ? 0 : _roundMoney(constrainedPool / daysRemaining),
+        daysRemaining == 0 ? 0 : _roundMoney(spendableAmount / daysRemaining),
     daysRemaining: daysRemaining,
     budgetRemaining: _roundMoney(budgetRemaining),
     futureIncome: _roundMoney(futureIncome),
