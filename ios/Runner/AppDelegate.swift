@@ -874,7 +874,8 @@ private func walletCaptureConfigOwnerMatches(
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
-private func loadWalletCaptureScope(expectedUserId: String) -> SiriShortcutScopeResolution? {
+@MainActor
+private func loadWalletCaptureDestination(expectedUserId: String) -> ShortcutCaptureDestination? {
   guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
     SiriShortcutDiagnostics.record(
       source: "native",
@@ -903,34 +904,27 @@ private func loadWalletCaptureScope(expectedUserId: String) -> SiriShortcutScope
   let scopeId = (defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "")
     .trimmingCharacters(in: .whitespacesAndNewlines)
 
-  if scopeId.isEmpty || scopeId == "personal" {
-    return SiriShortcutScopeResolution(householdId: nil, isPortfolio: false)
-  }
-
-  let isPortfolio = defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio)
-  return SiriShortcutScopeResolution(householdId: scopeId, isPortfolio: isPortfolio)
-}
-
-@available(iOS 16.0, watchOS 9.0, *)
-private func loadWalletCaptureAccountId() -> String? {
-  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
-    return nil
-  }
-
+  let personal = scopeId.isEmpty || scopeId == "personal"
   let accountId = (defaults.string(forKey: SiriShortcutKeys.walletDefaultAccountId) ?? "")
     .trimmingCharacters(in: .whitespacesAndNewlines)
-  return accountId.isEmpty ? nil : accountId
+  return ShortcutCaptureDestination(
+    householdId: personal ? nil : scopeId,
+    isPortfolio: !personal && defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio),
+    accountId: accountId.isEmpty ? nil : accountId
+  )
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
-private func makeWalletIdempotencyKey(
+func makeWalletIdempotencyKey(
   userId: String,
   merchantName: String?,
   amount: Double,
   currencyCode: String?,
   transactionDate: String?,
-  scope: SiriShortcutScopeResolution
-) -> String {
+  destination: ShortcutCaptureDestination,
+  date: Date = Date(),
+  reuseLegacyKey: (String, Int) -> Bool
+) throws -> String {
   let normalizedMerchant = (merchantName ?? "")
     .lowercased()
     .components(separatedBy: .whitespacesAndNewlines)
@@ -941,42 +935,90 @@ private func makeWalletIdempotencyKey(
     .uppercased()
   let normalizedDate = (transactionDate ?? "")
     .trimmingCharacters(in: .whitespacesAndNewlines)
-  let scopeKey = scope.householdId ?? "personal"
-  let amountCents = Int(round(amount * 100))
-  let minuteBucket = Int(Date().timeIntervalSince1970 / 60)
-  let raw = "wallet|\(userId)|\(scopeKey)|\(normalizedMerchant)|\(amountCents)|\(normalizedCurrency)|\(normalizedDate)|\(minuteBucket)"
-  let digest = SHA256.hash(data: Data(raw.utf8))
-  return digest.map { String(format: "%02x", $0) }.joined()
+  guard let amountCents = Int(exactly: (amount * 100).rounded()) else {
+    throw SiriShortcutIntentError.invalidInput
+  }
+  let minuteBucket = Int(date.timeIntervalSince1970 / 60)
+  let raw = "wallet|\(userId)|\(destination.scopeKey)|\(normalizedMerchant)|\(amountCents)|\(normalizedCurrency)|\(normalizedDate)|\(minuteBucket)"
+  func digest(_ value: String) -> String {
+    SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+  }
+  let historical = digest(raw)
+  if reuseLegacyKey(historical, minuteBucket) { return historical }
+  // The same resolved destination must give the same key even if the integration
+  // settings change or a different shortcut supplies the identical wallet explicitly.
+  return digest(raw + "|wallet:" + (destination.accountId?.lowercased() ?? "default"))
+}
+
+// The old hash identified a Space but omitted its wallet. During the upgrade
+// minute, keep that hash for the destination the previous build could use.
+// Freeze the mapping once so interleaved captures or settings edits cannot change it.
+func matchesHistoricalWalletCapture(
+  key: String, minute: Int, userId: String, destination: ShortcutCaptureDestination,
+  configuredDestination: ShortcutCaptureDestination, defaults: UserDefaults,
+  loadPending: () -> [[String: Any]]
+) -> Bool {
+  walletPendingCaptureQueue.sync {
+    let storageKey = SiriShortcutKeys.walletKeyMigration
+    let snapshot: [String: Any]
+    if let existing = defaults.dictionary(forKey: storageKey) {
+      snapshot = existing
+    } else {
+      var pendingAccounts: [String: String] = [:]
+      for record in loadPending() {
+        guard let hash = record["idempotencyKey"] as? String,
+              let body = record["body"] as? [String: Any],
+              body["captureSource"] as? String == "ios_wallet_shortcut" else { continue }
+        pendingAccounts[hash] = body["accountId"] as? String ?? ""
+      }
+      snapshot = [
+        "minute": minute, "userId": userId, "scope": configuredDestination.scopeKey,
+        "account": configuredDestination.accountId ?? "", "pendingAccounts": pendingAccounts,
+      ]
+      defaults.set(snapshot, forKey: storageKey)
+    }
+    guard snapshot["minute"] as? Int == minute else { return false }
+    let account = destination.accountId ?? ""
+    if let pending = snapshot["pendingAccounts"] as? [String: String], let saved = pending[key] {
+      return saved == account
+    }
+    return snapshot["userId"] as? String == userId &&
+      snapshot["scope"] as? String == destination.scopeKey && snapshot["account"] as? String == account
+  }
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
 private func reserveWalletIdempotencySlot(idempotencyKey: String) -> Bool {
-  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+  walletPendingCaptureQueue.sync {
+    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      return true
+    }
+
+    let now = Int(Date().timeIntervalSince1970)
+    let lastHash = defaults.string(forKey: SiriShortcutKeys.walletIdempotencyHash)
+    let lastTimestamp = defaults.integer(forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
+
+    if lastHash == idempotencyKey && now - lastTimestamp <= 15 {
+      return false
+    }
+
+    defaults.set(idempotencyKey, forKey: SiriShortcutKeys.walletIdempotencyHash)
+    defaults.set(now, forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
     return true
   }
-
-  let now = Int(Date().timeIntervalSince1970)
-  let lastHash = defaults.string(forKey: SiriShortcutKeys.walletIdempotencyHash)
-  let lastTimestamp = defaults.integer(forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
-
-  if lastHash == idempotencyKey && now - lastTimestamp <= 15 {
-    return false
-  }
-
-  defaults.set(idempotencyKey, forKey: SiriShortcutKeys.walletIdempotencyHash)
-  defaults.set(now, forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
-  return true
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
 private func clearWalletIdempotencySlot(idempotencyKey: String) {
-  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
-    return
-  }
-  let lastHash = defaults.string(forKey: SiriShortcutKeys.walletIdempotencyHash)
-  if lastHash == idempotencyKey {
-    defaults.removeObject(forKey: SiriShortcutKeys.walletIdempotencyHash)
-    defaults.removeObject(forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
+  walletPendingCaptureQueue.sync {
+    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      return
+    }
+    let lastHash = defaults.string(forKey: SiriShortcutKeys.walletIdempotencyHash)
+    if lastHash == idempotencyKey {
+      defaults.removeObject(forKey: SiriShortcutKeys.walletIdempotencyHash)
+      defaults.removeObject(forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
+    }
   }
 }
 
@@ -1199,14 +1241,12 @@ private func enqueuePendingWalletCapture(
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
-private func makeWalletCaptureRequestBody(
-  userId: String,
+func makeWalletCaptureRequestBody(
   idempotencyKey: String,
   merchantName: String,
   amount: Double,
   currencyCode: String?,
-  scope: SiriShortcutScopeResolution,
-  accountId: String?
+  destination: ShortcutCaptureDestination
 ) -> [String: Any] {
   var transaction: [String: Any] = [
     "amount": amount,
@@ -1221,13 +1261,7 @@ private func makeWalletCaptureRequestBody(
     "clientCreatedAt": ISO8601DateFormatter().string(from: Date()),
     "transaction": transaction,
   ]
-  if let householdId = scope.householdId {
-    body["householdId"] = householdId
-    body["isPortfolio"] = scope.isPortfolio
-  }
-  if let accountId {
-    body["accountId"] = accountId
-  }
+  destination.apply(to: &body)
   return body
 }
 
@@ -1521,7 +1555,9 @@ private func syncPendingWalletCaptures() async -> [String: Any] {
 private func performWalletPaymentIntegrationCapture(
   merchantName: String?,
   amount: Double?,
-  currencyCode: String?
+  currencyCode: String?,
+  destinationSpace: ShortcutDestinationSpace?,
+  destinationWallet: ShortcutDestinationWallet?
 ) async throws -> String {
   let rawCurrencyCode = currencyCode?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
   let normalizedCurrencyCode = normalizeSiriCurrencyCode(rawCurrencyCode)
@@ -1573,7 +1609,7 @@ private func performWalletPaymentIntegrationCapture(
     throw SiriShortcutIntentError.notConfigured
   }
 
-  guard let scope = loadWalletCaptureScope(expectedUserId: context.userId) else {
+  guard let configuredDestination = await loadWalletCaptureDestination(expectedUserId: context.userId) else {
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-scope-missing",
@@ -1581,15 +1617,28 @@ private func performWalletPaymentIntegrationCapture(
     )
     throw SiriShortcutIntentError.notConfigured
   }
-  let accountId = loadWalletCaptureAccountId()
+  let destination = try resolveShortcutCaptureDestination(
+    selectedSpace: destinationSpace,
+    selectedWallet: destinationWallet,
+    fallback: configuredDestination,
+    catalog: ShortcutDestinationCatalog.load(for: context.userId)
+  )
 
-  let idempotencyKey = makeWalletIdempotencyKey(
+  let idempotencyKey = try makeWalletIdempotencyKey(
     userId: context.userId,
     merchantName: resolvedMerchantName,
     amount: amount,
     currencyCode: normalizedCurrencyCode,
     transactionDate: nil,
-    scope: scope
+    destination: destination,
+    reuseLegacyKey: { key, minute in
+      guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else { return false }
+      return matchesHistoricalWalletCapture(
+        key: key, minute: minute, userId: context.userId, destination: destination,
+        configuredDestination: configuredDestination, defaults: defaults,
+        loadPending: loadPendingWalletCaptureRecordsUnlocked
+      )
+    }
   )
   if !reserveWalletIdempotencySlot(idempotencyKey: idempotencyKey) {
     SiriShortcutDiagnostics.record(
@@ -1616,13 +1665,11 @@ private func performWalletPaymentIntegrationCapture(
   }
 
   let body = makeWalletCaptureRequestBody(
-    userId: context.userId,
     idempotencyKey: idempotencyKey,
     merchantName: resolvedMerchantName,
     amount: amount,
     currencyCode: normalizedCurrencyCode,
-    scope: scope,
-    accountId: accountId
+    destination: destination
   )
 
   do {
@@ -1660,7 +1707,7 @@ private func performWalletPaymentIntegrationCapture(
       "merchant": resolvedMerchantName,
       "amount": amount,
       "currency": normalizedCurrencyCode ?? "",
-      "scope": scope.householdId ?? "personal",
+      "scope": destination.scopeKey,
     ]
   )
   return "Captured \(formattedAmount) at \(resolvedMerchantName) in Moneko."
@@ -1692,12 +1739,26 @@ struct CaptureWalletTransactionIntent: AppIntent {
   )
   var currencyCode: String?
 
+  @Parameter(
+    title: "Destination Space",
+    description: "Leave blank to use your Apple Pay Integration destination."
+  )
+  var destinationSpace: ShortcutDestinationSpace?
+
+  @Parameter(
+    title: "Destination Wallet",
+    description: "Choose a wallet after selecting its Moneko space."
+  )
+  var destinationWallet: ShortcutDestinationWallet?
+
   func perform() async throws -> some IntentResult & ProvidesDialog {
     do {
       let message = try await performWalletPaymentIntegrationCapture(
         merchantName: merchantName,
         amount: amount,
-        currencyCode: currencyCode
+        currencyCode: currencyCode,
+        destinationSpace: destinationSpace,
+        destinationWallet: destinationWallet
       )
       return .result(dialog: IntentDialog(stringLiteral: message))
     } catch let intentError as SiriShortcutIntentError {
@@ -1743,7 +1804,7 @@ struct CaptureWalletTransactionIntent: AppIntent {
   }
 }
 
-@available(iOS 17.0, watchOS 10.0, *)
+@available(iOS 16.0, watchOS 9.0, *)
 struct ShortcutDestinationSpace: AppEntity, Codable, Hashable {
   static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Moneko Space")
   static var defaultQuery = ShortcutDestinationSpaceQuery()
@@ -1758,7 +1819,7 @@ struct ShortcutDestinationSpace: AppEntity, Codable, Hashable {
   }
 }
 
-@available(iOS 17.0, watchOS 10.0, *)
+@available(iOS 16.0, watchOS 9.0, *)
 struct ShortcutDestinationWallet: AppEntity, Codable, Hashable {
   static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Moneko Wallet")
   static var defaultQuery = ShortcutDestinationWalletQuery()
@@ -1773,7 +1834,7 @@ struct ShortcutDestinationWallet: AppEntity, Codable, Hashable {
   }
 }
 
-@available(iOS 17.0, watchOS 10.0, *)
+@available(iOS 16.0, watchOS 9.0, *)
 struct ShortcutDestinationCatalog {
   let spaces: [ShortcutDestinationSpace]
   let wallets: [ShortcutDestinationWallet]
@@ -1859,17 +1920,41 @@ struct ShortcutDestinationCatalog {
 
   static func load() -> ShortcutDestinationCatalog? {
     guard
-      let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId),
       let currentUserId = SharedKeychainStore.shared.read(
         account: SiriShortcutKeys.userIdAccount,
         logFailure: false
       )?.trimmingCharacters(in: .whitespacesAndNewlines),
-      !currentUserId.isEmpty,
-      defaults.string(forKey: SiriShortcutKeys.shortcutDestinationCatalogUserId) == currentUserId
+      !currentUserId.isEmpty
     else {
       return nil
     }
 
+    return load(for: currentUserId)
+  }
+
+  static func load(for userId: String) -> ShortcutDestinationCatalog? {
+    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else { return nil }
+    return load(from: defaults, userId: userId)
+  }
+
+  private struct Snapshot: Decodable {
+    let userId: String
+    let spaces: [ShortcutDestinationSpace]
+    let wallets: [ShortcutDestinationWallet]
+  }
+
+  static func load(from defaults: UserDefaults, userId: String) -> ShortcutDestinationCatalog? {
+    guard !userId.isEmpty else { return nil }
+    if let snapshot = defaults.object(forKey: SiriShortcutKeys.shortcutDestinationCatalog) {
+      guard let json = snapshot as? String,
+            let value = try? JSONDecoder().decode(Snapshot.self, from: Data(json.utf8)),
+            value.userId == userId else { return nil }
+      return ShortcutDestinationCatalog(spaces: value.spaces, wallets: value.wallets)
+    }
+    // Existing automations can run after an upgrade, before Flutter publishes its first snapshot.
+    guard defaults.string(forKey: SiriShortcutKeys.shortcutDestinationCatalogUserId) == userId else {
+      return nil
+    }
     let decoder = JSONDecoder()
     let spaces = defaults.string(forKey: SiriShortcutKeys.shortcutDestinationSpaces)
       .flatMap { $0.data(using: .utf8) }
@@ -1881,12 +1966,16 @@ struct ShortcutDestinationCatalog {
   }
 }
 
-@available(iOS 17.0, watchOS 10.0, *)
+@available(iOS 16.0, watchOS 9.0, *)
 struct ShortcutDestinationSpaceQuery: EntityStringQuery {
   func entities(for identifiers: [String]) async throws -> [ShortcutDestinationSpace] {
-    guard let catalog = ShortcutDestinationCatalog.load() else { return [] }
-    let requestedIds = Set(identifiers)
-    return catalog.spaces.filter { requestedIds.contains($0.id) }
+    let spaces = ShortcutDestinationCatalog.load()?.spaces ?? []
+    // Omitting a saved ID makes Shortcuts pass nil for this optional parameter.
+    // Retain the ID so a deleted selection cannot turn into the configured default.
+    return identifiers.map { id in
+      spaces.first { $0.id == id }
+        ?? ShortcutDestinationSpace(id: id, name: "Unavailable Space", isPortfolio: false)
+    }
   }
 
   func entities(matching string: String) async throws -> [ShortcutDestinationSpace] {
@@ -1901,34 +1990,49 @@ struct ShortcutDestinationSpaceQuery: EntityStringQuery {
   }
 }
 
-@available(iOS 17.0, watchOS 10.0, *)
+@available(iOS 16.0, watchOS 9.0, *)
 struct ShortcutDestinationWalletQuery: EntityStringQuery {
-  @IntentParameterDependency<CaptureTransactionNotificationIntent>(\.$destinationSpace)
-  var intent
+  // Store the dependency wrappers directly on the query so Shortcuts can supply the
+  // current intent. Their types are only available on iOS 17 and later.
+  private let walletSpaceDependency: (any Sendable)?
+  private let notificationSpaceDependency: (any Sendable)?
 
+  init() {
+    if #available(iOS 17.0, watchOS 10.0, *) {
+      walletSpaceDependency = IntentParameterDependency<CaptureWalletTransactionIntent>(\.$destinationSpace)
+      notificationSpaceDependency = IntentParameterDependency<CaptureTransactionNotificationIntent>(\.$destinationSpace)
+    } else {
+      walletSpaceDependency = nil
+      notificationSpaceDependency = nil
+    }
+  }
+
+  @available(iOS 17.0, watchOS 10.0, *)
   private var selectedSpaceId: String? {
-    intent?.destinationSpace.id
+    let wallet = walletSpaceDependency as? IntentParameterDependency<CaptureWalletTransactionIntent>
+    let notification = notificationSpaceDependency as? IntentParameterDependency<CaptureTransactionNotificationIntent>
+    return wallet?.wrappedValue?.destinationSpace.id ?? notification?.wrappedValue?.destinationSpace.id
+  }
+
+  private var availableWallets: [ShortcutDestinationWallet] {
+    guard let catalog = ShortcutDestinationCatalog.load() else { return [] }
+    if #available(iOS 17.0, watchOS 10.0, *) {
+      return catalog.wallets(for: selectedSpaceId)
+    }
+    return catalog.wallets
   }
 
   func entities(for identifiers: [String]) async throws -> [ShortcutDestinationWallet] {
-    guard
-      let catalog = ShortcutDestinationCatalog.load(),
-      let selectedSpaceId
-    else {
-      return []
+    // Resolving a saved ID can happen outside the editor, without a Space dependency.
+    let wallets = ShortcutDestinationCatalog.load()?.wallets ?? []
+    return identifiers.map { id in
+      wallets.first { $0.id == id }
+        ?? ShortcutDestinationWallet(id: id, name: "Unavailable Wallet", spaceId: "", currency: "")
     }
-    let requestedIds = Set(identifiers)
-    return catalog.wallets(for: selectedSpaceId).filter { requestedIds.contains($0.id) }
   }
 
   func entities(matching string: String) async throws -> [ShortcutDestinationWallet] {
-    guard
-      let catalog = ShortcutDestinationCatalog.load(),
-      let selectedSpaceId
-    else {
-      return []
-    }
-    let wallets = catalog.wallets(for: selectedSpaceId)
+    let wallets = availableWallets
     let query = string.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !query.isEmpty else { return wallets }
     return wallets.filter {
@@ -1938,17 +2042,11 @@ struct ShortcutDestinationWalletQuery: EntityStringQuery {
   }
 
   func suggestedEntities() async throws -> [ShortcutDestinationWallet] {
-    guard
-      let catalog = ShortcutDestinationCatalog.load(),
-      let selectedSpaceId
-    else {
-      return []
-    }
-    return catalog.wallets(for: selectedSpaceId)
+    availableWallets
   }
 }
 
-struct NotificationShortcutDestination {
+struct ShortcutCaptureDestination {
   let householdId: String?
   let isPortfolio: Bool
   let accountId: String?
@@ -1956,49 +2054,57 @@ struct NotificationShortcutDestination {
   var scopeKey: String {
     householdId ?? "personal"
   }
+
+  func apply(to body: inout [String: Any]) {
+    if let householdId {
+      body["householdId"] = householdId
+      body["isPortfolio"] = isPortfolio
+    }
+    if let accountId {
+      body["accountId"] = accountId
+    }
+  }
 }
 
-@available(iOS 17.0, watchOS 10.0, *)
-func resolveNotificationShortcutDestination(
+@available(iOS 16.0, watchOS 9.0, *)
+func resolveShortcutCaptureDestination(
   selectedSpace: ShortcutDestinationSpace?,
   selectedWallet: ShortcutDestinationWallet?,
-  fallbackScope: SiriShortcutScopeResolution?,
-  fallbackAccountId: String?
-) throws -> NotificationShortcutDestination {
+  fallback: ShortcutCaptureDestination?,
+  catalog: @autoclosure () -> ShortcutDestinationCatalog?
+) throws -> ShortcutCaptureDestination {
+  let destination: ShortcutCaptureDestination
   if let selectedSpace {
-    let spaceId = selectedSpace.id.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !spaceId.isEmpty else {
-      throw SiriShortcutIntentError.invalidInput
+    guard let catalog = catalog(),
+          let space = catalog.spaces.first(where: { $0.id == selectedSpace.id }) else {
+      throw SiriShortcutIntentError.invalidDestination
     }
-
-    var accountId: String?
     if let selectedWallet {
-      let walletId = selectedWallet.id.trimmingCharacters(in: .whitespacesAndNewlines)
-      let walletSpaceId = selectedWallet.spaceId
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-      guard !walletId.isEmpty, walletSpaceId == spaceId else {
-        throw SiriShortcutIntentError.invalidInput
+      guard selectedWallet.spaceId == space.id,
+            catalog.wallets.contains(where: { $0.id == selectedWallet.id && $0.spaceId == space.id }) else {
+        throw SiriShortcutIntentError.invalidDestination
       }
-      accountId = walletId
     }
-    return NotificationShortcutDestination(
-      householdId: spaceId == "personal" ? nil : spaceId,
-      isPortfolio: spaceId == "personal" ? false : selectedSpace.isPortfolio,
-      accountId: accountId
+    destination = ShortcutCaptureDestination(
+      householdId: space.id == "personal" ? nil : space.id,
+      isPortfolio: space.isPortfolio,
+      accountId: selectedWallet?.id
     )
+  } else {
+    guard selectedWallet == nil else { throw SiriShortcutIntentError.invalidDestination }
+    guard let fallback else { throw SiriShortcutIntentError.notConfigured }
+    destination = fallback
   }
 
-  guard selectedWallet == nil else {
-    throw SiriShortcutIntentError.invalidInput
+  // The save endpoint accepts RFC 4122 versions 1–5. An invalid household ID
+  // is interpreted there as Personal, so reject it before queueing the payment.
+  for id in [destination.householdId, destination.accountId].compactMap({ $0 }) {
+    guard let bytes = UUID(uuidString: id)?.uuid,
+          (1...5).contains(bytes.6 >> 4), bytes.8 >> 6 == 2 else {
+      throw SiriShortcutIntentError.invalidDestination
+    }
   }
-  guard let fallbackScope else {
-    throw SiriShortcutIntentError.notConfigured
-  }
-  return NotificationShortcutDestination(
-    householdId: fallbackScope.householdId,
-    isPortfolio: fallbackScope.isPortfolio,
-    accountId: fallbackAccountId
-  )
+  return destination
 }
 
 @available(iOS 17.0, watchOS 10.0, *)
@@ -2021,11 +2127,11 @@ private func performNotificationTransactionCapture(
   guard let context = SiriShortcutAuthContext.load() else {
     throw SiriShortcutIntentError.notConfigured
   }
-  let destination = try resolveNotificationShortcutDestination(
+  let destination = try resolveShortcutCaptureDestination(
     selectedSpace: destinationSpace,
     selectedWallet: destinationWallet,
-    fallbackScope: loadWalletCaptureScope(expectedUserId: context.userId),
-    fallbackAccountId: loadWalletCaptureAccountId()
+    fallback: await loadWalletCaptureDestination(expectedUserId: context.userId),
+    catalog: ShortcutDestinationCatalog.load(for: context.userId)
   )
 
   let idempotencyKey = NotificationShortcutCapturePayload.makeIdempotencyKey(
@@ -2046,13 +2152,7 @@ private func performNotificationTransactionCapture(
     "clientCreatedAt": ISO8601DateFormatter().string(from: Date()),
     "notification": notification,
   ]
-  if let householdId = destination.householdId {
-    body["householdId"] = householdId
-    body["isPortfolio"] = destination.isPortfolio
-  }
-  if let accountId = destination.accountId {
-    body["accountId"] = accountId
-  }
+  destination.apply(to: &body)
 
   var shouldKeepIdempotencySlot = false
   defer {
@@ -2178,10 +2278,12 @@ private enum SiriShortcutKeys {
   static let walletDefaultAccountId = "wallet_default_account_id"
   static let walletDefaultAccountName = "wallet_default_account_name"
   static let walletConfigUserId = "wallet_config_user_id"
+  static let walletKeyMigration = "wallet_capture_key_migration_v1"
   static let walletIdempotencyHash = "wallet_last_request_hash"
   static let walletIdempotencyTimestamp = "wallet_last_request_at"
   static let walletDebugEntries = "wallet_capture_debug_entries"
   static let walletPendingCaptures = "wallet_pending_captures"
+  static let shortcutDestinationCatalog = "shortcut_destination_catalog_v1"
   static let shortcutDestinationCatalogUserId = "shortcut_destination_catalog_user_id"
   static let shortcutDestinationSpaces = "config_households"
   static let shortcutDestinationWallets = "config_wallets"
@@ -2827,6 +2929,7 @@ enum SiriShortcutIntentError: LocalizedError {
   case missingSession
   case invalidInput
   case invalidCurrency
+  case invalidDestination
   case duplicateRequest
   case noExpenseDetected
   case networkFailure
@@ -2853,6 +2956,8 @@ enum SiriShortcutIntentError: LocalizedError {
       return "Open Moneko to refresh your session, then try again."
     case .invalidInput:
       return "I could not understand that expense. Try saying amount and description."
+    case .invalidDestination:
+      return "Choose a Moneko Space and a wallet from that Space, or leave both shortcut fields blank to use your Apple Pay Integration settings."
     case .invalidCurrency:
       return "Currency must be a 3-letter code like USD."
     case .duplicateRequest:

@@ -84,6 +84,16 @@ HomeWidgetSnapshot? buildHomeWidgetSnapshot({
   );
 }
 
+bool canPublishShortcutCatalog(
+  AsyncValue<List<Object?>> households,
+  Iterable<AsyncValue<List<Object?>>> wallets,
+) {
+  // A reload or error can retain another account's previous wallets.
+  return wallets.isNotEmpty &&
+      [households, ...wallets].every(
+          (source) => source.hasValue && !source.isLoading && !source.hasError);
+}
+
 class WidgetSyncManager extends HookConsumerWidget {
   const WidgetSyncManager({super.key});
 
@@ -105,7 +115,7 @@ class WidgetSyncManager extends HookConsumerWidget {
       }
     }
     final catalogReady =
-        wallets.isNotEmpty && wallets.values.every((item) => item.hasValue);
+        canPublishShortcutCatalog(householdsAsync, wallets.values);
     final catalogSignature = wallets.entries
         .expand((entry) => (entry.value.valueOrNull ?? const <WalletEntity>[])
             .map((wallet) =>

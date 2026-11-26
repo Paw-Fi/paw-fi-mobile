@@ -490,69 +490,71 @@ class RunnerTests: XCTestCase {
     XCTAssertEqual(catalog.wallets.first?.currency, "USD")
   }
 
+  private var cardCatalog: ShortcutDestinationCatalog {
+    let work = ShortcutDestinationSpace(id: "33333333-3333-4333-8333-333333333333", name: "Work", isPortfolio: true)
+    let family = ShortcutDestinationSpace(id: siriSpaceId, name: "Family", isPortfolio: false)
+    let wallet = ShortcutDestinationWallet(
+      id: "44444444-4444-4444-8444-444444444444", name: "Travel", spaceId: work.id, currency: "EUR"
+    )
+    return ShortcutDestinationCatalog(spaces: [work, family], wallets: [wallet])
+  }
+
   @available(iOS 17.0, *)
   func testSelectedShortcutDestinationOverridesLegacyConfiguration() throws {
-    let destination = try resolveNotificationShortcutDestination(
+    let destination = try resolveShortcutCaptureDestination(
       selectedSpace: ShortcutDestinationSpace(
-        id: "space-2",
+        id: "33333333-3333-4333-8333-333333333333",
         name: "旅行",
         isPortfolio: true
       ),
       selectedWallet: ShortcutDestinationWallet(
-        id: "wallet-travel",
+        id: "44444444-4444-4444-8444-444444444444",
         name: "Viaggi",
-        spaceId: "space-2",
+        spaceId: "33333333-3333-4333-8333-333333333333",
         currency: "EUR"
       ),
-      fallbackScope: SiriShortcutScopeResolution(
-        householdId: "space-1",
-        isPortfolio: false
-      ),
-      fallbackAccountId: "wallet-family"
+      fallback: ShortcutCaptureDestination(householdId: siriSpaceId, isPortfolio: false, accountId: siriWalletId),
+      catalog: cardCatalog
     )
 
-    XCTAssertEqual(destination.householdId, "space-2")
+    XCTAssertEqual(destination.householdId, "33333333-3333-4333-8333-333333333333")
     XCTAssertTrue(destination.isPortfolio)
-    XCTAssertEqual(destination.accountId, "wallet-travel")
+    XCTAssertEqual(destination.accountId, "44444444-4444-4444-8444-444444444444")
   }
 
   @available(iOS 17.0, *)
   func testSelectingSpaceWithoutWalletDoesNotReuseLegacyWallet() throws {
-    let destination = try resolveNotificationShortcutDestination(
+    let destination = try resolveShortcutCaptureDestination(
       selectedSpace: ShortcutDestinationSpace(
-        id: "space-2",
+        id: "33333333-3333-4333-8333-333333333333",
         name: "旅行",
         isPortfolio: true
       ),
       selectedWallet: nil,
-      fallbackScope: SiriShortcutScopeResolution(
-        householdId: "space-1",
-        isPortfolio: false
-      ),
-      fallbackAccountId: "wallet-family"
+      fallback: ShortcutCaptureDestination(householdId: siriSpaceId, isPortfolio: false, accountId: siriWalletId),
+      catalog: cardCatalog
     )
 
-    XCTAssertEqual(destination.householdId, "space-2")
+    XCTAssertEqual(destination.householdId, "33333333-3333-4333-8333-333333333333")
     XCTAssertNil(destination.accountId)
   }
 
   @available(iOS 17.0, *)
   func testWalletFromAnotherSelectedSpaceIsRejected() {
     XCTAssertThrowsError(
-      try resolveNotificationShortcutDestination(
+      try resolveShortcutCaptureDestination(
         selectedSpace: ShortcutDestinationSpace(
-          id: "space-1",
+          id: siriSpaceId,
           name: "Familia",
           isPortfolio: false
         ),
         selectedWallet: ShortcutDestinationWallet(
-          id: "wallet-travel",
+          id: "44444444-4444-4444-8444-444444444444",
           name: "Viaggi",
-          spaceId: "space-2",
+          spaceId: "33333333-3333-4333-8333-333333333333",
           currency: "EUR"
         ),
-        fallbackScope: nil,
-        fallbackAccountId: nil
+        fallback: nil, catalog: cardCatalog
       )
     )
   }
@@ -560,38 +562,181 @@ class RunnerTests: XCTestCase {
   @available(iOS 17.0, *)
   func testWalletWithoutSelectedSpaceIsRejected() {
     XCTAssertThrowsError(
-      try resolveNotificationShortcutDestination(
+      try resolveShortcutCaptureDestination(
         selectedSpace: nil,
         selectedWallet: ShortcutDestinationWallet(
-          id: "wallet-travel",
+          id: "44444444-4444-4444-8444-444444444444",
           name: "Viaggi",
-          spaceId: "space-2",
+          spaceId: "33333333-3333-4333-8333-333333333333",
           currency: "EUR"
         ),
-        fallbackScope: SiriShortcutScopeResolution(
-          householdId: "space-1",
-          isPortfolio: false
-        ),
-        fallbackAccountId: "wallet-family"
+        fallback: ShortcutCaptureDestination(householdId: siriSpaceId, isPortfolio: false, accountId: siriWalletId),
+        catalog: cardCatalog
       )
     )
   }
 
   @available(iOS 17.0, *)
   func testLegacyConfigurationRemainsTheFallback() throws {
-    let destination = try resolveNotificationShortcutDestination(
+    let destination = try resolveShortcutCaptureDestination(
       selectedSpace: nil,
       selectedWallet: nil,
-      fallbackScope: SiriShortcutScopeResolution(
-        householdId: "space-1",
-        isPortfolio: false
-      ),
-      fallbackAccountId: "wallet-family"
+      fallback: ShortcutCaptureDestination(householdId: siriSpaceId, isPortfolio: false, accountId: siriWalletId),
+      catalog: nil
     )
 
-    XCTAssertEqual(destination.householdId, "space-1")
+    XCTAssertEqual(destination.householdId, siriSpaceId)
     XCTAssertFalse(destination.isPortfolio)
-    XCTAssertEqual(destination.accountId, "wallet-family")
+    XCTAssertEqual(destination.accountId, siriWalletId)
+  }
+
+  func testCardTapRequestUsesShortcutSelectionOrIntegrationSettings() throws {
+    let intent = CaptureWalletTransactionIntent()
+    let fallback = ShortcutCaptureDestination(householdId: siriSpaceId, isPortfolio: false, accountId: siriWalletId)
+    func requestBody() throws -> [String: Any] {
+      let destination = try resolveShortcutCaptureDestination(
+        selectedSpace: intent.destinationSpace, selectedWallet: intent.destinationWallet,
+        fallback: fallback, catalog: cardCatalog
+      )
+      return makeWalletCaptureRequestBody(
+        idempotencyKey: "payment", merchantName: "Bakery", amount: 12.5,
+        currencyCode: "EUR", destination: destination
+      )
+    }
+
+    let legacy = try requestBody()
+    XCTAssertEqual(legacy["householdId"] as? String, siriSpaceId)
+    XCTAssertEqual(legacy["accountId"] as? String, siriWalletId)
+    XCTAssertEqual(legacy["captureSource"] as? String, "ios_wallet_shortcut")
+    XCTAssertEqual(legacy["idempotencyKey"] as? String, "payment")
+
+    intent.destinationSpace = ShortcutDestinationSpace(
+      id: "personal", name: "Personal", isPortfolio: false
+    )
+    let personal = try requestBody()
+    XCTAssertNil(personal["householdId"])
+    XCTAssertNil(personal["isPortfolio"])
+    XCTAssertNil(personal["accountId"]) // Omission requests the default wallet in this Space.
+
+    intent.destinationSpace = ShortcutDestinationSpace(id: "33333333-3333-4333-8333-333333333333", name: "Work", isPortfolio: true)
+    intent.destinationWallet = ShortcutDestinationWallet(
+      id: "44444444-4444-4444-8444-444444444444", name: "Travel", spaceId: "33333333-3333-4333-8333-333333333333", currency: "EUR"
+    )
+    let selected = try requestBody()
+    XCTAssertEqual(selected["householdId"] as? String, "33333333-3333-4333-8333-333333333333")
+    XCTAssertEqual(selected["isPortfolio"] as? Bool, true)
+    XCTAssertEqual(selected["accountId"] as? String, "44444444-4444-4444-8444-444444444444")
+    let transaction = try XCTUnwrap(selected["transaction"] as? [String: Any])
+    XCTAssertEqual(transaction["merchantName"] as? String, "Bakery")
+    XCTAssertEqual(transaction["amount"] as? Double, 12.5)
+    XCTAssertEqual(transaction["currency"] as? String, "EUR")
+  }
+
+  func testCardDuplicateKeysPreserveLegacyAndSeparateWalletOverrides() throws {
+    let walletB = "44444444-4444-4444-8444-444444444444"
+    func key(_ wallet: String?, amount: Double = 12.5, legacy: Bool = false) throws -> String {
+      try makeWalletIdempotencyKey(
+        userId: "tester", merchantName: " Bakery ", amount: amount, currencyCode: "EUR",
+        transactionDate: nil,
+        destination: ShortcutCaptureDestination(householdId: nil, isPortfolio: false, accountId: wallet),
+        date: Date(timeIntervalSince1970: 1_800_000_000), reuseLegacyKey: { _, _ in legacy }
+      )
+    }
+    XCTAssertEqual(try key(siriWalletId, legacy: true), "f626c2949830fa8cf265dfc4d1aadbc03334cfada4f34c194b535078fb338d4b")
+    XCTAssertNotEqual(try key(siriWalletId), try key(siriWalletId, legacy: true))
+    let override = try key(walletB)
+    XCTAssertEqual(override, try key(walletB))
+    XCTAssertEqual(Set(try [key(nil), key(siriWalletId), key(walletB)]).count, 3)
+    XCTAssertThrowsError(try key(nil, amount: .greatestFiniteMagnitude))
+    XCTAssertThrowsError(try key(nil, amount: .infinity))
+  }
+
+  func testUpgradeMinuteKeepsLegacyKeysAcrossInterleavedWalletsAndSettingsEdits() throws {
+    let suite = "test.shortcut-key." + UUID().uuidString
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let a = ShortcutCaptureDestination(householdId: nil, isPortfolio: false, accountId: siriWalletId)
+    let b = ShortcutCaptureDestination(householdId: nil, isPortfolio: false, accountId: nil)
+    var pending: [[String: Any]] = [
+      ["idempotencyKey": "queued", "body": ["captureSource": "ios_wallet_shortcut"]]
+    ]
+    func legacy(_ key: String, _ target: ShortcutCaptureDestination,
+                configured: ShortcutCaptureDestination, minute: Int = 1) -> Bool {
+      matchesHistoricalWalletCapture(key: key, minute: minute, userId: "actor",
+        destination: target, configuredDestination: configured, defaults: defaults, loadPending: { pending })
+    }
+    XCTAssertFalse(legacy("previous", b, configured: a))
+    pending.removeAll()
+    XCTAssertTrue(legacy("previous", a, configured: b))
+    XCTAssertFalse(legacy("another merchant", b, configured: b))
+    XCTAssertTrue(legacy("queued", b, configured: a))
+    XCTAssertFalse(legacy("queued", a, configured: a))
+    XCTAssertFalse(legacy("previous", a, configured: a, minute: 2))
+  }
+
+  func testMalformedDestinationsCannotBecomePersonalCaptures() {
+    for id in ["", "missing", "33333333-3333-7333-8333-333333333333"] {
+      let space = ShortcutDestinationSpace(id: id, name: "Old space", isPortfolio: false)
+      XCTAssertThrowsError(try resolveShortcutCaptureDestination(selectedSpace: space, selectedWallet: nil, fallback: nil,
+        catalog: ShortcutDestinationCatalog(spaces: [space], wallets: [])))
+      let fallback = ShortcutCaptureDestination(householdId: id, isPortfolio: false, accountId: nil)
+      XCTAssertThrowsError(try resolveShortcutCaptureDestination(selectedSpace: nil, selectedWallet: nil, fallback: fallback, catalog: nil))
+    }
+  }
+
+  func testSavedMissingEntityIDsRemainDistinctFromOmittedParameters() async throws {
+    let missing = UUID().uuidString.lowercased()
+    let spaces = try await ShortcutDestinationSpaceQuery().entities(for: [missing])
+    let wallets = try await ShortcutDestinationWalletQuery().entities(for: [missing])
+    XCTAssertEqual(spaces.map(\.id), [missing])
+    XCTAssertEqual(wallets.map(\.id), [missing])
+
+    let fallback = ShortcutCaptureDestination(householdId: nil, isPortfolio: false, accountId: nil)
+    let personal = try XCTUnwrap(cardCatalog.spaces.first { $0.id == "personal" })
+    XCTAssertThrowsError(try resolveShortcutCaptureDestination(
+      selectedSpace: spaces.first, selectedWallet: nil, fallback: fallback, catalog: cardCatalog
+    ))
+    XCTAssertThrowsError(try resolveShortcutCaptureDestination(
+      selectedSpace: personal, selectedWallet: wallets.first, fallback: fallback, catalog: cardCatalog
+    ))
+  }
+
+  func testSavedShortcutSelectionsCannotFallBackAfterDeletionOrAccountChange() throws {
+    let wallet = try XCTUnwrap(cardCatalog.wallets.first)
+    let space = try XCTUnwrap(cardCatalog.spaces.first { $0.id == wallet.spaceId })
+    let fallback = ShortcutCaptureDestination(householdId: nil, isPortfolio: false, accountId: nil)
+    func resolve(_ catalog: ShortcutDestinationCatalog?, wallet selectedWallet: ShortcutDestinationWallet?) throws -> ShortcutCaptureDestination {
+      try resolveShortcutCaptureDestination(
+        selectedSpace: space, selectedWallet: selectedWallet, fallback: fallback, catalog: catalog
+      )
+    }
+    XCTAssertThrowsError(try resolve(nil, wallet: wallet))
+    XCTAssertThrowsError(try resolve(ShortcutDestinationCatalog(spaces: [], wallets: []), wallet: nil))
+    let deletedWallet = ShortcutDestinationCatalog(spaces: [space], wallets: [])
+    XCTAssertThrowsError(try resolve(deletedWallet, wallet: wallet))
+    XCTAssertNil(try resolve(deletedWallet, wallet: nil).accountId)
+    let moved = ShortcutDestinationWallet(id: wallet.id, name: wallet.name, spaceId: "personal", currency: "EUR")
+    XCTAssertThrowsError(try resolve(ShortcutDestinationCatalog(spaces: [space], wallets: [moved]), wallet: wallet))
+  }
+
+  func testShortcutCatalogUpgradesWithoutMixingAccountData() throws {
+    let suite = "test.shortcut-catalog." + UUID().uuidString
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set("old", forKey: "shortcut_destination_catalog_user_id")
+    defaults.set(#"[{"id":"personal","name":"Former","isPortfolio":false}]"#, forKey: "config_households")
+    func name(_ user: String) -> String? {
+      ShortcutDestinationCatalog.load(from: defaults, userId: user)?.spaces.first?.name
+    }
+    XCTAssertEqual(name("old"), "Former")
+    XCTAssertNil(name("new"))
+    defaults.set(#"{"userId":"new","spaces":[{"id":"personal","name":"Current","isPortfolio":false}],"wallets":[]}"#,
+                 forKey: "shortcut_destination_catalog_v1")
+    XCTAssertEqual(name("new"), "Current")
+    XCTAssertNil(name("old"))
+    defaults.set("unreadable", forKey: "shortcut_destination_catalog_v1")
+    XCTAssertNil(name("old"))
+    XCTAssertNil(name("new"))
   }
 
   private let siriSpaceId = "11111111-1111-4111-8111-111111111111"

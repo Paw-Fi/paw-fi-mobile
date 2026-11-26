@@ -252,26 +252,38 @@ class WidgetService {
     required String userId,
     required List<Map<String, Object?>> households,
     required List<Map<String, Object?>> wallets,
-  }) async {
-    try {
-      await _ensureAppGroupIdSet();
+  }) =>
+      _write(() async {
+        try {
+          await _ensureAppGroupIdSet();
 
-      final householdsJson = jsonEncode(households);
-      final walletsJson = jsonEncode(wallets);
+          final householdsJson = jsonEncode(households);
+          final walletsJson = jsonEncode(wallets);
 
-      await HomeWidget.saveWidgetData('config_households', householdsJson);
-      await HomeWidget.saveWidgetData('config_wallets', walletsJson);
-      await HomeWidget.saveWidgetData(
-        'shortcut_destination_catalog_user_id',
-        userId,
-      );
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-        await _shortcutChannel.invokeMethod<void>('refreshDestinationCatalog');
-      }
-    } catch (e) {
-      debugPrint('Home widget configuration catalog failed: ${e.runtimeType}');
-    }
-  }
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+            // Publish the owner and both lists together before updating the legacy widget keys.
+            final published = await HomeWidget.saveWidgetData(
+              'shortcut_destination_catalog_v1',
+              jsonEncode(
+                  {'userId': userId, 'spaces': households, 'wallets': wallets}),
+            );
+            if (published != true) return;
+          }
+          await HomeWidget.saveWidgetData('config_households', householdsJson);
+          await HomeWidget.saveWidgetData('config_wallets', walletsJson);
+          await HomeWidget.saveWidgetData(
+            'shortcut_destination_catalog_user_id',
+            userId,
+          );
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+            await _shortcutChannel
+                .invokeMethod<void>('refreshDestinationCatalog');
+          }
+        } catch (e) {
+          debugPrint(
+              'Home widget configuration catalog failed: ${e.runtimeType}');
+        }
+      });
 
   Future<void> saveWidgetConfiguration({
     required int widgetId,

@@ -207,6 +207,49 @@ void main() {
     expect(updates, isEmpty);
   });
 
+  test(
+      'shortcut catalogs publish each owner with its complete destination lists',
+      () async {
+    const shortcutChannel = MethodChannel('moneko/siri_shortcut_auth');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final published = <Map<String, dynamic>>[];
+    messenger.setMockMethodCallHandler(shortcutChannel, (call) async {
+      expect(call.method, 'refreshDestinationCatalog');
+      published.add(
+          jsonDecode(storage['shortcut_destination_catalog_v1'] as String)
+              as Map<String, dynamic>);
+      return null;
+    });
+    addTearDown(
+        () => messenger.setMockMethodCallHandler(shortcutChannel, null));
+
+    Future<void> publish(String owner) =>
+        WidgetService().saveConfigurationOptions(
+          userId: owner,
+          households: [
+            {'id': 'space-$owner'}
+          ],
+          wallets: [
+            {'id': 'wallet-$owner', 'spaceId': 'space-$owner'}
+          ],
+        );
+    await Future.wait([publish('first'), publish('second')]);
+    for (final (index, owner) in ['first', 'second'].indexed) {
+      expect(published[index], {
+        'userId': owner,
+        'spaces': [
+          {'id': 'space-$owner'}
+        ],
+        'wallets': [
+          {'id': 'wallet-$owner', 'spaceId': 'space-$owner'}
+        ],
+      });
+    }
+    expect(published, hasLength(2));
+    expect(storage['shortcut_destination_catalog_user_id'], 'second');
+  });
+
   test('iOS startup and owner transitions preserve configuration safely',
       () async {
     storage.addAll({

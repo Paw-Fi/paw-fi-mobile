@@ -1,8 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/services/widget_sync_manager.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 
 void main() {
+  test('catalog publication waits for fresh data after an account change', () {
+    const previous = AsyncData<List<String>>(['old wallet']);
+    const current = AsyncData<List<String>>([]);
+    final reloading = const AsyncLoading<List<String>>()
+        .copyWithPrevious(previous, isRefresh: false);
+    final refresh =
+        const AsyncLoading<List<String>>().copyWithPrevious(previous);
+    final denied =
+        AsyncError<List<String>>(StateError('denied'), StackTrace.empty)
+            .copyWithPrevious(previous);
+    for (final retained in [reloading, refresh, denied]) {
+      expect(retained.hasValue, isTrue);
+      expect(canPublishShortcutCatalog(current, [current, retained]), isFalse);
+      expect(canPublishShortcutCatalog(retained, [current]), isFalse);
+    }
+    expect(canPublishShortcutCatalog(current, []), isFalse);
+    expect(canPublishShortcutCatalog(current, [current]), isTrue);
+  });
+
   group('normalizeWidgetSyncCurrency', () {
     test('uses the selected home header currency in uppercase', () {
       expect(normalizeWidgetSyncCurrency(' eur '), 'EUR');
